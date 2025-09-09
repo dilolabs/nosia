@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@import "nosia/menu";
 
 body {
   @apply p-0
@@ -17,3 +19,4 @@ ol {
 ul {
   @apply list-decimal list-inside;
 }
+

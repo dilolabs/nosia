@@ -18,12 +18,16 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="bg-slate-50 dark:bg-slate-900 dark:text-white">
+  <body class="h-screen dark:bg-slate-900 dark:text-white">
     <%= render "flash" %>
-    <div class="flex">
-      <%= render "sidebar" %>
-      <main class="bg-slate-50 dark:bg-slate-900 w-full p-6">
-        <%= yield %>
+    <div class="w-full">
+      <%= render "header" %>
+      <main class="overflow-y-auto w-full flex">
+        <%= render "menu" %>
+        <div class="w-full p-6">
+          <%= yield %>
+        </div>
+        <%= render "sidebar" %>
       </main>
     </div>
   </body>

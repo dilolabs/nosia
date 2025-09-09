@@ -1,0 +1,33 @@
+<% if Current.user %>
+  <div class="border-r p-1" data-controller="reveal" data-reveal-hidden-class="hidden">
+    <button data-action="reveal#toggle" type="button" class="cursor-pointer n-nav-link w-fit">
+      <%= inline_svg "svg/menu.svg" %>
+    </button>
+    <div class="">
+      <div>
+      <%= link_to root_path, title: "Home", class: "n-nav-link" do %>
+        <%= inline_svg "svg/home.svg" %>
+        <span data-reveal-target="item" class="hidden">Home</span>
+      <% end %>
+      <%= link_to "#", title: "Folders", class: "n-nav-link" do %>
+        <%= inline_svg "svg/folders.svg" %>
+        <span data-reveal-target="item" class="hidden">Folders</span>
+      <% end %>
+      <% if Current.user.admin? %>
+        <%= link_to documents_path, title: "Documents", class: "n-nav-link" do %>
+          <%= inline_svg "svg/files.svg" %>
+          <span data-reveal-target="item" class="hidden">Documents</span>
+        <% end %>
+      <% end %>
+      </div>
+      <div>
+        <%= link_to logout_path, data: { turbo_method: :delete }, title: "Sign out", class: "n-nav-link" do %>
+          <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2"/>
+          </svg>
+          <span data-reveal-target="item" class="hidden">Sign out</span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>
