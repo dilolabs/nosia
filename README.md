@@ -73,9 +73,9 @@ curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-i
 
 By default, Nosia uses:
 
-1. Completion model: `mistral-small3.2`
-1. Embeddings model: `nomic-embed-text`
-1. Checking model: `bespoke-minicheck`
+1. Completion model: `granite3.3:2b`
+1. Embeddings model: `granite-embedding:278m`
+1. Checking model: `granite3-guardian:2b`
 
 You can use any completion model available on Ollama by setting the `LLM_MODEL` environment variable during the installation.
 
@@ -90,7 +90,7 @@ curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-i
 
 #### With a custom embeddings model
 
-At this time, the `nomic-embed-text` embeddings model is required for Nosia to work.
+At this time, the `granite-embedding:278m` embeddings model is required for Nosia to work.
 
 If you use new dimensions by using a new embeddings model, you'll need to:
 
@@ -128,10 +128,10 @@ Replace `$OLLAMA_HOST_IP` with the IP address of the Ollama host machine and run
 
 ```bash
 brew install ollama
-ollama pull mistral-small3.2
-ollama pull bespoke-minicheck
-ollama pull nomic-embed-text
-OLLAMA_BASE_URL=$OLLAMA_HOST_IP:11434 OLLAMA_MAX_LOADED_MODELS=3 ollama serve
+ollama pull granite3.3:2b
+ollama pull granite3-guardian:2b
+ollama pull granite-embedding:278m
+OLLAMA_BASE_URL=$OLLAMA_HOST_IP:11434 OLLAMA_KEEP_ALIVE=0 OLLAMA_MAX_LOADED_MODELS=3 ollama serve
 ```
 
 On the Debian/Ubuntu VM:
