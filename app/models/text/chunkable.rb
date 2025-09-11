@@ -9,8 +9,8 @@ module Text::Chunkable
     separators = JSON.parse(ENV.fetch("SEPARATORS", [ "\n\n", "\n", " " ]).to_s)
 
     splitter = ::Baran::RecursiveCharacterTextSplitter.new(
-      chunk_size: ENV.fetch("CHUNK_SIZE", 1000).to_i,
-      chunk_overlap: ENV.fetch("CHUNK_OVERLAP", 200).to_i,
+      chunk_size: ENV.fetch("CHUNK_SIZE", 1_500).to_i,
+      chunk_overlap: ENV.fetch("CHUNK_OVERLAP", 250).to_i,
       separators:,
     )
 
