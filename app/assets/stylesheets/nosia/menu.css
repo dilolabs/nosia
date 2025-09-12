@@ -1,3 +1,7 @@
-.n-nav-link{
-  @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800
+.n-nav-link {
+    @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800;
+}
+
+.n-nav-bottom {
+    @apply inline-flex flex-col items-center justify-center px-5 text-slate-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-gray-800;
 }

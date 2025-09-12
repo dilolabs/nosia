@@ -1,8 +1,4 @@
-<div
-  data-controller="new-message-event-dispatcher"
-  id="<%= dom_id(message) %>_messages"
-  style="order: <%= message.response_number + 1 %>"
->
+<div data-controller="new-message-event-dispatcher" id="<%= dom_id(message) %>_messages" style="order: <%= message.response_number + 1 %>">
   <% if message.user? %>
     <div class="flex flex-row px-2 py-4 sm:px-4">
       <div class="flex max-w-3xl items-center">
@@ -15,23 +11,13 @@
     <% if message.similar_documents.any? %>
       <div class="px-2 py-4 sm:px-4">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-200">Sources who helped Nosia</h2>
-        <ul
-          role="list"
-          class="
-            list-none grid grid-cols-1 gap-6 text-slate-900 dark:text-slate-200
-            sm:grid-cols-2 lg:grid-cols-3
-          "
-        >
+        <ul role="list" class="list-none grid grid-cols-1 gap-6 text-slate-900 dark:text-slate-200 sm:grid-cols-2 lg:grid-cols-3">
           <% message.similar_documents.each do |document| %>
             <% author = document.author %>
             <% if author.present? %>
               <li>
                 <%= link_to document.source_url || author.url, target: "_blank", class: "flex flex-col h-16 items-center bg-white border border-gray-200 rounded-lg shadow md:flex-row md:max-w-xl hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700" do %>
-                  <%= if author.image_url.present?
-                    image_tag author.image_url,
-                    class:
-                      "object-cover w-full rounded-t-lg h-16 md:h-auto md:w-16 md:rounded-none md:rounded-s-lg"
-                  end %>
+                  <%= if author.image_url.present? image_tag author.image_url, class: "object-cover w-full rounded-t-lg h-16 md:h-auto md:w-16 md:rounded-none md:rounded-s-lg" end %>
                   <div class="flex flex-col justify-between p-4 leading-normal">
                     <h5 class="text-lg font-bold tracking-tight text-gray-900 dark:text-white"><%= author.name %></h5>
                   </div>

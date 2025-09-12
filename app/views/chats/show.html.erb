@@ -1,19 +1,7 @@
-<div class="flex w-full flex-col">
-  <div
-    data-controller="scroll"
-    class="
-      flex-1 overflow-y-auto rounded-xl bg-slate-200 p-4 text-sm leading-6
-      text-slate-900 dark:bg-slate-800 dark:text-slate-300 sm:text-base sm:leading-7
-    "
-  >
+<div class="h-[25rem] flex w-full flex-col">
+  <div data-controller="scroll" class="flex-1 overflow-y-auto rounded-xl border main-border p-4 text-sm leading-6 text-slate-900 dark:text-slate-300 sm:text-base sm:leading-7">
     <%= turbo_stream_from "#{dom_id(@chat)}_messages" %>
-    <div
-      data-action="
-        new-message-event-dispatcher:new_message@window->scroll#scrollToBottom
-      "
-      id="<%= dom_id(@chat) %>_messages"
-      class="flex flex-col"
-    >
+    <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col">
       <%= render @chat.messages %>
     </div>
   </div>
