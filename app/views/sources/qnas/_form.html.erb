@@ -1,0 +1,25 @@
+<%= form_with(model: [:sources, qna]) do |form| %>
+  <div class="n-form-field">
+    <%= form.label :question, "Question", class: "n-label" %>
+    <%= form.text_field :question, class: "n-field" %>
+  </div>
+
+  <div class="n-form-field">
+    <%= form.label :answer, "Answer", class: "n-label" %>
+    <%= form.text_area :answer, rows: 18, class: "n-textarea" %>
+  </div>
+
+  <div class="n-form-field">
+    <%= form.label :account_id, "Account", class: "n-label" %>
+    <%= form.collection_select :account_id,
+                           Current.user.accounts,
+                           :id,
+                           :name,
+                           { prompt: true, required: true },
+                           { class: "n-select" } %>
+  </div>
+
+  <div class="n-form-actions">
+    <%= form.submit "Save", class: "n-btn-primary" %>
+  </div>
+<% end %>

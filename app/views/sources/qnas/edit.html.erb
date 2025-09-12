@@ -1,0 +1,9 @@
+<section>
+  <div class="n-form-container">
+    <h2 class="n-form-title">
+      Edit Q&A #<%= @qna.id %>&nbsp;:
+      <%= @qna.question %>
+    </h2>
+    <%= render "form", qna: @qna %>
+  </div>
+</section>

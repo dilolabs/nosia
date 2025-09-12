@@ -14,8 +14,8 @@ if ENV.fetch("AI_PROVIDER", "ollama").eql?("infomaniak")
           uri_base: "https://api.infomaniak.com/1/ai/#{ENV.fetch("INFOMANIAK_PRODUCT_ID", "")}/openai"
         },
         default_options: {
-          chat_completion_model_name: ENV.fetch("LLM_MODEL", "mixtral"),
-          completion_model_name: ENV.fetch("LLM_MODEL", "mixtral"),
+          chat_completion_model_name: ENV.fetch("LLM_MODEL", "mistral24b"),
+          completion_model_name: ENV.fetch("LLM_MODEL", "mistral24b"),
           embeddings_model_name: ENV.fetch("EMBEDDING_MODEL", "bge_multilingual_gemma2"),
           temperature: ENV.fetch("LLM_TEMPERATURE", 0.1).to_f,
           num_ctx: ENV.fetch("LLM_NUM_CTX", 4_096).to_i
@@ -31,9 +31,9 @@ else
         url: ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434"),
         api_key: ENV.fetch("OLLAMA_API_KEY", ""),
         default_options: {
-          chat_completion_model_name: ENV.fetch("LLM_MODEL", "qwen2.5"),
-          completion_model_name: ENV.fetch("LLM_MODEL", "qwen2.5"),
-          embeddings_model_name: ENV.fetch("EMBEDDING_MODEL", "nomic-embed-text"),
+          chat_completion_model_name: ENV.fetch("LLM_MODEL", "granite3.3:2b"),
+          completion_model_name: ENV.fetch("LLM_MODEL", "granite3.3:2b"),
+          embeddings_model_name: ENV.fetch("EMBEDDING_MODEL", "granite-embedding:278m"),
           temperature: ENV.fetch("LLM_TEMPERATURE", 0.1).to_f,
           num_ctx: ENV.fetch("LLM_NUM_CTX", 4_096).to_i
         }

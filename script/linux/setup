@@ -1,30 +1,23 @@
 #!/bin/bash -e
 
-. ./script/concerns/loader
-
-start_loader "Setting up OpenSSL"
+echo "Setting up OpenSSL"
 ./script/concerns/linux/setup-openssl &>>./log/setup.log
-stop_loader
 
 if [ "$OLLAMA_BASE_URL" == "http://localhost:11434" ]; then
-  start_loader "Setting up Ollama"
+  echo "Setting up Ollama"
   ./script/concerns/linux/setup-ollama &>>./log/setup.log
-  stop_loader
 
-  start_loader "Pulling models. This may take a while..."
+  echo "Pulling models. This may take a while..."
   ./script/concerns/pull-models &>>./log/setup.log
-  stop_loader
 fi
 
-start_loader "Setting up Docker"
+echo "Setting up Docker"
 ./script/concerns/linux/setup-docker &>>./log/setup.log
-stop_loader
 
-start_loader "Setting up Nosia"
+echo "Setting up Nosia"
 # Set environment variables for Nosia
 ./script/concerns/setup-env &>>./log/setup.log
 # Build Nosia
-newgrp docker << EOF
+newgrp docker <<EOF
   docker compose --env-file .env build &>>./log/setup.log
 EOF
-stop_loader

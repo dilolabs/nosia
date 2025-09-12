@@ -24,6 +24,6 @@ export default class extends Controller {
   }
 
   get url() {
-    return `/documents`;
+    return `/sources/documents`;
   }
 }

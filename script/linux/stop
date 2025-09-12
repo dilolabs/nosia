@@ -1,13 +1,9 @@
 #!/bin/bash
 
-. ./script/concerns/loader
-
-start_loader "Stopping Nosia"
+echo "Stopping Nosia"
 docker compose down &>>./log/docker.log
-stop_loader
 
 if command -v ollama &>/dev/null; then
-  start_loader "Stopping ollama"
+  echo "Stopping ollama"
   sudo systemctl stop ollama.service &>>./log/ollama.log
-  stop_loader
 fi

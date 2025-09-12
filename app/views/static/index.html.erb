@@ -7,8 +7,10 @@
       </p>
       <% unless Current.user %>
         <%= render "sessions/form", user: User.new %>
-        <p class="text-center text-gray-500 font-medium tracking-wide uppercase">or sign up</p>
-        <%= render "users/form", user: User.new %>
+        <% if registrations_allowed? %>
+          <p class="text-center text-gray-500 font-medium tracking-wide uppercase">or sign up</p>
+          <%= render "users/form", user: User.new %>
+        <% end %>
       <% end %>
     </div>
   </section>

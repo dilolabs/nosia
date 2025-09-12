@@ -7,9 +7,19 @@ Rails.application.routes.draw do
   # API routes
   post "v1/chat/completions", to: "api/v1/completions#create"
   post "v1/completions", to: "api/v1/completions#create"
+  namespace :api do
+    namespace :v1 do
+      resources :completions, only: [ :create ]
+      resources :files, only: [ :create ]
+      resources :qnas, only: [ :create ]
+      resources :texts, only: [ :create ]
+      resources :websites, only: [ :create ]
+    end
+  end
 
   # User routes
   constraints Authentication::Authenticated do
+    resources :accounts, only: [ :index, :edit, :update ]
     resources :api_tokens, only: [ :index, :create, :destroy ]
     resources :chats, only: [ :show, :create, :destroy ] do
       resources :messages, only: [ :create ]
@@ -20,7 +30,13 @@ Rails.application.routes.draw do
   constraints Authentication::Admin do
     mount MissionControl::Jobs::Engine, at: "/jobs"
 
-    resources :documents
+    resource :settings, only: [ :show ]
+    namespace :sources do
+      resources :documents
+      resources :qnas
+      resources :texts
+      resources :websites
+    end
   end
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

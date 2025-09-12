@@ -1,0 +1,25 @@
+<%= form_with(model: [:sources, website]) do |form| %>
+  <div class="n-form-field">
+    <%= form.label :url, "URL", class: "n-label" %>
+    <%= form.url_field :url, class: "n-field" %>
+  </div>
+
+  <div class="n-form-field">
+    <%= form.label :data, "Data", class: "n-label" %>
+    <%= form.text_area :data, rows: 18, class: "n-textarea" %>
+  </div>
+
+  <div class="n-form-field">
+    <%= form.label :account_id, "Account", class: "n-label" %>
+    <%= form.collection_select :account_id,
+                           Current.user.accounts,
+                           :id,
+                           :name,
+                           { prompt: true, required: true },
+                           { class: "n-select" } %>
+  </div>
+
+  <div class="n-form-actions">
+    <%= form.submit "Save", class: "n-btn-primary" %>
+  </div>
+<% end %>

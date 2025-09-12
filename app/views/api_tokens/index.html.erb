@@ -1,87 +1,94 @@
-<div class="flex flex-col space-y-4">
-  <h2 class="text-2xl">API tokens</h2>
+<section>
+  <div class="n-form-container">
+    <h2 class="n-form-title">New API token</h2>
+    <%= render "form", api_token: ApiToken.new %>
+  </div>
 
-  <%= render "form", api_token: ApiToken.new %>
+  <div class="n-main-container">
+    <div class="n-title-container">
+      <p class="n-title">API tokens</p>
+    </div>
 
-  <% @api_tokens.each do |api_token| %>
-    <div class="flex items-center space-x-4">
-      <h3 class="text-xl w-32 truncate"><%= api_token.name %></h3>
+    <% @api_tokens.each do |api_token| %>
+      <div class="flex items-center space-x-4">
+        <h3 class="text-xl w-64 truncate"><%= api_token.name %></h3>
 
-      <p><%= api_token.account.name %></p>
+        <p><%= api_token.account.name %></p>
 
-      <%= button_to api_token, method: :delete, data: { turbo_confirm: "Are you sure?" } do %>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-          stroke="currentColor"
-          class="h-8"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
-          />
-        </svg>
-      <% end %>
-
-      <div
-        class="flex space-x-4 h-12"
-        data-controller="clipboard reveal"
-        data-clipboard-success-content-value="Copied!"
-      >
-        <button data-action="click->reveal#toggle" type="button">
+        <%= button_to api_token, method: :delete, data: { turbo_confirm: "Are you sure?" } do %>
           <svg
-            class="w-8 h-8"
-            data-slot="icon"
-            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
             fill="none"
+            viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
+            class="h-8"
           >
             <path
-              d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
               stroke-linecap="round"
               stroke-linejoin="round"
-            ></path>
-            <path
-              d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            ></path>
+              d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+            />
           </svg>
-        </button>
+        <% end %>
 
-        <input
-          type="text"
-          value="<%= api_token.token %>"
-          data-reveal-target="item"
-          data-clipboard-target="source"
-          class="
-            hidden resize-none rounded-xl border-none bg-slate-200 text-sm text-slate-900
-            focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800
-            dark:text-slate-200 dark:placeholder-slate-400 dark:focus:ring-blue-500
-            sm:text-base
-          "
-        />
+        <div
+          class="flex space-x-4 h-12"
+          data-controller="clipboard reveal"
+          data-clipboard-success-content-value="Copied!"
+        >
+          <button data-action="click->reveal#toggle" type="button">
+            <svg
+              class="w-8 h-8"
+              data-slot="icon"
+              aria-hidden="true"
+              fill="none"
+              stroke-width="1.5"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></path>
+              <path
+                d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></path>
+            </svg>
+          </button>
 
-        <button
-          data-reveal-target="item"
-          class="
-            hidden cursor-pointer rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium
-            text-slate-200 hover:bg-blue-800 focus:outline-none focus:ring-4
-            focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700
-            dark:focus:ring-blue-800 sm:text-base disabled:bg-gray-700
-          "
-          type="button"
-          data-action="clipboard#copy"
-          data-clipboard-target="button"
-        >Copy to clipboard</button>
+          <input
+            type="text"
+            value="<%= api_token.token %>"
+            data-reveal-target="item"
+            data-clipboard-target="source"
+            class="
+              hidden resize-none rounded-xl border-none bg-slate-200 text-sm text-slate-900
+              focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800
+              dark:text-slate-200 dark:placeholder-slate-400 dark:focus:ring-blue-500
+              sm:text-base
+            "
+          />
 
+          <button
+            data-reveal-target="item"
+            class="
+              hidden cursor-pointer rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium
+              text-slate-200 hover:bg-blue-800 focus:outline-none focus:ring-4
+              focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700
+              dark:focus:ring-blue-800 sm:text-base disabled:bg-gray-700
+            "
+            type="button"
+            data-action="clipboard#copy"
+            data-clipboard-target="button"
+          >Copy to clipboard</button>
+
+        </div>
       </div>
-    </div>
-  <% end %>
-</div>
+    <% end %>
+  </div>
+</section>

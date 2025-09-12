@@ -1,8 +1,6 @@
 #!/bin/bash
 
-. ./script/concerns/loader
-
-start_loader "Setting up prerequisites: brew and openssl"
+echo "Setting up prerequisites: brew and openssl"
 
 # Install brew if not installed
 if ! command -v brew &>/dev/null; then
@@ -14,16 +12,13 @@ if ! brew list openssl &>/dev/null; then
   brew install openssl &>./log/setup.log
 fi
 
-stop_loader
-
-start_loader "Setting up ollama"
+echo "Setting up ollama"
 # Install ollama if not installed
 if ! brew list ollama &>/dev/null; then
   brew install ollama &>./log/setup.log
 fi
-stop_loader
 
-start_loader "Pulling models. This may take a while..."
+echo "Pulling models. This may take a while..."
 # Start ollama
 brew services start ollama &>./log/setup.log
 # Wait for ollama to start
@@ -32,16 +27,14 @@ sleep 5
 ollama pull $LLM_MODEL &>./log/setup.log
 ollama pull bespoke-minicheck &>./log/setup.log
 ollama pull nomic-embed-text &>./log/setup.log
-stop_loader
 
-start_loader "Setting up podman"
+echo "Setting up podman"
 # Install podman if not installed
 if ! brew list podman &>/dev/null; then
   brew install podman podman-compose &>./log/setup.log
 fi
-stop_loader
 
-start_loader "Setting up Nosia"
+echo "Setting up Nosia"
 # Initialize podman machine
 podman machine init &>./log/setup.log
 # Set podman to rootful mode
@@ -52,4 +45,3 @@ podman machine start &>./log/setup.log
 OLLAMA_BASE_URL=http://host.containers.internal:11434 ./script/concerns/setup-env &>./log/setup.log
 # Build Nosia
 podman-compose --env-file .env build &>./log/setup.log
-stop_loader

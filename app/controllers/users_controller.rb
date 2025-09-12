@@ -2,6 +2,7 @@
 
 class UsersController < ApplicationController
   allow_unauthenticated_access only: %i[ new create ]
+  before_action :check_allowed_registrations
 
   def new
     @user = User.new
@@ -23,6 +24,10 @@ class UsersController < ApplicationController
   end
 
   private
+
+  def check_allowed_registrations
+    redirect_to root_path, alert: "Registrations are closed." unless ActiveModel::Type::Boolean.new.cast(ENV.fetch("REGISTRATIONS_ALLOWED", true))
+  end
 
   def user_params
     params.require(:user).permit(:email, :password, :password_confirmation)

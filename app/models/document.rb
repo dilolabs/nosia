@@ -7,6 +7,10 @@ class Document < ApplicationRecord
 
   validates :file, presence: true
 
+  def context
+    content
+  end
+
   def titlize!
     update(title: file.filename.to_s)
   end

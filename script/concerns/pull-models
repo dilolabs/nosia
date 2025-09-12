@@ -8,7 +8,7 @@ fi
 if [ -n "$LLM_MODEL" ]; then
   ollama pull $LLM_MODEL
 else
-  ollama pull qwen2.5
+  ollama pull granite3.3:2b
 fi
-ollama pull bespoke-minicheck
-ollama pull nomic-embed-text
+ollama pull granite-embedding:278m
+ollama pull granite3-guardian:2b

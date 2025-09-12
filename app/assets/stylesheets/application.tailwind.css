@@ -20,3 +20,123 @@ ol {
 ul {
     @apply list-decimal list-inside;
 }
+
+.n-main-container {
+  @apply mx-auto max-w-screen-xl px-4 2xl:px-0;
+}
+
+.n-title-container {
+  @apply sm:flex sm:items-center sm:justify-between sm:gap-4;
+}
+
+.n-title {
+  @apply text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl;
+}
+
+.n-cards-grid {
+  @apply mb-4 mt-6 grid grid-cols-1 gap-4 text-center sm:mt-8 sm:grid-cols-2 lg:mb-0
+  lg:grid-cols-4 xl:gap-8;
+}
+
+.n-card {
+  @apply block max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow
+  hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700
+  truncate;
+}
+
+.n-card-title {
+  @apply mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white
+  truncate;
+}
+
+.n-card-subtitle {
+  @apply font-normal text-gray-700 dark:text-gray-400 truncate;
+}
+
+.n-table-container {
+  @apply mb-4 mt-6;
+  @apply relative overflow-x-auto shadow-md sm:rounded-lg;
+}
+
+.n-table {
+  @apply w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400;
+}
+
+.n-table-head {
+  @apply text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400;
+}
+
+.n-table-head-th {
+  @apply px-6 py-3;
+}
+
+.n-th {
+  @apply px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white;
+}
+
+.n-tr {
+  @apply odd:bg-white odd:dark:bg-gray-900 even:bg-gray-50 even:dark:bg-gray-800 border-b dark:border-gray-700 border-gray-200;
+}
+
+.n-td {
+  @apply px-6 py-4;
+}
+
+.n-dropzone {
+  @apply my-5 col-span-1 bg-white border border-gray-200 rounded-lg shadow
+  hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700;
+}
+
+.dz-default {
+  @apply text-2xl;
+}
+
+.n-form-container {
+  @apply py-8 px-4 mx-auto max-w-2xl lg:py-16;
+}
+
+.n-form-title {
+  @apply mb-4 text-xl font-bold text-gray-900 dark:text-white
+  sm:text-2xl;
+}
+
+.n-form-content {
+  @apply mb-4 font-light text-gray-500 sm:mb-5 dark:text-gray-400;
+}
+
+.n-form-field {
+  @apply my-2;
+}
+
+.n-form-actions {
+  @apply mt-6;
+}
+
+.n-btn-primary {
+  @apply text-white inline-flex items-center bg-blue-700 hover:bg-blue-800 focus:ring-4
+  focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5
+  py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700
+  dark:focus:ring-blue-800
+  cursor-pointer;
+}
+
+.n-btn-danger {
+  @apply inline-flex items-center text-white bg-red-600 hover:bg-red-700 focus:ring-4
+  focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5
+  text-center dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-900;
+}
+
+.n-label {
+  @apply block mb-2 text-sm font-medium text-gray-900 dark:text-white;
+}
+
+.n-field, .n-textarea {
+  @apply block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border
+  border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700
+  dark:border-gray-600 dark:placeholder-gray-400 dark:text-white
+  dark:focus:ring-blue-500 dark:focus:border-blue-500;
+}
+
+.n-select {
+  @apply bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500;
+}

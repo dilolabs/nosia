@@ -13,7 +13,7 @@
         <span data-reveal-target="item" class="hidden">Folders</span>
       <% end %>
       <% if Current.user.admin? %>
-        <%= link_to documents_path, title: "Documents", class: "n-nav-link" do %>
+        <%= link_to "#", title: "Documents", class: "n-nav-link" do %>
           <%= inline_svg "svg/files.svg" %>
           <span data-reveal-target="item" class="hidden">Documents</span>
         <% end %>
@@ -43,7 +43,7 @@
         <%= inline_svg "svg/chats.svg", class:"p-2 h-14 w-14 text-white dark:text-black bg-gray-800 dark:bg-gray-100 rounded-full hover:bg-gray-700 dark:hover:bg-gray-200 focus:ring-4 focus:ring-gray-300 focus:outline-none dark:focus:ring-gray-200" %>
       <% end %>
       <% if Current.user.admin? %>
-        <%= link_to documents_path, title: "Documents", class: "n-nav-bottom" do %>
+        <%= link_to "#", title: "Documents", class: "n-nav-bottom" do %>
           <%= inline_svg "svg/files.svg" %>
         <% end %>
       <% end %>

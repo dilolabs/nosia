@@ -1,0 +1,16 @@
+<section>
+  <div class="n-main-container">
+    <div class="n-title-container">
+      <p class="n-title">Accounts</p>
+    </div>
+
+    <div class="n-cards-grid">
+      <% @accounts.each do |account| %>
+        <%= link_to edit_account_path(account), class: "n-card" do %>
+          <h5 class="n-card-title"><%= account.name %></h5>
+          <p class="n-card-subtitle"><%= account.uid %></p>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</section>

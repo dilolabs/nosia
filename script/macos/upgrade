@@ -1,20 +1,15 @@
 #!/bin/bash
 
-. ./script/concerns/loader
-
 if brew list ollama &>/dev/null; then
-  start_loader "Upgrading ollama"
+  echo "Upgrading ollama"
   brew upgrade ollama &>./log/upgrade.log
-  stop_loader
 
-  start_loader "Pulling models. This may take a while..."
+  echo "Pulling models. This may take a while..."
   ./script/concerns/pull-models &>./log/upgrade.log
-  stop_loader
 fi
 
-start_loader "Upgrading Nosia"
+echo "Upgrading Nosia"
 # Pull latest changes
 git pull &>./log/upgrade.log
 # Build Nosia
 podman-compose --env-file .env build &>./log/upgrade.log
-stop_loader

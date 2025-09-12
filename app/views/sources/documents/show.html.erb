@@ -1,0 +1,22 @@
+<section>
+  <div class="n-main-container">
+    <div class="n-title-container">
+      <p class="n-title">
+        Document #<%= @document.id %>
+      </p>
+      <div>
+        <%= link_to "Edit document",
+        edit_sources_document_path(@document),
+        class: "n-btn-primary" %>
+        <%= link_to "Destroy document",
+        sources_document_path(@document),
+        data: {
+          turbo_method: :delete,
+          turbo_confirm: "Are you sure?",
+        },
+        class: "n-btn-danger" %>
+      </div>
+    </div>
+    <%= render @document %>
+  </div>
+</section>

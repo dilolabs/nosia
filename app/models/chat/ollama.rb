@@ -9,9 +9,9 @@ module Chat::Ollama
           uri_base: ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434")
         },
         default_options: {
-          chat_completion_model_name: ENV.fetch("LLM_MODEL", "qwen2.5"),
-          completion_model_name: ENV.fetch("LLM_MODEL", "qwen2.5"),
-          embeddings_model_name: ENV.fetch("EMBEDDING_MODEL", "nomic-embed-text"),
+          chat_completion_model_name: ENV.fetch("LLM_MODEL", "granite3.3:2b"),
+          completion_model_name: ENV.fetch("LLM_MODEL", "granite3.3:2b"),
+          embeddings_model_name: ENV.fetch("EMBEDDING_MODEL", "granite-embedding:278m"),
           temperature: ENV.fetch("LLM_TEMPERATURE", 0.1).to_f,
           num_ctx: ENV.fetch("LLM_NUM_CTX", 4_096).to_i
         }
@@ -19,12 +19,14 @@ module Chat::Ollama
     end
 
     def new_ollama_check_llm
-      Langchain::LLM::Ollama.new(
-        url: ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434"),
+      Langchain::LLM::OpenAI.new(
         api_key: ENV.fetch("OLLAMA_API_KEY", ""),
+        llm_options: {
+          uri_base: ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434")
+        },
         default_options: {
-          chat_completion_model_name: ENV.fetch("CHECK_MODEL", "bespoke-minicheck"),
-          completion_model_name: ENV.fetch("CHECK_MODEL", "bespoke-minicheck"),
+          chat_completion_model_name: ENV.fetch("CHECK_MODEL", "granite3-guardian:2b"),
+          completion_model_name: ENV.fetch("CHECK_MODEL", "granite3-guardian:2b"),
           temperature: ENV.fetch("LLM_TEMPERATURE", 0.1).to_f,
           num_ctx: ENV.fetch("LLM_NUM_CTX", 2_048).to_i
         }
@@ -52,21 +54,20 @@ module Chat::Ollama
     search_results.each do |search_result|
       context_to_check = search_result.content
 
-      check_message = [
-        { role: "user", content: "Document: #{context_to_check}\nClaim: #{question}" }
+      context_relevance_messages = [
+        { role: "system", content: "context_relevance" },
+        { role: "user", content: question },
+        { role: "context", content: context_to_check }
       ]
+      context_relevance_response = check_llm.chat(messages: context_relevance_messages, top_k:, top_p:)
 
-      check_llm.chat(messages: check_message, top_k:, top_p:) do |stream|
-        check_response = stream.raw_response.dig("message", "content")
-
-        if check_response.eql?("Yes")
-          checked_chunks << search_result
-        end
+      if context_relevance_response.completion.eql?("No")
+        checked_chunks << search_result
       end
     end
 
     if checked_chunks.any?
-      assistant_response.update(similar_document_ids: checked_chunks.pluck(:document_id).uniq)
+      assistant_response.update(similar_chunk_ids: checked_chunks.pluck(:id).uniq)
 
       context << checked_chunks.map(&:content).join("\n\n")
       context = context.join("\n\n")
@@ -76,15 +77,27 @@ module Chat::Ollama
       prompt = prompt.gsub("{question}", question)
 
       messages_for_assistant.pop
-      messages << { role: "user", content: prompt }
+      messages_for_assistant << { role: "user", content: prompt }
     end
 
     messages_for_assistant = messages_for_assistant.flatten
 
     llm = Chat.new_ollama_llm
-    llm_response = llm.chat(messages:, top_k:, top_p:, &block)
+    llm_response = llm.chat(messages: messages_for_assistant, top_k:, top_p:, &block)
 
-    assistant_response.update(done: true, content: llm_response.completion)
+    answer_relevance_messages = [
+      { role: "system", content: "answer_relevance" },
+      { role: "user", content: question },
+      { role: "assistant", content: llm_response.completion }
+    ]
+
+    answer_relevance_response = check_llm.chat(messages: answer_relevance_messages, top_k:, top_p:)
+    if answer_relevance_response.completion.eql?("No")
+      assistant_response.update(done: true, content: llm_response.completion)
+    else
+      assistant_response.update(done: true, content: "I don't know.")
+    end
+
     assistant_response
   end
 end

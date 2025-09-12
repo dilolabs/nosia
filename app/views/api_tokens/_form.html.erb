@@ -1,17 +1,20 @@
-<%= form_with(model: api_token, class: "flex items-center space-x-4") do |form| %>
-  <%= form.label :name, "Name of your API token" %>
-  <%= form.text_field :name,
-                  required: true,
-                  class:
-                    "resize-none rounded-xl border-none bg-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200 dark:placeholder-slate-400 dark:focus:ring-blue-500 sm:text-base" %>
+<%= form_with(model: api_token) do |form| %>
+  <div class="n-form-field">
+    <%= form.label :name, "Name of your API token", class: "n-label" %>
+    <%= form.text_field :name, required: true, class: "n-field" %>
+  </div>
 
-  <%= form.collection_select :account_id,
-                         Current.user.accounts,
-                         :id,
-                         :name,
-                         prompt: true,
-                         required: true %>
-  <%= form.submit "Generate",
-              class:
-                "cursor-pointer rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 sm:text-base disabled:bg-gray-700" %>
+  <div class="n-form-field">
+    <%= form.label :account_id, "Default account", class: "n-label" %>
+    <%= form.collection_select :account_id,
+                           Current.user.accounts,
+                           :id,
+                           :name,
+                           { prompt: true, required: true },
+                           { class: "n-select" } %>
+  </div>
+
+  <div class="n-form-actions">
+    <%= form.submit "Generate", class: "n-btn-primary" %>
+  </div>
 <% end %>

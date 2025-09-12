@@ -1,0 +1,46 @@
+<section>
+  <div class="n-main-container">
+    <div class="n-title-container">
+      <p class="n-title">Websites</p>
+      <%= link_to "New website", new_sources_website_path, class: "n-btn-primary" %>
+    </div>
+    <div class="n-table-container">
+      <table class="n-table">
+        <thead class="n-table-head">
+          <tr>
+            <th scope="col" class="n-table-head-th">
+              Title
+            </th>
+            <th scope="col" class="n-table-head-th">
+              URL
+            </th>
+            <th scope="col" class="table-header-th">
+              Account
+            </th>
+            <th scope="col" class="n-table-head-th">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @websites.each do |website| %>
+            <tr class="n-tr">
+              <th scope="row" class="n-th">
+                <%= website.title %>
+              </th>
+              <td class="n-td">
+                <%= website.url %>
+              </td>
+              <td class="n-td">
+                <%= website.account&.name %>
+              </td>
+              <td class="n-td">
+                <%= link_to "Edit", edit_sources_website_path(website), class: "n-btn-primary" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

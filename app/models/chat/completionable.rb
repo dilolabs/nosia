@@ -33,7 +33,7 @@ module Chat::Completionable
   def default_options
     {
       max_tokens: ENV.fetch("LLM_MAX_TOKENS", 1_024).to_i,
-      model: ENV.fetch("LLM_MODEL", "mixtral"),
+      model: ENV.fetch("LLM_MODEL", nil),
       temperature: ENV.fetch("LLM_TEMPERATURE", 0.1).to_f,
       top_k: ENV.fetch("LLM_TOP_K", 40).to_f,
       top_p: ENV.fetch("LLM_TOP_P", 0.9).to_f

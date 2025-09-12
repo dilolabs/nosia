@@ -25,21 +25,21 @@ if [ -n "$LLM_MODEL" ]; then
   echo "Using LLM_MODEL from environment"
 else
   echo "LLM_MODEL is not set, using default value"
-  LLM_MODEL=qwen2.5
+  LLM_MODEL=granite3.3:2b
 fi
 
 if [ -n "$CHECK_MODEL" ]; then
   echo "Using CHECK_MODEL from environment"
 else
   echo "CHECK_MODEL is not set, using default value"
-  CHECK_MODEL=bespoke-minicheck
+  CHECK_MODEL=granite3-guardian:2b
 fi
 
 if [ -n "$EMBEDDING_MODEL" ]; then
   echo "Using EMBEDDING_MODEL from environment"
 else
   echo "EMBEDDING_MODEL is not set, using default value"
-  EMBEDDING_MODEL=nomic-embed-text
+  EMBEDDING_MODEL=granite-embedding:278m
 fi
 
 POSTGRES_HOST=postgres-db
@@ -68,8 +68,8 @@ echo "POSTGRES_USER=$POSTGRES_USER" >>.env
 echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >>.env
 echo "SECRET_KEY_BASE=$SECRET_KEY_BASE" >>.env
 echo "LLM_TEMPERATURE=0.1" >>.env
-echo "CHUNK_SIZE=1000" >>.env
-echo "CHUNK_OVERLAP=200" >>.env
+echo "CHUNK_SIZE=1_500" >>.env
+echo "CHUNK_OVERLAP=250" >>.env
 echo 'SEPARATORS=["\n\n", "\n", " "]' >>.env
 echo "LLM_NUM_CTX=8_192" >>.env
 echo "LLM_TOP_K=40" >>.env

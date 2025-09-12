@@ -13,7 +13,10 @@ class User < ApplicationRecord
     uniqueness: { case_sensitive: false },
     format: { with: URI::MailTo::EMAIL_REGEXP }
 
-  validates :password, presence: true, length: { minimum: 12 }
+  validates :password,
+    presence: true,
+    length: { minimum: 12 },
+    on: :create
 
   def first_account
     accounts.order(:created_at).first

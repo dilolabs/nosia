@@ -17,7 +17,6 @@
             <% if author.present? %>
               <li>
                 <%= link_to document.source_url || author.url, target: "_blank", class: "flex flex-col h-16 items-center bg-white border border-gray-200 rounded-lg shadow md:flex-row md:max-w-xl hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700" do %>
-                  <%= if author.image_url.present? image_tag author.image_url, class: "object-cover w-full rounded-t-lg h-16 md:h-auto md:w-16 md:rounded-none md:rounded-s-lg" end %>
                   <div class="flex flex-col justify-between p-4 leading-normal">
                     <h5 class="text-lg font-bold tracking-tight text-gray-900 dark:text-white"><%= author.name %></h5>
                   </div>

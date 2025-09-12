@@ -1,0 +1,9 @@
+<section>
+  <div class="n-form-container">
+    <h2 class="n-form-title">
+      Edit Document #<%= @document.id %>&nbsp;:
+      <%= @document.title %>
+    </h2>
+    <%= render "form", document: @document %>
+  </div>
+</section>

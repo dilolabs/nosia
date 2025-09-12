@@ -1,0 +1,25 @@
+<%= form_with(model: [:sources, document]) do |form| %>
+  <div class="n-form-field">
+    <%= form.label :title, "Title", class: "n-label" %>
+    <%= form.text_field :title, class: "n-field" %>
+  </div>
+
+  <div class="n-form-field">
+    <%= form.label :file, "File", class: "n-label" %>
+    <%= form.file_field :file, class: "n-field" %>
+  </div>
+
+  <div class="n-form-field">
+    <%= form.label :account_id, "Account", class: "n-label" %>
+    <%= form.collection_select :account_id,
+                           Current.user.accounts,
+                           :id,
+                           :name,
+                           { prompt: true, required: true },
+                           { class: "n-select" } %>
+  </div>
+
+  <div class="n-form-actions">
+    <%= form.submit "Save", class: "n-btn-primary" %>
+  </div>
+<% end %>

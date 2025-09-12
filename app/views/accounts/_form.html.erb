@@ -1,0 +1,15 @@
+<%= form_with(model: account) do |form| %>
+  <div class="n-form-field">
+    <%= form.label :name, "Account name", class: "n-label" %>
+    <%= form.text_field :name, class: "n-field" %>
+  </div>
+
+  <div class="n-form-field">
+    <%= form.label :uid, "UID", class: "n-label" %>
+    <%= form.text_field :uid, class: "n-field" %>
+  </div>
+
+  <div class="n-form-actions">
+    <%= form.submit "Save", class: "n-btn-primary" %>
+  </div>
+<% end %>

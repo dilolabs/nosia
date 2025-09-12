@@ -14,7 +14,7 @@ module Api
           api_token = ApiToken.find_by(token:)
           @user = api_token&.user
           if params[:user].present?
-            @account = @user.accounts.create_with(owner: @user).find_or_create_by(uid: params[:user])
+            @account = @user.accounts.create_with(name: params[:user], owner: @user).find_or_create_by(uid: params[:user])
           else
             @account = api_token&.account
           end
