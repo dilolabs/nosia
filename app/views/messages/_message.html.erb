@@ -1,42 +1,57 @@
-<div data-controller="new-message-event-dispatcher" id="<%= dom_id(message) %>_messages" style="order: <%= message.response_number + 1 %>">
+<div data-controller="new-message-event-dispatcher" id="<%= dom_id(message, :messages) %>" style="order: <%= message.response_number + 1 %>">
   <% if message.user? %>
-    <div class="flex flex-row px-2 py-4 sm:px-4">
-      <div class="flex max-w-3xl items-center">
-        <div>
-          <%= sanitize message.content, attributes: %w[style] %>
-        </div>
+    <div class="flex flex-row py-4">
+      <div class="text-xl font-bold">
+        <%= sanitize message.content, attributes: %w[style] %>
       </div>
     </div>
   <% else %>
-    <% if message.similar_documents.any? %>
-      <div class="px-2 py-4 sm:px-4">
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-200">Sources who helped Nosia</h2>
-        <ul role="list" class="list-none grid grid-cols-1 gap-6 text-slate-900 dark:text-slate-200 sm:grid-cols-2 lg:grid-cols-3">
-          <% message.similar_documents.each do |document| %>
-            <% author = document.author %>
-            <% if author.present? %>
-              <li>
-                <%= link_to document.source_url || author.url, target: "_blank", class: "flex flex-col h-16 items-center bg-white border border-gray-200 rounded-lg shadow md:flex-row md:max-w-xl hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700" do %>
-                  <div class="flex flex-col justify-between p-4 leading-normal">
-                    <h5 class="text-lg font-bold tracking-tight text-gray-900 dark:text-white"><%= author.name %></h5>
-                  </div>
-                <% end %>
-              </li>
+    <div id="accordion-message-<%= message.id %>" data-accordion="open" data-active-classes="text-gray-900 dark:text-white" data-inactive-classes="text-gray-500 dark:text-gray-400">
+        <h2 id="accordion-message-<%= message.id %>-heading-1">
+          <button type="button" class="flex items-center justify-between w-full py-2 font-medium rtl:text-right text-gray-500 dark:text-gray-400 gap-3" data-accordion-target="#accordion-message-<%= message.id %>-body-1" aria-expanded="true" aria-controls="accordion-message-<%= message.id %>-body-1">
+            <span>Search</span>
+            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+            </svg>
+          </button>
+        </h2>
+        <div id="accordion-message-<%= message.id %>-body-1" class="hidden" aria-labelledby="accordion-message-<%= message.id %>-heading-1">
+          <div class="py-2">
+            <%= tag.div id: dom_id(message, :search_content) do %>
+              <%= render "messages/search_content", message: %>
             <% end %>
-          <% end %>
-        </ul>
-      </div>
-    <% end %>
-    <div
-      class="
-        mb-4 flex rounded-xl bg-slate-50 px-2 py-6 dark:bg-slate-900 sm:px-4
-      "
-    >
-      <div class="flex max-w-3xl items-center rounded-xl">
-        <div>
-          <%= sanitize message.to_html, attributes: %w[style] %>
+          </div>
         </div>
-      </div>
+        <h2 id="accordion-message-<%= message.id %>-heading-2">
+          <button type="button" class="flex items-center justify-between w-full py-2 font-medium rtl:text-right text-gray-500 dark:text-gray-400 gap-3" data-accordion-target="#accordion-message-<%= message.id %>-body-2" aria-expanded="<%= message.content.present? ? false : true %>" aria-controls="accordion-message-<%= message.id %>-body-2">
+            <span>Reasoning</span>
+            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+            </svg>
+          </button>
+        </h2>
+        <div id="accordion-message-<%= message.id %>-body-2" class="hidden" aria-labelledby="accordion-message-<%= message.id %>-heading-2">
+          <div class="py-2">
+            <%= tag.div id: dom_id(message, :reasoning_content) do %>
+              <%= render "messages/reasoning_content", message: %>
+            <% end %>
+          </div>
+        </div>
+        <h2 id="accordion-message-<%= message.id %>-heading-3">
+          <button type="button" class="flex items-center justify-between w-full py-2 font-medium rtl:text-right text-gray-500 dark:text-gray-400 gap-3" data-accordion-target="#accordion-message-<%= message.id %>-body-3" aria-expanded="true" aria-controls="accordion-message-<%= message.id %>-body-3">
+            <span>Response</span>
+            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+            </svg>
+          </button>
+        </h2>
+        <div id="accordion-message-<%= message.id %>-body-3" class="hidden" aria-labelledby="accordion-message-<%= message.id %>-heading-3">
+          <div class="py-2">
+            <%= tag.div id: dom_id(message, :content) do %>
+              <%= render "messages/content", message: %>
+            <% end %>
+          </div>
+        </div>
     </div>
   <% end %>
 </div>

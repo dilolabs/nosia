@@ -7,7 +7,6 @@ class MessagesController < ApplicationController
     @chat = Current.user.chats.find(params[:chat_id])
     @message = @chat.messages.create(
       message_params.merge(
-        role: "user",
         response_number: @chat.messages.count
       ),
     )

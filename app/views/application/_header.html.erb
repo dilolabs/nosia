@@ -1,4 +1,4 @@
-<nav class="flex w-full items-center justify-between border-b main-border main-bg py-2 px-4">
+<nav class="h-16 flex w-full items-center justify-between border-b main-border main-bg py-2 px-4">
   <div class="flex items-center justify-start gap-2">
     <%= link_to root_path do %>
       <span class="self-center whitespace-nowrap text-2xl font-semibold dark:text-white">Nosia</span>
@@ -204,11 +204,10 @@
 
     <button id="dropdownDefaultButton" data-dropdown-toggle="dropdown" class="ms-1.5 flex shrink-0 rounded-full bg-gray-800 text-sm focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 sm:ms-4" id="user-menu-button" aria-expanded="false" data-dropdown-toggle="accountDropdown">
       <span class="sr-only">Open user menu</span>
-      <img class="h-8 w-8 shrink-0 rounded-full" src="/images/users/jese-leos.png" alt="user photo" />
+      <%= inline_svg "svg/user-circle.svg" %>
     </button>
-    <!-- Dropdown menu -->
     <div id="dropdown" class="hidden w-60 divide-y divide-gray-100 overflow-hidden overflow-y-auto rounded-lg bg-white shadow-sm dark:divide-gray-600 dark:bg-gray-700" data-popper-placement="bottom">
-      <ul aria-labelledby="dropdownButton" class="p-2 text-start text-sm font-medium text-gray-900 dark:text-white">
+      <ul aria-labelledby="dropdownButton" class="list-none p-2 text-start text-sm font-medium text-gray-900 dark:text-white">
         <li>
           <a href="#" title="" class="group flex items-center gap-2 rounded-md px-3 py-2 text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-600">
             <svg class="h-4 w-4 text-gray-500 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">

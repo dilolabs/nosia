@@ -24,6 +24,10 @@ Rails.application.routes.draw do
     resources :chats, only: [ :show, :create, :destroy ] do
       resources :messages, only: [ :create ]
     end
+    resources :chunks, only: [ :show ]
+    resources :dashboards, only: [ :show ]
+
+    root to: "dashboards#show", as: :user_root
   end
 
   # Admin routes
@@ -31,6 +35,7 @@ Rails.application.routes.draw do
     mount MissionControl::Jobs::Engine, at: "/jobs"
 
     resource :settings, only: [ :show ]
+    resources :sources, only: [ :index ]
     namespace :sources do
       resources :documents
       resources :qnas

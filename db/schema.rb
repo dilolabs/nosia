@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_15_095448) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -130,7 +130,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
 
   create_table "messages", force: :cascade do |t|
     t.bigint "chat_id", null: false
-    t.integer "role", default: 0, null: false
+    t.integer "role", null: false
     t.string "content"
     t.integer "response_number", default: 0, null: false
     t.datetime "created_at", null: false
@@ -138,7 +138,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
     t.string "similar_document_ids", default: [], array: true
     t.boolean "done", default: false
     t.string "similar_chunk_ids", default: [], array: true
-    t.index [ "chat_id" ], name: "index_messages_on_chat_id"
+    t.text "reasoning_content"
+    t.index ["chat_id"], name: "index_messages_on_chat_id"
   end
 
   create_table "passwordless_sessions", force: :cascade do |t|

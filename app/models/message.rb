@@ -5,25 +5,20 @@ class Message < ApplicationRecord
 
   belongs_to :chat
 
+  before_create :set_default_role
   after_create_commit -> { broadcast_created }
   after_update_commit -> { broadcast_updated }
 
   def broadcast_created
-    broadcast_append_later_to(
-      "#{dom_id(chat)}_messages",
-      partial: "messages/message",
-      locals: { message: self, scroll_to: true },
-      target: "#{dom_id(chat)}_messages"
-    )
+    broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
   end
 
   def broadcast_updated
-    broadcast_append_to(
-      "#{dom_id(chat)}_messages",
-      partial: "messages/message",
-      locals: { message: self, scroll_to: true },
-      target: "#{dom_id(chat)}_messages"
-    )
+    broadcast_update_to chat, :messages, target: dom_id(self, :messages), locals: { message: self, scroll_to: true }
+  end
+
+  def set_default_role
+    self.role ||= "user"
   end
 
   def similar_authors

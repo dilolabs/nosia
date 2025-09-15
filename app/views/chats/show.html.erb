@@ -1,8 +1,10 @@
-<div class="h-[25rem] flex w-full flex-col">
+<div class="flex w-full flex-col">
   <div data-controller="scroll" class="flex-1 overflow-y-auto rounded-xl border main-border p-4 text-sm leading-6 text-slate-900 dark:text-slate-300 sm:text-base sm:leading-7">
-    <%= turbo_stream_from "#{dom_id(@chat)}_messages" %>
     <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col">
-      <%= render @chat.messages %>
+      <%= tag.div id: dom_id(@chat, :messages) do %>
+        <%= render @chat.messages %>
+      <% end %>
+      <%= turbo_stream_from @chat, :messages %>
     </div>
   </div>
   <%= render partial: "messages/form", locals: { chat: @chat } %>

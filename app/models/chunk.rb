@@ -11,4 +11,11 @@ class Chunk < ApplicationRecord
   def context
     content
   end
+
+  def title
+    case chunkable_type
+    when "Document"
+      chunkable.title
+    end
+  end
 end

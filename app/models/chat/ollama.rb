@@ -40,7 +40,6 @@ module Chat::Ollama
     context = []
 
     assistant_response = messages.create(role: "assistant", done: false, content: "", response_number:)
-    assistant_response.broadcast_created
 
     messages_for_assistant = []
     messages_for_assistant << { role: "system", content: system_prompt }
@@ -50,8 +49,13 @@ module Chat::Ollama
 
     check_llm = Chat.new_ollama_check_llm
 
+    broadcast_update_to self, :messages,
+      target: ActionView::RecordIdentifier.dom_id(assistant_response, :search_content),
+      partial: "messages/search_content",
+      locals: { message: assistant_response, step: "loading" }
+
     search_results = Chunk.where(account:).similarity_search(question, k: retrieval_fetch_k)
-    search_results.each do |search_result|
+    search_results.each_with_index do |search_result, index|
       context_to_check = search_result.content
 
       context_relevance_messages = [
@@ -83,7 +87,26 @@ module Chat::Ollama
     messages_for_assistant = messages_for_assistant.flatten
 
     llm = Chat.new_ollama_llm
-    llm_response = llm.chat(messages: messages_for_assistant, top_k:, top_p:, &block)
+    content_completion = ""
+    reasoning_completion = ""
+    llm_response = llm.chat(messages: messages_for_assistant, top_k:, top_p:) do |stream|
+      if stream && stream["delta"]
+        if stream["delta"]["content"].present?
+          content_completion << stream["delta"]["content"]
+          broadcast_update_to self, :messages,
+            target: ActionView::RecordIdentifier.dom_id(assistant_response, :content),
+            partial: "messages/content",
+            locals: { message: assistant_response, delta: content_completion }
+        elsif stream["delta"]["reasoning"].present?
+          reasoning_completion << stream["delta"]["reasoning"]
+          broadcast_update_to self, :messages,
+            target: ActionView::RecordIdentifier.dom_id(assistant_response, :reasoning_content),
+            partial: "messages/reasoning_content",
+            locals: { message: assistant_response, delta: reasoning_completion }
+        end
+      end
+    end
+    assistant_response.update(done: true, content: llm_response.chat_completion, reasoning_content: reasoning_completion)
 
     answer_relevance_messages = [
       { role: "system", content: "answer_relevance" },
