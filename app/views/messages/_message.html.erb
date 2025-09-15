@@ -2,7 +2,7 @@
   <% if message.user? %>
     <div class="flex flex-row py-4">
       <div class="text-xl font-bold">
-        <%= sanitize message.content, attributes: %w[style] %>
+        <%== sanitize message.content %>
       </div>
     </div>
   <% else %>

@@ -5,7 +5,7 @@ class Chat < ApplicationRecord
 
   belongs_to :account
   belongs_to :user
-  has_many :messages, dependent: :destroy
+  has_many :messages, -> { order(:response_number) }, dependent: :destroy
 
   def first_question
     messages.where(role: "user").order(:created_at).first&.content

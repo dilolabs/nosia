@@ -8,13 +8,8 @@ class AddChunkableToChunks < ActiveRecord::Migration[8.0]
 
     add_reference :chunks, :account, null: true, foreign_key: true
 
-<<<<<<< HEAD
-    account = Account.find_by(name: "First account")
-    Chunk.update_all(account_id: account.id)
-=======
     account = Account.order(:created_at).first
     Chunk.update_all(account_id: account.id) if account.present?
->>>>>>> main
 
     change_column_null :chunks, :account_id, false
   end

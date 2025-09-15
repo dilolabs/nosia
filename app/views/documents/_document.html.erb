@@ -1,0 +1,12 @@
+<div id="<%= dom_id document %>">
+  <h1 class="n-title"><%= document.title %></h1>
+  <object
+    class="my-5"
+    data="<%= url_for(document.file) %>"
+    type="application/pdf"
+    width="100%"
+    height="600"
+  >
+    <embed src="<%= url_for(document.file) %>" type="application/pdf"/>
+  </object>
+</div>

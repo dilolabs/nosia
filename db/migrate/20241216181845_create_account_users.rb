@@ -7,17 +7,11 @@ class CreateAccountUsers < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-<<<<<<< HEAD
-    account = Account.find_by(name: "First account")
-    User.all.each do |user|
-      user.account_users.find_or_create_by(account:)
-=======
     account = Account.order(:created_at).first
     if account.present?
       User.all.each do |user|
         user.account_users.find_or_create_by(account:)
       end
->>>>>>> main
     end
   end
 

@@ -9,7 +9,7 @@ class CreateAccounts < ActiveRecord::Migration[8.0]
     end
 
     owner = User.order(:created_at).first
-    account = Account.find_or_create_by(name: "First account", owner:)
+    Account.find_or_create_by(name: "First account", owner:)
   end
 
   def down

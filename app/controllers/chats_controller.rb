@@ -1,7 +1,8 @@
 class ChatsController < ApplicationController
-  before_action :set_chat, only: %i[show destroy]
+  before_action :set_chat, only: %i[destroy]
 
   def show
+    @chat = Current.user.chats.includes(:messages).find(params[:id])
   end
 
   def create
