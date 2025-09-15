@@ -1,5 +1,5 @@
-<div class="w-full flex gap-4">
-  <div class="w-1/2">
+<div class="w-full md:flex gap-4">
+  <div class="md:w-1/2">
     <h1 class="n-title">Extrait</h1>
     <blockquote class="text-lg italic">
       <svg class="w-8 h-8 text-gray-400 dark:text-gray-600 mb-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 14">
@@ -8,7 +8,7 @@
       <p>"[...] <%= @chunk.content %> [...]"</p>
     </blockquote>
   </div>
-  <div class="w-1/2">
+  <div class="md:w-1/2">
     <%= render @chunk.chunkable %>
   </div>
 </div>

@@ -6,19 +6,19 @@
 @import "nosia/menu";
 
 body {
-    @apply p-0;
+  @apply p-0;
 }
 
 pre {
-    @apply my-2 p-4 rounded-xl;
+  @apply my-2 p-4 rounded-xl;
 }
 
 ol {
-    @apply list-disc list-inside;
+  @apply list-disc list-inside;
 }
 
 ul {
-    @apply list-decimal list-inside;
+  @apply list-decimal list-inside;
 }
 
 .n-main-container {

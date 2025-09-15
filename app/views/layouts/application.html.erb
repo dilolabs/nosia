@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="h-full dark:bg-slate-900 dark:text-white">
+<html>
   <head>
     <title><%= content_for(:title) || "Nosia" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -14,14 +14,14 @@
     <link rel="apple-touch-icon" href="/icon.png">
     <%= stylesheet_link_tag "tailwind", "inter-font", "data-turbo-track": "reload" %>
 
-    <%= stylesheet_link_tag :all, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
+    <%=  render "extra_head" %>
   </head>
 
-  <body class="max-h-dvh">
+  <body data-controller="dark-mode" class="max-h-dvh bg-slate-100 dark:bg-slate-900 dark:text-white">
     <%= render "flash" %>
     <%= render "header" %>
-    <div class="h-full max-h-[calc(100dvh-4rem)] w-full flex">
+    <div class="h-[calc(100dvh-4rem)] w-full flex">
       <%= render "menu" %>
       <main class="overflow-y-auto w-full flex p-6">
         <%= yield %>

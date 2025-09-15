@@ -10,5 +10,4 @@ pin "just-extend" # @5.1.1
 pin "flowbite" # @3.1.2
 pin "@stimulus-components/clipboard", to: "@stimulus-components--clipboard.js" # @5.0.0
 pin "@stimulus-components/reveal", to: "@stimulus-components--reveal.js" # @5.0.0
-pin "@popperjs/core", to: "@popperjs--core.js" # @2.11.8
 pin "flowbite-datepicker" # @1.3.2
