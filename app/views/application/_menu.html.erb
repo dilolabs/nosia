@@ -20,8 +20,6 @@
         <%= inline_svg "svg/cog.svg", class: "w-6 h-6" %>
         <span data-reveal-target="item" class="hidden">Settings</span>
       <% end %>
-    </div>
-    <div>
       <%= link_to logout_path, data: { turbo_method: :delete }, title: "Sign out", class: "n-nav-link" do %>
         <%= inline_svg "svg/power.svg", class: "w-6 h-6" %>
         <span data-reveal-target="item" class="hidden">Sign out</span>

@@ -27,4 +27,8 @@ class Chat < ApplicationRecord
   def response_number
     messages.count
   end
+
+  def title
+    first_question
+  end
 end

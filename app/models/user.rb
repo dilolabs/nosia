@@ -21,4 +21,8 @@ class User < ApplicationRecord
   def first_account
     accounts.order(:created_at).first
   end
+
+  def recent_chats(limit: 5)
+    chats.order(:created_at).limit(limit)
+  end
 end

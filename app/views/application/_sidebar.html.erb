@@ -1,5 +1,5 @@
 <% if Current.user %>
-  <aside class="overflow-y-auto w-32 sm:w-60 border-l main-border main-bg">
+  <aside class="overflow-y-auto hidden sm:block sm:w-60 border-l main-border main-bg">
     <div class="mx-2 mt-8">
       <%= button_to chats_path, class: "flex w-full gap-x-4 rounded-lg border border-slate-300 p-4 text-left text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200 focus:outline-none dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800" do %>
         <svg xmlns="http://www.w3.org/2000/svg" class="hidden sm:inline h-5 w-5" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -15,7 +15,7 @@
         <div class="grid grid-cols-6 gap-2 items-center">
           <%= link_to chat, class: "col-span-5 flex w-full flex-col gap-y-2 rounded-lg px-3 py-2 text-left transition-colors duration-200 hover:bg-slate-200 focus:outline-none dark:hover:bg-slate-800" do %>
             <h1 class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
-              <%= chat.first_question&.first(50) %>
+              <%= chat.title %>
             </h1>
             <p class="text-xs text-slate-500 dark:text-slate-400"><%= l(chat.updated_at, format: :short) %></p>
           <% end %>
