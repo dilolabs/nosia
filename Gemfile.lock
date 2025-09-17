@@ -370,7 +370,7 @@ GEM
       io-console (~> 0.5)
     reverse_markdown (3.0.0)
       nokogiri
-    rexml (3.4.1)
+    rexml (3.4.2)
     rss (0.3.1)
       rexml
     rubocop (1.74.0)
