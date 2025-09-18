@@ -1,0 +1,11 @@
+.n-btn {
+    @apply rounded-lg p-1.5 focus:ring-2  focus:ring-green-300 dark:focus:ring-green-600;
+}
+
+.n-btn-drawer {
+    @apply h-42 bg-green-300 dark:bg-green-900 rounded-l-lg flex items-center text-white font-bold cursor-pointer;
+}
+
+.n-btn-hover-main {
+    @apply cursor-pointer transition-colors duration-200 hover:bg-green-200 dark:hover:bg-green-800;
+}

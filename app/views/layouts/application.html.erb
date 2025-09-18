@@ -26,7 +26,30 @@
       <main class="overflow-y-auto w-full flex p-6">
         <%= yield %>
       </main>
-      <%= render "sidebar" %>
+      <% if Current.user %>
+        <div id="accordion-collapse" data-accordion="collapse" class="hidden -ml-5 lg:flex items-center">
+          <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions">
+            <div class="n-btn-drawer">
+              <%= inline_svg_tag "svg/cheveron-right.svg", class: "shrink-0 h-5 w-5" %>
+            </div>
+          </button>
+          <aside id="accordion-right-actions" aria-labelledby="accordion-right-button" class="w-72 h-full lg:border-l main-border">
+            <%= render "sidebar" %>
+          </aside>
+        </div>
+        <button type="button" data-drawer-target="drawer-right" data-drawer-show="drawer-right" data-drawer-placement="right" aria-controls="drawer-right" class="lg:hidden">
+          <div class="n-btn-drawer ">
+            <%= inline_svg_tag "svg/cheveron-left.svg", class: "shrink-0 h-5 w-5"%>
+          </div>
+        </button>
+        <aside id="drawer-right" class="fixed top-0 right-0 z-60 h-screen p-4 overflow-y-auto transition-transform translate-x-full border-l main-border main-bg w-80" tabindex="-1" aria-labelledby="drawer-right-label">
+          <button type="button" data-drawer-hide="drawer-right" aria-controls="drawer-right" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 absolute top-2.5 end-2.5 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white" >
+            <%= inline_svg "svg/close.svg", class: "w-6 h-6" %>
+            <span class="sr-only">Close menu</span>
+          </button>
+          <%= render "sidebar" %>
+        </aside>
+      <% end %>
     </div>
   </body>
 </html>
