@@ -1,0 +1,16 @@
+.n-card {
+    @apply grid overflow-hidden p-6 border
+    bg-white dark:bg-gray-800 shadow-sm rounded-lg truncate;
+}
+
+.n-cards-grid {
+    @apply my-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-4;
+}
+
+.n-card-title {
+    @apply mb-2 text-lg font-semibold tracking-tight truncate;
+}
+
+.n-card-subtitle {
+    @apply font-normal text-gray-700 dark:text-gray-400 truncate;
+}

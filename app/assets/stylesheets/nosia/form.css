@@ -1,0 +1,38 @@
+.n-form-actions {
+    @apply mt-6;
+}
+
+.n-form-container {
+    @apply py-8 px-4 max-w-2xl lg:py-16;
+}
+
+.n-form-content {
+    @apply mb-4 font-light text-gray-500 sm:mb-5 dark:text-gray-400;
+}
+
+.n-form-field {
+    @apply my-2;
+}
+
+.n-form-title {
+    @apply mb-4 text-xl font-bold sm:text-2xl;
+}
+
+.n-field,
+.n-textarea {
+    @apply appearance-none block p-2.5 w-full text-sm  bg-gray-50 rounded-lg border border-gray-300
+    transition-colors duration-200
+    focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500
+    dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400;
+}
+
+.n-label {
+    @apply text-left mb-1 text-sm;
+}
+
+.n-select {
+    @apply appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg
+    focus:ring-green-500 focus:border-green-500 block w-full p-2.5 dark:bg-gray-700
+    dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-green-500
+    dark:focus:border-green-500;
+}

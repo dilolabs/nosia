@@ -1,38 +1,10 @@
-<section>
-  <div class="mx-auto max-w-screen-xl px-4 2xl:px-0">
-    <div class="sm:flex sm:items-center sm:justify-between sm:gap-4">
-      <p class="text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">Settings</p>
-    </div>
+<div class="n-title-container">
+  <h2 class="n-main-title">Settings</h2>
+</div>
 
-    <div
-      class="
-        mb-4 mt-6 grid grid-cols-1 gap-4 text-center sm:mt-8 sm:grid-cols-2 lg:mb-0
-        lg:grid-cols-4 xl:gap-8
-      "
-    >
-      <%= link_to api_tokens_path, class: "
-          grid place-content-center space-y-6 overflow-hidden rounded-lg border
-          border-gray-200 bg-white p-6 hover:bg-gray-100 dark:border-gray-700
-          dark:bg-gray-800 dark:hover:bg-gray-700 h-48
-        " do %>
-        <svg
-          class="mx-auto h-14 w-14 text-gray-400 dark:text-gray-500"
-          data-slot="icon"
-          aria-hidden="true"
-          fill="none"
-          stroke-width="1.5"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          ></path>
-        </svg>
-        <p class="text-lg font-semibold text-gray-900 dark:text-white">API tokens</p>
-      <% end %>
-    </div>
-  </div>
-</section>
+<div class="n-cards-grid">
+  <%= link_to api_tokens_path, class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+    <%= inline_svg "svg/code-bracket.svg", title:"API tokens", alt:"API tokens", class: "mx-auto w-12 h-12" %>
+    <p class="n-card-title">API tokens</p>
+  <% end %>
+</div>

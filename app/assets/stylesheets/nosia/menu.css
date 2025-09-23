@@ -1,11 +1,11 @@
 .n-nav-link {
-    @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium transition-colors duration-200 hover:bg-green-200 focus:outline-hidden dark:hover:bg-green-800;
+    @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium
+    transition-colors duration-200
+    focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }
 
 .n-nav-bottom {
-    @apply inline-flex flex-col items-center justify-center px-5;
-}
-
-.n-nav-bottom-hover {
-    @apply hover:bg-green-200 dark:hover:bg-green-800;
+    @apply inline-flex flex-col items-center justify-center px-5
+    transition-colors duration-200
+    focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }

@@ -1,11 +1,31 @@
 .n-btn {
-    @apply rounded-lg p-1.5 focus:ring-2  focus:ring-green-300 dark:focus:ring-green-600;
+    @apply cursor-pointer text-center rounded-lg p-1.5 transition-colors duration-200
+    focus:ring-2 focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500;
 }
 
 .n-btn-drawer {
-    @apply h-42 bg-green-300 dark:bg-green-900 rounded-l-lg flex items-center text-white font-bold cursor-pointer;
+    @apply h-42 bg-green-300 dark:bg-green-900 rounded-l-lg flex items-center
+    text-white font-bold cursor-pointer
+    hover:bg-green-400 dark:hover:bg-green-800;
 }
 
-.n-btn-hover-main {
-    @apply cursor-pointer transition-colors duration-200 hover:bg-green-200 dark:hover:bg-green-800;
+.n-btn-group {
+    @apply flex w-full gap-4 rounded-lg p-4 text-left text-sm font-medium;
+}
+
+.n-btn-icon {
+    @apply cursor-pointer p-2 rounded-lg;
+}
+
+.n-btn-danger {
+    @apply inline-flex items-center text-white bg-red-600 hover:bg-red-700 font-medium text-sm
+    focus:ring-2 focus:ring-red-300
+     dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-900;
+}
+
+.n-btn-primary {
+    @apply cursor-pointer text-center text-sm inline-flex items-center rounded-lg p-1.5
+    transition-colors duration-200
+    focus:ring-2 focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500
+    bg-green-300 dark:bg-green-900 hover:bg-green-400 dark:hover:bg-green-800;
 }

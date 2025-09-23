@@ -1,5 +1,5 @@
-<div class="m-4">
-  <%= button_to chats_path, class: "flex w-full gap-x-4 rounded-lg border main-border p-4 text-left text-sm font-medium text-slate-700 n-btn-hover-main focus:outline-none dark:text-slate-200" do %>
+<div class="p-4">
+  <%= button_to chats_path, class: "n-btn-group border n-main-border n-main-hover n-main-focus" do %>
     <svg xmlns="http://www.w3.org/2000/svg" class="hidden sm:inline h-5 w-5" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
       <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
       <path d="M12 5l0 14"></path>
@@ -8,16 +8,16 @@
     New Chat
   <% end %>
 </div>
-<div class="space-y-4 overflow-y-auto m-4">
+<div class="space-y-2 overflow-y-auto pt-1 px-4 pb-4">
   <% Current.user.chats.order(updated_at: :desc).each do |chat| %>
     <div class="grid grid-cols-6 gap-2 items-center">
-      <%= link_to chat, class: "col-span-5 w-full flex flex-col gap-y-2 rounded-lg px-3 py-2 focus:outline-none n-btn-hover-main" do %>
+      <%= link_to chat, class: "col-span-5 w-full flex flex-col gap-y-2 rounded-lg px-3 py-2 n-main-hover n-main-focus" do %>
         <h1 class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
           <%= chat.title %>
         </h1>
         <p class="text-xs text-slate-500 dark:text-slate-400"><%= l(chat.updated_at, format: :short) %></p>
       <% end %>
-      <%= button_to chat, method: :delete, data: { turbo_confirm: "Are you sure?" }, class:"text-red-500 cursor-pointer n-btn-hover-main p-2 rounded-lg" do %>
+      <%= button_to chat, method: :delete, data: { turbo_confirm: "Are you sure?" }, class:"text-red-500 n-btn-icon n-main-hover n-main-focus" do %>
         <%= inline_svg "svg/trash-bin.svg", title:"Delete chat", class:"h-5 w-5" %>
       <% end %>
     </div>

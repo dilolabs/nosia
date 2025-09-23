@@ -1,5 +1,5 @@
 <div class="flex w-full flex-col">
-  <div data-controller="scroll" class="flex-1 overflow-y-auto rounded-xl border main-border p-4 text-sm leading-6 text-slate-900 dark:text-slate-300 sm:text-base sm:leading-7">
+  <div data-controller="scroll" class="flex-1 overflow-y-auto rounded-xl border n-main-border p-4 text-sm leading-6 text-slate-900 dark:text-slate-300 sm:text-base sm:leading-7">
     <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col">
       <%= tag.div id: dom_id(@chat, :messages) do %>
         <%= render @chat.messages %>

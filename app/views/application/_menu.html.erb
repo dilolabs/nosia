@@ -1,39 +1,39 @@
 <% if Current.user %>
-  <div class="w-full max-w-max overflow-y-auto overflow-x-hidden hidden lg:block border-r main-border main-bg p-1" data-controller="reveal" data-reveal-hidden-class="hidden">
-    <button data-action="reveal#toggle" type="button" class="hidden lg:block cursor-pointer n-nav-link w-fit">
+  <div class="w-full max-w-max overflow-y-auto overflow-x-hidden hidden lg:block border-r n-main-border n-main-bg p-1" data-controller="reveal" data-reveal-hidden-class="hidden">
+    <button data-action="reveal#toggle" type="button" class="hidden lg:block cursor-pointer n-nav-link n-main-hover w-fit">
       <%= inline_svg "svg/menu.svg", title: "Menu", alt: "View menu" %>
     </button>
     <div class="w-max">
-      <%= link_to root_path, title: "Home", alt: "Home page", class: "n-nav-link" do %>
+      <%= link_to root_path, title: "Home", alt: "Home page", class: "n-nav-link n-main-hover" do %>
         <%= inline_svg "svg/home.svg", class: "w-6 h-6" %>
         <span data-reveal-target="item" class="hidden">Home</span>
       <% end %>
-      <%= link_to accounts_path, title: "Accounts", alt: "Accounts", class: "n-nav-link" do %>
+      <%= link_to accounts_path, title: "Accounts", alt: "Accounts", class: "n-nav-link n-main-hover" do %>
         <%= inline_svg "svg/folders.svg", class: "w-6 h-6" %>
         <span data-reveal-target="item" class="hidden">Accounts</span>
       <% end %>
-      <%= link_to sources_path, title: "Sources", alt: "Sources", class: "n-nav-link" do %>
+      <%= link_to sources_path, title: "Sources", alt: "Sources", class: "n-nav-link n-main-hover" do %>
         <%= inline_svg "svg/files.svg", class: "w-6 h-6" %>
         <span data-reveal-target="item" class="hidden">Sources</span>
       <% end %>
     </div>
   </div>
 
-  <div class="lg:hidden fixed z-50 w-full h-16 max-w-sm -translate-x-1/2 main-bg border main-border rounded-full bottom-4 left-1/2">
+  <div class="lg:hidden fixed z-50 w-full h-16 max-w-sm -translate-x-1/2 n-main-bg border n-main-border rounded-full bottom-4 left-1/2">
     <div class="grid h-full max-w-lg grid-cols-5 mx-auto">
-      <%= link_to root_path, title: "Home", alt: "Home page", class: "n-nav-bottom n-nav-bottom-hover rounded-s-full" do %>
+      <%= link_to root_path, title: "Home", alt: "Home page", class: "n-nav-bottom n-main-hover rounded-s-full" do %>
         <%= inline_svg "svg/home.svg", class: "w-6 h-6" %>
       <% end %>
-      <%= link_to accounts_path, title: "Accounts", alt: "Accounts", class: "n-nav-bottom n-nav-bottom-hover" do %>
+      <%= link_to accounts_path, title: "Accounts", alt: "Accounts", class: "n-nav-bottom n-main-hover" do %>
         <%= inline_svg "svg/folders.svg", class: "w-6 h-6" %>
       <% end %>
       <%= link_to chats_path, data: { turbo_method: :post }, title: "New chat", alt:"New chat", class: "n-nav-bottom rounded-full" do %>
         <%= inline_svg "svg/chats.svg", class: "p-2 h-14 w-14 text-black bg-gray-100 rounded-full hover:bg-green-200 dark:hover:bg-green-700 focus:ring-4 focus:ring-gray-300 focus:outline-none dark:focus:ring-gray-200" %>
       <% end %>
-      <%= link_to sources_path, title: "Sources", alt: "Sources", class: "n-nav-bottom n-nav-bottom-hover" do %>
+      <%= link_to sources_path, title: "Sources", alt: "Sources", class: "n-nav-bottom n-main-hover" do %>
         <%= inline_svg "svg/files.svg", class: "w-6 h-6" %>
       <% end %>
-      <%= link_to settings_path, title: "Settings", alt:"Seetings", class: "n-nav-bottom n-nav-bottom-hover rounded-e-full" do %>
+      <%= link_to settings_path, title: "Settings", alt:"Seetings", class: "n-nav-bottom n-main-hover rounded-e-full" do %>
         <%= inline_svg "svg/cog.svg", class: "w-6 h-6" %>
       <% end %>
     </div>
