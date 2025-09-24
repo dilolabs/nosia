@@ -1,46 +1,29 @@
-<section class="w-full">
-  <div class="n-main-container">
-    <div class="n-title-container">
-      <p class="n-title">Documents</p>
-      <%= link_to "New document", new_sources_document_path, class: "n-btn-primary" %>
-    </div>
+<div class="n-title-container flex justify-between items-center">
+  <h2 class="n-main-title">Documents</h2>
+  <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary" %>
+</div>
 
-    <div
-      data-controller="dropzone"
-      class="dropzone dropzone-default dz-clickable n-dropzone"
-    ></div>
+<div data-controller="dropzone" class="dropzone dropzone-default dz-clickable n-dropzone"></div>
 
-    <div class="n-table-container">
-      <table class="n-table">
-        <thead class="n-table-head">
-          <tr>
-            <th scope="col" class="n-table-head-th">
-              Title
-            </th>
-            <th scope="col" class="n-table-head-th">
-              Account
-            </th>
-            <th scope="col" class="n-table-head-th">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @documents.each do |document| %>
-            <tr class="n-tr">
-              <td class="n-td">
-                <%= document.title %>
-              </td>
-              <td class="n-td">
-                <%= document.account&.name %>
-              </td>
-              <td class="n-td">
-                <%= link_to "Show", sources_document_path(document), class: "n-btn-primary" %>
-              </td>
-            </tr>
+<ul class="n-cards-grid list-none">
+  <% @documents.each do |document| %>
+    <li class="n-card n-main-border lg:col-span-2 ">
+      <div class="truncate flex gap-4 justify-between items-center">
+        <h5 class="n-card-title"><%= document.title %></h5>
+        <%= link_to sources_document_path(document), title:"Delete document", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", }, class: "text-red-500 n-btn-icon n-main-hover n-main-focus" do %>
+          <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
+          <span class="sr-only">Delete document</span>
+        <% end %>
+      </div>
+      <div class="flex gap-4 justify-between items-center">
+        <p class="n-card-subtitle"><%= document.account&.name %></p>
+        <div class="flex gap-4">
+          <%= link_to sources_document_path(document), title:"Show document", class: "n-btn-icon n-main-hover n-main-focus" do %>
+            <%= inline_svg "svg/eye.svg", title:"Show", alt:"Eye", class: "mx-auto w-6 h-6" %>
+            <span class="sr-only">Show document</span>
           <% end %>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
+        </div>
+      </div>
+    </li>
+  <% end %>
+</ul>

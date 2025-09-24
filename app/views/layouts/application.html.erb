@@ -18,18 +18,18 @@
     <%=  render "extra_head" %>
   </head>
 
-  <body data-controller="dark-mode" class="max-h-dvh bg-slate-100 dark:bg-slate-900 dark:text-white">
+  <body data-controller="dark-mode" class="max-h-dvh overflow-hidden bg-slate-100 dark:bg-slate-900 dark:text-white">
     <%= render "flash" %>
     <%= render "header" %>
     <div class="h-[calc(100dvh-4rem)] w-full flex">
       <%= render "menu" %>
-      <main class="overflow-y-auto w-full p-6">
+      <main class="overflow-y-auto w-full pl-6 pt-6 pb-20 pr-2 lg:p-6">
         <%= yield %>
       </main>
       <% if Current.user %>
         <div id="accordion-collapse" data-accordion="collapse" class="hidden -ml-5 lg:flex items-center">
-          <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions" class="n-main-focus">
-            <div class="n-btn-drawer n-main-focus">
+          <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions" class="rounded-l-lg n-main-focus">
+            <div class="n-btn-drawer">
               <%= inline_svg_tag "svg/cheveron-right.svg", class: "shrink-0 h-5 w-5" %>
             </div>
           </button>

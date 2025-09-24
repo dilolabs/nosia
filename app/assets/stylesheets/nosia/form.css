@@ -3,7 +3,7 @@
 }
 
 .n-form-container {
-    @apply py-8 px-4 max-w-2xl lg:py-16;
+    @apply mx-auto py-8 max-w-lg lg:py-16;
 }
 
 .n-form-content {
