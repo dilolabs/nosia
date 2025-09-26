@@ -1,16 +1,12 @@
 <div class="p-4">
   <%= button_to chats_path, class: "n-btn-group border n-main-border n-main-hover n-main-focus" do %>
-    <svg xmlns="http://www.w3.org/2000/svg" class="hidden sm:inline h-5 w-5" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-      <path d="M12 5l0 14"></path>
-      <path d="M5 12l14 0"></path>
-    </svg>
+    <%= inline_svg "svg/plus.svg", title:"New chat", class:"h-5 w-5" %>
     New Chat
   <% end %>
 </div>
-<div class="space-y-2 overflow-y-auto pt-1 px-4 pb-4">
+<div class="space-y-2 h-[calc(100vh-6.45rem)] lg:h-[calc(100vh-9.4rem)] overflow-y-auto ">
   <% Current.user.chats.order(updated_at: :desc).each do |chat| %>
-    <div class="grid grid-cols-6 gap-2 items-center">
+    <div class="grid grid-cols-6 gap-2 items-center mx-4 first:mt-2 last:mb-4">
       <%= link_to chat, class: "col-span-5 w-full flex flex-col gap-y-2 rounded-lg px-3 py-2 n-main-hover n-main-focus" do %>
         <h1 class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
           <%= chat.title %>
