@@ -1,46 +1,26 @@
-<section class="w-full">
-  <div class="n-main-container">
-    <div class="n-title-container">
-      <p class="n-title">Websites</p>
-      <%= link_to "New website", new_sources_website_path, class: "n-btn-primary" %>
-    </div>
-    <div class="n-table-container">
-      <table class="n-table">
-        <thead class="n-table-head">
-          <tr>
-            <th scope="col" class="n-table-head-th">
-              Title
-            </th>
-            <th scope="col" class="n-table-head-th">
-              URL
-            </th>
-            <th scope="col" class="n-table-head-th">
-              Account
-            </th>
-            <th scope="col" class="n-table-head-th">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @websites.each do |website| %>
-            <tr class="n-tr">
-              <th scope="row" class="n-th">
-                <%= website.title %>
-              </th>
-              <td class="n-td">
-                <%= website.url %>
-              </td>
-              <td class="n-td">
-                <%= website.account&.name %>
-              </td>
-              <td class="n-td">
-                <%= link_to "Edit", edit_sources_website_path(website), class: "n-btn-primary" %>
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
+<div class="n-title-container md:flex md:justify-between md:items-center">
+  <h2 class="n-main-title">Websites</h2>
+  <%= link_to "Add website", new_sources_website_path, class: "n-btn-primary hidden md:inline-flex " %>
+</div>
+<ul class="n-cards-grid list-none">
+  <% @websites.each do |website| %>
+    <li class="n-card n-main-border lg:col-span-2 ">
+      <div class="m-6 space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="n-card-subtitle"><%= website.account&.name %></p>
+          <div class="flex items-center gap-4">
+            <%= link_to edit_sources_website_path(website), title:"Edit website", class: "n-btn-icon n-main-hover n-main-focus" do %>
+              <%= inline_svg "svg/edit.svg", title:"Edit", alt:"Pencil", class: "mx-auto w-6 h-6" %>
+              <span class="sr-only">Show website</span>
+            <% end %>
+            <%= link_to sources_website_path(website), title:"Delete website", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+              <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
+              <span class="sr-only">Delete website</span>
+            <% end %>
+          </div>
+        </div>
+        <h5 class="n-card-title"><%= website.url %></h5>
+      </div>
+    </li>
+  <% end %>
+</ul>

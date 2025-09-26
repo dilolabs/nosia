@@ -17,7 +17,7 @@
         </h1>
         <p class="text-xs text-slate-500 dark:text-slate-400"><%= l(chat.updated_at, format: :short) %></p>
       <% end %>
-      <%= button_to chat, method: :delete, data: { turbo_confirm: "Are you sure?" }, class:"text-red-500 n-btn-icon n-main-hover n-main-focus" do %>
+      <%= button_to chat, method: :delete, data: { turbo_confirm: "Are you sure?" }, class:"text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
         <%= inline_svg "svg/trash-bin.svg", title:"Delete chat", class:"h-5 w-5" %>
       <% end %>
     </div>

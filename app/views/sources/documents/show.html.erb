@@ -1,10 +1,14 @@
-<div class="n-main-container">
-  <div class="n-title-container">
-    <p class="n-title">Document #<%= @document.id %></p>
-    <div>
-      <%= link_to "Edit document", edit_sources_document_path(@document), class: "n-btn-primary" %>
-      <%= link_to "Destroy document", sources_document_path(@document), data: { turbo_method: :delete, turbo_confirm: "Are you sure?",}, class: "n-btn-danger" %>
-    </div>
+<div class="n-title-container md:flex md:justify-between md:items-center">
+  <h2 class="n-title">Document #<%= @document.id %></h2>
+  <div class="flex gap-4">
+    <%= link_to edit_sources_document_path(@document), class: "n-btn-primary" do %>
+      <%= inline_svg "svg/edit.svg", title:"Edit", alt:"Pencil", class: "mx-auto w-6 h-6" %>
+      <span class="sr-only">Edit document</span>
+    <% end %>
+    <%= link_to sources_document_path(@document), data: { turbo_method: :delete, turbo_confirm: "Are you sure?",}, class: "n-btn-danger" do %>
+      <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "text-red-600 dark:text-red-300 mx-auto w-6 h-6" %>
+      <span class="sr-only">Delete document</span>
+    <% end %>
   </div>
-  <%= render @document %>
 </div>
+<%= render @document %>

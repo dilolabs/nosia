@@ -1,28 +1,29 @@
-<div class="n-title-container flex justify-between items-center">
+<div class="n-title-container md:flex md:justify-between md:items-center">
   <h2 class="n-main-title">Documents</h2>
-  <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary" %>
+  <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary hidden md:inline-flex " %>
 </div>
 
-<div data-controller="dropzone" class="dropzone dropzone-default dz-clickable n-dropzone"></div>
-
 <ul class="n-cards-grid list-none">
+  <div data-controller="dropzone" class="md:col-span-2 lg:col-span-4 xl:col-span-6 2xl:col-span-8 dropzone n-card n-main-border dz-clickable"></div>
   <% @documents.each do |document| %>
     <li class="n-card n-main-border lg:col-span-2 ">
-      <div class="truncate flex gap-4 justify-between items-center">
-        <h5 class="n-card-title"><%= document.title %></h5>
-        <%= link_to sources_document_path(document), title:"Delete document", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", }, class: "text-red-500 n-btn-icon n-main-hover n-main-focus" do %>
-          <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
-          <span class="sr-only">Delete document</span>
-        <% end %>
-      </div>
-      <div class="flex gap-4 justify-between items-center">
-        <p class="n-card-subtitle"><%= document.account&.name %></p>
-        <div class="flex gap-4">
-          <%= link_to sources_document_path(document), title:"Show document", class: "n-btn-icon n-main-hover n-main-focus" do %>
-            <%= inline_svg "svg/eye.svg", title:"Show", alt:"Eye", class: "mx-auto w-6 h-6" %>
-            <span class="sr-only">Show document</span>
-          <% end %>
+      <div class="m-6 space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="n-card-subtitle"><%= document.account&.name %></p>
+          <div class="flex items-center gap-4">
+            <%= link_to sources_document_path(document), title:"Show document", class: "n-btn-icon n-main-hover n-main-focus" do %>
+              <%= inline_svg "svg/eye.svg", title:"Show", alt:"Eye", class: "mx-auto w-6 h-6" %>
+              <span class="sr-only">Show document</span>
+            <% end %>
+            <%= link_to sources_document_path(document), title:"Delete document", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+              <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
+              <span class="sr-only">Delete document</span>
+            <% end %>
+          </div>
         </div>
+        <h5 class="n-card-title">
+          <span class="text-wrap"><%= document.title %></span>
+        </h5>
       </div>
     </li>
   <% end %>

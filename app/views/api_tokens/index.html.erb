@@ -4,26 +4,28 @@
 
 <div class="n-cards-grid">
   <div class="n-card n-main-border w-full row-span-2 lg:col-span-2">
-    <h2 class="n-card-title">New API token</h2>
-    <%= render "form", api_token: ApiToken.new %>
+    <div class="n-card-content">
+      <h2 class="n-card-title">New API token</h2>
+      <%= render "form", api_token: ApiToken.new %>
+    </div>
   </div>
 
   <% @api_tokens.each do |api_token| %>
     <div class="n-card n-main-border lg:col-span-2">
-      <div class="flex justify-between">
+      <div class="mt-6 ml-6 mr-4 flex gap-4 justify-between">
         <h2 class="n-card-title"><%= api_token.name %> <span class="text-sm upercase">(<%= api_token.account.name %>)</span></h2>
-        <%= button_to api_token, method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "text-red-500 n-btn-icon n-main-hover n-main-focus" do %>
+        <%= button_to api_token, method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
           <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
           <span class="sr-only">Delete API token</span>
         <% end %>
       </div>
-      <div data-controller="clipboard reveal" data-clipboard-success-content-value="Copied!" class="grid grid-cols-5 gap-4">
-        <button data-action="click->reveal#toggle" type="button" class="n-btn-icon n-main-hover n-main-focus">
+      <div data-controller="clipboard reveal" data-clipboard-success-content-value="Copied!" class="mb-6 ml-6 mr-4 grid grid-cols-5 place-center gap-2">
+        <button data-action="click->reveal#toggle" type="button" class="n-btn-icon n-main-hover n-main-focus w-fit">
           <%= inline_svg "svg/eye.svg", title:"Show", alt:"Eye", class: "mx-auto w-6 h-6" %>
           <span class="sr-only">Show API token</span>
         </button>
         <input type="text" value="<%= api_token.token %>" data-reveal-target="item" data-clipboard-target="source" class="hidden col-span-3 w-full truncate p-2 rounded-lg bg-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-slate-700 dark:placeholder-slate-400 dark:focus:ring-green-500">
-        <button type="button" data-action="clipboard#copy" data-clipboard-target="button" data-reveal-target="item" class="hidden cursor-pointer n-btn p-4 n-main-hover">
+        <button type="button" data-action="clipboard#copy" data-clipboard-target="button" data-reveal-target="item" class="hidden cursor-pointer n-btn-icon n-main-hover n-main-focus w-fit">
           <%= inline_svg "svg/clipboard.svg", title:"Copy", alt:"Copy", class: "mx-auto w-6 h-6" %>
           <span class="sr-only">Copy to clipboard</span>
         </button>
