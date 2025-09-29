@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   delete "logout", to: "sessions#destroy"
 
   # API routes
+  get "v1/models", to: "api/v1/models#index"
   post "v1/chat/completions", to: "api/v1/completions#create"
   post "v1/completions", to: "api/v1/completions#create"
   namespace :api do
@@ -21,11 +22,16 @@ Rails.application.routes.draw do
   constraints Authentication::Authenticated do
     resources :accounts, only: [ :index, :edit, :update ]
     resources :api_tokens, only: [ :index, :create, :destroy ]
-    resources :chats, only: [ :show, :create, :destroy ] do
+    resources :chats, only: [ :show, :new, :create, :destroy ] do
       resources :messages, only: [ :create ]
     end
     resources :chunks, only: [ :show ]
     resources :dashboards, only: [ :show ]
+    resources :models, only: [ :index, :show ] do
+      collection do
+        post :refresh
+      end
+    end
 
     root to: "dashboards#show", as: :user_root
   end

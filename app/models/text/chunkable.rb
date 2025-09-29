@@ -20,7 +20,6 @@ module Text::Chunkable
 
     new_chunks.each do |new_chunk|
       chunk = self.chunks.create!(account:, content: new_chunk.dig(:text))
-      chunk.vectorize!
     end
   end
 end

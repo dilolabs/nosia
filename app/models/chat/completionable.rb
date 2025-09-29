@@ -7,7 +7,8 @@ module Chat::Completionable
     end
   end
 
-  def complete(model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, &block)
+  # TODO: Refactor
+  def complete_with_nosia(content, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, &block)
     options = default_options.merge(
       {
         model:,
@@ -20,12 +21,30 @@ module Chat::Completionable
 
     case self.class.ai_provider
     when "ollama"
-      complete_with_ollama(top_k: options[:top_k], top_p: options[:top_p], &block)
+      complete_with_ollama(content, top_k: options[:top_k], top_p: options[:top_p], &block)
     when "infomaniak"
-      complete_with_infomaniak(model: options[:model], temperature: options[:temperature], top_p: options[:top_p], max_tokens: options[:max_tokens], &block)
+      complete_with_cloud(content, model: options[:model], temperature: options[:temperature], top_p: options[:top_p], max_tokens: options[:max_tokens], &block)
     else
       raise "Unsupported AI provider: #{self.class.ai_provider}"
     end
+  end
+
+  def complete_with_cloud(question, model:, temperature:, top_p:, max_tokens:, &block)
+    self.with_temperature(temperature)
+    self.with_instructions(system_prompt) if messages.empty?
+
+    search_results = self.search(question)
+    question = prompt(question, search_results:) if search_results.any?
+
+    self.ask(question) do |chunk|
+      if chunk.content && !chunk.content.blank?
+        message = self.messages.last
+        message.broadcast_append_chunk(chunk.content)
+      end
+    end
+
+    message = self.messages.last
+    message.update(similar_chunk_ids: search_results.pluck(:id))
   end
 
   private
@@ -40,8 +59,20 @@ module Chat::Completionable
     }
   end
 
+  def prompt(question, search_results:)
+    context = search_results.map do |retrieved_chunk|
+      retrieved_chunk.context
+    end.join("\n\n")
+
+    "<context>#{context}</context>#{question}"
+  end
+
   def retrieval_fetch_k
     ENV.fetch("RETRIEVAL_FETCH_K", 4)
+  end
+
+  def search(question)
+    account.chunks.search_by_similarity(question, limit: retrieval_fetch_k)
   end
 
   def system_prompt
