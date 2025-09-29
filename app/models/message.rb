@@ -23,6 +23,7 @@ class Message < ApplicationRecord
   end
 
   def broadcast_created
+    return if system?
     broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
   end
 
