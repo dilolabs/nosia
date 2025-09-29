@@ -1,0 +1,26 @@
+<p style="color: green"><%= notice %></p>
+
+<% content_for :title, "Models" %>
+
+<h1>Models</h1>
+
+<p>
+  <%= button_to "Refresh Models", refresh_models_path, method: :post %>
+</p>
+
+<div id="models">
+  <table>
+    <thead>
+      <tr>
+        <th>Provider</th>
+        <th>Model</th>
+        <th>Context Window</th>
+        <th>$/1M tokens (In/Out)</th>
+        <th colspan="2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <%= render @models %>
+    </tbody>
+  </table>
+</div>

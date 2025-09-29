@@ -1,0 +1,16 @@
+<div id="<%= dom_id chat %>">
+  <div>
+    <strong>Model:</strong>
+    <%= chat.model&.name || 'Default' %>
+  </div>
+
+  <div>
+    <strong>Messages:</strong>
+    <%= chat.messages.count %>
+  </div>
+
+  <div>
+    <strong>Created:</strong>
+    <%= chat.created_at.strftime("%B %d, %Y at %I:%M %p") %>
+  </div>
+</div>

@@ -1,25 +1,24 @@
-# frozen_string_literal: true
-
 class MessagesController < ApplicationController
-  include ActionView::RecordIdentifier
+  before_action :set_chat
 
   def create
-    @chat = Current.user.chats.find(params[:chat_id])
-    @message = @chat.messages.create(
-      message_params.merge(
-        response_number: @chat.messages.count
-      ),
-    )
-    GetAiResponseJob.perform_later(@message.chat_id)
+    return unless content.present?
+
+    ChatResponseJob.perform_later(@chat.id, content)
 
     respond_to do |format|
       format.turbo_stream
+      format.html { redirect_to @chat }
     end
   end
 
   private
 
-  def message_params
-    params.require(:message).permit(:content)
+  def set_chat
+    @chat = Current.user.chats.find(params[:chat_id])
+  end
+
+  def content
+    params[:message][:content]
   end
 end

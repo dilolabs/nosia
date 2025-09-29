@@ -1,40 +1,7 @@
 module Chat::Ollama
   extend ActiveSupport::Concern
 
-  class_methods do
-    def new_ollama_llm
-      Langchain::LLM::OpenAI.new(
-        api_key: ENV.fetch("OLLAMA_API_KEY", ""),
-        llm_options: {
-          uri_base: ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434")
-        },
-        default_options: {
-          chat_completion_model_name: ENV.fetch("LLM_MODEL", "granite3.3:2b"),
-          completion_model_name: ENV.fetch("LLM_MODEL", "granite3.3:2b"),
-          embeddings_model_name: ENV.fetch("EMBEDDING_MODEL", "granite-embedding:278m"),
-          temperature: ENV.fetch("LLM_TEMPERATURE", 0.1).to_f,
-          num_ctx: ENV.fetch("LLM_NUM_CTX", 4_096).to_i
-        }
-      )
-    end
-
-    def new_ollama_check_llm
-      Langchain::LLM::OpenAI.new(
-        api_key: ENV.fetch("OLLAMA_API_KEY", ""),
-        llm_options: {
-          uri_base: ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434")
-        },
-        default_options: {
-          chat_completion_model_name: ENV.fetch("CHECK_MODEL", "granite3-guardian:2b"),
-          completion_model_name: ENV.fetch("CHECK_MODEL", "granite3-guardian:2b"),
-          temperature: ENV.fetch("LLM_TEMPERATURE", 0.1).to_f,
-          num_ctx: ENV.fetch("LLM_NUM_CTX", 2_048).to_i
-        }
-      )
-    end
-  end
-
-  def complete_with_ollama(top_k:, top_p:, &block)
+  def complete_with_ollama(content, top_k:, top_p:, &block)
     question = last_question
 
     context = []
@@ -54,7 +21,7 @@ module Chat::Ollama
       partial: "messages/search_content",
       locals: { message: assistant_response, step: "loading" }
 
-    search_results = Chunk.where(account:).similarity_search(question, k: retrieval_fetch_k)
+    search_results = Chunk.where(account:).search_by_similarity(question, limit: retrieval_fetch_k)
     search_results.each_with_index do |search_result, index|
       context_to_check = search_result.content
 

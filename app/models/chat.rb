@@ -1,22 +1,20 @@
 class Chat < ApplicationRecord
   include Completionable
-  include Infomaniak
   include Ollama
+
+  acts_as_chat
+  broadcasts_to ->(chat) { [chat, "messages"] }
 
   belongs_to :account
   belongs_to :user
-  has_many :messages, -> { order(:response_number) }, dependent: :destroy
+  has_many :messages, dependent: :destroy
 
   def first_question
-    messages.where(role: "user").order(:created_at).first&.content
-  end
-
-  def last_question
-    messages.where(role: "user").order(:created_at).last&.content
+    messages.where(role: "user").order(:created_at).first&.content_without_context
   end
 
   def messages_hash
-    messages.order(:response_number).map do |message|
+    messages.where(role: ["user", "assistant"]).order(:response_number).map do |message|
       {
         role: message.role,
         content: message.content
