@@ -1,6 +1,5 @@
 Rails.application.routes.draw do
-  root "static#index"
-
+  # First run
   resource :first_run
 
   # Authentication routes
@@ -24,7 +23,7 @@ Rails.application.routes.draw do
 
   # User routes
   constraints Authentication::Authenticated do
-    resources :accounts, only: [ :index, :edit, :update ]
+    resources :accounts, only: [ :index, :new, :edit, :create, :update ]
     resources :api_tokens, only: [ :index, :create, :destroy ]
     resources :chats, only: [ :show, :new, :create, :destroy ] do
       resources :messages, only: [ :create ]
@@ -47,6 +46,8 @@ Rails.application.routes.draw do
 
     root to: "dashboards#show", as: :user_root
   end
+
+  root "static#index"
 
   # Admin routes
   constraints Authentication::Admin do
