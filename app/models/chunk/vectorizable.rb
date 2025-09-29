@@ -11,7 +11,7 @@ module Chunk::Vectorizable
         config.openai_api_base = ENV['OPENAI_EMBEDDING_API_BASE'] || ENV['OPENAI_API_BASE']
         config.openai_api_key = ENV['OPENAI_API_KEY']
       end
-      query_embedding = RubyLLM.embed(query_text, context:).vectors
+      query_embedding = RubyLLM.embed(query_text, context:, model: ENV['EMBEDDING_MODEL'], provider: :openai, assume_model_exists: true).vectors
       nearest_neighbors(:embedding, query_embedding, distance: :cosine).limit(limit)
     }
   end
@@ -26,7 +26,7 @@ module Chunk::Vectorizable
         config.openai_api_base = ENV['OPENAI_EMBEDDING_API_BASE'] || ENV['OPENAI_API_BASE']
         config.openai_api_key = ENV['OPENAI_API_KEY']
       end
-      embedding_result = RubyLLM.embed(content, context:) # Uses default embedding model
+      embedding_result = RubyLLM.embed(content, context:, provider: ENV['EMBEDDING_MODEL'], model: :openai, assume_model_exists: true) # Uses default embedding model
       self.embedding = embedding_result.vectors
     rescue RubyLLM::Error => e
       errors.add(:base, "Failed to generate embedding: #{e.message}")

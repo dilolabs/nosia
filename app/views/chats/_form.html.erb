@@ -13,7 +13,6 @@
 
   <% # TODO: form.label :model, "Select AI model" %>
   <% # TODO: form.select :model, options_for_select(Model.pluck(:name, :model_id).unshift(["Default (#{RubyLLM.config.default_model})", nil]), @selected_model), {}, class: "" %>
-  <%= form.hidden_field :model, value: RubyLLM.config.default_model %>
 
   <%= form.label :prompt, "Ask any question", class: "sr-only" %>
   <div class="relative">

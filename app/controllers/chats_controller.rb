@@ -21,7 +21,7 @@ class ChatsController < ApplicationController
 
   def destroy
     @chat.destroy
-    redirect_to chats_path
+    redirect_to root_path
   end
 
   private
@@ -31,7 +31,7 @@ class ChatsController < ApplicationController
   end
 
   def model
-    params[:chat][:model].presence
+    params[:chat][:model].presence || ENV['LLM_MODEL']
   end
 
   def prompt

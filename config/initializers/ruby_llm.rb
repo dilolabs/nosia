@@ -1,13 +1,3 @@
-module RubyLLM
-  class Models
-    class << self
-      def models_file
-        Rails.root.join('lib', 'ruby_llm', 'models.json')
-      end
-    end
-  end
-end
-
 RubyLLM.configure do |config|
   config.default_model = ENV['LLM_MODEL']
   config.default_embedding_model = ENV['EMBEDDING_MODEL']

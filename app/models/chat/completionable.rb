@@ -30,6 +30,8 @@ module Chat::Completionable
   end
 
   def complete_with_cloud(question, model:, temperature:, top_p:, max_tokens:, &block)
+    self.assume_model_exists = true
+    self.with_model(ENV['LLM_MODEL'], provider: :openai)
     self.with_temperature(temperature)
     self.with_instructions(system_prompt) if messages.empty?
 
