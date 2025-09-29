@@ -1,0 +1,15 @@
+<section class="mx-auto max-w-screen-2xl p-4 isolate">
+  <div class="flex flex-col space-y-8 mx-auto max-w-2xl">
+    <p class="text-center text-gray-500 font-medium tracking-wide uppercase">BETA</p>
+    <p class="mt-2 text-center text-4xl md:text-6xl font-bold tracking-tight">
+    Nosia
+    </p>
+    <% unless Current.user %>
+      <%= render "sessions/form", user: User.new %>
+      <% if registrations_allowed? %>
+        <p class="text-center text-gray-500 font-medium tracking-wide uppercase">or sign up</p>
+        <%= render "users/form", user: User.new %>
+      <% end %>
+    <% end %>
+  </div>
+</section>

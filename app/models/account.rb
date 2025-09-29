@@ -1,7 +1,13 @@
 class Account < ApplicationRecord
   belongs_to :owner, class_name: "User"
 
-  has_many :account_users, dependent: :destroy
+  has_many :account_users, dependent: :destroy do
+    def grant_to(users)
+      account = proxy_association.owner
+      AccountUser.insert_all(Array(users).collect { |user| { account_id: account.id, user_id: user.id } })
+    end
+  end
+  has_many :api_tokens, dependent: :destroy
   has_many :users, through: :account_users
   has_many :chats, dependent: :destroy
   has_many :chunks, dependent: :destroy
