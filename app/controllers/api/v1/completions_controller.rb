@@ -15,6 +15,9 @@ module Api
         top_p = completion_params[:top_p]&.to_f
 
         if completion_params[:messages].present?
+          last_message = completion_params[:messages].pop
+          prompt = last_message[:content]
+
           completion_params[:messages].each do |message_params|
             @chat.messages.create(
               content: message_params[:content],
@@ -23,17 +26,13 @@ module Api
             )
           end
         elsif completion_params[:prompt].present?
-          @chat.messages.create(
-            content: message_params[:prompt],
-            response_number: @chat.messages.count,
-            role: "user"
-          )
+          prompt = completion_params[:prompt]
         end
 
         stream_response = ActiveModel::Type::Boolean.new.cast(params[:stream]) || false
 
         if stream_response
-          chat_response = @chat.complete(model:, temperature:, top_k:, top_p:, max_tokens:) do |stream|
+          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:) do |stream|
             stream_content = stream.dig("delta", "content")
             next unless stream_content
             done = !!stream.dig("finish_reason")
@@ -59,7 +58,7 @@ module Api
             end
           end
         else
-          chat_response = @chat.complete(model:, temperature:, top_k:, top_p:, max_tokens:)
+          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:)
           render json: {
             choices: [
               finish_reason: "stop",
