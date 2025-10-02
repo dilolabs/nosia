@@ -21,7 +21,7 @@ module Qna::Chunkable
     self.chunks.destroy_all
 
     new_chunks.each do |new_chunk|
-      chunk = self.chunks.create!(account:, content: new_chunk.dig(:text))
+      self.chunks.create!(account:, content: new_chunk.dig(:text))
     end
   end
 end

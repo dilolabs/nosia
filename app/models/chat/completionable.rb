@@ -7,7 +7,6 @@ module Chat::Completionable
     end
   end
 
-  # TODO: Refactor
   def complete_with_nosia(content, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, &block)
     options = default_options.merge(
       {
@@ -19,19 +18,12 @@ module Chat::Completionable
       }.compact_blank
     )
 
-    case self.class.ai_provider
-    when "ollama"
-      complete_with_ollama(content, top_k: options[:top_k], top_p: options[:top_p], &block)
-    when "infomaniak"
-      complete_with_cloud(content, model: options[:model], temperature: options[:temperature], top_p: options[:top_p], max_tokens: options[:max_tokens], &block)
-    else
-      raise "Unsupported AI provider: #{self.class.ai_provider}"
-    end
+    complete_with_cloud(content, model: options[:model], temperature: options[:temperature], top_p: options[:top_p], max_tokens: options[:max_tokens], &block)
   end
 
   def complete_with_cloud(question, model:, temperature:, top_p:, max_tokens:, &block)
     self.assume_model_exists = true
-    self.with_model(ENV['LLM_MODEL'], provider: :openai)
+    self.with_model(ENV["LLM_MODEL"], provider: :openai)
     self.with_temperature(temperature)
     self.with_instructions(system_prompt) if messages.empty?
 

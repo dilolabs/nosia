@@ -13,7 +13,7 @@ class ChatsController < ApplicationController
   def create
     return unless prompt.present?
 
-    @chat = Current.user.chats.create!(account: Current.account, model: model)
+    @chat = Current.user.chats.create!(account: Current.account, model: model, provider: :openai, assume_model_exists: true)
     ChatResponseJob.perform_later(@chat.id, prompt)
 
     redirect_to @chat, notice: 'Chat was successfully created.'
