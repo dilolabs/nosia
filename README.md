@@ -58,7 +58,7 @@ You can now access Nosia at `https://nosia.localhost`
 
 By default, Nosia sets up `ollama` locally.
 
-To use a remote Ollama instance, set the `OLLAMA_BASE_URL` environment variable during configuration.
+To use a remote Ollama instance, set the `AI_API_BASE` environment variable during configuration.
 
 **Example:**
 
@@ -66,16 +66,15 @@ Replace `$OLLAMA_HOST_IP` with the FQDN or IP address of your Ollama host and ru
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-install.sh \
-  | OLLAMA_BASE_URL=http://$OLLAMA_HOST_IP:11434 sh
+  | AI_API_BASE=http://$OLLAMA_HOST_IP:11434/v1 sh
 ```
 
 #### With a custom completion model
 
 By default, Nosia uses:
 
-1. Completion model: `granite3.3:2b`
+1. Completion model: `granite4:micro-h`
 1. Embeddings model: `granite-embedding:278m`
-1. Checking model: `granite3-guardian:2b`
 
 You can use any completion model available on Ollama by setting the `LLM_MODEL` environment variable during the installation.
 
@@ -128,10 +127,9 @@ Replace `$OLLAMA_HOST_IP` with the IP address of the Ollama host machine and run
 
 ```bash
 brew install ollama
-ollama pull granite3.3:2b
-ollama pull granite3-guardian:2b
+ollama pull granite4:micro-h
 ollama pull granite-embedding:278m
-OLLAMA_BASE_URL=$OLLAMA_HOST_IP:11434 OLLAMA_KEEP_ALIVE=0 OLLAMA_MAX_LOADED_MODELS=3 ollama serve
+OLLAMA_HOST=$OLLAMA_HOST_IP OLLAMA_KEEP_ALIVE=0 OLLAMA_MAX_LOADED_MODELS=3 ollama serve
 ```
 
 On the Debian/Ubuntu VM:
@@ -140,7 +138,7 @@ Replace `$OLLAMA_HOST_IP` with the IP address of the host machine and run the fo
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-install.sh \
-  | OLLAMA_BASE_URL=http://$OLLAMA_HOST_IP:11434 sh
+  | AI_API_BASE=http://$OLLAMA_HOST_IP:11434/v1 sh
 ```
 
 You should see the following output:
