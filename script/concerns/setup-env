@@ -14,25 +14,18 @@ else
   NOSIA_URL=https://nosia.localhost
 fi
 
-if [ -n "$OLLAMA_BASE_URL" ]; then
-  echo "Using OLLAMA_BASE_URL from environment"
+if [ -n "$AI_API_BASE" ]; then
+  echo "Using AI_API_BASE from environment"
 else
-  echo "OLLAMA_BASE_URL is not set, using default value"
-  OLLAMA_BASE_URL=http://localhost:11434
+  echo "AI_API_BASE is not set, using default value"
+  AI_API_BASE=http://localhost:11434/v1
 fi
 
 if [ -n "$LLM_MODEL" ]; then
   echo "Using LLM_MODEL from environment"
 else
   echo "LLM_MODEL is not set, using default value"
-  LLM_MODEL=granite3.3:2b
-fi
-
-if [ -n "$CHECK_MODEL" ]; then
-  echo "Using CHECK_MODEL from environment"
-else
-  echo "CHECK_MODEL is not set, using default value"
-  CHECK_MODEL=granite3-guardian:2b
+  LLM_MODEL=granite4:micro-h
 fi
 
 if [ -n "$EMBEDDING_MODEL" ]; then
@@ -52,10 +45,9 @@ SECRET_KEY_BASE=$(openssl rand -hex 64)
 
 echo "DATABASE_URL=$DATABASE_URL" >.env
 echo "NOSIA_URL=$NOSIA_URL" >>.env
-echo "OLLAMA_BASE_URL=$OLLAMA_BASE_URL" >>.env
-echo "OLLAMA_API_KEY=" >>.env
+echo "AI_API_BASE=$AI_API_BASE" >>.env
+echo "AI_API_KEY=" >>.env
 echo "LLM_MODEL=$LLM_MODEL" >>.env
-echo "CHECK_MODEL=$CHECK_MODEL" >>.env
 echo "EMBEDDING_MODEL=$EMBEDDING_MODEL" >>.env
 echo "SMTP_ADDRESS=" >>.env
 echo "SMTP_PORT=" >>.env
@@ -70,11 +62,10 @@ echo "SECRET_KEY_BASE=$SECRET_KEY_BASE" >>.env
 echo "LLM_TEMPERATURE=0.1" >>.env
 echo "CHUNK_SIZE=1_500" >>.env
 echo "CHUNK_OVERLAP=250" >>.env
-echo 'SEPARATORS=["\n\n", "\n", " "]' >>.env
 echo "LLM_NUM_CTX=8_192" >>.env
 echo "LLM_TOP_K=40" >>.env
 echo "LLM_TOP_P=0.9" >>.env
-echo "RETRIEVAL_FETCH_K=3" >>.env
+echo "RETRIEVAL_FETCH_K=4" >>.env
 echo "RAG_SYSTEM_TEMPLATE="You are Nosia, a helpful assistant. If necessary, use the information contained in the Nosia helpful content between <context> and </context>. Give a comprehensive answer to the question. Respond only to the question asked, response should be relevant to the question. If the answer cannot be deduced from the Nosia helpful content, do not use the context." >> .env
 
 echo ".env file generated"
