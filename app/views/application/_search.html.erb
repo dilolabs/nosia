@@ -30,7 +30,7 @@
               <div class="p-2">
                 <h2 class="sr-only">Quick actions</h2>
                 <div class="text-sm text-gray-700 dark:text-gray-300">
-                  <%= link_to chats_path, data: { turbo_method: :post }, class: "group flex cursor-default items-center rounded-md px-3 py-2 select-none focus:outline-hidden aria-selected:bg-blue-600 aria-selected:text-white dark:aria-selected:bg-blue-500" do %>
+                  <%= link_to new_chat_path, class: "group flex cursor-default items-center rounded-md px-3 py-2 select-none focus:outline-hidden aria-selected:bg-blue-600 aria-selected:text-white dark:aria-selected:bg-blue-500" do %>
                     <%= inline_svg "svg/chats.svg", class: "size-6 flex-none text-gray-400 group-aria-selected:text-white dark:text-gray-500 forced-colors:group-aria-selected:text-[Highlight]" %>
                     <span class="ml-3 flex-auto truncate">Ask any question...</span>
                   <% end %>
