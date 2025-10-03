@@ -35,6 +35,7 @@ Rails.application.routes.draw do
         post :refresh
       end
     end
+    resource :profile, only: [ :show ]
     resource :settings, only: [ :show ]
     resources :sources, only: [ :index ]
     namespace :sources do

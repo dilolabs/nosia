@@ -27,7 +27,7 @@
       <div id="dropdown" class="hidden w-60 overflow-y-auto rounded-lg bg-slate-100 dark:bg-slate-900 shadow-md border n-main-border" data-popper-placement="bottom">
         <ul aria-labelledby="dropdownButton" class="!list-none p-2 text-start text-sm font-medium text-gray-900 dark:text-white">
           <li>
-            <%= link_to "#", class:"group flex items-center gap-2 rounded-md px-3 py-2 n-main-hover n-main-focus" do %>
+            <%= link_to profile_path, class:"group flex items-center gap-2 rounded-md px-3 py-2 n-main-hover n-main-focus" do %>
               <%= inline_svg "svg/identification.svg", title:"User", alt:"User info", class: "w-6 h-6" %>
               <span>User info</span>
             <% end %>
