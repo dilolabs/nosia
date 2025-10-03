@@ -1,5 +1,5 @@
 class ChatsController < ApplicationController
-  before_action :set_chat, only: [:show, :destroy]
+  before_action :set_chat, only: [ :show, :destroy ]
 
   def show
     @message = @chat.messages.build
@@ -16,7 +16,7 @@ class ChatsController < ApplicationController
     @chat = Current.user.chats.create!(account: Current.account, model: model, provider: :openai, assume_model_exists: true)
     ChatResponseJob.perform_later(@chat.id, prompt)
 
-    redirect_to @chat, notice: 'Chat was successfully created.'
+    redirect_to @chat, notice: "Chat was successfully created."
   end
 
   def destroy
@@ -31,7 +31,7 @@ class ChatsController < ApplicationController
   end
 
   def model
-    params[:chat][:model].presence || ENV['LLM_MODEL']
+    params[:chat][:model].presence || ENV["LLM_MODEL"]
   end
 
   def prompt

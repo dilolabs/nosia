@@ -1,4 +1,4 @@
-<div data-controller="new-message-event-dispatcher" id="<%= dom_id(message, :messages) %>" style="order: <%= message.response_number + 1 %>">
+<%= tag.div data: { controller: "new-message-event-dispatcher", message_ordering_target: "message", created_at: message.created_at.iso8601 }, id: dom_id(message, :messages) do %>
   <% if message.user? %>
     <div class="flex flex-row py-4">
       <div class="text-xl font-bold">
@@ -54,4 +54,4 @@
         </div>
     </div>
   <% end %>
-</div>
+<% end %>

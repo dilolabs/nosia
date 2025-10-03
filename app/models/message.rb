@@ -2,10 +2,12 @@ class Message < ApplicationRecord
   include ActionView::RecordIdentifier
 
   acts_as_message
-  broadcasts_to ->(message) { [message.chat, "messages"] }
+  broadcasts_to ->(message) { [ message.chat, "messages" ] }
   has_many_attached :attachments
 
-  scope :without_system, -> { where.not(role: :system) }
+  scope :for_user, -> { without_system_prompts.without_relevance_steps }
+  scope :without_system_prompts, -> { where.not(role: :system) }
+  scope :without_relevance_steps, -> { where.not(step: [ "context_relevance", "answer_relevance" ]) }
 
   enum :role, { system: 0, assistant: 10, user: 20 }
 
@@ -32,14 +34,38 @@ class Message < ApplicationRecord
   end
 
   def content_without_context
+    return unless content.present?
     doc = Nokogiri::HTML::DocumentFragment.parse(content)
+    return unless doc.present?
     doc.at("context")&.remove
-    doc.to_html
+    Commonmarker.to_html(doc.to_html)
   end
 
   def context
+    return unless content.present?
     doc = Nokogiri::HTML::DocumentFragment.parse(content)
-    doc.at("context")&.to_html
+    return unless doc.at("content").present?
+    Commonmarker.to_html(doc.at("context").to_html)
+  end
+
+  def question
+    nil unless content.present?
+    content_without_context
+  end
+
+  def reasoning_content
+    return unless content.present?
+    doc = Nokogiri::HTML::DocumentFragment.parse(content)
+    return unless doc.at("think").present?
+    Commonmarker.to_html(doc.at("think").to_html)
+  end
+
+  def response_content
+    return unless content.present?
+    doc = Nokogiri::HTML::DocumentFragment.parse(content)
+    return unless doc.present?
+    doc.at("think")&.remove
+    Commonmarker.to_html(doc.to_html)
   end
 
   def set_default_role
@@ -56,9 +82,5 @@ class Message < ApplicationRecord
 
   def similar_documents
     Document.where(id: similar_document_ids.uniq)
-  end
-
-  def to_html
-    Commonmarker.to_html(content) if content
   end
 end
