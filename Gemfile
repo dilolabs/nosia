@@ -73,6 +73,7 @@ end
 gem "acts_as_tenant" # Row-level multitenancy [https://github.com/ErwinM/acts_as_tenant]
 gem "baran" # Text Splitter for Large Language Model datasets [https://github.com/moeki0/baran]
 gem "commonmarker" # CommonMark and GitHub Flavored Markdown compatible parser and renderer [https://github.com/gjtorikian/commonmarker]
+gem "actioncable-enhanced-postgresql-adapter" # An enhanced ActionCable adapter for PostgreSQL [https://github.com/reclaim-the-stack/actioncable-enhanced-postgresql-adapter]
 gem "faraday" # HTTP client library abstraction layer [https://github.com/lostisland/faraday]
 gem "inline_svg" # Embed SVG documents in views and style them with CSS [https://github.com/jamesmartin/inline_svg]
 gem "mission_control-jobs" # Dashboard and Active Job extensions to operate and troubleshoot background jobs [https://github.com/rails/mission_control-jobs]
