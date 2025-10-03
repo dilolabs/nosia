@@ -325,8 +325,6 @@ GEM
     regexp_parser (2.11.3)
     reline (0.6.2)
       io-console (~> 0.5)
-    reverse_markdown (3.0.0)
-      nokogiri
     rexml (3.4.4)
     rubocop (1.81.1)
       json (~> 2.3)
@@ -472,7 +470,6 @@ DEPENDENCIES
   pundit
   rails (~> 8.0.0)
   redis (>= 4.0.1)
-  reverse_markdown
   rubocop-rails-omakase
   ruby_llm
   selenium-webdriver
