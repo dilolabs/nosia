@@ -15,10 +15,11 @@ module Api
         top_p = completion_params[:top_p]&.to_f
 
         if completion_params[:messages].present?
-          last_message = completion_params[:messages].pop
+          messages = completion_params[:messages]
+          last_message = messages.pop
           prompt = last_message[:content]
 
-          completion_params[:messages].each do |message_params|
+          messages.each do |message_params|
             @chat.messages.create(
               content: message_params[:content],
               response_number: @chat.messages.count,
@@ -64,7 +65,7 @@ module Api
               }
             ],
             created: Time.now.to_i,
-            id: "chatcmpl-#{@uuid}",
+            id: "chatcmpl-#{@chat.id}",
             model: "nosia:#{ENV["LLM_MODEL"]}",
             object: "chat.completion",
             system_fingerprint: "fp_nosia"
