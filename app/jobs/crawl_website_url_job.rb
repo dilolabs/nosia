@@ -4,6 +4,5 @@ class CrawlWebsiteUrlJob < ApplicationJob
   def perform(website_id)
     website = Website.find(website_id)
     website.crawl_url!
-    website.chunkify! if website.data.present?
   end
 end

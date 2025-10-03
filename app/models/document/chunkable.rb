@@ -34,7 +34,9 @@ module Document::Chunkable
     self.chunks.destroy_all
 
     new_chunks.each do |new_chunk|
-      self.chunks.create!(account:, content: new_chunk.dig(:text))
+      content = new_chunk.dig(:text)
+      next if content.blank?
+      self.chunks.create!(account:, content:)
     end
   end
 end

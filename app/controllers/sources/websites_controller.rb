@@ -26,7 +26,7 @@ module Sources
 
       respond_to do |format|
         if @website.save
-          CrawlWebsiteUrlsJob.perform_later(@website.id)
+          CrawlWebsiteUrlJob.perform_later(@website.id)
           format.html { redirect_to sources_website_url(@website), notice: "Website was successfully created." }
           format.json { render :show, status: :created, location: @website }
         else

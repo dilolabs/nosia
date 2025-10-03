@@ -3,6 +3,7 @@ module Chat::SimilaritySearch
 
   def similarity_search(question)
     chunks = account.chunks.search_by_similarity(question, limit: retrieval_fetch_k)
-    chunks.select { |chunk| context_relevance(chunk.context, question:) }
+    augmented_context = ENV.fetch("AUGMENTED_CONTEXT", "false") == "true"
+    chunks.select { |chunk| context_relevance(augmented_context ? chunk.augmented_context : chunk.context, question:) }
   end
 end
