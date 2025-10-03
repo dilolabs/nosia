@@ -5,9 +5,8 @@ class Message < ApplicationRecord
   broadcasts_to ->(message) { [ message.chat, "messages" ] }
   has_many_attached :attachments
 
-  scope :for_user, -> { without_system_prompts.without_relevance_steps }
+  scope :for_user, -> { without_system_prompts }
   scope :without_system_prompts, -> { where.not(role: :system) }
-  scope :without_relevance_steps, -> { where.not(step: [ "context_relevance", "answer_relevance" ]) }
 
   enum :role, { system: 0, assistant: 10, user: 20 }
 
@@ -49,8 +48,11 @@ class Message < ApplicationRecord
   end
 
   def question
-    nil unless content.present?
-    content_without_context
+    return unless content.present?
+    doc = Nokogiri::HTML::DocumentFragment.parse(content)
+    return unless doc.present?
+    doc.at("context")&.remove
+    doc.to_html
   end
 
   def reasoning_content

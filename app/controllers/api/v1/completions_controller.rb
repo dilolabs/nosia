@@ -32,31 +32,26 @@ module Api
         stream_response = ActiveModel::Type::Boolean.new.cast(params[:stream]) || false
 
         if stream_response
-          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:) do |stream|
-            stream_content = stream.dig("delta", "content")
-            next unless stream_content
-            done = !!stream.dig("finish_reason")
-            if done
-              response.stream.write("data: [DONE]\n\n")
-            else
-              data = {
-                choices: [
-                  delta: {
-                    content: stream_content,
-                    role: "assistant"
-                  },
-                  finish_reason: done ? "stop" : nil,
-                  index: 0
-                ],
-                created: Time.now.to_i,
-                id: "chatcmpl-#{@chat.id}",
-                model: "nosia:#{ENV["LLM_MODEL"]}",
-                object: "chat.completion.chunk",
-                system_fingerprint: "fp_nosia"
-              }
-              response.stream.write("data: #{data.to_json}\n\n")
-            end
+          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:) do |chunk|
+            next unless chunk.content && !chunk.content.blank?
+            data = {
+              choices: [
+                delta: {
+                  content: chunk.content,
+                  role: "assistant"
+                },
+                finish_reason: nil,
+                index: 0
+              ],
+              created: Time.now.to_i,
+              id: "chatcmpl-#{@chat.id}",
+              model: "nosia:#{model || ENV["LLM_MODEL"]}",
+              object: "chat.completion.chunk",
+              system_fingerprint: "fp_nosia"
+            }
+            response.stream.write("data: #{data.to_json}\n\n")
           end
+          response.stream.write("data: [DONE]\n\n")
         else
           chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:)
           render json: {

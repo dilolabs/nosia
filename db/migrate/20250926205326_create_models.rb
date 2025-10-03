@@ -17,13 +17,12 @@ class CreateModels < ActiveRecord::Migration[8.0]
 
       t.timestamps
 
-      t.index [:provider, :model_id], unique: true
+      t.index [ :provider, :model_id ], unique: true
       t.index :provider
       t.index :family
 
       t.index :capabilities, using: :gin
       t.index :modalities, using: :gin
-
     end
 
     # Load models from JSON

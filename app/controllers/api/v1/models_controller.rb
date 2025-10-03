@@ -9,7 +9,7 @@ module Api
           data: [
             id: ENV["LLM_MODEL"],
             object: "model",
-            owned_by: "nosia",
+            owned_by: "nosia"
           ]
         }
       end

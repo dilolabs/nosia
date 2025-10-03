@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_10_03_080715) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_03_195157) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -87,7 +87,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_03_080715) do
     t.bigint "user_id", null: false
     t.bigint "account_id", null: false
     t.bigint "model_id"
+    t.bigint "chat_id"
     t.index ["account_id"], name: "index_chats_on_account_id"
+    t.index ["chat_id"], name: "index_chats_on_chat_id"
     t.index ["model_id"], name: "index_chats_on_model_id"
     t.index ["user_id"], name: "index_chats_on_user_id"
   end
@@ -95,7 +97,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_03_080715) do
   create_table "chunks", force: :cascade do |t|
     t.bigint "chunkable_id", null: false
     t.text "content"
-    t.vector "embedding", limit: 768
+    t.vector "embedding", limit: 384
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "chunkable_type"
@@ -147,7 +149,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_03_080715) do
     t.bigint "tool_call_id"
     t.integer "input_tokens"
     t.integer "output_tokens"
-    t.string "step", default: "default"
     t.index ["chat_id"], name: "index_messages_on_chat_id"
     t.index ["model_id"], name: "index_messages_on_model_id"
     t.index ["tool_call_id"], name: "index_messages_on_tool_call_id"
@@ -382,6 +383,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_03_080715) do
   add_foreign_key "api_tokens", "accounts"
   add_foreign_key "api_tokens", "users"
   add_foreign_key "chats", "accounts"
+  add_foreign_key "chats", "chats"
   add_foreign_key "chats", "models"
   add_foreign_key "chats", "users"
   add_foreign_key "chunks", "accounts"
