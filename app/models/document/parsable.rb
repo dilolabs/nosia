@@ -38,9 +38,10 @@ module Document::Parsable
 
     request_body = {
       options: {
-        to_formats: [
-          "md"
-        ]
+        to_formats: [ "md" ],
+        image_export_mode: "placeholder",
+        table_mode: "accurate",
+        do_picture_description: true
       },
       sources: [
         {
