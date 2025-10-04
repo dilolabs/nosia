@@ -5,8 +5,11 @@ default: &default
   workers:
     - queues: "*"
       threads: 3
-      processes: 1
+      polling_interval: 2
+    - queues: [ real_time, background ]
+      threads: 5
       polling_interval: 0.1
+      processes: 3
 
 development:
   <<: *default
