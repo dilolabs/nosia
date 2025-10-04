@@ -40,8 +40,7 @@ module Document::Parsable
       options: {
         to_formats: [ "md" ],
         image_export_mode: "placeholder",
-        table_mode: "accurate",
-        do_picture_description: true
+        table_mode: "accurate"
       },
       sources: [
         {
