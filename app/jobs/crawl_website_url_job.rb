@@ -1,5 +1,5 @@
 class CrawlWebsiteUrlJob < ApplicationJob
-  queue_as :default
+  queue_as :background
 
   def perform(website_id)
     website = Website.find(website_id)
