@@ -1,4 +1,5 @@
 class Chunk < ApplicationRecord
+  include Enrichable
   include Vectorizable
 
   belongs_to :account

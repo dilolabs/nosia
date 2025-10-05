@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_10_03_195157) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -102,6 +102,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_03_195157) do
     t.datetime "updated_at", null: false
     t.string "chunkable_type"
     t.bigint "account_id", null: false
+    t.jsonb "metadata", default: {}
     t.index ["account_id"], name: "index_chunks_on_account_id"
     t.index ["chunkable_type", "chunkable_id"], name: "index_chunks_on_chunkable_type_and_chunkable_id"
   end
@@ -130,6 +131,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_03_195157) do
     t.bigint "account_id", null: false
     t.string "keywords"
     t.string "url"
+    t.jsonb "metadata", default: {}
     t.index ["account_id"], name: "index_documents_on_account_id"
     t.index ["author_id"], name: "index_documents_on_author_id"
   end
