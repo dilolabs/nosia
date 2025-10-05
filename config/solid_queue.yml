@@ -6,10 +6,14 @@ default: &default
     - queues: "*"
       threads: 3
       polling_interval: 2
-    - queues: [ real_time, background ]
+    - queues: "real_time"
       threads: 5
       polling_interval: 0.1
       processes: 3
+    - queues: "background"
+      threads: 2
+      polling_interval: 5
+      processes: 1
 
 development:
   <<: *default
