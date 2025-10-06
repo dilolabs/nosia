@@ -26,7 +26,7 @@ module Chunk::Vectorizable
         config.openai_api_base = ENV["EMBEDDING_BASE_URL"] || ENV["AI_BASE_URL"]
         config.openai_api_key = ENV["AI_API_KEY"]
       end
-      embedding_result = RubyLLM.embed(content, context:, model: ENV["EMBEDDING_MODEL"], dimensions: ENV["EMBEDDING_DIMENSIONS"].to_i, provider: :openai, assume_model_exists: true) # Uses default embedding model
+      embedding_result = RubyLLM.embed(content, context:, model: ENV["EMBEDDING_MODEL"], dimensions: ENV["EMBEDDING_DIMENSIONS"].to_i, provider: :openai, assume_model_exists: true)
       self.embedding = embedding_result.vectors
     rescue RubyLLM::Error => e
       errors.add(:base, "Failed to generate embedding: #{e.message}")
