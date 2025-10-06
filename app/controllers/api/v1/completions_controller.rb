@@ -6,13 +6,13 @@ module Api
       include ActionController::Live
 
       def create
-        @chat = @user.chats.create(account: @account)
-
         max_tokens = completion_params[:max_tokens]&.to_i
         model = completion_params[:model]
         temperature = completion_params[:temperature]&.to_f
         top_k = completion_params[:top_k]&.to_f
         top_p = completion_params[:top_p]&.to_f
+
+        @chat = @user.chats.create!(account: @account, model: model, provider: :openai, assume_model_exists: true)
 
         if completion_params[:messages].present?
           messages = completion_params[:messages]
