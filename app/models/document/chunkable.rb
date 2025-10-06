@@ -10,6 +10,8 @@ module Document::Chunkable
   end
 
   def chunkify!
+    return if self.content.blank?
+
     # Phase 1: Split by document structure with full header hierarchy
     structural_chunks = split_by_structure_with_hierarchy(self.content, self.metadata)
 
