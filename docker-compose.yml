@@ -23,6 +23,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - AI_BASE_URL=${AI_BASE_URL}
+      - AI_API_KEY=${AI_API_KEY}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - LLM_MODEL=${LLM_MODEL}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
@@ -73,6 +74,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - AI_BASE_URL=${AI_BASE_URL}
+      - AI_API_KEY=${AI_API_KEY}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - LLM_MODEL=${LLM_MODEL}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
