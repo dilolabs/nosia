@@ -1,10 +1,4 @@
 #!/bin/bash
 
 echo "Stopping Nosia"
-podman-compose down &>./log/podman.log
-podman machine stop &>./log/podman.log
-
-if brew list ollama &>/dev/null; then
-  echo "Stopping ollama"
-  killall "ollama" &>./log/ollama.log
-fi
+docker compose down &>./log/docker.log

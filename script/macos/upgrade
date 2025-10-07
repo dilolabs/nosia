@@ -1,15 +1,7 @@
 #!/bin/bash
 
-if brew list ollama &>/dev/null; then
-  echo "Upgrading ollama"
-  brew upgrade ollama &>./log/upgrade.log
-
-  echo "Pulling models. This may take a while..."
-  ./script/concerns/pull-models &>./log/upgrade.log
-fi
-
 echo "Upgrading Nosia"
 # Pull latest changes
 git pull &>./log/upgrade.log
 # Build Nosia
-podman-compose --env-file .env build &>./log/upgrade.log
+docker compose --env-file .env build &>./log/upgrade.log

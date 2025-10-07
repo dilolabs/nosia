@@ -1,47 +1,37 @@
 #!/bin/bash
 
-echo "Setting up prerequisites: brew and openssl"
+echo "Setting up prerequisites"
 
 # Install brew if not installed
 if ! command -v brew &>/dev/null; then
+  echo "Installing Homebrew"
   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | sh &>./log/setup.log
 fi
 
 # Install openssl if not installed
 if ! brew list openssl &>/dev/null; then
+  echo "Installing OpenSSL"
   brew install openssl &>./log/setup.log
 fi
 
-echo "Setting up ollama"
-# Install ollama if not installed
-if ! brew list ollama &>/dev/null; then
-  brew install ollama &>./log/setup.log
-fi
-
-echo "Pulling models. This may take a while..."
-# Start ollama
-brew services start ollama &>./log/setup.log
-# Wait for ollama to start
-sleep 5
-# Pull models
-ollama pull $LLM_MODEL &>./log/setup.log
-ollama pull bespoke-minicheck &>./log/setup.log
-ollama pull nomic-embed-text &>./log/setup.log
-
-echo "Setting up podman"
-# Install podman if not installed
-if ! brew list podman &>/dev/null; then
-  brew install podman podman-compose &>./log/setup.log
+# Install Docker Desktop if not installed
+if ! brew list docker-desktop &>/dev/null; then
+  echo "Installing Docker Desktop"
+  brew install --cask docker-desktop
 fi
 
 echo "Setting up Nosia"
-# Initialize podman machine
-podman machine init &>./log/setup.log
-# Set podman to rootful mode
-podman machine set --rootful &>./log/setup.log
-# Start podman machine
-podman machine start &>./log/setup.log
+
+# Start Docker Desktop
+open -a Docker
+while ! docker system info >/dev/null 2>&1; do
+  echo "Waiting for Docker to start..."
+  sleep 1
+done
+
 # Set environment variables for Nosia
-OLLAMA_BASE_URL=http://host.containers.internal:11434 ./script/concerns/setup-env &>./log/setup.log
+./script/concerns/setup-env &>./log/setup.log
+
 # Build Nosia
-podman-compose --env-file .env build &>./log/setup.log
+echo "Building Nosia"
+docker compose --env-file .env build &>./log/setup.log

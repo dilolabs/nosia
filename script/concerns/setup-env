@@ -14,25 +14,36 @@ else
   NOSIA_URL=https://nosia.localhost
 fi
 
-if [ -n "$AI_API_BASE" ]; then
-  echo "Using AI_API_BASE from environment"
+if [ -n "$AI_BASE_URL" ]; then
+  echo "Using AI_BASE_URL from environment"
 else
-  echo "AI_API_BASE is not set, using default value"
-  AI_API_BASE=http://localhost:11434/v1
+  echo "AI_BASE_URL is not set, using default value"
+  if OS_NAME=$(uname -s) && [ "$OS_NAME" = "Darwin" ]; then
+    AI_BASE_URL=http://model-runner.docker.internal/engines/llama.cpp/v1
+  else
+    AI_BASE_URL=http://172.17.0.1:12434/engines/llama.cpp/v1
+  fi
 fi
 
 if [ -n "$LLM_MODEL" ]; then
   echo "Using LLM_MODEL from environment"
 else
   echo "LLM_MODEL is not set, using default value"
-  LLM_MODEL=granite4:micro-h
+  LLM_MODEL=ai/granite-4.0-h-tiny
 fi
 
 if [ -n "$EMBEDDING_MODEL" ]; then
   echo "Using EMBEDDING_MODEL from environment"
 else
   echo "EMBEDDING_MODEL is not set, using default value"
-  EMBEDDING_MODEL=granite-embedding:278m
+  EMBEDDING_MODEL=ai/granite-embedding-multilingual
+fi
+
+if [ -n "$EMBEDDING_DIMENSIONS" ]; then
+  echo "Using EMBEDDING_DIMENSIONS from environment"
+else
+  echo "EMBEDDING_DIMENSIONS is not set, using default value"
+  EMBEDDING_DIMENSIONS=384
 fi
 
 POSTGRES_HOST=postgres-db
@@ -45,10 +56,11 @@ SECRET_KEY_BASE=$(openssl rand -hex 64)
 
 echo "DATABASE_URL=$DATABASE_URL" >.env
 echo "NOSIA_URL=$NOSIA_URL" >>.env
-echo "AI_API_BASE=$AI_API_BASE" >>.env
+echo "AI_BASE_URL=$AI_BASE_URL" >>.env
 echo "AI_API_KEY=" >>.env
 echo "LLM_MODEL=$LLM_MODEL" >>.env
 echo "EMBEDDING_MODEL=$EMBEDDING_MODEL" >>.env
+echo "EMBEDDING_DIMENSIONS=$EMBEDDING_DIMENSIONS" >>.env
 echo "SMTP_ADDRESS=" >>.env
 echo "SMTP_PORT=" >>.env
 echo "SMTP_USER_NAME=" >>.env
@@ -66,6 +78,6 @@ echo "LLM_NUM_CTX=8_192" >>.env
 echo "LLM_TOP_K=40" >>.env
 echo "LLM_TOP_P=0.9" >>.env
 echo "RETRIEVAL_FETCH_K=4" >>.env
-echo "RAG_SYSTEM_TEMPLATE="You are Nosia, a helpful assistant. If necessary, use the information contained in the Nosia helpful content between <context> and </context>. Give a comprehensive answer to the question. Respond only to the question asked, response should be relevant to the question. If the answer cannot be deduced from the Nosia helpful content, do not use the context." >> .env
+echo "RAG_SYSTEM_TEMPLATE=\"You are Nosia, a helpful assistant. If necessary, use the information contained in the Nosia helpful content between <context> and </context>. Give a comprehensive answer to the question. Respond only to the question asked, response should be relevant to the question. If the answer cannot be deduced from the Nosia helpful content, do not use the context.\"" >>.env
 
 echo ".env file generated"

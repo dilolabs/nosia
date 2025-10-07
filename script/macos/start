@@ -1,10 +1,4 @@
 #!/bin/bash
 
-if brew list ollama &>/dev/null; then
-  echo "Starting ollama"
-  OLLAMA_MAX_LOADED_MODELS=3 ollama serve &>./log/ollama.log &
-fi
-
 echo "Starting Nosia"
-podman machine start &>./log/podman.log
-podman-compose --env-file .env up -d &>./log/podman.log
+docker compose --env-file .env up -d &>./log/docker.log

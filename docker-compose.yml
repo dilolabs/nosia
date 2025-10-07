@@ -25,18 +25,15 @@ services:
       - AI_BASE_URL=${AI_BASE_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - LLM_MODEL=${LLM_MODEL}
-      - CHECK_MODEL=${CHECK_MODEL}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - LLM_TEMPERATURE=${LLM_TEMPERATURE}
       - CHUNK_SIZE=${CHUNK_SIZE}
       - CHUNK_OVERLAP=${CHUNK_OVERLAP}
-      - SEPARATORS=${SEPARATORS}
       - LLM_NUM_CTX=${LLM_NUM_CTX}
       - LLM_TOP_K=${LLM_TOP_K}
       - LLM_TOP_P=${LLM_TOP_P}
       - RETRIEVAL_FETCH_K=${RETRIEVAL_FETCH_K}
       - RAG_SYSTEM_TEMPLATE=${RAG_SYSTEM_TEMPLATE}
-      - QUERY_PROMPT_TEMPLATE=${QUERY_PROMPT_TEMPLATE}
     volumes:
       - rails-storage:/rails/storage
     healthcheck:
@@ -46,6 +43,10 @@ services:
       retries: 30
     depends_on:
       postgres-db:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+      llm:
         condition: service_healthy
     restart: on-failure:5
 
@@ -74,26 +75,39 @@ services:
       - AI_BASE_URL=${AI_BASE_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - LLM_MODEL=${LLM_MODEL}
-      - CHECK_MODEL=${CHECK_MODEL}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - LLM_TEMPERATURE=${LLM_TEMPERATURE}
       - CHUNK_SIZE=${CHUNK_SIZE}
       - CHUNK_OVERLAP=${CHUNK_OVERLAP}
-      - SEPARATORS=${SEPARATORS}
       - LLM_NUM_CTX=${LLM_NUM_CTX}
       - LLM_TOP_K=${LLM_TOP_K}
       - LLM_TOP_P=${LLM_TOP_P}
       - RETRIEVAL_FETCH_K=${RETRIEVAL_FETCH_K}
       - RAG_SYSTEM_TEMPLATE=${RAG_SYSTEM_TEMPLATE}
-      - QUERY_PROMPT_TEMPLATE=${QUERY_PROMPT_TEMPLATE}
     volumes:
       - rails-storage:/rails/storage
     depends_on:
       postgres-db:
         condition: service_healthy
+      embedding:
+        condition: service_healthy
+      llm:
+        condition: service_healthy
       web:
         condition: service_healthy
     restart: on-failure:5
+
+  llm:
+    provider:
+      type: model
+      options:
+        model: ${LLM_MODEL}
+
+  embedding:
+    provider:
+      type: model
+      options:
+        model: ${EMBEDDING_MODEL}
 
 volumes:
   caddy-config:
