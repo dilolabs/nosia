@@ -4,7 +4,7 @@ module Sources
 
     # GET /qnas or /qnas.json
     def index
-      @qnas = Qna.all
+      @qnas = Current.account.qnas
     end
 
     # GET /qnas/1 or /qnas/1.json
@@ -13,7 +13,7 @@ module Sources
 
     # GET /qnas/new
     def new
-      @qna = Qna.new
+      @qna = Current.account.qnas.new
     end
 
     # GET /qnas/1/edit
@@ -22,7 +22,7 @@ module Sources
 
     # POST /qnas or /qnas.json
     def create
-      @qna = Qna.new(qna_params)
+      @qna = Current.account.qnas.new(qna_params)
 
       respond_to do |format|
         if @qna.save
@@ -63,7 +63,7 @@ module Sources
     private
     # Use callbacks to share common setup or constraints between actions.
     def set_qna
-      @qna = Qna.find(params[:id])
+      @qna = Current.account.qnas.find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.

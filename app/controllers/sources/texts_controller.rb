@@ -4,7 +4,7 @@ module Sources
 
     # GET /texts or /texts.json
     def index
-      @texts = Text.all
+      @texts = Current.account.texts
     end
 
     # GET /texts/1 or /texts/1.json
@@ -13,7 +13,7 @@ module Sources
 
     # GET /texts/new
     def new
-      @text = Text.new
+      @text = Current.account.texts.new
     end
 
     # GET /texts/1/edit
@@ -22,7 +22,7 @@ module Sources
 
     # POST /texts or /texts.json
     def create
-      @text = Text.new(text_params)
+      @text = Current.account.texts.new(text_params)
 
       respond_to do |format|
         if @text.save
@@ -63,7 +63,7 @@ module Sources
     private
     # Use callbacks to share common setup or constraints between actions.
     def set_text
-      @text = Text.find(params[:id])
+      @text = Current.account.texts.find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.

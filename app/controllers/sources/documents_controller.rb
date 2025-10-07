@@ -4,7 +4,7 @@ module Sources
 
     # GET /documents or /documents.json
     def index
-      @documents = Document.all
+      @documents = Current.account.documents
     end
 
     # GET /documents/1 or /documents/1.json
@@ -13,7 +13,7 @@ module Sources
 
     # GET /documents/new
     def new
-      @document = Document.new
+      @document = Current.account.documents.new
     end
 
     # GET /documents/1/edit
@@ -22,7 +22,7 @@ module Sources
 
     # POST /documents or /documents.json
     def create
-      @document = Document.new(document_params)
+      @document = Current.account.documents.new(document_params)
 
       respond_to do |format|
         if @document.save
@@ -63,7 +63,7 @@ module Sources
     private
     # Use callbacks to share common setup or constraints between actions.
     def set_document
-      @document = Document.find(params[:id])
+      @document = Current.account.documents.find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.
