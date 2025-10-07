@@ -6,15 +6,8 @@
 
   <div class="n-form-field">
     <%= form.label :account_id, "Default account", class: "n-label" %>
-    <%= form.collection_select :account_id,
-                           Current.user.accounts,
-                           :id,
-                           :name,
-                           { prompt: true, required: true },
-                           { class: "n-select" } %>
+    <%= form.collection_select :account_id, Current.user.accounts, :id, :name, { prompt: true, required: true }, { class: "n-select" } %>
   </div>
 
-  <div class="n-form-actions">
-    <%= form.submit "Generate", class: "n-btn-primary" %>
-  </div>
+  <%= form.submit "Generate", class: "n-btn-primary" %>
 <% end %>

@@ -21,8 +21,9 @@ module Qna::Chunkable
     self.chunks.destroy_all
 
     new_chunks.each do |new_chunk|
-      chunk = self.chunks.create!(account:, content: new_chunk.dig(:text))
-      chunk.vectorize!
+      content = new_chunk.dig(:text)
+      next if content.blank?
+      self.chunks.create!(account:, content:)
     end
   end
 end

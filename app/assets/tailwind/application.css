@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@import "../stylesheets/dropzone.min.css" layer(utilities);
+@import "../stylesheets/nosia/button.css" layer(utilities);
+@import "../stylesheets/nosia/card.css" layer(utilities);
+@import "../stylesheets/nosia/form.css" layer(utilities);
+@import "../stylesheets/nosia/main.css" layer(utilities);
+@import "../stylesheets/nosia/menu.css" layer(utilities);
+
+@config '../../../config/tailwind.config.js';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentcolor);
+    }
+}
+
+body {
+    @apply p-0;
+}
+
+pre {
+    @apply my-2 p-4 rounded-xl;
+}
+
+ol {
+    @apply list-disc list-inside;
+}
+
+ul {
+    @apply list-decimal list-inside;
+}
+
+.n-title {
+    @apply text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl;
+}
+
+.n-table-container {
+    @apply mb-4 mt-6;
+    @apply relative overflow-x-auto shadow-md sm:rounded-lg;
+}
+
+.n-table {
+    @apply w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400;
+}
+
+.n-table-head {
+    @apply text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400;
+}
+
+.n-table-head-th {
+    @apply px-6 py-3;
+}
+
+.n-th {
+    @apply px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white;
+}
+
+.n-tr {
+    @apply odd:bg-white dark:odd:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800 border-b dark:border-gray-700 border-gray-200;
+}
+
+.n-td {
+    @apply px-6 py-4;
+}
+
+.dz-default {
+    @apply md:text-2xl text-black dark:text-white font-semibold italic;
+}

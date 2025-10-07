@@ -1,16 +1,13 @@
-<section>
-  <div class="n-main-container">
-    <div class="n-title-container">
-      <p class="n-title">Accounts</p>
-    </div>
+<div class="n-title-container md:flex md:justify-between md:items-center">
+  <h2 class="n-main-title">Accounts</h2>
+  <%= link_to "Add account", new_account_path, class: "n-btn-primary hidden md:inline-flex " %>
+</div>
 
-    <div class="n-cards-grid">
-      <% @accounts.each do |account| %>
-        <%= link_to edit_account_path(account), class: "n-card" do %>
-          <h5 class="n-card-title"><%= account.name %></h5>
-          <p class="n-card-subtitle"><%= account.uid %></p>
-        <% end %>
-      <% end %>
-    </div>
-  </div>
-</section>
+<div class="n-cards-grid">
+  <% @accounts.each do |account| %>
+    <%= link_to edit_account_path(account), class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+      <h5 class="n-card-title"><%= account.name %></h5>
+      <p class="n-card-subtitle"><%= account.uid %></p>
+    <% end %>
+  <% end %>
+</div>

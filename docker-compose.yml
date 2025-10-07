@@ -22,7 +22,7 @@ services:
         GID: ${GID:-${UID:-1000}}
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - AI_BASE_URL=${AI_BASE_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - LLM_MODEL=${LLM_MODEL}
       - CHECK_MODEL=${CHECK_MODEL}
@@ -71,7 +71,7 @@ services:
     command: bundle exec rake solid_queue:start
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - AI_BASE_URL=${AI_BASE_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - LLM_MODEL=${LLM_MODEL}
       - CHECK_MODEL=${CHECK_MODEL}

@@ -1,5 +1,6 @@
 class Document < ApplicationRecord
-  include Chunkable, Parsable, Vectorizable
+  include Chunkable
+  include Parsable
 
   belongs_to :account, optional: true
   belongs_to :author, optional: true

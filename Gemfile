@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 
 # Nosia dependency
-gem "dotenv", groups: [ :development, :test ]
+gem "dotenv", groups: [ :development, :test ] # A Ruby gem to load environment variables from `.env` [https://github.com/bkeepers/dotenv]
 
 # Use main development branch of Rails
 gem "rails", "~> 8.0.0"
@@ -18,8 +18,7 @@ gem "turbo-rails"
 # Hotwire's modest JavaScript framework [https://stimulus.hotwired.dev]
 gem "stimulus-rails"
 # Use Tailwind CSS [https://github.com/rails/tailwindcss-rails]
-gem "tailwindcss-rails", "~> 3.3"
-gem "tailwindcss-ruby", "~> 3.4"
+gem "tailwindcss-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 # Use Redis adapter to run Action Cable in production
@@ -59,9 +58,9 @@ group :development do
   gem "web-console"
 
   # Nosia dependencies
-  gem "bundler-audit"
-  gem "dockerfile-rails"
-  gem "mailbin"
+  gem "bundler-audit" # Patch-level verification for Bundler [https://github.com/rubysec/bundler-audit]
+  gem "dockerfile-rails" # Rails generator to produce Dockerfiles and related files [https://github.com/fly-apps/dockerfile-rails]
+  gem "mailbin" # Record and view Rails ActionMailer emails sent in development [https://github.com/excid3/mailbin]
 end
 
 group :test do
@@ -71,25 +70,18 @@ group :test do
 end
 
 # Nosia dependencies
-gem "actioncable-enhanced-postgresql-adapter"
-gem "acts_as_tenant"
-gem "baran"
-gem "commonmarker"
-gem "faraday"
-gem "feedjira"
-gem "inline_svg"
-gem "langchainrb", github: "patterns-ai-core/langchainrb", tag: "0.16.1"
-gem "langchainrb_rails", github: "patterns-ai-core/langchainrb_rails", tag: "0.1.12"
-gem "mission_control-jobs", github: "rails/mission_control-jobs", branch: "main"
-gem "neighbor"
-gem "pdf-reader"
-gem "pgvector", "~> 0.2"
-gem "passwordless"
-gem "pundit"
-gem "reverse_markdown"
-gem "rss"
-gem "ruby-openai", github: "nosia-ai/ruby-openai"
-gem "sequel", "~> 5.94.0"
-gem "solid_queue"
-gem "thruster"
-gem "tiktoken_ruby"
+gem "acts_as_tenant" # Row-level multitenancy [https://github.com/ErwinM/acts_as_tenant]
+gem "baran" # Text Splitter for Large Language Model datasets [https://github.com/moeki0/baran]
+gem "blingfire" # High speed text tokenization [https://github.com/ankane/blingfire-ruby]
+gem "commonmarker" # CommonMark and GitHub Flavored Markdown compatible parser and renderer [https://github.com/gjtorikian/commonmarker]
+gem "actioncable-enhanced-postgresql-adapter" # An enhanced ActionCable adapter for PostgreSQL [https://github.com/reclaim-the-stack/actioncable-enhanced-postgresql-adapter]
+gem "faraday" # HTTP client library abstraction layer [https://github.com/lostisland/faraday]
+gem "inline_svg" # Embed SVG documents in views and style them with CSS [https://github.com/jamesmartin/inline_svg]
+gem "mission_control-jobs" # Dashboard and Active Job extensions to operate and troubleshoot background jobs [https://github.com/rails/mission_control-jobs]
+gem "neighbor" # Nearest neighbor search [https://github.com/ankane/neighbor]
+gem "pdf-reader" # PDF parser conforming as much as possible to the PDF specification from Adobe [https://github.com/yob/pdf-reader]
+gem "pgvector" # pgvector support for Ruby [https://github.com/pgvector/pgvector-ruby]
+gem "pundit" # Minimal authorization through OO design and pure Ruby classes [https://github.com/varvet/pundit]
+gem "ruby_llm" # Build chatbots, AI agents, RAG applications [https://github.com/crmne/ruby_llm]
+gem "solid_queue" # Database-backed Active Job backend [https://github.com/rails/solid_queue]
+gem "thruster" # HTTP/2 proxy for simple production-ready deployments [https://github.com/basecamp/thruster]

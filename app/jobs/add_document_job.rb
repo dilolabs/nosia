@@ -1,5 +1,5 @@
 class AddDocumentJob < ApplicationJob
-  queue_as :default
+  queue_as :background
 
   def perform(document_id)
     document = Document.find(document_id)

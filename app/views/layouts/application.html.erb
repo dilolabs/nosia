@@ -2,7 +2,7 @@
 <html>
   <head>
     <title><%= content_for(:title) || "Nosia" %></title>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -12,19 +12,44 @@
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" href="/icon.png" type="image/png">
     <link rel="apple-touch-icon" href="/icon.png">
-    <%= stylesheet_link_tag "tailwind", "inter-font", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
 
-    <%= stylesheet_link_tag :all, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
+    <%=  render "extra_head" %>
   </head>
 
-  <body class="bg-slate-50 dark:bg-slate-900 dark:text-white">
+  <body data-controller="dark-mode" class="max-h-dvh overflow-hidden bg-slate-100 dark:bg-slate-900 dark:text-white">
     <%= render "flash" %>
-    <div class="flex">
-      <%= render "sidebar" %>
-      <main class="bg-slate-50 dark:bg-slate-900 w-full p-6">
+    <%= render "header" %>
+    <div class="h-[calc(100dvh-4rem)] w-full flex">
+      <%= render "menu" %>
+      <main class="overflow-y-auto w-full pl-6 pt-6 pb-20 pr-2 lg:p-6">
         <%= yield %>
       </main>
+      <% if Current.user %>
+        <div id="accordion-collapse" data-accordion="collapse" class="hidden -ml-5 lg:flex items-center">
+          <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions" class="rounded-l-lg n-main-focus">
+            <div class="n-btn-drawer">
+              <%= inline_svg_tag "svg/cheveron-right.svg", class: "shrink-0 h-5 w-5" %>
+            </div>
+          </button>
+          <aside id="accordion-right-actions" aria-labelledby="accordion-right-button" class="w-72 h-full lg:border-l n-main-border">
+            <%= render "sidebar" %>
+          </aside>
+        </div>
+        <button type="button" data-drawer-target="drawer-right" data-drawer-show="drawer-right" data-drawer-placement="right" aria-controls="drawer-right" class="lg:hidden n-main-focus">
+          <div class="n-btn-drawer">
+            <%= inline_svg_tag "svg/cheveron-left.svg", class: "shrink-0 h-5 w-5" %>
+          </div>
+        </button>
+        <aside id="drawer-right" class="fixed top-0 right-0 z-60 h-screen py-4 transition-transform translate-x-full border-l n-main-border n-main-bg w-80" tabindex="-1" aria-labelledby="drawer-right-label">
+          <button type="button" data-drawer-hide="drawer-right" aria-controls="drawer-right" class="absolute top-2.5 end-2.5 n-main-hover n-main-focus rounded-lg" >
+            <%= inline_svg "svg/close.svg", class: "w-6 h-6" %>
+            <span class="sr-only">Close menu</span>
+          </button>
+          <%= render "sidebar" %>
+        </aside>
+      <% end %>
     </div>
   </body>
 </html>

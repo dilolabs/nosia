@@ -18,7 +18,20 @@ class User < ApplicationRecord
     length: { minimum: 12 },
     on: :create
 
+  def self.create_with_account!(user_params)
+    user = User.create!(user_params)
+
+    account = Account.create!(name: FirstRun::ACCOUNT_NAME, owner: user)
+    account.account_users.grant_to user
+
+    user
+  end
+
   def first_account
     accounts.order(:created_at).first
+  end
+
+  def recent_chats(limit: 5)
+    chats.order(:created_at).limit(limit)
   end
 end

@@ -3,6 +3,8 @@
 # If running the rails server then create or migrate existing database
 if [ "${*}" == "bundle exec thrust ./bin/rails server" ]; then
   ./bin/rails db:prepare
+  # Refresh LLM models
+  ./bin/rails ruby_llm:load_models
 fi
 
 exec "${@}"

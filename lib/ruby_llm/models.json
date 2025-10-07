@@ -1,0 +1,110 @@
+[
+  {
+    "id": "mistral24b",
+    "name": "Mistral: Mistral Small 3.2 24B",
+    "provider": "openai",
+    "family": "mistralai",
+    "created_at": "2025-06-20 20:10:16 +0200",
+    "context_window": 128000,
+    "max_output_tokens": null,
+    "knowledge_cutoff": null,
+    "modalities": {
+      "input": [
+        "image",
+        "text"
+      ],
+      "output": [
+        "text"
+      ]
+    },
+    "capabilities": [
+      "streaming",
+      "function_calling",
+      "structured_output",
+      "predicted_outputs"
+    ],
+    "pricing": {
+      "text_tokens": {
+        "standard": {
+          "input_per_million": 0.1,
+          "output_per_million": 0.3
+        }
+      }
+    },
+    "metadata": {
+      "description": "Mistral-Small-3.2-24B-Instruct-2506 is an updated 24B parameter model from Mistral optimized for instruction following, repetition reduction, and improved function calling. Compared to the 3.1 release, version 3.2 significantly improves accuracy on WildBench and Arena Hard, reduces infinite generations, and delivers gains in tool use and structured output tasks.\n\nIt supports image and text inputs with structured outputs, function/tool calling, and strong performance across coding (HumanEval+, MBPP), STEM (MMLU, MATH, GPQA), and vision benchmarks (ChartQA, DocVQA).",
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "image",
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ],
+        "tokenizer": "Mistral",
+        "instruct_type": null
+      },
+      "top_provider": {
+        "context_length": 128000,
+        "max_completion_tokens": null,
+        "is_moderated": false
+      },
+      "per_request_limits": null,
+      "supported_parameters": [
+        "frequency_penalty",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ]
+    }
+  },
+  {
+    "id": "mini_lm_l12_v2",
+    "name": "All MiniLM L12 v2",
+    "provider": "openai",
+    "family": "embedding",
+    "created_at": null,
+    "context_window": 2048,
+    "max_output_tokens": 1,
+    "knowledge_cutoff": null,
+    "modalities": {
+      "input": [
+        "text"
+      ],
+      "output": [
+        "text",
+        "embeddings"
+      ]
+    },
+    "capabilities": [
+      "streaming",
+      "batch"
+    ],
+    "pricing": {
+      "embeddings": {
+        "standard": {
+          "input_per_million": 0
+        }
+      }
+    },
+    "metadata": {
+      "supported_generation_methods": [
+        "embedContent"
+      ]
+    }
+  }
+]

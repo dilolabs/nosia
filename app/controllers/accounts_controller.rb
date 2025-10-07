@@ -7,7 +7,16 @@ class AccountsController < ApplicationController
     @accounts = Current.user.accounts
   end
 
+  def new
+    @account = Current.user.accounts.new
+  end
+
   def edit
+  end
+
+  def create
+    @account = Current.user.accounts.create!(account_params.merge(owner: Current.user))
+    redirect_to accounts_path
   end
 
   def update

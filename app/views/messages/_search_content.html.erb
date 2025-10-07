@@ -1,0 +1,20 @@
+<% if defined?(step) && step.eql?("loading") %>
+  <div class="n-card h-24 grid grid-cols-1 place-content-center animate-pulse">
+    Loading...
+  </div>
+<% end %>
+<% if message.similar_chunks.any? %>
+  <div class="px-2 sm:px-4">
+    <ul role="list" class="!list-none grid grid-cols-1 gap-6 text-slate-900 dark:text-slate-200 sm:grid-cols-2 lg:grid-cols-3">
+      <% message.similar_chunks.each do |chunk| %>
+        <li>
+          <%= link_to chunk do %>
+            <div class="n-card h-24 grid grid-cols-1 place-content-center">
+              <%= chunk.title %>
+            </div>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

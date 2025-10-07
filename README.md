@@ -58,7 +58,7 @@ You can now access Nosia at `https://nosia.localhost`
 
 By default, Nosia sets up `ollama` locally.
 
-To use a remote Ollama instance, set the `OLLAMA_BASE_URL` environment variable during configuration.
+To use a remote Ollama instance, set the `AI_API_BASE` environment variable during configuration.
 
 **Example:**
 
@@ -66,16 +66,15 @@ Replace `$OLLAMA_HOST_IP` with the FQDN or IP address of your Ollama host and ru
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-install.sh \
-  | OLLAMA_BASE_URL=http://$OLLAMA_HOST_IP:11434 sh
+  | AI_API_BASE=http://$OLLAMA_HOST_IP:11434/v1 sh
 ```
 
 #### With a custom completion model
 
 By default, Nosia uses:
 
-1. Completion model: `granite3.3:2b`
+1. Completion model: `granite4:micro-h`
 1. Embeddings model: `granite-embedding:278m`
-1. Checking model: `granite3-guardian:2b`
 
 You can use any completion model available on Ollama by setting the `LLM_MODEL` environment variable during the installation.
 
@@ -114,56 +113,28 @@ Document.find_each(&:vectorize!)
 
 ### Advanced installation
 
-### On a macOS with a Debian or Ubuntu VM
+### With Docling serve
 
-On macOS, install Homebrew:
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Then install Ollama with Homebrew:
-
-Replace `$OLLAMA_HOST_IP` with the IP address of the Ollama host machine and run the following command:
+If you want to use Docling serve for document processing, you can use the `docker-compose-docling.yml` file, then run the following command:
 
 ```bash
-brew install ollama
-ollama pull granite3.3:2b
-ollama pull granite3-guardian:2b
-ollama pull granite-embedding:278m
-OLLAMA_BASE_URL=$OLLAMA_HOST_IP:11434 OLLAMA_KEEP_ALIVE=0 OLLAMA_MAX_LOADED_MODELS=3 ollama serve
+docker compose -f docker-compose-docling.yml up -d
 ```
 
-On the Debian/Ubuntu VM:
-
-Replace `$OLLAMA_HOST_IP` with the IP address of the host machine and run the following command:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-install.sh \
-  | OLLAMA_BASE_URL=http://$OLLAMA_HOST_IP:11434 sh
-```
-
-You should see the following output:
+This will start a Docling serve instance on port 5001.
+Then, you can configure the Docling serve URL in the Nosia environment variables:
 
 ```
-[x] Setting up environment
-[x] Setting up Docker
-[x] Setting up Ollama
-[x] Starting Ollama
-[x] Starting Nosia
+DOCLING_SERVE_BASE_URL=http://localhost:5001
 ```
 
-From the VM, you can access Nosia at `https://nosia.localhost`
+### With augmented context
 
-If you want to access Nosia from the host machine, you may need to forward the port from the VM to the host machine.
+If you want to use augmented context for chat completions, you can enable it in the Nosia environment variables:
 
-Replace `$USER` with the username of the VM, `$VM_IP` with the IP address of the VM, and `$LOCAL_PORT` with the port you want to use on the host machine, 8443 for example, and run the following command:
-
-```bash
-ssh $USER@$VM_IP -L $LOCAL_PORT:localhost:443
 ```
-
-After running the command, you can access Nosia at `https://nosia.localhost:$LOCAL_PORT`.
+AUGMENTED_CONTEXT=true
+```
 
 ## API
 

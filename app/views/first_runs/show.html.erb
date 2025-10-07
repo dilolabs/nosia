@@ -1,0 +1,13 @@
+<section class="mx-auto max-w-screen-2xl p-4 isolate">
+  <div class="flex flex-col space-y-8 mx-auto max-w-2xl">
+    <p class="text-center text-gray-500 font-medium tracking-wide uppercase">BETA</p>
+    <p class="mt-2 text-center text-4xl md:text-6xl font-bold tracking-tight">
+    Nosia
+    </p>
+    <%= form_with model: @user, url: first_run_path, class: "flex flex-col space-y-2 rounded-lg drop-shadow-xl p-2.5 border border-gray-300" do |form| %>
+      <%= form.email_field :email, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", value: params[:email], class: "dark:bg-slate-900 border-none focus:outline-none p-2.5 flex-1 flex-shrink-0 text-lg w-full" %>
+      <%= form.password_field :password, required: true, autocomplete: "current-password", placeholder: "Enter your password", maxlength: 72, class: "dark:bg-slate-900 border-none focus:outline-none p-2.5 flex-1 flex-shrink-0 text-lg w-full" %>
+      <%= form.submit "Sign up", class: "cursor-pointer px-5 py-2.5 rounded-md bg-[#24292F] hover:bg-[#24292F]/90 dark:hover:bg-[#050708]/30 text-white" %>
+    <% end %>
+  </div>
+</section>

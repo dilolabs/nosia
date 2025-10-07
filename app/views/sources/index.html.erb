@@ -1,0 +1,25 @@
+<div class="n-title-container">
+  <h2 class="n-main-title">Sources</h2>
+</div>
+
+<div class="n-cards-grid">
+  <%= link_to sources_documents_path, title: "Documents", alt: "Open document sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+    <%= inline_svg "svg/files.svg", title: "Documents", alt: "Documents", class: "mx-auto w-12 h-12" %>
+    <h5 class="n-card-title">Documents</h5>
+  <% end %>
+
+  <%= link_to sources_texts_path, title: "Text", alt:"Open Text sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+    <%= inline_svg "svg/file-lines.svg", title: "Text", alt: "File lines", class: "mx-auto w-12 h-12" %>
+    <h5 class="n-card-title">Texts</h5>
+  <% end %>
+
+  <%= link_to sources_qnas_path, title: "Q&As", alt:"Open Q&As sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+    <%= inline_svg "svg/question-circle.svg", title: "Q&As", alt: "Question circle", class: "mx-auto w-12 h-12" %>
+    <h5 class="n-card-title">Q&As</h5>
+  <% end %>
+
+  <%= link_to sources_websites_path, title: "Websites", alt:"Open website sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+    <%= inline_svg "svg/window.svg", title: "Websites", alt: "Window", class: "mx-auto w-12 h-12" %>
+    <h5 class="n-card-title">Websites</h5>
+  <% end %>
+</div>

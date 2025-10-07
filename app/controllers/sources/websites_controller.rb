@@ -4,7 +4,7 @@ module Sources
 
     # GET /websites or /websites.json
     def index
-      @websites = Website.all.order(:url)
+      @websites = Current.account.websites.order(:url)
     end
 
     # GET /websites/1 or /websites/1.json
@@ -13,7 +13,7 @@ module Sources
 
     # GET /websites/new
     def new
-      @website = Website.new
+      @website = Current.account.websites.new
     end
 
     # GET /websites/1/edit
@@ -22,11 +22,11 @@ module Sources
 
     # POST /websites or /websites.json
     def create
-      @website = Website.new(website_params)
+      @website = Current.account.websites.new(website_params)
 
       respond_to do |format|
         if @website.save
-          CrawlWebsiteUrlsJob.perform_later(@website.id)
+          CrawlWebsiteUrlJob.perform_later(@website.id)
           format.html { redirect_to sources_website_url(@website), notice: "Website was successfully created." }
           format.json { render :show, status: :created, location: @website }
         else
@@ -63,7 +63,7 @@ module Sources
     private
     # Use callbacks to share common setup or constraints between actions.
     def set_website
-      @website = Website.find(params[:id])
+      @website = Current.account.websites.find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.

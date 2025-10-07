@@ -1,10 +1,14 @@
 Rails.application.routes.draw do
+  # First run
+  resource :first_run
+
   # Authentication routes
   resources :users, only: [ :create ]
   post "login", to: "sessions#create"
   delete "logout", to: "sessions#destroy"
 
   # API routes
+  get "v1/models", to: "api/v1/models#index"
   post "v1/chat/completions", to: "api/v1/completions#create"
   post "v1/completions", to: "api/v1/completions#create"
   namespace :api do
@@ -19,24 +23,36 @@ Rails.application.routes.draw do
 
   # User routes
   constraints Authentication::Authenticated do
-    resources :accounts, only: [ :index, :edit, :update ]
+    resources :accounts, only: [ :index, :new, :edit, :create, :update ]
     resources :api_tokens, only: [ :index, :create, :destroy ]
-    resources :chats, only: [ :show, :create, :destroy ] do
+    resources :chats, only: [ :show, :new, :create, :destroy ] do
       resources :messages, only: [ :create ]
     end
-  end
-
-  # Admin routes
-  constraints Authentication::Admin do
-    mount MissionControl::Jobs::Engine, at: "/jobs"
-
+    resources :chunks, only: [ :show ]
+    resources :dashboards, only: [ :show ]
+    resources :models, only: [ :index, :show ] do
+      collection do
+        post :refresh
+      end
+    end
+    resource :profile, only: [ :show ]
     resource :settings, only: [ :show ]
+    resources :sources, only: [ :index ]
     namespace :sources do
       resources :documents
       resources :qnas
       resources :texts
       resources :websites
     end
+
+    root to: "dashboards#show", as: :user_root
+  end
+
+  root "static#index"
+
+  # Admin routes
+  constraints Authentication::Admin do
+    mount MissionControl::Jobs::Engine, at: "/jobs"
   end
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
@@ -46,7 +62,4 @@ Rails.application.routes.draw do
   # Render dynamic PWA files from app/views/pwa/*
   get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
   get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
-
-  # Defines the root path route ("/")
-  root "static#index"
 end

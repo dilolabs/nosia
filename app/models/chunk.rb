@@ -1,4 +1,5 @@
 class Chunk < ApplicationRecord
+  include Enrichable
   include Vectorizable
 
   belongs_to :account
@@ -10,5 +11,16 @@ class Chunk < ApplicationRecord
 
   def context
     content
+  end
+
+  def title
+    case chunkable_type
+    when "Document"
+      chunkable.title
+    when "Website"
+      chunkable.title
+    else
+      context.first(42)
+    end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -86,18 +86,23 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.bigint "account_id", null: false
+    t.bigint "model_id"
+    t.bigint "chat_id"
     t.index ["account_id"], name: "index_chats_on_account_id"
+    t.index ["chat_id"], name: "index_chats_on_chat_id"
+    t.index ["model_id"], name: "index_chats_on_model_id"
     t.index ["user_id"], name: "index_chats_on_user_id"
   end
 
   create_table "chunks", force: :cascade do |t|
     t.bigint "chunkable_id", null: false
     t.text "content"
-    t.vector "embedding", limit: 768
+    t.vector "embedding", limit: 384
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "chunkable_type"
     t.bigint "account_id", null: false
+    t.jsonb "metadata", default: {}
     t.index ["account_id"], name: "index_chunks_on_account_id"
     t.index ["chunkable_type", "chunkable_id"], name: "index_chunks_on_chunkable_type_and_chunkable_id"
   end
@@ -124,13 +129,16 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
     t.string "content_hash"
     t.string "purpose"
     t.bigint "account_id", null: false
+    t.string "keywords"
+    t.string "url"
+    t.jsonb "metadata", default: {}
     t.index ["account_id"], name: "index_documents_on_account_id"
     t.index ["author_id"], name: "index_documents_on_author_id"
   end
 
   create_table "messages", force: :cascade do |t|
     t.bigint "chat_id", null: false
-    t.integer "role", default: 0, null: false
+    t.integer "role", null: false
     t.string "content"
     t.integer "response_number", default: 0, null: false
     t.datetime "created_at", null: false
@@ -138,7 +146,36 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
     t.string "similar_document_ids", default: [], array: true
     t.boolean "done", default: false
     t.string "similar_chunk_ids", default: [], array: true
+    t.text "reasoning_content"
+    t.bigint "model_id"
+    t.bigint "tool_call_id"
+    t.integer "input_tokens"
+    t.integer "output_tokens"
     t.index ["chat_id"], name: "index_messages_on_chat_id"
+    t.index ["model_id"], name: "index_messages_on_model_id"
+    t.index ["tool_call_id"], name: "index_messages_on_tool_call_id"
+  end
+
+  create_table "models", force: :cascade do |t|
+    t.string "model_id", null: false
+    t.string "name", null: false
+    t.string "provider", null: false
+    t.string "family"
+    t.datetime "model_created_at"
+    t.integer "context_window"
+    t.integer "max_output_tokens"
+    t.date "knowledge_cutoff"
+    t.jsonb "modalities", default: {}
+    t.jsonb "capabilities", default: []
+    t.jsonb "pricing", default: {}
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capabilities"], name: "index_models_on_capabilities", using: :gin
+    t.index ["family"], name: "index_models_on_family"
+    t.index ["modalities"], name: "index_models_on_modalities", using: :gin
+    t.index ["provider", "model_id"], name: "index_models_on_provider_and_model_id", unique: true
+    t.index ["provider"], name: "index_models_on_provider"
   end
 
   create_table "passwordless_sessions", force: :cascade do |t|
@@ -161,6 +198,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
     t.text "answer"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "keywords"
+    t.string "title"
+    t.string "url"
     t.index ["account_id"], name: "index_qnas_on_account_id"
   end
 
@@ -299,7 +339,22 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
     t.text "data"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "keywords"
+    t.string "title"
+    t.string "url"
     t.index ["account_id"], name: "index_texts_on_account_id"
+  end
+
+  create_table "tool_calls", force: :cascade do |t|
+    t.string "tool_call_id", null: false
+    t.string "name", null: false
+    t.jsonb "arguments", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "message_id", null: false
+    t.index ["message_id"], name: "index_tool_calls_on_message_id"
+    t.index ["name"], name: "index_tool_calls_on_name"
+    t.index ["tool_call_id"], name: "index_tool_calls_on_tool_call_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|
@@ -317,6 +372,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
     t.text "data"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "keywords"
+    t.string "title"
     t.index ["account_id"], name: "index_websites_on_account_id"
   end
 
@@ -328,12 +385,16 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
   add_foreign_key "api_tokens", "accounts"
   add_foreign_key "api_tokens", "users"
   add_foreign_key "chats", "accounts"
+  add_foreign_key "chats", "chats"
+  add_foreign_key "chats", "models"
   add_foreign_key "chats", "users"
   add_foreign_key "chunks", "accounts"
   add_foreign_key "credentials", "users"
   add_foreign_key "documents", "accounts"
   add_foreign_key "documents", "authors"
   add_foreign_key "messages", "chats"
+  add_foreign_key "messages", "models"
+  add_foreign_key "messages", "tool_calls"
   add_foreign_key "qnas", "accounts"
   add_foreign_key "sessions", "users"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
@@ -343,5 +404,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_191813) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "texts", "accounts"
+  add_foreign_key "tool_calls", "messages"
   add_foreign_key "websites", "accounts"
 end

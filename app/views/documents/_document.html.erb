@@ -1,0 +1,8 @@
+<div id="<%= dom_id document %>">
+  <h2 class="n-title truncate"><%= document.title %></h2>
+  <div class="w-full h-[calc(100vh-16.5rem)] md:h-[calc(100vh-15rem)] lg:h-[calc(100vh-11.5rem)]">
+    <object class="h-full w-full" data="<%= url_for(document.file) %>" type="application/pdf">
+      <embed src="<%= url_for(document.file) %>" type="application/pdf">
+    </object>
+  </div>
+</div>
