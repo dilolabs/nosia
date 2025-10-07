@@ -43,7 +43,7 @@ if [ -n "$EMBEDDING_DIMENSIONS" ]; then
   echo "Using EMBEDDING_DIMENSIONS from environment"
 else
   echo "EMBEDDING_DIMENSIONS is not set, using default value"
-  EMBEDDING_DIMENSIONS=384
+  EMBEDDING_DIMENSIONS=768
 fi
 
 POSTGRES_HOST=postgres-db
