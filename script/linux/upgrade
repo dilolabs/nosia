@@ -1,13 +1,5 @@
 #!/bin/bash -e
 
-if command -v ollama &>/dev/null; then
-  echo "Upgrading ollama"
-  ./script/concerns/linux/upgrade-ollama &>>./log/upgrade.log
-
-  echo "Pulling models. This may take a while..."
-  ./script/concerns/pull-models &>>./log/upgrade.log
-fi
-
 echo "Upgrading Nosia"
 # Pull latest changes
 git pull &>>./log/upgrade.log

@@ -1,22 +1,15 @@
 #!/bin/bash -e
 
-echo "Setting up OpenSSL"
+echo "Setting up prerequisites"
+
 ./script/concerns/linux/setup-openssl &>>./log/setup.log
-
-if [ "$OLLAMA_BASE_URL" == "http://localhost:11434" ]; then
-  echo "Setting up Ollama"
-  ./script/concerns/linux/setup-ollama &>>./log/setup.log
-
-  echo "Pulling models. This may take a while..."
-  ./script/concerns/pull-models &>>./log/setup.log
-fi
-
-echo "Setting up Docker"
 ./script/concerns/linux/setup-docker &>>./log/setup.log
 
 echo "Setting up Nosia"
+
 # Set environment variables for Nosia
-./script/concerns/setup-env &>>./log/setup.log
+./script/concerns/setup-env &>./log/setup.log
+
 # Build Nosia
 newgrp docker <<EOF
   docker compose --env-file .env build &>>./log/setup.log

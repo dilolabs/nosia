@@ -34,7 +34,7 @@ You can follow this README or go to the [Nosia Guides](https://guides.nosia.ai/)
 
 #### On a macOS, Debian or Ubuntu machine
 
-It will install Docker, Ollama, and Nosia on a macOS, Debian or Ubuntu machine.
+It will install Docker if needed, and Nosia on a macOS, Debian or Ubuntu machine.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-install.sh | sh
@@ -44,9 +44,7 @@ You should see the following output:
 
 ```
 [x] Setting up environment
-[x] Setting up Docker
-[x] Setting up Ollama
-[x] Starting Ollama
+[x] Setting up prerequisites
 [x] Starting Nosia
 ```
 
@@ -54,57 +52,40 @@ You can now access Nosia at `https://nosia.localhost`
 
 ### Custom installation
 
-#### With a remote Ollama
-
-By default, Nosia sets up `ollama` locally.
-
-To use a remote Ollama instance, set the `AI_API_BASE` environment variable during configuration.
-
-**Example:**
-
-Replace `$OLLAMA_HOST_IP` with the FQDN or IP address of your Ollama host and run:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-install.sh \
-  | AI_API_BASE=http://$OLLAMA_HOST_IP:11434/v1 sh
-```
-
 #### With a custom completion model
 
 By default, Nosia uses:
 
-1. Completion model: `granite4:micro-h`
-1. Embeddings model: `granite-embedding:278m`
+1. Completion model: `ai/granite-4.0-h-tiny`
+1. Embeddings model: `ai/granite-embedding-multilingual`
 
-You can use any completion model available on Ollama by setting the `LLM_MODEL` environment variable during the installation.
+You can use any completion model available on [Docker Hub AI](https://hub.docker.com/u/ai) by setting the `LLM_MODEL` environment variable during the installation.
 
 **Example:**
 
-To use the `mistral` model, run:
+To use the `ai/mistral` model, run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-install.sh \
-  | LLM_MODEL=mistral sh
+  | LLM_MODEL=ai/mistral sh
 ```
 
 #### With a custom embeddings model
 
-At this time, the `granite-embedding:278m` embeddings model is required for Nosia to work.
+By default, Nosia uses `ai/granite-embedding-multilingual` embedding model.
 
-If you use new dimensions by using a new embeddings model, you'll need to:
+If you use new dimensions by using a new embedding model, you'll need to:
 
-1. Change the `EMBEDDING_DIMENSIONS` environment variable.
-
-2. Re-execute the change vector limit database migration:
+1. Execute the change embedding dimensions task
 
 ```bash
-bin/rails db:migrate:redo:primary VERSION=20241216213448
+docker compose run web bin/rails embedding_dimensions:change
 ```
 
-3. Re-vectorize your chunks (this could take a while):
+2. Re-vectorize your chunks (this could take a while):
 
 ```bash
-bin/rails c
+docker compose run web bin/rails c
 ```
 
 ```ruby
@@ -118,7 +99,7 @@ Document.find_each(&:vectorize!)
 If you want to use Docling serve for document processing, you can use the `docker-compose-docling.yml` file, then run the following command:
 
 ```bash
-docker compose -f docker-compose-docling.yml up -d
+docker compose -f docker-compose-docling.yml up
 ```
 
 This will start a Docling serve instance on port 5001.

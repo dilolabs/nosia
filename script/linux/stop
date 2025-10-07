@@ -2,8 +2,3 @@
 
 echo "Stopping Nosia"
 docker compose down &>>./log/docker.log
-
-if command -v ollama &>/dev/null; then
-  echo "Stopping ollama"
-  sudo systemctl stop ollama.service &>>./log/ollama.log
-fi

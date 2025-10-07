@@ -1,9 +1,4 @@
 #!/bin/bash
 
-if command -v ollama &>/dev/null; then
-  echo "Starting ollama"
-  sudo systemctl start ollama.service &>>./log/ollama.log
-fi
-
 echo "Starting Nosia"
 docker compose --env-file .env up -d &>>./log/docker.log
