@@ -87,7 +87,7 @@ docker compose --env-file .env build
 3. Execute the change embedding dimensions task
 
 ```bash
-docker compose run web bin/rails embedding_dimensions:change
+docker compose run web bin/rails embeddings:change_dimensions
 ```
 
 ### Advanced installation
