@@ -27,8 +27,7 @@ module Chunk::Vectorizable
       embedding_result = RubyLLM.embed(content, context:, model: ENV["EMBEDDING_MODEL"], dimensions: ENV["EMBEDDING_DIMENSIONS"].to_i, provider: :openai, assume_model_exists: true)
       self.embedding = embedding_result.vectors
     rescue RubyLLM::Error => e
-      errors.add(:base, "Failed to generate embedding: #{e.message}")
-      # Prevent saving if embedding fails (optional, depending on requirements)
+      Rails.logger.error "Error generating embedding for Chunk #{id}: #{e.message}"
       throw :abort
     end
   end
