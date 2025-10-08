@@ -6,7 +6,8 @@ It is designed to be easy to install and use.
 You can follow this README or go to the [Nosia Guides](https://guides.nosia.ai/).
 
 **Documentation**:
-- [Architecture Documentation](ARCHITECTURE.md) - Detailed system design and implementation
+- [Architecture](docs/ARCHITECTURE.md) - Detailed system design and implementation
+- [Diagrams](docs/DIAGRAMS.md) - Visual representations of system components
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 
 **Contents**:
