@@ -7,7 +7,8 @@ You can follow this README or go to the [Nosia Guides](https://guides.nosia.ai/)
 
 **Documentation**:
 - [Architecture](docs/ARCHITECTURE.md) - Detailed system design and implementation
-- [Diagrams](docs/DIAGRAMS.md) - Visual representations of system components
+- [System Diagrams](docs/DIAGRAMS.md) - Visual representations of system components
+- [Deployment Guide](docs/DEPLOYMENT.md) - Production deployment strategies and best practices
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 
 **Contents**:
