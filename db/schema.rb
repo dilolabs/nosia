@@ -97,7 +97,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
   create_table "chunks", force: :cascade do |t|
     t.bigint "chunkable_id", null: false
     t.text "content"
-    t.vector "embedding", limit: 384
+    t.vector "embedding", limit: 768
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "chunkable_type"
