@@ -12,22 +12,6 @@ You can follow this README or go to the [Nosia Guides](https://guides.nosia.ai/)
 - [Stop](#stop)
 - [Troubleshooting](#troubleshooting)
 
-## Easy to use
-
-<https://github.com/nosia-ai/nosia/assets/1692273/ce60094b-abb5-4ed4-93aa-f69485e058b0>
-
-![nosia-home](https://github.com/user-attachments/assets/dac211a3-6bc3-4f1c-9b1e-fbde9d81e862)
-
-![nosia-documents](https://github.com/user-attachments/assets/bb71f748-4525-432b-8e11-f46fdc7461c4)
-
-![nosia-chat](https://github.com/user-attachments/assets/a23517ab-7910-4ccc-9312-c0de8310ac86)
-
-![nosia-document](https://github.com/user-attachments/assets/dc147f03-8832-4bb3-b87c-9f77a7eda2b3)
-
-## Easy to install
-
-<https://github.com/nosia-ai/nosia/assets/1692273/671ccb6a-054c-4dc2-bcd9-2b874a888548>
-
 ## Quickstart
 
 ### One command installation
