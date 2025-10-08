@@ -132,7 +132,7 @@ AUGMENTED_CONTEXT=true
 You can upgrade the services with the following command:
 
 ```bash
-./script/upgrade
+docker compose pull
 ```
 
 ## Start
@@ -140,9 +140,9 @@ You can upgrade the services with the following command:
 You can start the services with the following command:
 
 ```bash
-docker compose --env-file .env up
+docker compose up
 # OR in the background
-docker compose --env-file .env up -d
+docker compose up -d
 ```
 
 ## Stop
@@ -150,7 +150,7 @@ docker compose --env-file .env up -d
 You can stop the services with the following command:
 
 ```bash
-docker compose --env-file .env down
+docker compose down
 ```
 
 ## Troubleshooting
