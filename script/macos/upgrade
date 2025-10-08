@@ -1,7 +1,0 @@
-#!/bin/bash
-
-echo "Upgrading Nosia"
-# Pull latest changes
-git pull &>./log/upgrade.log
-# Build Nosia
-docker compose pull &>./log/upgrade.log

@@ -1,7 +1,0 @@
-#!/bin/bash
-
-case "$OSTYPE" in
-linux*) ./script/linux/upgrade ;;
-darwin*) ./script/macos/upgrade ;;
-*) echo "Unsupported $OSTYPE platform" ;;
-esac

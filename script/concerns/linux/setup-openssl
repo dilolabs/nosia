@@ -1,6 +1,0 @@
-#!/bin/bash -e
-
-if ! command -v openssl &>/dev/null; then
-  sudo apt-get install -y openssl &>>./log/setup.log
-fi
-

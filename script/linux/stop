@@ -1,4 +1,0 @@
-#!/bin/bash
-
-echo "Stopping Nosia"
-docker compose down &>>./log/docker.log
