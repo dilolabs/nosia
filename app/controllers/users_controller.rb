@@ -20,7 +20,7 @@ class UsersController < ApplicationController
   private
 
   def check_allowed_registrations
-    redirect_to root_path, alert: "Registrations are closed." unless ActiveModel::Type::Boolean.new.cast(ENV.fetch("REGISTRATIONS_ALLOWED", true))
+    redirect_to root_path, alert: "Registrations are closed." unless ActiveModel::Type::Boolean.new.cast(ENV["REGISTRATIONS_ALLOWED"])
   end
 
   def user_params

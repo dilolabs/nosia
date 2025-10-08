@@ -6,6 +6,7 @@ It is designed to be easy to install and use.
 You can follow this README or go to the [Nosia Guides](https://guides.nosia.ai/).
 
 - [Quickstart](#quickstart)
+- [Configuration](#configuration)
 - [API](#api)
 - [Upgrade](#upgrade)
 - [Start](#start)
@@ -114,6 +115,54 @@ If you want to use augmented context for chat completions, you can enable it in 
 ```
 AUGMENTED_CONTEXT=true
 ```
+
+## Configuration
+
+### Environment Variables
+
+Nosia validates required environment variables at startup to prevent runtime failures. If any required variables are missing or invalid, the application will fail to start with a clear error message.
+
+#### Required Variables
+
+- `SECRET_KEY_BASE` - Rails secret key (generate with `bin/rails secret`)
+- `AI_BASE_URL` - Base URL for OpenAI-compatible API (e.g., `http://model-runner.docker.internal/engines/llama.cpp/v1`)
+- `LLM_MODEL` - Language model identifier (e.g., `ai/mistral`)
+- `EMBEDDING_MODEL` - Embedding model identifier (e.g., `ai/granite-embedding-multilingual`)
+- `EMBEDDING_DIMENSIONS` - Embedding vector dimensions (e.g., `768`)
+
+#### Optional Variables with Defaults
+
+- `AI_API_KEY` - API key for the AI service (default: empty)
+- `LLM_TEMPERATURE` - Model temperature (default: `0.1`)
+- `LLM_TOP_K` - Top K sampling (default: `40`)
+- `LLM_TOP_P` - Top P sampling (default: `0.9`)
+- `RETRIEVAL_FETCH_K` - Number of chunks to retrieve (default: `3`)
+
+See `.env.example` for a complete list of configuration options.
+
+### Setting Up Your Environment
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` and update the values for your deployment:
+   ```bash
+   # Update required values
+   SECRET_KEY_BASE=$(bin/rails secret)
+   AI_BASE_URL=http://your-ai-service:11434/v1
+   LLM_MODEL=your-preferred-model
+   EMBEDDING_MODEL=your-embedding-model
+   EMBEDDING_DIMENSIONS=768
+   ```
+
+3. Test your configuration:
+   ```bash
+   bin/rails runner "puts 'Configuration valid!'"
+   ```
+
+If validation fails, you'll see a detailed error message indicating which variables are missing or invalid.
 
 ## API
 

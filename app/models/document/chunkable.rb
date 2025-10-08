@@ -1,10 +1,6 @@
 module Document::Chunkable
   extend ActiveSupport::Concern
 
-  MAX_TOKENS = ENV["CHUNK_MAX_TOKENS"] ? ENV["CHUNK_MAX_TOKENS"].to_i : 512
-  MIN_TOKENS = ENV["CHUNK_MIN_TOKENS"] ? ENV["CHUNK_MIN_TOKENS"].to_i : 128
-  MERGE_PEERS = ENV["CHUNK_MERGE_PEERS"] != "false" # Default true
-
   included do
     has_many :chunks, as: :chunkable, dependent: :destroy
   end
@@ -19,7 +15,7 @@ module Document::Chunkable
     token_refined_chunks = split_oversized_chunks(structural_chunks)
 
     # Phase 3: Merge undersized consecutive chunks
-    final_chunks = MERGE_PEERS ? merge_small_chunks(token_refined_chunks) : token_refined_chunks
+    final_chunks = ENV["CHUNK_MERGE_PEERS"] ? merge_small_chunks(token_refined_chunks) : token_refined_chunks
 
     chunks = build_enriched_chunks(final_chunks)
 
@@ -91,7 +87,7 @@ module Document::Chunkable
       contextualized = contextualize_with_metadata(chunk)
       token_count = count_tokens(contextualized)
 
-      if token_count > MAX_TOKENS
+      if token_count > ENV["CHUNK_MAX_TOKENS"]
         split_parts = split_by_paragraphs_and_tokens(content, chunk[:metadata])
         result.concat(split_parts)
       else
@@ -117,7 +113,7 @@ module Document::Chunkable
 
     # Account for header context in token counting
     header_overhead = count_tokens(metadata[:header_hierarchy]&.join("\n") || "")
-    effective_max = MAX_TOKENS - header_overhead
+    effective_max = ENV["CHUNK_MAX_TOKENS"] - header_overhead
 
     parts.each do |part|
       part_tokens = count_tokens(part)
@@ -198,8 +194,8 @@ module Document::Chunkable
       same_section = current_chunk[:metadata][:section_path] == chunk[:metadata][:section_path]
 
       if same_section &&
-        (current_tokens < MIN_TOKENS || chunk_tokens < MIN_TOKENS) &&
-        (current_tokens + chunk_tokens <= MAX_TOKENS)
+        (current_tokens < ENV["CHUNK_MIN_TOKENS"] || chunk_tokens < ENV["CHUNK_MIN_TOKENS"]) &&
+        (current_tokens + chunk_tokens <= ENV["CHUNK_MAX_TOKENS"])
 
         current_chunk[:content] += "\n\n" + chunk[:content]
         current_tokens += chunk_tokens

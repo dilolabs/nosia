@@ -1,5 +1,5 @@
 module ApplicationHelper
   def registrations_allowed?
-    ActiveModel::Type::Boolean.new.cast(ENV.fetch("REGISTRATIONS_ALLOWED", true))
+    ActiveModel::Type::Boolean.new.cast(ENV["REGISTRATIONS_ALLOWED"])
   end
 end

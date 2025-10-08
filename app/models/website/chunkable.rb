@@ -6,7 +6,7 @@ module Website::Chunkable
   end
 
   def chunkify!
-    separators = JSON.parse(ENV.fetch("SEPARATORS", [
+    separators = [
       "\n# ", # h1
       "\n## ", # h2
       "\n### ", # h3
@@ -21,11 +21,11 @@ module Website::Chunkable
       "\n", # new line
       " ", # space
       "" # empty
-    ].to_s))
+    ]
 
     splitter = ::Baran::RecursiveCharacterTextSplitter.new(
-      chunk_size: ENV.fetch("CHUNK_SIZE", 1_500).to_i,
-      chunk_overlap: ENV.fetch("CHUNK_OVERLAP", 250).to_i,
+      chunk_size: ENV["CHUNK_SIZE"].to_i,
+      chunk_overlap: ENV["CHUNK_OVERLAP"].to_i,
       separators:,
     )
 
