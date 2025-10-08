@@ -15,11 +15,7 @@ services:
       - caddy-data:/data
 
   web:
-    build:
-      context: .
-      args:
-        UID: ${UID:-1000}
-        GID: ${GID:-${UID:-1000}}
+    image: dilolabs/nosia:latest
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - AI_BASE_URL=${AI_BASE_URL}
@@ -69,7 +65,7 @@ services:
     restart: on-failure:5
 
   solidq:
-    build: .
+    image: dilolabs/nosia:latest
     command: bundle exec rake solid_queue:start
     environment:
       - DATABASE_URL=${DATABASE_URL}
