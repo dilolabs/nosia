@@ -16,8 +16,6 @@ module Chunk::Vectorizable
     }
   end
 
-  private
-
   def generate_embedding
     return if content.blank?
     Rails.logger.info "Generating embedding for Chunk #{id}..."
@@ -33,5 +31,10 @@ module Chunk::Vectorizable
       # Prevent saving if embedding fails (optional, depending on requirements)
       throw :abort
     end
+  end
+
+  def generate_embedding!
+    generate_embedding
+    save! if embedding_changed?
   end
 end

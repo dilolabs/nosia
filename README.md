@@ -48,7 +48,7 @@ You should see the following output:
 [x] Starting Nosia
 ```
 
-You can now access Nosia at `https://nosia.localhost`
+You can now access Nosia at `https://nosia.localhost` with a self-signed certificate.
 
 ### Custom installation
 
@@ -76,20 +76,18 @@ By default, Nosia uses `ai/granite-embedding-multilingual` embedding model.
 
 If you use new dimensions by using a new embedding model, you'll need to:
 
-1. Execute the change embedding dimensions task
+1. Change the `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS` environment variables in the `.env` file.
+
+2. Re-build the services:
+
+```bash
+docker compose --env-file .env build
+```
+
+3. Execute the change embedding dimensions task
 
 ```bash
 docker compose run web bin/rails embedding_dimensions:change
-```
-
-2. Re-vectorize your chunks (this could take a while):
-
-```bash
-docker compose run web bin/rails c
-```
-
-```ruby
-Document.find_each(&:vectorize!)
 ```
 
 ### Advanced installation
@@ -142,7 +140,9 @@ You can upgrade the services with the following command:
 You can start the services with the following command:
 
 ```bash
-./script/start
+docker compose --env-file .env up
+# OR in the background
+docker compose --env-file .env up -d
 ```
 
 ## Stop
@@ -150,7 +150,7 @@ You can start the services with the following command:
 You can stop the services with the following command:
 
 ```bash
-./script/stop
+docker compose --env-file .env down
 ```
 
 ## Troubleshooting
@@ -158,8 +158,7 @@ You can stop the services with the following command:
 If you encounter any issue:
 
 - during the installation, you can check the logs at `./log/production.log`
-- during the use waiting for an AI response, you can check the jobs at `http://<IP>:3000/jobs`
-- with Nosia, you can check the logs with `docker compose -f ./docker-compose.yml logs -f`
-- with the Ollama server, you can check the logs at `~/.ollama/logs/server.log`
+- during the use waiting for an AI response, you can check the jobs at `https://nosia.localhost/jobs`
+- with Nosia, you can check the logs with `docker compose logs -f`
 
 If you need further assistance, please open an issue!
