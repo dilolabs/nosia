@@ -216,8 +216,7 @@ module Document::Chunkable
 
   def count_tokens(text)
     return 0 if text.blank?
-    model = BlingFire::Model.new
-    model.text_to_words(text).size
+    text.size / 4 # Fallback estimate
   end
 
   def build_enriched_chunks(chunks)
