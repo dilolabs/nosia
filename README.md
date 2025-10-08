@@ -43,12 +43,28 @@ curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-i
 You should see the following output:
 
 ```
-[x] Setting up environment
-[x] Setting up prerequisites
-[x] Starting Nosia
+Setting up prerequisites
+Setting up Nosia
+Generating .env file
+Pulling latest Nosia
+[+] Pulling 6/6
+ ✔ llm Pulled
+ ✔ embedding Pulled
+ ✔ web Pulled
+ ✔ reverse-proxy Pulled
+ ✔ postgres-db Pulled
+ ✔ solidq Pulled
 ```
 
-You can now access Nosia at `https://nosia.localhost` with a self-signed certificate.
+You can now start Nosia with:
+
+```bash
+docker compose up
+# OR in the background
+docker compose up -d
+```
+
+Then you can access Nosia at `https://nosia.localhost` with a self-signed certificate.
 
 ### Custom installation
 
