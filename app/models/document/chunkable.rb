@@ -216,7 +216,7 @@ module Document::Chunkable
 
   def count_tokens(text)
     return 0 if text.blank?
-    text.size / 6 # Rough estimate: 1 token ~ 3-6 characters
+    text.size / 3 # Rough estimate: 1 token ~ 4 characters
   end
 
   def build_enriched_chunks(chunks)
