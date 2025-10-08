@@ -5,6 +5,11 @@ It is designed to be easy to install and use.
 
 You can follow this README or go to the [Nosia Guides](https://guides.nosia.ai/).
 
+**Documentation**:
+- [Architecture Documentation](ARCHITECTURE.md) - Detailed system design and implementation
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+
+**Contents**:
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
 - [API](#api)
