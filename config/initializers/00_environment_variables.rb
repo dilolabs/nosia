@@ -137,4 +137,4 @@ module EnvironmentValidator
 end
 
 # Run validation at startup
-EnvironmentValidator.validate!
+EnvironmentValidator.validate! unless ENV["SKIP_ENV_VALIDATION"] == "true"
