@@ -119,11 +119,11 @@ By default, Nosia uses:
 
 You can use any completion model available on [Docker Hub AI](https://hub.docker.com/u/ai) by setting the `LLM_MODEL` environment variable during installation.
 
-**Example with Mistral:**
+**Example with Granite 4.0 32B:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/main/install.sh \
-  | LLM_MODEL=ai/mistral sh
+  | LLM_MODEL=ai/granite-4.0-h-small sh
 ```
 
 **Model options:**
