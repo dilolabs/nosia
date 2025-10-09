@@ -15,6 +15,18 @@ Nosia is a platform that allows you to run AI models on your own data with compl
 - **🐳 Easy Deployment** - Docker Compose with one-command setup
 - **🔑 Multi-tenancy** - Account-based isolation for secure data separation
 
+## Preview
+
+### Install
+
+![nosia-install](https://github.com/user-attachments/assets/0b303da3-ac70-4809-8af2-ebf8aa93ecec)
+
+### Start and First Run
+
+![nosia-start](https://github.com/user-attachments/assets/4b802c43-6b34-4ec2-8a12-f5de5d730030)
+
+https://github.com/user-attachments/assets/4720f8a3-8a91-4e51-b4af-0ba7d66fa65e
+
 ## Quick Links
 
 - 📖 [Nosia Guides](https://guides.nosia.ai/) - Step-by-step tutorials
