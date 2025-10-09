@@ -93,8 +93,8 @@ setup_env() {
   echo "CHUNK_OVERLAP=250" >>.env
   echo "RAG_SYSTEM_TEMPLATE=\"You are Nosia, a helpful assistant. If necessary, use the information contained in the Nosia helpful content between <context> and </context>. Give a comprehensive answer to the question. Respond only to the question asked, response should be relevant to the question. If the answer cannot be deduced from the Nosia helpful content, do not use the context.\"" >>.env
   echo "AUGMENTED_CONTEXT=false" >>.env
-  echo "#GUARD_MODEL=" >>.env
-  echo "#DOCLING_SERVE_BASE_URL=" >>.env
+  echo "GUARD_MODEL=" >>.env
+  echo "DOCLING_SERVE_BASE_URL=" >>.env
 
   echo ".env file generated"
 }
