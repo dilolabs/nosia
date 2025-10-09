@@ -4,7 +4,7 @@ module Chat::ContextRelevance
   def context_relevance(context, question:)
     chat = self.chats.create!(account: self.account, user: self.user, model: self.model, provider: :openai, assume_model_exists: true)
     chat.assume_model_exists = true
-    model = ENV["GUARD_MODEL"] || self.model || ENV["LLM_MODEL"]
+    model = ENV["GUARD_MODEL"] || ENV["LLM_MODEL"]
     chat.with_model(model, provider: :openai)
     chat.with_temperature(0.0)
     chat.with_instructions("Respond with 'true' if the context is relevant to answer the question, otherwise respond with 'false'. Do not provide any additional information.")
