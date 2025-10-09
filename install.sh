@@ -67,31 +67,34 @@ setup_env() {
   DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
   SECRET_KEY_BASE=$(openssl rand -hex 64)
 
-  echo "DATABASE_URL=$DATABASE_URL" >.env
   echo "NOSIA_URL=$NOSIA_URL" >>.env
+  echo "REGISTRATION_ALLOWED=true" >>.env
+  echo "SECRET_KEY_BASE=$SECRET_KEY_BASE" >>.env
   echo "AI_BASE_URL=$AI_BASE_URL" >>.env
   echo "AI_API_KEY=" >>.env
   echo "LLM_MODEL=$LLM_MODEL" >>.env
   echo "EMBEDDING_MODEL=$EMBEDDING_MODEL" >>.env
   echo "EMBEDDING_DIMENSIONS=$EMBEDDING_DIMENSIONS" >>.env
-  echo "SMTP_ADDRESS=" >>.env
-  echo "SMTP_PORT=" >>.env
-  echo "SMTP_USER_NAME=" >>.env
-  echo "SMTP_PASSWORD=" >>.env
+  echo "DATABASE_URL=$DATABASE_URL" >.env
   echo "POSTGRES_HOST=$POSTGRES_HOST" >>.env
   echo "POSTGRES_PORT=$POSTGRES_PORT" >>.env
   echo "POSTGRES_DB=$POSTGRES_DB" >>.env
   echo "POSTGRES_USER=$POSTGRES_USER" >>.env
   echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >>.env
-  echo "SECRET_KEY_BASE=$SECRET_KEY_BASE" >>.env
   echo "LLM_TEMPERATURE=0.1" >>.env
-  echo "CHUNK_SIZE=1_500" >>.env
-  echo "CHUNK_OVERLAP=250" >>.env
-  echo "LLM_NUM_CTX=8_192" >>.env
+  echo "LLM_MAX_TOKENS=1_024" >>.env
   echo "LLM_TOP_K=40" >>.env
   echo "LLM_TOP_P=0.9" >>.env
   echo "RETRIEVAL_FETCH_K=4" >>.env
+  echo "CHUNK_MAX_TOKENS=512" >>.env
+  echo "CHUNK_MIN_TOKENS=128" >>.env
+  echo "CHUNK_MERGE_PEERS=true" >>.env
+  echo "CHUNK_SIZE=1_500" >>.env
+  echo "CHUNK_OVERLAP=250" >>.env
   echo "RAG_SYSTEM_TEMPLATE=\"You are Nosia, a helpful assistant. If necessary, use the information contained in the Nosia helpful content between <context> and </context>. Give a comprehensive answer to the question. Respond only to the question asked, response should be relevant to the question. If the answer cannot be deduced from the Nosia helpful content, do not use the context.\"" >>.env
+  echo "AUGMENTED_CONTEXT=false" >>.env
+  echo "#GUARD_MODEL=" >>.env
+  echo "#DOCLING_SERVE_BASE_URL=" >>.env
 
   echo ".env file generated"
 }
