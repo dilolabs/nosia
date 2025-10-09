@@ -135,13 +135,13 @@ setup_linux() {
 }
 
 setup_macos() {
-  echo "Setting up prerequisites"
-
-  # Install brew if not installed
-  if ! command -v brew &>/dev/null; then
-    echo "Installing Homebrew"
-    curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | sh
+  # Return if Docker is already installed
+  if command -v docker &>/dev/null; then
+    echo "Docker is already installed"
+    return
   fi
+
+  echo "Setting up prerequisites"
 
   # Install openssl if not installed
   if ! brew list openssl &>/dev/null; then
