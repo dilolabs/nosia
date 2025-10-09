@@ -75,7 +75,7 @@ setup_env() {
   echo "LLM_MODEL=$LLM_MODEL" >>.env
   echo "EMBEDDING_MODEL=$EMBEDDING_MODEL" >>.env
   echo "EMBEDDING_DIMENSIONS=$EMBEDDING_DIMENSIONS" >>.env
-  echo "DATABASE_URL=$DATABASE_URL" >.env
+  echo "DATABASE_URL=$DATABASE_URL" >>.env
   echo "POSTGRES_HOST=$POSTGRES_HOST" >>.env
   echo "POSTGRES_PORT=$POSTGRES_PORT" >>.env
   echo "POSTGRES_DB=$POSTGRES_DB" >>.env
