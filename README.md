@@ -69,7 +69,7 @@ The installation script will:
 4. Pull all required Docker images
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/refs/heads/main/install.sh | sh
 ```
 
 You should see the following output:
@@ -122,7 +122,7 @@ You can use any completion model available on [Docker Hub AI](https://hub.docker
 **Example with Granite 4.0 32B:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/refs/heads/main/install.sh \
   | LLM_MODEL=ai/granite-4.0-h-small sh
 ```
 
