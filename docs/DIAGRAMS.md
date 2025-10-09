@@ -1,6 +1,6 @@
 # Nosia System Diagrams
 
-This document contains ASCII diagrams that complement the ARCHITECTURE.md documentation.
+This document contains ASCII diagrams that complement the [ARCHITECTURE.md](ARCHITECTURE.md) documentation.
 
 ## Full System Architecture
 
@@ -255,5 +255,5 @@ This document contains ASCII diagrams that complement the ARCHITECTURE.md docume
 
 ---
 
-These diagrams complement the detailed explanations in ARCHITECTURE.md and provide
+These diagrams complement the detailed explanations in [ARCHITECTURE.md](ARCHITECTURE.md) and provide
 visual reference for understanding Nosia's system design.
