@@ -151,9 +151,10 @@ By default, Nosia uses `ai/granite-embedding-multilingual` for generating docume
    EMBEDDING_DIMENSIONS=768  # Adjust based on your model's output dimensions
    ```
 
-2. Rebuild the services to apply changes:
+2. Restart Nosia to apply changes:
    ```bash
-   docker compose --env-file .env build
+   docker compose down
+   docker compose up -d
    ```
 
 3. Update existing embeddings (if you have documents already indexed):
