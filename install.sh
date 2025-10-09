@@ -128,7 +128,7 @@ setup_linux() {
   sudo apt-get update
 
   # Install Docker:
-  sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+  sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-model-plugin -y
 
   # Add the current user to the docker group:
   sudo usermod -aG docker $USER
