@@ -6,7 +6,7 @@ module Chunk::Vectorizable
 
     before_save :generate_embedding, if: :content_changed?
 
-    scope :search_by_similarity, ->(query_text, limit: ENV["RETRIEVAL_FETCH_K"] || 5) {
+    scope :search_by_similarity, ->(query_text, limit: ENV["RETRIEVAL_FETCH_K"].to_i || 5) {
       context = RubyLLM.context do |config|
         config.openai_api_base = ENV["EMBEDDING_BASE_URL"] || ENV["AI_BASE_URL"]
         config.openai_api_key = ENV["AI_API_KEY"]
