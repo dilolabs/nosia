@@ -36,6 +36,9 @@ services:
       - GUARD_MODEL=${GUARD_MODEL}
       - DOCLING_SERVE_BASE_URL=${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=${AUGMENTED_CONTEXT}
+    models:
+     - llm
+     - embedding
     volumes:
       - rails-storage:/rails/storage
     healthcheck:
@@ -45,10 +48,6 @@ services:
       retries: 30
     depends_on:
       postgres-db:
-        condition: service_healthy
-      embedding:
-        condition: service_healthy
-      llm:
         condition: service_healthy
     restart: on-failure:5
 
@@ -92,30 +91,23 @@ services:
       - GUARD_MODEL=${GUARD_MODEL}
       - DOCLING_SERVE_BASE_URL=${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=${AUGMENTED_CONTEXT}
+    models:
+     - llm
+     - embedding
     volumes:
       - rails-storage:/rails/storage
     depends_on:
       postgres-db:
         condition: service_healthy
-      embedding:
-        condition: service_healthy
-      llm:
-        condition: service_healthy
       web:
         condition: service_healthy
     restart: on-failure:5
 
+models:
   llm:
-    provider:
-      type: model
-      options:
-        model: ${LLM_MODEL}
-
+    model: ${LLM_MODEL}
   embedding:
-    provider:
-      type: model
-      options:
-        model: ${EMBEDDING_MODEL}
+    model: ${EMBEDDING_MODEL}
 
 volumes:
   caddy-config:
