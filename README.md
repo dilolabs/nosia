@@ -126,10 +126,17 @@ curl -fsSL https://raw.githubusercontent.com/nosia-ai/nosia-install/main/nosia-i
   | LLM_MODEL=ai/mistral sh
 ```
 
-**Popular model options:**
-- `ai/mistral` - General purpose, good performance
-- `ai/granite-4.0-h-tiny` - Small, fast model (default)
-- `ai/llama-2-7b` - Meta's Llama 2 model
+**Model options:**
+- `ai/granite-4.0-h-micro` - 3B long-context instruct model by IBM
+- `ai/granite-4.0-h-tiny` - 7B long-context instruct model by IBM (default)
+- `ai/granite-4.0-h-small` - 32B long-context instruct model by IBM
+- `ai/mistral` - Efficient open model (7B) with top-tier performance and fast inference by Mistral AI
+- `ai/magistral-small-3.2` - 24B multimodal instruction model by Mistral AI
+- `ai/devstral-small` - Agentic coding LLM (24B) fine-tuned from Mistral-Small 3.1 by Mistral AI
+- `ai/llama3.3` - Meta's Llama 3.3 model
+- `ai/gemma3` - Google's Gemma 3 model
+- `ai/qwen3` - Alibaba's Qwen 3 model
+- `ai/deepseek-r1-distill-llama` - DeepSeek's distilled Llama model
 - Browse more at [Docker Hub AI](https://hub.docker.com/u/ai)
 
 #### Using a Custom Embeddings Model
