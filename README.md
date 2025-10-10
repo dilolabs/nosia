@@ -33,6 +33,10 @@ docker compose up -d
 
 ![nosia-start](https://github.com/user-attachments/assets/4b802c43-6b34-4ec2-8a12-f5de5d730030)
 
+```
+https://nosia.localhost
+```
+
 https://github.com/user-attachments/assets/4720f8a3-8a91-4e51-b4af-0ba7d66fa65e
 
 ## Quick Links
