@@ -19,7 +19,7 @@ Nosia is a platform that allows you to run AI models on your own data with compl
 
 ### Install
 
-![nosia-install](https://github.com/user-attachments/assets/0b303da3-ac70-4809-8af2-ebf8aa93ecec)
+![nosia-install](https://github.com/user-attachments/assets/9a11c964-ed84-4bab-be9a-01b1d1191fee)
 
 ### Start and First Run
 
