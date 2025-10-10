@@ -1,9 +1,9 @@
-#!/bin/bash -e
+#!/bin/sh -e
 # Nosia Installation Script
 # This script sets up the Nosia application using Docker and Docker Compose.
 # It handles prerequisites, environment variable generation, and pulls necessary files.
 # Usage:
-# curl -fsSL https://get.nosia.ai | bash
+# curl -fsSL https://get.nosia.ai | sh
 
 pull() {
   echo "Pulling latest Caddyfile..."
