@@ -36,8 +36,8 @@ setup_env() {
   if ! [ -n "$AI_BASE_URL" ]; then
     case "$OSTYPE" in
     linux*) AI_BASE_URL=http://172.17.0.1:12434/engines/llama.cpp/v1 ;;
-    darwin*) AI_BASE_URL=http://http://model-runner.docker.internal/engines/llama.cpp/v1 ;;
-    cygwin* | msys* | win32) AI_BASE_URL=http://http://model-runner.docker.internal/engines/llama.cpp/v1 ;;
+    darwin*) AI_BASE_URL=http://model-runner.docker.internal/engines/llama.cpp/v1 ;;
+    cygwin* | msys* | win32) AI_BASE_URL=http://model-runner.docker.internal/engines/llama.cpp/v1 ;;
     esac
   fi
 
