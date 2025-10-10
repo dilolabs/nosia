@@ -19,9 +19,17 @@ Nosia is a platform that allows you to run AI models on your own data with compl
 
 ### Install
 
+```sh
+curl -fsSL https://get.nosia.ai | sh
+```
+
 ![nosia-install](https://github.com/user-attachments/assets/9a11c964-ed84-4bab-be9a-01b1d1191fee)
 
 ### Start and First Run
+
+```sh
+docker compose up -d
+```
 
 ![nosia-start](https://github.com/user-attachments/assets/4b802c43-6b34-4ec2-8a12-f5de5d730030)
 
