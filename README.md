@@ -195,9 +195,14 @@ By default, Nosia uses `ai/granite-embedding-multilingual` for generating docume
 
 **To enable Docling:**
 
-1. Start Nosia with the Docling compose file:
+1. Start Nosia with the Docling serve compose file:
    ```bash
-   docker compose -f docker-compose-docling.yml up
+    # For NVIDIA GPUs
+   docker compose -f docker-compose-docling-serve-nvidia.yml up -d
+    # OR for AMD GPUs
+   docker compose -f docker-compose-docling-serve-amd.yml up -d
+    # OR for CPU only
+   docker compose -f docker-compose-docling-serve-cpu.yml up -d
    ```
 
 2. Configure the Docling URL in your `.env` file:
