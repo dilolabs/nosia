@@ -1,117 +1,154 @@
 #!/bin/bash -e
+# Nosia Installation Script
+# This script sets up the Nosia application using Docker and Docker Compose.
+# It handles prerequisites, environment variable generation, and pulls necessary files.
+# Usage:
+# curl -fsSL https://get.nosia.ai | bash
 
 pull() {
-  echo "Pulling latest Caddyfile"
+  echo "Pulling latest Caddyfile..."
   curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/main/Caddyfile >Caddyfile
+  echo "Caddyfile pulled successfully."
 
-  echo "Pulling latest docker-compose.yml"
+  echo "Pulling latest docker-compose.yml..."
   curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/main/docker-compose.yml >docker-compose.yml
+  echo "docker-compose.yml pulled successfully."
 
-  echo "Pulling latest Nosia"
+  echo "Pulling latest Docker images..."
   docker compose pull
+  echo "Docker images pulled successfully."
+
+  echo "Setup complete. You can now start the application with 'docker compose up -d'."
 }
 
 setup_env() {
-  # Set environment variables for Nosia
   if [ -f .env ]; then
-    echo ".env file already exists"
+    echo ".env file already exists, skipping generation"
     return
   fi
 
-  echo "Generating .env file"
+  echo "Generating environment variables for .env file"
 
-  if [ -n "$NOSIA_URL" ]; then
-    echo "Using NOSIA_URL from environment"
-  else
-    echo "NOSIA_URL is not set, using default value"
+  if ! [ -n "$NOSIA_URL" ]; then
     NOSIA_URL=https://nosia.localhost
   fi
 
-  if [ -n "$AI_BASE_URL" ]; then
-    echo "Using AI_BASE_URL from environment"
-  else
-    echo "AI_BASE_URL is not set, using default value"
-    if OS_NAME=$(uname -s) && [ "$OS_NAME" = "Darwin" ]; then
-      AI_BASE_URL=http://model-runner.docker.internal/engines/llama.cpp/v1
-    else
-      AI_BASE_URL=http://172.17.0.1:12434/engines/llama.cpp/v1
-    fi
+  if ! [ -n "$AI_BASE_URL" ]; then
+    case "$OSTYPE" in
+    linux*) AI_BASE_URL=http://172.17.0.1:12434/engines/llama.cpp/v1 ;;
+    darwin*) AI_BASE_URL=http://host.docker.internal:12434/engines/llama.cpp/v1 ;;
+    cygwin* | msys* | win32) AI_BASE_URL=http://host.docker.internal:12434/engines/llama.cpp/v1 ;;
+    esac
   fi
 
-  if [ -n "$LLM_MODEL" ]; then
-    echo "Using LLM_MODEL from environment"
-  else
-    echo "LLM_MODEL is not set, using default value"
+  if ! [ -n "$LLM_MODEL" ]; then
     LLM_MODEL=ai/granite-4.0-h-tiny
   fi
 
-  if [ -n "$EMBEDDING_MODEL" ]; then
-    echo "Using EMBEDDING_MODEL from environment"
-  else
-    echo "EMBEDDING_MODEL is not set, using default value"
+  if ! [ -n "$EMBEDDING_MODEL" ]; then
     EMBEDDING_MODEL=ai/granite-embedding-multilingual
   fi
 
-  if [ -n "$EMBEDDING_DIMENSIONS" ]; then
-    echo "Using EMBEDDING_DIMENSIONS from environment"
-  else
-    echo "EMBEDDING_DIMENSIONS is not set, using default value"
+  if ! [ -n "$EMBEDDING_DIMENSIONS" ]; then
     EMBEDDING_DIMENSIONS=768
   fi
 
+  SECRET_KEY_BASE=$(openssl rand -hex 64)
   POSTGRES_HOST=postgres-db
   POSTGRES_PORT=5432
   POSTGRES_DB=nosia_production
   POSTGRES_USER=nosia
   POSTGRES_PASSWORD=$(openssl rand -hex 32)
   DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
-  SECRET_KEY_BASE=$(openssl rand -hex 64)
 
-  echo "NOSIA_URL=$NOSIA_URL" >>.env
-  echo "REGISTRATION_ALLOWED=true" >>.env
-  echo "SECRET_KEY_BASE=$SECRET_KEY_BASE" >>.env
-  echo "AI_BASE_URL=$AI_BASE_URL" >>.env
-  echo "AI_API_KEY=" >>.env
-  echo "LLM_MODEL=$LLM_MODEL" >>.env
-  echo "EMBEDDING_MODEL=$EMBEDDING_MODEL" >>.env
-  echo "EMBEDDING_DIMENSIONS=$EMBEDDING_DIMENSIONS" >>.env
-  echo "DATABASE_URL=$DATABASE_URL" >>.env
-  echo "POSTGRES_HOST=$POSTGRES_HOST" >>.env
-  echo "POSTGRES_PORT=$POSTGRES_PORT" >>.env
-  echo "POSTGRES_DB=$POSTGRES_DB" >>.env
-  echo "POSTGRES_USER=$POSTGRES_USER" >>.env
-  echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >>.env
-  echo "LLM_TEMPERATURE=0.1" >>.env
-  echo "LLM_MAX_TOKENS=1_024" >>.env
-  echo "LLM_TOP_K=40" >>.env
-  echo "LLM_TOP_P=0.9" >>.env
-  echo "RETRIEVAL_FETCH_K=4" >>.env
-  echo "CHUNK_MAX_TOKENS=512" >>.env
-  echo "CHUNK_MIN_TOKENS=128" >>.env
-  echo "CHUNK_MERGE_PEERS=true" >>.env
-  echo "CHUNK_SIZE=1_500" >>.env
-  echo "CHUNK_OVERLAP=250" >>.env
-  echo "RAG_SYSTEM_TEMPLATE=\"You are Nosia, a helpful assistant. If necessary, use the information contained in the Nosia helpful content between <context> and </context>. Give a comprehensive answer to the question. Respond only to the question asked, response should be relevant to the question. If the answer cannot be deduced from the Nosia helpful content, do not use the context.\"" >>.env
-  echo "AUGMENTED_CONTEXT=false" >>.env
-  echo "GUARD_MODEL=" >>.env
-  echo "DOCLING_SERVE_BASE_URL=" >>.env
+  cat <<EOF >.env
+# Nosia Environment Configuration
+# Copy this file to .env and update with your actual values
 
-  echo ".env file generated"
+# Application URL
+NOSIA_URL=$NOSIA_URL
+
+# Allow user registration (set to false to disable)
+REGISTRATION_ALLOWED=true
+
+# Secret Key Base (generate with: bin/rails secret)
+# IMPORTANT: Change this in production!
+SECRET_KEY_BASE=$SECRET_KEY_BASE
+
+# AI Service Configuration
+# Base URL for OpenAI-compatible API (e.g., Ollama, OpenAI, etc.)
+AI_BASE_URL=$AI_BASE_URL
+AI_API_KEY=$AI_API_KEY
+
+# LLM Model Configuration
+LLM_MODEL=$LLM_MODEL
+LLM_TEMPERATURE=0.1
+LLM_MAX_TOKENS=1_024
+LLM_TOP_K=40
+LLM_TOP_P=0.9
+
+# Embedding Model Configuration
+EMBEDDING_MODEL=$EMBEDDING_MODEL
+EMBEDDING_DIMENSIONS=$EMBEDDING_DIMENSIONS
+
+# Optional: Separate embedding service URL (defaults to AI_BASE_URL)
+# EMBEDDING_BASE_URL=$EMBEDDING_BASE_URL
+
+# Document Processing Configuration
+CHUNK_MAX_TOKENS=512
+CHUNK_MIN_TOKENS=128
+CHUNK_MERGE_PEERS=true
+RETRIEVAL_FETCH_K=3
+
+# RAG (Retrieval Augmented Generation) Configuration
+RAG_SYSTEM_TEMPLATE="You are Nosia, a helpful assistant. If necessary, use the information contained in the context. Give a complete answer to the question. Only answer the question asked, the answer must be relevant to the question. If the answer cannot be deduced from the context, do not use the context."
+
+# Optional: Guard Model for additional validation
+GUARD_MODEL=
+
+# Database Configuration (for production)
+# Uncomment and configure for production deployments
+POSTGRES_HOST=$POSTGRES_HOST
+POSTGRES_PORT=$POSTGRES_PORT
+POSTGRES_DB=$POSTGRES_DB
+POSTGRES_USER=$POSTGRES_USER
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+DATABASE_URL=$DATABASE_URL
+
+# Optional: Docling Serve Configuration
+# For advanced document processing
+DOCLING_SERVE_BASE_URL=
+
+# Optional: Augmented Context
+# Enable for enhanced chat completions with context augmentation
+AUGMENTED_CONTEXT=false
+
+# Development/Test Database Configuration (handled by config/database.yml)
+# DB_HOST=localhost
+EOF
+
+  echo ".env file generated successfully."
 }
 
 setup_linux() {
-  echo "Setting up prerequisites"
+  echo "Setting up prerequisites..."
 
   # Check if openssl is installed
-  if ! command -v openssl &>/dev/null; then
+  if command -v openssl &>/dev/null; then
+    echo "OpenSSL is already installed."
+  else
+    echo "Installing OpenSSL..."
     sudo apt-get install -y openssl
+    echo "OpenSSL installed successfully."
   fi
 
   # Check if Docker is installed
   if command -v docker &>/dev/null; then
-    echo "Docker is already installed"
+    echo "Docker is already installed."
     return
   fi
+
+  echo "Installing Docker..."
 
   # Add Docker's official GPG key:
   sudo apt-get update
@@ -132,44 +169,75 @@ setup_linux() {
 
   # Add the current user to the docker group:
   sudo usermod -aG docker $USER
+
+  echo "Docker installed successfully."
+  echo "Please log out and log back in to apply the Docker group changes."
+  echo "After logging back in, rerun this script to continue the setup."
+  exit 0
 }
 
 setup_macos() {
+  echo "Setting up prerequisites..."
+
   # Return if Docker is already installed
   if command -v docker &>/dev/null; then
-    echo "Docker is already installed"
+    echo "Docker is already installed."
     return
   fi
 
-  echo "Setting up prerequisites"
+  # Install prerequisites using Homebrew
+  if command -v brew &>/dev/null; then
+    # Install openssl if not installed
+    if ! brew list openssl &>/dev/null; then
+      echo "Installing OpenSSL..."
+      brew install openssl
+      echo "OpenSSL installed successfully."
+    fi
 
-  # Install openssl if not installed
-  if ! brew list openssl &>/dev/null; then
-    echo "Installing OpenSSL"
-    brew install openssl
+    # Install Docker Desktop if not installed
+    if ! brew list docker-desktop &>/dev/null; then
+      echo "Installing Docker Desktop..."
+      brew install --cask docker-desktop
+      echo "Docker Desktop installed successfully."
+    fi
+
+    echo "Setting up Docker Desktop..."
+
+    # Start Docker Desktop
+    open -a Docker
+    while ! docker system info >/dev/null 2>&1; do
+      echo "Waiting for Docker to start..."
+      sleep 1
+    done
+  else
+    echo "Please install Docker Desktop manually from https://www.docker.com/products/docker-desktop/ or ensure Homebrew is installed from https://brew.sh/"
+    exit 1
   fi
-
-  # Install Docker Desktop if not installed
-  if ! brew list docker-desktop &>/dev/null; then
-    echo "Installing Docker Desktop"
-    brew install --cask docker-desktop
-  fi
-
-  echo "Setting up Nosia"
-
-  # Start Docker Desktop
-  open -a Docker
-  while ! docker system info >/dev/null 2>&1; do
-    echo "Waiting for Docker to start..."
-    sleep 1
-  done
 }
 
-case "$OSTYPE" in
-linux*) setup_linux ;;
-darwin*) setup_macos ;;
-*) OS_NAME="Unknown" ;;
-esac
+setup_windows() {
+  echo "Setting up prerequisites..."
 
-setup_env
-pull
+  # Check if Docker is installed
+  if command -v docker &>/dev/null; then
+    echo "Docker is already installed."
+    return
+  else
+    echo "Please install Docker Desktop manually from https://www.docker.com/products/docker-desktop/"
+    exit 1
+  fi
+}
+
+do_install() {
+  case "$OSTYPE" in
+  linux*) setup_linux ;;
+  darwin*) setup_macos ;;
+  cygwin* | msys* | win32) setup_windows ;;
+  *) echo "Unsupported OS: $OSTYPE" ;;
+  esac
+
+  setup_env
+  pull
+}
+
+do_install
