@@ -1,6 +1,5 @@
 class Chunk < ApplicationRecord
-  include Enrichable
-  include Vectorizable
+  include Enrichable, Searchable, Vectorizable
 
   belongs_to :account
   belongs_to :chunkable, polymorphic: true
