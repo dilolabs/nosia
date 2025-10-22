@@ -3,11 +3,11 @@
   <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary hidden md:inline-flex " %>
 </div>
 
-<div data-controller="dropzone" class="mt-2 dropzone n-card n-main-border !flex justify-center dz-clickable"></div>
+<div data-controller="dropzone" class="mt-2 !flex items-stretch justify-center dropzone"></div>
 <ul class="n-cards-grid list-none">
   <% @documents.each do |document| %>
     <li class="n-card n-main-border lg:col-span-2">
-      <div class="m-6 space-y-2">
+      <div class="m-5 p-1 truncate space-y-2">
         <div class="flex items-center justify-between">
           <p class="n-card-subtitle"><%= document.account&.name %></p>
           <div class="flex items-center gap-4">

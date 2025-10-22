@@ -208,9 +208,8 @@
 }
 .dropzone {
     min-height: 150px;
-    border: 2px solid rgba(0, 0, 0, 0.3);
-    background: #fff;
-    padding: 20px 20px;
+    border: 1px;
+    padding: none;
 }
 .dropzone.dz-clickable {
     cursor: pointer;
@@ -234,15 +233,15 @@
 .dropzone .dz-message {
     text-align: center;
     margin: 0 0;
+    width: 100%;
+    border-radius: 8px;
 }
 .dropzone .dz-message .dz-button {
-    background: none;
     color: inherit;
     border: none;
     padding: 0;
     font: inherit;
     cursor: pointer;
-    outline: inherit;
 }
 .dropzone .dz-preview {
     position: relative;

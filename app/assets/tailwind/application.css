@@ -77,5 +77,7 @@ ul {
 }
 
 .dz-default {
-    @apply md:text-2xl text-black dark:text-white font-semibold italic;
+    @apply md:text-2xl font-semibold italic border border-gray-200 bg-white hover:bg-green-200 shadow-sm rounded-lg truncate
+    dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-green-800
+    transition-colors duration-200 focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }

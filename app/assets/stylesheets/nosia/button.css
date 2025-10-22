@@ -3,6 +3,13 @@
     focus:ring-2 focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500;
 }
 
+.n-btn-chat {
+    @apply absolute bottom-2.5 right-2.5 px-4 py-2 rounded-lg text-sm sm:text-base text-white
+    transition-colors duration-200
+    focus:ring-2 focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500
+    bg-green-300 dark:bg-green-900 hover:bg-green-400 dark:hover:bg-green-800;
+}
+
 .n-btn-danger {
     @apply cursor-pointer text-center text-sm items-center rounded-lg p-1.5
     transition-colors duration-200
@@ -25,7 +32,7 @@
 }
 
 .n-btn-primary {
-    @apply cursor-pointer text-center text-sm items-center rounded-lg p-1.5
+    @apply cursor-pointer text-center text-sm items-center rounded-lg px-4 py-2
     transition-colors duration-200
     focus:ring-2 focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500
     bg-green-300 dark:bg-green-900 hover:bg-green-400 dark:hover:bg-green-800;
