@@ -4,7 +4,7 @@ source "https://rubygems.org"
 gem "dotenv", groups: [ :development, :test ] # A Ruby gem to load environment variables from `.env` [https://github.com/bkeepers/dotenv]
 
 # Use main development branch of Rails
-gem "rails", "~> 8.0.0"
+gem "rails", "~> 8.1.0"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
 # Use postgresql as the database for Active Record
