@@ -2,11 +2,9 @@
   <%= form_with(model: Message.new, url: [chat, chat.messages.new], data: { controller: "form", form_target: "form" }, class: "mt-2") do |form| %>
     <%= form.label :content, "Ask any question", class: "sr-only" %>
     <div class="relative">
-      <%= form.text_area :content, data: { action: "keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit" }, class: "w-full resize-none rounded-xl border-none bg-slate-200 py-4 pl-4 pr-16 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200 dark:placeholder-slate-400 dark:focus:ring-blue-500 sm:text-base", placeholder: "Ask any question", rows: 1, autofocus: true, "x-on:keydown.cmd.enter" => "$event.target.form.requestSubmit();" %>
-      <%= form.button type: :submit, class: "absolute bottom-2 right-2.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 sm:text-base" do %>
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
-        </svg>
+      <%= form.text_area :content, data: { action: "keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit" }, class: "n-chat", placeholder: "Ask any question", rows: 1, autofocus: true, "x-on:keydown.cmd.enter" => "$event.target.form.requestSubmit();" %>
+      <%= form.button type: :submit, class: "n-btn-chat" do %>
+        <%= inline_svg "svg/paper-plan.svg", title: "Send", alt: "Send", class: "size-6" %>
       <% end %>
     </div>
   <% end %>
