@@ -1,0 +1,23 @@
+<div id="processing_indicator_<%= chat.id %>"
+     class="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-neutral-800/50 border border-slate-200 dark:border-neutral-700/50 animate-pulse">
+
+  <!-- Spinner animé -->
+  <div class="relative flex h-5 w-5">
+    <span class="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75 animate-ping"></span>
+    <span class="relative inline-flex rounded-full h-5 w-5 bg-blue-500"></span>
+  </div>
+
+  <!-- Texte de l'étape en cours -->
+  <span class="text-sm font-medium text-slate-600 dark:text-neutral-400">
+    <% case current_step %>
+    <% when "context" %>
+      Searching context...
+    <% when "reasoning" %>
+      Analyzing relevance...
+    <% when "generating" %>
+      Generating response...
+    <% else %>
+      Processing...
+    <% end %>
+  </span>
+</div>

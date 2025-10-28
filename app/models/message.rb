@@ -14,22 +14,32 @@ class Message < ApplicationRecord
   belongs_to :chat
 
   before_create :set_default_role
+  before_create :set_step_from_chat
   after_create_commit -> { broadcast_created }
   after_update_commit -> { broadcast_updated }
 
   # Helper to broadcast chunks during streaming
   def broadcast_append_chunk(chunk_content)
-    broadcast_append_to [ chat, "messages" ], # Target the stream
-      target: dom_id(self, "content"), # Target the content div inside the message frame
-      html: chunk_content # Append the raw chunk
+    return unless step == "default" # Ne broadcaster que les messages visibles par l'utilisateur
+    broadcast_update_to [ chat, "messages" ],
+      target: dom_id(self, "content"),
+      html: Commonmarker.to_html(self.content, options: { parse: { smart: true }, extension: { table: true, autolink: true, strikethrough: true }, render: { unsafe: true } })
   end
 
   def broadcast_created
     return if system?
+    return unless step == "default" # Ne broadcaster que les messages visibles par l'utilisateur
+
+    # Ne pas broadcaster si un message utilisateur identique existe déjà (éviter les doublons)
+    if user? && chat.messages.where(role: :user, content: content).where.not(id: id).exists?
+      return
+    end
+
     broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
   end
 
   def broadcast_updated
+    return unless step == "default" # Ne broadcaster que les messages visibles par l'utilisateur
     broadcast_update_to chat, :messages, target: dom_id(self, :messages), locals: { message: self, scroll_to: true }
   end
 
@@ -70,6 +80,13 @@ class Message < ApplicationRecord
 
   def set_default_role
     self.role ||= "user"
+  end
+
+  def set_step_from_chat
+    # Si le chat a défini un step pour les prochains messages, l'utiliser
+    if chat.instance_variable_defined?(:@next_message_step) && chat.instance_variable_get(:@next_message_step)
+      self.step = chat.instance_variable_get(:@next_message_step)
+    end
   end
 
   def similar_authors

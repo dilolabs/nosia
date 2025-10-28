@@ -1,0 +1,17 @@
+<!-- app/views/messages/_search_chips.html.erb -->
+<%# Affiche des “chips” sources comme Perplexity %>
+<% sources = Array(message.try(:sources)) || [] %>
+<% if sources.any? %>
+  <div class="flex flex-wrap gap-2">
+    <% sources.first(6).each_with_index do |s, i| %>
+      <a href="<%= s[:url] %>" target="_blank" rel="noopener"
+         class="text-xs inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-neutral-700 px-2 py-1 hover:bg-slate-50 dark:hover:bg-neutral-800">
+        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+        <span class="truncate max-w-[160px]"><%= s[:title].presence || URI.parse(s[:url]).host %></span>
+        <span class="text-slate-400">[<%= i+1 %>]</span>
+      </a>
+    <% end %>
+  </div>
+<% else %>
+  <span class="text-xs text-slate-400">Aucune source</span>
+<% end %>

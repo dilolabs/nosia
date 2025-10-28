@@ -4,6 +4,9 @@ class MessagesController < ApplicationController
   def create
     return unless content.present?
 
+    # Créer le message utilisateur immédiatement pour qu'il soit visible tout de suite
+    @chat.messages.create!(role: :user, content: content)
+
     ChatResponseJob.perform_later(@chat.id, content)
 
     respond_to do |format|

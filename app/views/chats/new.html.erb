@@ -1,9 +1,57 @@
-<% content_for :title, "New chat" %>
+<% content_for :title, "AI Chat" %>
 
-<div class="n-title-container md:flex md:justify-between md:items-center">
-  <h2 class="n-main-title">Ask any question</h2>
-</div>
+<div class=" flex flex-col ">
 
-<div class="flex w-full flex-col">
-  <%= render "form", chat: @chat %>
+
+  <main class="flex-1">
+    <section class="max-w-4xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 text-center">
+      <h2 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+        Welcome to NOSIA
+      </h2>
+      <p class="mt-3 text-slate-500 dark:text-neutral-400">
+        An ethical, humanistic, and peaceful vision of free and private generative AI.
+      </p>
+
+      <div class="mt-12 flex justify-center">
+        <div class="w-full max-w-4xl">
+          <div class="rounded-3xl border border-slate-200 dark:border-neutral-900 bg-white dark:bg-neutral-800 shadow-md p-6 sm:p-8">
+            <div
+              data-controller="dropzone"
+              data-action="dragenter->dropzone#highlight dragover->dropzone#highlight dragleave->dropzone#unhighlight drop->dropzone#drop click->dropzone#pick"
+              class="group relative rounded-2xl border-2 border-dashed border-slate-300/80 dark:border-neutral-700/80 bg-slate-50/60 dark:bg-neutral-700/60 px-6 py-14 text-center transition-all
+                    hover:border-slate-400 hover:bg-white hover:shadow-md"
+            >
+              <input type="file" multiple class="hidden" data-dropzone-target="input">
+
+              <div class="mx-auto mb-4 h-12 w-12 rounded-2xl ring-1 ring-slate-200/70 flex items-center justify-center
+                          group-data-[active=true]:ring-slate-300 transition">
+                <svg viewBox="0 0 24 24" class="h-6 w-6 text-slate-500 dark:text-neutral-400">
+                  <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 16V4m0 12l-4-4m4 4l4-4M4 20h16"/>
+                </svg>
+              </div>
+
+              <p class="text-lg font-semibold text-slate-800 dark:text-white">Add any document</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-neutral-400">Click or drag’n’drop files here to upload</p>
+              <p class="mt-2 text-xs text-slate-400 dark:text-neutral-400">PDF, PNG, JPG, DOCX · max 25&nbsp;MB</p>
+
+              <div class="pointer-events-none absolute inset-0 rounded-2xl ring-8 ring-transparent
+                          group-data-[active=true]:ring-slate-100 transition"></div>
+
+              <ul class="mt-6 max-w-md mx-auto space-y-2 text-left hidden" data-dropzone-target="list"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4">
+    <div class="pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-slate-200 dark:ring-neutral-700">
+      <div class="px-3 sm:px-4 py-3 sm:py-4">
+        <%= render "chats/form", chat: @chat %>
+      </div>
+    </div>
+  </div>
 </div>

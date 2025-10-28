@@ -1,26 +1,28 @@
-<%= form_with(model: chat, url: chats_path, class: "mt-2") do |form| %>
-  <% if chat.errors.any? %>
-    <div style="color: red">
-      <h2><%= pluralize(chat.errors.count, "error") %> prohibited this chat from being saved:</h2>
+<%= form_with(model: chat, url: chats_path, class: "w-full", data: { controller: "chat-input" }) do |form| %>
+  <%= form.label :prompt, "Summarize the latest…", class: "sr-only" %>
 
-      <ul>
-        <% chat.errors.each do |error| %>
-          <li><%= error.full_message %></li>
-        <% end %>
-      </ul>
-    </div>
-  <% end %>
+  <div class="relative w-full" data-chat-input-target="wrapper">
+    <%= form.text_area :prompt,
+      rows: 1,
+      autofocus: true,
+      placeholder: "Ask anything…",
+      data: { chat_input_target: "textarea", action: "input->chat-input#autogrow keydown->chat-input#handleKeys" },
+      class: "w-full min-h-[58px] resize-none overflow-hidden rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-700 py-3.5 pl-4 pr-14 text-base leading-6 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-neutral-700"
+    %>
 
-  <% # TODO: form.label :model, "Select AI model" %>
-  <% # TODO: form.select :model, options_for_select(Model.pluck(:name, :model_id).unshift(["Default (#{RubyLLM.config.default_model})", nil]), @selected_model), {}, class: "" %>
-
-  <%= form.label :prompt, "Ask any question", class: "sr-only" %>
-  <div class="relative">
-    <%= form.text_area :prompt, data: { action: "keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit" }, class: "w-full resize-none rounded-xl border-none bg-slate-200 py-4 pl-4 pr-16 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-200 dark:placeholder-slate-400 dark:focus:ring-blue-500 sm:text-base", placeholder: "Ask any question", rows: 1, autofocus: true, "x-on:keydown.cmd.enter" => "$event.target.form.requestSubmit();" %>
-    <%= form.button type: :submit, class: "absolute bottom-2 right-2.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 sm:text-base" do %>
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+    <%= form.button type: :submit,
+      data: { action: "chat-input#submit" },
+      class: "absolute right-2.5 bottom-3.5 hover:-rotate-90 transition duration-150 ease-in-out inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 dark:bg-neutral-900 cursor-pointer text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-40 " do %>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M6 12 3.269 3.125A59.77 59.77 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.875L6 12Zm0 0h7.5"/>
       </svg>
     <% end %>
+  </div>
+
+
+  <div class="mt-2 text-xs text-slate-500 dark:text-neutral-400">
+    <span>Enter to send · Shift+Enter for a line break</span>
   </div>
 <% end %>

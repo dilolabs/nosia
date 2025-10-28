@@ -1,9 +1,9 @@
 .n-main-bg {
-    @apply bg-gray-200 dark:bg-gray-800;
+    @apply bg-gray-200 dark:bg-neutral-800;
 }
 
 .n-main-border {
-    @apply border-gray-200 dark:border-gray-700;
+    @apply border-gray-200 dark:border-neutral-700;
 }
 
 .n-main-focus {
