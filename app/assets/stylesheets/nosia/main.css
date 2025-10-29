@@ -29,3 +29,7 @@
 .n-main-title {
     @apply leading-10 text-xl font-semibold sm:text-2xl;
 }
+
+.n-main-tooltip {
+    @apply text-center p-2 text-sm font-medium rounded-lg shadow-xs inline-block border;
+}
