@@ -5,35 +5,35 @@
   </div>
 </div>
 <form class="flex gap-4">
-  <div class="w-60">
+  <div class="w-1/2 md:w-60">
     <label for="order" class="n-label">Order by</label>
-    <button id="orderDropdownButton" data-dropdown-toggle="order-dropdown" type="button" class="w-40 n-btn-group n-main-hover border n-main-border n-main-focus inline-flex items-center justify-between">
+    <button id="orderDropdownButton" data-dropdown-toggle="order-dropdown" type="button" class="n-btn-group n-main-hover border n-main-border n-main-focus inline-flex items-center justify-between">
       Order by
       <%= inline_svg "svg/chevron-down.svg", class: "w-6 h-6" %>
     </button>
     <div id="order-dropdown" class="hidden n-dropdown-menu border n-main-border">
       <ul class="n-dropdown-list" aria-labelledby="orderDropdownButton">
         <li>
-          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Title (a -> z)</a>
+          <p class="group w-full n-dropdown-item n-main-hover n-main-focus">Title (a -> z)</p>
         </li>
         <li>
-          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Title (z -> a)</a>
+          <p class="group w-full n-dropdown-item n-main-hover n-main-focus">Title (z -> a)</p>
         </li>
         <li>
-          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Account</a>
+          <p class="group w-full n-dropdown-item n-main-hover n-main-focus">Account</p>
         </li>
         <li>
-          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Updated at</a>
+          <p class="group w-full n-dropdown-item n-main-hover n-main-focus">Updated at</p>
         </li>
         <li>
-          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Created at</a>
+          <p class="group w-full n-dropdown-item n-main-hover n-main-focus">Created at</p>
         </li>
       </ul>
     </div>
   </div>
-  <div class="w-60">
+  <div class="w-1/2 md:w-60">
     <label for="filter" class="n-label">Filter by</label>
-    <button id="filterDropdownButton" data-dropdown-toggle="filter-dropdown" type="button" class="w-40 n-btn-group n-main-hover border n-main-border n-main-focus inline-flex items-center justify-between">
+    <button id="filterDropdownButton" data-dropdown-toggle="filter-dropdown" type="button" class="md:w-40 n-btn-group n-main-hover border n-main-border n-main-focus inline-flex items-center justify-between">
       Filter by
       <%= inline_svg "svg/chevron-down.svg", class: "w-6 h-6" %>
     </button>
@@ -47,11 +47,11 @@
           <div id="accountDropdown" class="hidden n-dropdown-menu border n-main-border">
             <ul class="n-dropdown-list" aria-labelledby="accountDropdownButton">
               <li>
-                <a class="group w-full n-dropdown-item n-main-hover n-main-focus">All</a>
+                <p class="group w-full n-dropdown-item n-main-hover n-main-focus">All</p>
               </li>
               <% @accounts.each do |account|%>
                 <li>
-                  <a class="group w-full n-dropdown-item n-main-hover n-main-focus"><%= account.name %></a>
+                  <p class="group w-full n-dropdown-item n-main-hover n-main-focus"><%= account.name %></p>
                 </li>
               <% end %>
             </ul>
@@ -63,13 +63,13 @@
             <%= inline_svg "svg/chevron-right.svg", class: "w-6 h-6" %>
           </button>
           <div id="tagDropdown" class="hidden n-dropdown-menu border n-main-border">
-            <ul class="n-dropdown-list" aria-labelledby="tagDropdownButton">
+            <ul class="n-dropdown-list overflow-y-auto h-72" aria-labelledby="tagDropdownButton">
               <li>
-                <a class="group w-full n-dropdown-item n-main-hover n-main-focus">All</a>
+                <p class="group w-full n-dropdown-item n-main-hover n-main-focus">All</p>
               </li>
               <% (1..10).each_with_index do |index|%>
                 <li>
-                  <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Tag-<%= index %></a>
+                  <p class="group w-full n-dropdown-item n-main-hover n-main-focus">Tag-<%= index %></p>
                 </li>
               <% end %>
             </ul>

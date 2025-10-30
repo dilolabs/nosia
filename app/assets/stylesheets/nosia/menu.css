@@ -7,7 +7,7 @@
 }
 
 .n-dropdown-menu {
-    @apply z-10 w-60 rounded-lg bg-slate-100 shadow-md
+    @apply z-10 md:w-60 rounded-lg bg-slate-100 shadow-md
     dark:bg-slate-900;
 }
 
