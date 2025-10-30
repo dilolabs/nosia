@@ -4,28 +4,81 @@
     <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary" %>
   </div>
 </div>
-<div class="">
-  <form class="grid grid-cols-2 md:grid-cols-5 gap-4">
-    <div>
-      <label for="Sources" class="n-label">Order by</label>
-      <select id="Sources" class="n-select">
-        <option selected>Title (a -> z)</option>
-        <option value="title_za">Title (z -> a)</option>
-        <option value="update">Updated at</option>
-        <option value="create">Created at</option>
-      </select>
+<form class="flex gap-4">
+  <div class="w-60">
+    <label for="order" class="n-label">Order by</label>
+    <button id="orderDropdownButton" data-dropdown-toggle="order-dropdown" type="button" class="w-40 n-btn-group n-main-hover border n-main-border n-main-focus inline-flex items-center justify-between">
+      Order by
+      <%= inline_svg "svg/chevron-down.svg", class: "w-6 h-6" %>
+    </button>
+    <div id="order-dropdown" class="hidden n-dropdown-menu border n-main-border">
+      <ul class="n-dropdown-list" aria-labelledby="orderDropdownButton">
+        <li>
+          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Title (a -> z)</a>
+        </li>
+        <li>
+          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Title (z -> a)</a>
+        </li>
+        <li>
+          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Account</a>
+        </li>
+        <li>
+          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Updated at</a>
+        </li>
+        <li>
+          <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Created at</a>
+        </li>
+      </ul>
     </div>
-    <div>
-      <label for="Tag" class="n-label">Filter by tag</label>
-      <select id="Tag" class="n-select">
-        <option selected="tag1">Tag-1</option>
-        <option value="tag2">Tag-2</option>
-        <option value="tag3">Tag-3</option>
-        <option value="tag4">Tag-4</option>
-      </select>
+  </div>
+  <div class="w-60">
+    <label for="filter" class="n-label">Filter by</label>
+    <button id="filterDropdownButton" data-dropdown-toggle="filter-dropdown" type="button" class="w-40 n-btn-group n-main-hover border n-main-border n-main-focus inline-flex items-center justify-between">
+      Filter by
+      <%= inline_svg "svg/chevron-down.svg", class: "w-6 h-6" %>
+    </button>
+    <div id="filter-dropdown" class="hidden n-dropdown-menu border n-main-border">
+      <ul class="n-dropdown-list" aria-labelledby="filterDropdownButton">
+        <li>
+          <button id="accountDropdownButton" data-dropdown-toggle="accountDropdown" data-dropdown-placement="right-start" type="button" class="group w-full n-dropdown-item n-main-hover n-main-focus inline-flex items-center justify-between">
+            Accounts
+            <%= inline_svg "svg/chevron-right.svg", class: "w-6 h-6" %>
+          </button>
+          <div id="accountDropdown" class="hidden n-dropdown-menu border n-main-border">
+            <ul class="n-dropdown-list" aria-labelledby="accountDropdownButton">
+              <li>
+                <a class="group w-full n-dropdown-item n-main-hover n-main-focus">All</a>
+              </li>
+              <% @accounts.each do |account|%>
+                <li>
+                  <a class="group w-full n-dropdown-item n-main-hover n-main-focus"><%= account.name %></a>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </li>
+        <li>
+          <button id="tagDropdownButton" data-dropdown-toggle="tagDropdown" data-dropdown-placement="right-start" type="button" class="group w-full n-dropdown-item n-main-hover n-main-focus inline-flex items-center justify-between">
+            Tags
+            <%= inline_svg "svg/chevron-right.svg", class: "w-6 h-6" %>
+          </button>
+          <div id="tagDropdown" class="hidden n-dropdown-menu border n-main-border">
+            <ul class="n-dropdown-list" aria-labelledby="tagDropdownButton">
+              <li>
+                <a class="group w-full n-dropdown-item n-main-hover n-main-focus">All</a>
+              </li>
+              <% (1..10).each_with_index do |index|%>
+                <li>
+                  <a class="group w-full n-dropdown-item n-main-hover n-main-focus">Tag-<%= index %></a>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </li>
+      </ul>
     </div>
-  </form>
-</div>
+  </div>
+</form>
 <ul class="n-cards-grid list-none">
   <% @documents.each do |document| %>
     <li class="n-card n-main-border lg:col-span-2">
