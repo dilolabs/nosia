@@ -14,7 +14,21 @@ class ChatsController < ApplicationController
     return unless prompt.present?
 
     @chat = Current.user.chats.create!(account: Current.account, model: model, provider: :openai, assume_model_exists: true)
-    ChatResponseJob.perform_later(@chat.id, prompt)
+
+    # Attacher les serveurs MCP sélectionnés au chat
+    if params[:mcp_server_ids].present?
+      mcp_server_ids = params[:mcp_server_ids].reject(&:blank?)
+      mcp_server_ids.each do |server_id|
+        mcp_server = Current.account.mcp_servers.find_by(id: server_id)
+        @chat.add_mcp_server(mcp_server) if mcp_server
+      end
+    end
+
+    # Créer immédiatement le message utilisateur pour affichage instantané
+    @user_message = @chat.messages.create!(role: "user", content: prompt)
+
+    # Lancer le job en arrière-plan avec l'ID du message créé
+    ChatResponseJob.perform_later(@chat.id, prompt, @user_message.id)
 
     redirect_to @chat, notice: "Chat was successfully created."
   end

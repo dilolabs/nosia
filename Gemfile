@@ -83,5 +83,8 @@ gem "pdf-reader" # PDF parser conforming as much as possible to the PDF specific
 gem "pgvector" # pgvector support for Ruby [https://github.com/pgvector/pgvector-ruby]
 gem "pundit" # Minimal authorization through OO design and pure Ruby classes [https://github.com/varvet/pundit]
 gem "ruby_llm" # Build chatbots, AI agents, RAG applications [https://github.com/crmne/ruby_llm]
+gem "ruby_llm-mcp" # Model Context Protocol support for RubyLLM [https://github.com/crmne/ruby_llm-mcp]
+gem "omniauth-google-oauth2" # Google OAuth2 strategy for OmniAuth [https://github.com/zquestz/omniauth-google-oauth2]
+gem "omniauth-rails_csrf_protection" # CSRF protection for OmniAuth [https://github.com/cookpad/omniauth-rails_csrf_protection]
 gem "solid_queue" # Database-backed Active Job backend [https://github.com/rails/solid_queue]
 gem "thruster" # HTTP/2 proxy for simple production-ready deployments [https://github.com/basecamp/thruster]

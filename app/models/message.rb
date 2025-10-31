@@ -5,12 +5,19 @@ class Message < ApplicationRecord
   broadcasts_to ->(message) { [ message.chat, "messages" ] }
   has_many_attached :attachments
 
-  scope :for_user, -> { without_system_prompts }
-  scope :without_system_prompts, -> { where.not(role: :system) }
+  scope :for_user, -> { without_system_prompts.with_content.without_tool_calls }
+  scope :without_system_prompts, -> { where.not(role: [:system, :tool]) }
+  scope :with_content, -> { where("role != 10 OR (role = 10 AND content IS NOT NULL AND content != '')") }
+  scope :without_tool_calls, -> {
+    left_joins(:tool_calls)
+      .where("messages.role != 10 OR tool_calls.id IS NULL")
+      .distinct
+  }
 
-  enum :role, { system: 0, assistant: 10, user: 20 }
+  enum :role, { system: 0, assistant: 10, user: 20, tool: 30 }
 
   belongs_to :chat
+  has_many :tool_calls, dependent: :destroy
 
   before_create :set_default_role
   after_create_commit -> { broadcast_created }
@@ -24,7 +31,32 @@ class Message < ApplicationRecord
   end
 
   def broadcast_created
-    return if system?
+    # Ne pas broadcaster les messages system et tool (internes)
+    return if system? || tool?
+
+    # Si c'est un message assistant avec des tool_calls, NE PAS broadcaster
+    # Ces messages sont créés par RubyLLM juste avant d'exécuter un tool
+    if assistant? && tool_calls.exists?
+      Rails.logger.info "🚫 Skipping broadcast for intermediate assistant message ##{id} with tool_calls"
+      return
+    end
+
+    # Empêcher le broadcast des doublons consécutifs
+    # Si le dernier message (hors celui-ci) est un message user avec le même contenu
+    # et qu'il n'y a pas eu de message assistant entre, ne pas broadcaster
+    if user?
+      previous_message = chat.messages.where.not(id: id).order(created_at: :desc).first
+      if previous_message&.user? && previous_message.question == question
+        # C'est un doublon, ne pas broadcaster
+        return
+      end
+    end
+
+    # Si c'est un message assistant, retirer l'animation de réflexion
+    if assistant?
+      broadcast_remove_to chat, :messages, target: "thinking_animation"
+    end
+
     broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
   end
 
@@ -84,5 +116,15 @@ class Message < ApplicationRecord
 
   def similar_documents
     Document.where(id: similar_document_ids.uniq)
+  end
+
+  # Helper pour vérifier si c'est un message d'erreur
+  def error?
+    false
+  end
+
+  # Helper pour obtenir le message original pour retry
+  def retryable?
+    false
   end
 end
