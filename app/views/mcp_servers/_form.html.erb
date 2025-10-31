@@ -1,0 +1,161 @@
+<%= form_with(model: mcp_server, class: "space-y-6") do |form| %>
+  <% if mcp_server.errors.any? %>
+    <div class="rounded-lg bg-red-50 dark:bg-red-900/10 p-4">
+      <h3 class="text-sm font-medium text-red-800 dark:text-red-400 mb-2">
+        <%= pluralize(mcp_server.errors.count, "erreur") %> :
+      </h3>
+      <ul class="list-disc list-inside text-sm text-red-700 dark:text-red-300">
+        <% mcp_server.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <%# Informations de base %>
+  <div class="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
+    <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Informations de base</h3>
+
+    <div class="space-y-4">
+      <div>
+        <%= form.label :name, "Nom *", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+        <%= form.text_field :name, required: true, class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Nom unique pour identifier ce serveur MCP</p>
+      </div>
+
+      <div>
+        <%= form.label :transport_type, "Type de connexion *", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+        <%= form.select :transport_type,
+          [
+            ["Streamable HTTP (recommandé)", "streamable"],
+            ["Server-Sent Events (SSE)", "sse"],
+            ["STDIO (processus local)", "stdio"]
+          ],
+          {},
+          {
+            required: true,
+            data: { action: "change->mcp-form#toggleTransportFields" },
+            class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500"
+          } %>
+      </div>
+
+      <div data-mcp-form-target="httpFields">
+        <%= form.label :endpoint, "URL du serveur *", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+        <%= form.text_field :endpoint,
+          placeholder: "https://your-mcp-server.com/mcp",
+          class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+      </div>
+
+      <div data-mcp-form-target="stdioFields" class="hidden space-y-4">
+        <div>
+          <%= form.label :command, "Commande *", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+          <%= form.text_field :command,
+            placeholder: "bunx ou python",
+            class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+        </div>
+
+        <div>
+          <%= form.label :args, "Arguments (un par ligne)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+          <%= form.text_area :args,
+            rows: 3,
+            placeholder: "@modelcontextprotocol/server-filesystem\n/path/to/directory",
+            class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <%= form.check_box :enabled, class: "rounded border-gray-300 dark:border-neutral-700 text-green-600 focus:ring-green-500" %>
+        <%= form.label :enabled, "Serveur activé", class: "text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      </div>
+    </div>
+  </div>
+
+  <%# Authentification %>
+  <div class="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
+    <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Authentification (optionnel)</h3>
+
+    <div class="space-y-4">
+      <div>
+        <%= form.label :token, "Bearer Token", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+        <%= form.password_field :token,
+          placeholder: "your-bearer-token",
+          autocomplete: "off",
+          class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Sera utilisé comme "Authorization: Bearer token"</p>
+      </div>
+
+      <div>
+        <%= form.label :api_key, "API Key", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+        <%= form.password_field :api_key,
+          placeholder: "your-api-key",
+          autocomplete: "off",
+          class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Sera utilisé comme "X-API-Key: key"</p>
+      </div>
+    </div>
+  </div>
+
+  <%# Notes et tags %>
+  <div class="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
+    <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Métadonnées</h3>
+
+    <div class="space-y-4">
+      <div>
+        <%= form.label :tags, "Tags (séparés par des virgules)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+        <%= form.text_field :tags,
+          placeholder: "production, filesystem, important",
+          class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+      </div>
+
+      <div>
+        <%= form.label :notes, "Notes", class: "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" %>
+        <%= form.text_area :notes,
+          rows: 4,
+          placeholder: "Notes sur ce serveur MCP...",
+          class: "w-full rounded-lg border-gray-300 dark:border-neutral-700 dark:bg-neutral-900 shadow-sm focus:border-green-500 focus:ring-green-500" %>
+      </div>
+    </div>
+  </div>
+
+  <%# Actions %>
+  <div class="flex items-center justify-between gap-4">
+    <div class="flex gap-2">
+      <%= form.submit "Enregistrer", class: "rounded-lg bg-green-600 hover:bg-green-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors cursor-pointer" %>
+      <%= link_to "Annuler", mcp_servers_path, class: "rounded-lg bg-gray-200 dark:bg-neutral-700 hover:bg-gray-300 dark:hover:bg-neutral-600 px-6 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm transition-colors" %>
+    </div>
+
+    <% if mcp_server.persisted? %>
+      <%= button_to "Tester la connexion",
+        test_connection_mcp_server_path(mcp_server),
+        method: :post,
+        data: { turbo: false },
+        class: "rounded-lg bg-blue-600 hover:bg-blue-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors cursor-pointer" %>
+    <% end %>
+  </div>
+<% end %>
+
+<script>
+document.addEventListener('turbo:load', () => {
+  const form = document.querySelector('[data-controller="mcp-form"]')
+  if (!form) return
+
+  const transportTypeSelect = form.querySelector('select[name*="transport_type"]')
+  const httpFields = form.querySelector('[data-mcp-form-target="httpFields"]')
+  const stdioFields = form.querySelector('[data-mcp-form-target="stdioFields"]')
+
+  function toggleFields() {
+    const type = transportTypeSelect.value
+
+    if (type === 'stdio') {
+      httpFields.classList.add('hidden')
+      stdioFields.classList.remove('hidden')
+    } else {
+      httpFields.classList.remove('hidden')
+      stdioFields.classList.add('hidden')
+    }
+  }
+
+  transportTypeSelect.addEventListener('change', toggleFields)
+  toggleFields()
+})
+</script>

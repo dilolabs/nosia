@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_30_171025) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -81,6 +81,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "chat_mcp_sessions", force: :cascade do |t|
+    t.bigint "chat_id", null: false
+    t.bigint "mcp_server_id", null: false
+    t.boolean "enabled", default: true
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_id", "mcp_server_id"], name: "index_chat_mcp_sessions_on_chat_id_and_mcp_server_id", unique: true
+    t.index ["chat_id"], name: "index_chat_mcp_sessions_on_chat_id"
+    t.index ["mcp_server_id"], name: "index_chat_mcp_sessions_on_mcp_server_id"
+  end
+
   create_table "chats", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -88,6 +100,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
     t.bigint "account_id", null: false
     t.bigint "model_id"
     t.bigint "chat_id"
+    t.boolean "generating", default: false, null: false
     t.index ["account_id"], name: "index_chats_on_account_id"
     t.index ["chat_id"], name: "index_chats_on_chat_id"
     t.index ["model_id"], name: "index_chats_on_model_id"
@@ -103,6 +116,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
     t.string "chunkable_type"
     t.bigint "account_id", null: false
     t.jsonb "metadata", default: {}
+    t.integer "index"
     t.index ["account_id"], name: "index_chunks_on_account_id"
     t.index ["chunkable_type", "chunkable_id"], name: "index_chunks_on_chunkable_type_and_chunkable_id"
   end
@@ -136,6 +150,29 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
     t.index ["author_id"], name: "index_documents_on_author_id"
   end
 
+  create_table "mcp_servers", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "name", null: false
+    t.string "transport_type", default: "streamable", null: false
+    t.text "endpoint"
+    t.jsonb "auth_config", default: {}
+    t.jsonb "connection_config", default: {}
+    t.boolean "enabled", default: true
+    t.string "status", default: "disconnected"
+    t.datetime "last_connected_at"
+    t.text "last_error"
+    t.integer "latency_ms"
+    t.text "notes"
+    t.string "tags"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_mcp_servers_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_mcp_servers_on_account_id"
+    t.index ["enabled"], name: "index_mcp_servers_on_enabled"
+    t.index ["status"], name: "index_mcp_servers_on_status"
+  end
+
   create_table "messages", force: :cascade do |t|
     t.bigint "chat_id", null: false
     t.integer "role", null: false
@@ -151,7 +188,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
     t.bigint "tool_call_id"
     t.integer "input_tokens"
     t.integer "output_tokens"
+    t.string "step", default: "default"
+    t.jsonb "metadata", default: {}, null: false
     t.index ["chat_id"], name: "index_messages_on_chat_id"
+    t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["model_id"], name: "index_messages_on_model_id"
     t.index ["tool_call_id"], name: "index_messages_on_tool_call_id"
   end
@@ -384,6 +424,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "api_tokens", "accounts"
   add_foreign_key "api_tokens", "users"
+  add_foreign_key "chat_mcp_sessions", "chats"
+  add_foreign_key "chat_mcp_sessions", "mcp_servers"
   add_foreign_key "chats", "accounts"
   add_foreign_key "chats", "chats"
   add_foreign_key "chats", "models"
@@ -392,6 +434,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_05_185243) do
   add_foreign_key "credentials", "users"
   add_foreign_key "documents", "accounts"
   add_foreign_key "documents", "authors"
+  add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "messages", "chats"
   add_foreign_key "messages", "models"
   add_foreign_key "messages", "tool_calls"

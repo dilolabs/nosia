@@ -1,0 +1,68 @@
+# Catalogue des serveurs MCP prédéfinis
+# Les utilisateurs peuvent activer ces serveurs en un clic
+#
+# RESTART FROM SCRATCH - Focus sur des intégrations ultra simples
+# On commence avec Gmail et Notion uniquement
+
+servers:
+  # Notion - Integration simple avec token
+  - id: notion
+    name: "Notion"
+    description: "Accédez à vos pages et bases de données Notion"
+    icon: "📝"
+    category: "productivity"
+    transport_type: stdio
+    command: npx
+    args:
+      - "-y"
+      - "@notionhq/notion-mcp-server"
+    requires_config:
+      - name: notion_token
+        label: "Notion Integration Token"
+        type: secret
+        required: true
+        description: "Token d'intégration Notion (commence par 'ntn_')"
+        help_url: "https://www.notion.so/my-integrations"
+    env:
+      NOTION_TOKEN: "{{notion_token}}"
+    capabilities:
+      - "Lire vos pages Notion"
+      - "Créer et modifier des pages"
+      - "Gérer des bases de données"
+      - "Rechercher dans Notion"
+    setup_instructions: |
+      📝 Configuration simple en 3 étapes :
+
+      1. Allez sur https://www.notion.so/my-integrations
+      2. Créez une nouvelle intégration
+      3. Copiez le token (commence par 'ntn_')
+      4. N'oubliez pas de partager vos pages/bases avec l'intégration !
+
+      Une fois configuré, vous pourrez :
+      • Lire et modifier vos pages
+      • Créer du contenu
+      • Chercher dans votre workspace
+      • Gérer vos bases de données
+
+categories:
+  - id: communication
+    name: "Communication"
+    icon: "💬"
+  - id: productivity
+    name: "Productivité"
+    icon: "⚡"
+  - id: development
+    name: "Développement"
+    icon: "💻"
+  - id: database
+    name: "Base de données"
+    icon: "🗄️"
+  - id: search
+    name: "Recherche"
+    icon: "🔍"
+  - id: utility
+    name: "Utilitaire"
+    icon: "🔧"
+  - id: automation
+    name: "Automation"
+    icon: "🤖"

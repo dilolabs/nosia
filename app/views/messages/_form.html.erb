@@ -1,11 +1,38 @@
 <%= turbo_frame_tag "#{dom_id(chat)}_message_form" do %>
-  <%= form_with(model: Message.new, url: [chat, chat.messages.new], data: { controller: "form", form_target: "form" }, class: "mt-2") do |form| %>
-    <%= form.label :content, "Ask any question", class: "sr-only" %>
-    <div class="relative">
-      <%= form.text_area :content, data: { action: "keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit" }, class: "n-chat", placeholder: "Ask any question", rows: 1, autofocus: true, "x-on:keydown.cmd.enter" => "$event.target.form.requestSubmit();" %>
-      <%= form.button type: :submit, class: "n-btn-chat" do %>
-        <%= inline_svg "svg/paper-plan.svg", title: "Send", alt: "Send", class: "size-6" %>
+  <%= form_with(model: Message.new, url: [chat, chat.messages.new], data: { controller: "form chat-input", form_target: "form", chat_input_target: "wrapper" }, class: "w-full") do |form| %>
+    <%= form.label :content, "Ask anything…", class: "sr-only" %>
+
+    <div class="relative w-full">
+      <%= form.text_area :content,
+        rows: 1,
+        autofocus: true,
+        placeholder: "Ask anything…",
+        data: {
+          chat_input_target: "textarea",
+          action: "input->chat-input#autogrow keydown->chat-input#handleKeys keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit"
+        },
+        class: "w-full min-h-[58px] resize-none overflow-hidden rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-700 py-3.5 pl-4 pr-14 text-base leading-6 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-neutral-700"
+      %>
+
+      <%= form.button type: :submit,
+        data: { action: "chat-input#submit" },
+        class: "absolute right-2.5 bottom-3.5 hover:-rotate-90 transition duration-150 ease-in-out inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 dark:bg-neutral-900 cursor-pointer text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-40" do %>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6 12 3.269 3.125A59.77 59.77 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.875L6 12Zm0 0h7.5"/>
+        </svg>
       <% end %>
+    </div>
+
+    <div class="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-neutral-400">
+      <span>Enter to send · Shift+Enter for a line break</span>
+      <button type="button" onclick="document.getElementById('mcp-selector-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+        </svg>
+        MCP (<%= chat.mcp_servers.count %>)
+      </button>
     </div>
   <% end %>
 <% end %>
