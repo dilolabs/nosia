@@ -25,6 +25,8 @@ class Message < ApplicationRecord
 
   # Helper to broadcast chunks during streaming
   def broadcast_append_chunk(chunk_content)
+    return unless assistant?
+
     broadcast_append_to [ chat, "messages" ], # Target the stream
       target: dom_id(self, "content"), # Target the content div inside the message frame
       html: chunk_content # Append the raw chunk
@@ -32,7 +34,7 @@ class Message < ApplicationRecord
 
   def broadcast_created
     # Ne pas broadcaster les messages system et tool (internes)
-    return if system? || tool?
+    return unless assistant?
 
     # Si c'est un message assistant avec des tool_calls, NE PAS broadcaster
     # Ces messages sont créés par RubyLLM juste avant d'exécuter un tool
@@ -55,12 +57,25 @@ class Message < ApplicationRecord
     # Si c'est un message assistant, retirer l'animation de réflexion
     if assistant?
       broadcast_remove_to chat, :messages, target: "thinking_animation"
+
+      previous_message = chat.messages.where.not(id: id).order(created_at: :desc).first
+      if previous_message&.assistant? && previous_message.content.blank?
+        # Retirer le message vide précédent
+        broadcast_remove_to chat, :messages, target: dom_id(previous_message, :messages)
+      end
+
+      if previous_message&.tool?
+        # Retirer le message tool précédent
+        broadcast_remove_to chat, :messages, target: dom_id(previous_message, :messages)
+      end
     end
 
     broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
   end
 
   def broadcast_updated
+    return unless assistant?
+
     broadcast_update_to chat, :messages, target: dom_id(self, :messages), locals: { message: self, scroll_to: true }
   end
 
