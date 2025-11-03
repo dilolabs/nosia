@@ -30,7 +30,7 @@ class ChatsController < ApplicationController
     # Lancer le job en arrière-plan avec l'ID du message créé
     ChatResponseJob.perform_later(@chat.id, prompt, @user_message.id)
 
-    redirect_to @chat, notice: "Chat was successfully created."
+    redirect_to @chat
   end
 
   def destroy
