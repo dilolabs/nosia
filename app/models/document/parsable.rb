@@ -21,7 +21,6 @@ module Document::Parsable
   def parse_pdf
     self.file.blob.open do |io|
       reader = ::PDF::Reader.new(io)
-      self.metadata = reader.metadata
       self.content = reader.pages.map(&:text).join("\n\n")
     end
   end
