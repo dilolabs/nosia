@@ -10,7 +10,7 @@ class Message < ApplicationRecord
   scope :with_content, -> { where("role != 10 OR (role = 10 AND content IS NOT NULL AND content != '')") }
   scope :without_tool_calls, -> {
     left_joins(:tool_calls)
-      .where("messages.role != 10 OR tool_calls.id IS NULL")
+      .where("messages.role != 30 OR tool_calls.id IS NULL")
       .distinct
   }
 
