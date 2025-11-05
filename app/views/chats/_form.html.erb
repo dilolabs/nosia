@@ -44,7 +44,6 @@
     <% end %>
   </ul>
 
-
   <%# MCP Server Selection %>
   <% unless chat.persisted? %>
     <% available_mcp_servers = Current.account.mcp_servers.enabled.where(status: 'ready') %>
