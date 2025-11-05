@@ -1,0 +1,142 @@
+# Catalogue des serveurs MCP prédéfinis
+# Les utilisateurs peuvent activer ces serveurs en un clic
+
+servers:
+  # Infomaniak Calendar
+  - id: "infomaniak-calender"
+    name: "Infomaniak Calendar"
+    description: "Search and create events in your calendar"
+    icon: "📆"
+    category: "productivity"
+    transport_type: stdio
+    command: npx
+    args:
+      - "-y"
+      - "@infomaniak/mcp-server-calendar"
+    requires_config:
+      - name: calendar_token
+        label: "Infomaniak Calendar Token"
+        type: secret
+        required: true
+        description: "Your Infomaniak calendar token."
+        help_url: "https://github.com/Infomaniak/mcp-server-calendar"
+    env:
+      CALENDAR_TOKEN: "{{calendar_token}}"
+
+  # Infomaniak kDrive
+  - id: "kdrive"
+    name: "Infomaniak kDrive"
+    description: "Search in kDrive"
+    icon: "📝"
+    category: "productivity"
+    transport_type: stdio
+    command: npx
+    args:
+      - "-y"
+      - "@infomaniak/mcp-server-kdrive"
+    requires_config:
+      - name: kdrive_token
+        label: "kDrive Token"
+        type: secret
+        required: true
+        description: "Your kDrive token."
+        help_url: "https://github.com/Infomaniak/mcp-server-kdrive"
+      - name: kdrive_id
+        label: "kDrive ID"
+        type: string
+        required: true
+        description: "Your kDrive id fetch from the webapp URL. (eg. if your kDrive webapp url is https://ksuite.infomaniak.com/all/kdrive/app/drive/12 your drive id is 12)"
+        help_url: "https://github.com/Infomaniak/mcp-server-kdrive"
+    env:
+      KDRIVE_TOKEN: "{{kdrive_token}}"
+      KDRIVE_ID: "{{kdrive_id}}"
+
+  # Infomaniak kChat
+  - id: "kchat"
+    name: "Infomaniak kChat"
+    description: "Get recent messages from kChat and post messages."
+    icon: "💬"
+    category: "communication"
+    transport_type: stdio
+    command: npx
+    args:
+      - "-y"
+      - "@infomaniak/mcp-server-kchat"
+    requires_config:
+      - name: kchat_token
+        label: "kChat Token"
+        type: secret
+        required: true
+        description: "Your kChat token."
+        help_url: "https://github.com/Infomaniak/mcp-server-kchat"
+      - name: kchat_team_name
+        label: "Your kChat team unique name."
+        type: secret
+        required: true
+        description: "Get your kChat team name from your kChat url (eg. https://your-team.kchat.infomaniak.com/your-team/channels/town-square url have your-team team)."
+        help_url: "https://github.com/Infomaniak/mcp-server-kchat"
+    env:
+      KCHAT_TOKEN: "{{kchat_token}}"
+      KCHAT_TEAM_NAME: "{{kchat_team_name}}"
+
+  # Notion - Integration simple avec token
+  - id: notion
+    name: "Notion"
+    description: "Accédez à vos pages et bases de données Notion"
+    icon: "📝"
+    category: "productivity"
+    transport_type: stdio
+    command: npx
+    args:
+      - "-y"
+      - "@notionhq/notion-mcp-server"
+    requires_config:
+      - name: notion_token
+        label: "Notion Integration Token"
+        type: secret
+        required: true
+        description: "Token d'intégration Notion (commence par 'ntn_')"
+        help_url: "https://www.notion.so/my-integrations"
+    env:
+      NOTION_TOKEN: "{{notion_token}}"
+    capabilities:
+      - "Lire vos pages Notion"
+      - "Créer et modifier des pages"
+      - "Gérer des bases de données"
+      - "Rechercher dans Notion"
+    setup_instructions: |
+      📝 Configuration simple en 3 étapes :
+
+      1. Allez sur https://www.notion.so/my-integrations
+      2. Créez une nouvelle intégration
+      3. Copiez le token (commence par 'ntn_')
+      4. N'oubliez pas de partager vos pages/bases avec l'intégration !
+
+      Une fois configuré, vous pourrez :
+      • Lire et modifier vos pages
+      • Créer du contenu
+      • Chercher dans votre workspace
+      • Gérer vos bases de données
+
+categories:
+  - id: communication
+    name: "Communication"
+    icon: "💬"
+  - id: productivity
+    name: "Productivité"
+    icon: "⚡"
+  - id: development
+    name: "Développement"
+    icon: "💻"
+  - id: database
+    name: "Base de données"
+    icon: "🗄️"
+  - id: search
+    name: "Recherche"
+    icon: "🔍"
+  - id: utility
+    name: "Utilitaire"
+    icon: "🔧"
+  - id: automation
+    name: "Automation"
+    icon: "🤖"

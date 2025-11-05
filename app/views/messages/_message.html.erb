@@ -1,57 +1,103 @@
-<%= tag.div data: { controller: "new-message-event-dispatcher", message_ordering_target: "message", created_at: message.created_at.iso8601 }, id: dom_id(message, :messages) do %>
+<%
+  # Détecter les messages assistant intermédiaires
+  # Ne PAS utiliser tool_calls.any? car ça crée une query N+1
+  # On se base uniquement sur le fait que le content est vide/nil
+  is_intermediate = false # Désactivé temporairement pour éviter les queries N+1
+  container_class = "message-container mb-6"
+%>
+<%= tag.div data: { created_at: message.created_at.iso8601 }, id: dom_id(message, :messages), class: container_class do %>
   <% if message.user? %>
-    <div class="flex flex-row py-4">
-      <div class="text-xl font-bold">
-        <%== sanitize message.content_without_context %>
+    <div class="flex justify-end">
+      <div class="max-w-[80%] rounded-2xl bg-gradient-to-br from-green-600 to-green-700 dark:from-neutral-600 dark:to-neutral-700 px-5 py-3 text-white shadow-sm">
+        <div class="text-[15px] leading-relaxed">
+          <%== sanitize message.content_without_context %>
+        </div>
       </div>
     </div>
   <% else %>
-    <div id="accordion-message-<%= message.id %>" data-accordion="open" data-active-classes="text-gray-900 dark:text-white" data-inactive-classes="text-gray-500 dark:text-gray-400">
-        <h2 id="accordion-message-<%= message.id %>-heading-1">
-          <button type="button" class="flex items-center justify-between w-full py-2 font-medium rtl:text-right text-gray-500 dark:text-gray-400 gap-3" data-accordion-target="#accordion-message-<%= message.id %>-body-1" aria-expanded="true" aria-controls="accordion-message-<%= message.id %>-body-1">
-            <span>Search</span>
-            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
-            </svg>
-          </button>
-        </h2>
-        <div id="accordion-message-<%= message.id %>-body-1" class="hidden" aria-labelledby="accordion-message-<%= message.id %>-heading-1">
-          <div class="py-2">
-            <%= tag.div id: dom_id(message, :search_content) do %>
-              <%= render "messages/search_content", message: %>
-            <% end %>
-          </div>
+    <div class="flex justify-start">
+      <div class="max-w-[100%] w-full">
+        <!-- Avatar et nom de l'assistant -->
+        <div class="flex items-center gap-2 mb-2 ml-1">
+          <% if is_intermediate %>
+            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-semibold">
+              <svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Utilisation d'un outil...</span>
+          <% else %>
+            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-semibold">
+              AI
+            </div>
+            <span class="text-xs font-medium text-neutral-600 dark:text-neutral-400">Assistant</span>
+          <% end %>
         </div>
-        <h2 id="accordion-message-<%= message.id %>-heading-2">
-          <button type="button" class="flex items-center justify-between w-full py-2 font-medium rtl:text-right text-gray-500 dark:text-gray-400 gap-3" data-accordion-target="#accordion-message-<%= message.id %>-body-2" aria-expanded="<%= message.content.present? ? false : true %>" aria-controls="accordion-message-<%= message.id %>-body-2">
-            <span>Reasoning</span>
-            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
-            </svg>
-          </button>
-        </h2>
-        <div id="accordion-message-<%= message.id %>-body-2" class="hidden" aria-labelledby="accordion-message-<%= message.id %>-heading-2">
-          <div class="py-2">
-            <%= tag.div id: dom_id(message, :reasoning_content) do %>
-              <%= render "messages/reasoning_content", message: %>
-            <% end %>
-          </div>
+
+        <!-- Contenu de la réponse -->
+        <%
+          bg_classes = message.error? ? 'bg-red-50 dark:bg-red-900/10' : 'bg-white dark:bg-neutral-800'
+          border_classes = message.error? ? 'border-red-300 dark:border-red-700' : 'border-neutral-100 dark:border-neutral-700'
+        %>
+        <div class="rounded-2xl px-5 py-4 shadow-sm border <%= bg_classes %> <%= border_classes %>">
+          <%= tag.div id: dom_id(message, :content), class: "prose prose-sm dark:prose-invert max-w-none ai-response-content", data: { controller: "table-wrapper" } do %>
+            <%= render "messages/content", message: %>
+          <% end %>
+
+          <!-- Bouton Retry pour les messages d'erreur -->
+          <% if message.retryable? %>
+            <div class="mt-4 pt-4 border-t border-red-200 dark:border-red-800">
+              <%= button_to "🔄 Retry",
+                chat_messages_path(message.chat),
+                params: { message: { content: message.metadata['original_question'] } },
+                method: :post,
+                form: { data: { turbo_frame: "_top" } },
+                class: "inline-flex items-center cursor-pointer gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors" %>
+            </div>
+          <% end %>
+
+          <!-- Sources (dropdown élégant) -->
+          <% if message.similar_chunks.any? %>
+            <div class="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-700">
+              <details class="group">
+                <summary class="flex items-center gap-2 cursor-pointer list-none text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
+                  <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  <span><%= message.similar_chunks.count %> sources</span>
+                </summary>
+                <div class="mt-3 space-y-2">
+                  <%= tag.div id: dom_id(message, :search_content) do %>
+                    <%= render "messages/search_content", message: %>
+                  <% end %>
+                </div>
+              </details>
+            </div>
+          <% end %>
+
+          <!-- Reasoning (dropdown caché par défaut) -->
+          <% if message.reasoning_content.present? %>
+            <div class="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700">
+              <details class="group">
+                <summary class="flex items-center gap-2 cursor-pointer list-none text-xs font-medium text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">
+                  <svg class="w-3 h-3 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                  <span>View reasoning</span>
+                </summary>
+                <div class="mt-2 text-xs text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg p-3">
+                  <%= tag.div id: dom_id(message, :reasoning_content) do %>
+                    <%= render "messages/reasoning_content", message: %>
+                  <% end %>
+                </div>
+              </details>
+            </div>
+          <% end %>
         </div>
-        <h2 id="accordion-message-<%= message.id %>-heading-3">
-          <button type="button" class="flex items-center justify-between w-full py-2 font-medium rtl:text-right text-gray-500 dark:text-gray-400 gap-3" data-accordion-target="#accordion-message-<%= message.id %>-body-3" aria-expanded="true" aria-controls="accordion-message-<%= message.id %>-body-3">
-            <span>Response</span>
-            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
-            </svg>
-          </button>
-        </h2>
-        <div id="accordion-message-<%= message.id %>-body-3" class="hidden" aria-labelledby="accordion-message-<%= message.id %>-heading-3">
-          <div class="py-2">
-            <%= tag.div id: dom_id(message, :content) do %>
-              <%= render "messages/content", message: %>
-            <% end %>
-          </div>
-        </div>
+      </div>
     </div>
   <% end %>
 <% end %>

@@ -9,9 +9,9 @@ export default class extends Controller {
       withCredentials: false,
       parallelUploads: "5",
       uploadMultiple: false,
-      maxFilesize: 256,
+      maxFilesize: 512, // in MB
       paramName: "document[file]",
-      maxFiles: 50,
+      maxFiles: 100,
       clickable: true,
       acceptedFiles: "application/pdf,text/*,.md",
       addRemoveLinks: false,
