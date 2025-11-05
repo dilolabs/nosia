@@ -1,6 +1,9 @@
 <div class="n-title-container flex justify-between items-center">
   <h2 class="n-main-title">Sources</h2>
   <div>
+    <%= link_to "Texts", sources_texts_path, class: "n-btn" %>
+    <%= link_to "Q&As", sources_qnas_path, class: "n-btn" %>
+    <%= link_to "Websites", sources_websites_path, class: "n-btn" %>
     <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary" %>
   </div>
 </div>
