@@ -8,10 +8,10 @@
   <% Current.user.chats.root.order(updated_at: :desc).each do |chat| %>
     <div class="grid grid-cols-6 gap-2 items-center mx-4 first:mt-2 last:mb-4">
       <%= link_to chat, class: "col-span-5 w-full flex flex-col gap-y-2 rounded-lg px-3 py-2 n-main-hover n-main-focus" do %>
-        <h1 class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+        <h1 class="text-sm font-medium text-neutral-700 dark:text-neutral-200 truncate">
           <%= chat.title %>
         </h1>
-        <p class="text-xs text-slate-500 dark:text-slate-400"><%= l(chat.updated_at, format: :short) %></p>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400"><%= l(chat.updated_at, format: :short) %></p>
       <% end %>
       <%= button_to chat, method: :delete, data: { turbo_confirm: "Are you sure?" }, class:"text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
         <%= inline_svg "svg/trash-bin.svg", title:"Delete chat", class:"h-5 w-5" %>

@@ -26,10 +26,23 @@ Rails.application.routes.draw do
     resources :accounts, only: [ :index, :new, :edit, :create, :update ]
     resources :api_tokens, only: [ :index, :create, :destroy ]
     resources :chats, only: [ :show, :new, :create, :destroy ] do
+      member do
+        post :stop
+      end
       resources :messages, only: [ :create ]
+      resources :mcp_sessions, only: [ :create, :destroy ], controller: "chat_mcp_sessions"
     end
     resources :chunks, only: [ :show ]
     resources :dashboards, only: [ :show ]
+    resources :mcp_catalog, only: [:index, :show, :create]
+    resources :mcp_servers do
+      member do
+        post :test_connection
+        post :connect
+        post :disconnect
+        post :execute_tool
+      end
+    end
     resources :models, only: [ :index, :show ] do
       collection do
         post :refresh
