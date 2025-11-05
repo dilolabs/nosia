@@ -428,3 +428,7 @@ details[open] summary {
 .ai-response-content kbd {
   @apply px-2 py-1 text-xs font-mono bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded;
 }
+
+.n-main-tooltip {
+    @apply text-center p-2 text-sm font-medium rounded-lg shadow-xs inline-block border;
+}

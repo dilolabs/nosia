@@ -1,7 +1,7 @@
 .n-chat {
-  @apply resize-none w-full rounded-lg border border-neutral-300 bg-neutral-50 py-4 pl-4 pr-16 text-sm sm:text-base shadow-xl
+  @apply resize-none w-full rounded-lg border border-neutral-300 bg-neutral-50 pt-4 pl-4 pr-16 pb-16 text-sm sm:text-base shadow-xl
   transition-colors duration-200
-  focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500
+  focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600;
 }
 
@@ -27,9 +27,9 @@
 
 .n-field,
 .n-textarea {
-  @apply appearance-none block p-2.5 w-full text-sm  bg-neutral-50 rounded-lg border border-neutral-300
+  @apply appearance-none block p-2.5 w-full text-sm bg-neutral-50 rounded-lg border border-neutral-300
   transition-colors duration-200
-  focus:outline-2 focus:ring-green-500 focus:outline-offset-1 focus:outline-green-500 focus:border-green-500
+  focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400;
 }
 
@@ -38,8 +38,8 @@
 }
 
 .n-select {
-  @apply appearance-none bg-neutral-50 border border-neutral-300 text-neutral-900 text-sm rounded-lg
-  focus:ring-green-500 focus:border-green-500 block w-full p-2.5 dark:bg-neutral-700
-  dark:border-neutral-600 dark:placeholder-neutral-400 dark:text-white dark:focus:ring-green-500
-  dark:focus:border-green-500;
+  @apply appearance-none bg-neutral-50 border border-neutral-300 text-sm rounded-lg block w-full p-2.5
+  transition-colors duration-200
+  focus:outline-2 focus:outline-offset-1 focus:outline-green-500
+  dark:bg-neutral-700 dark:border-neutral-600;
 }
