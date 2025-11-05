@@ -32,11 +32,6 @@
                       <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
                       <%= server.latency_ms %>ms
                     </span>
-                    <% if server.tools.any? %>
-                      <span class="text-xs text-neutral-500 dark:text-neutral-400">
-                        <%= server.tools.size %> tools
-                      </span>
-                    <% end %>
                   </div>
                   <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400"><%= server.endpoint || server.command %></p>
                 </div>
