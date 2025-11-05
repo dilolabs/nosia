@@ -10,74 +10,74 @@
 @config '../../../config/tailwind.config.js';
 
 /*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
+The default border color has changed to `currentcolor` in Tailwind CSS v4,
+so we've added these compatibility styles to make sure everything still
+looks the same as it did with Tailwind CSS v3.
 
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
+If we ever want to remove these styles, we need to add an explicit border
+color utility to any element that depends on these defaults.
+ */
 @layer base {
-    *,
-    ::after,
-    ::before,
-    ::backdrop,
-    ::file-selector-button {
-        border-color: var(--color-gray-200, currentcolor);
-    }
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-neutral-200, currentcolor);
+  }
 }
 
 body {
-    @apply p-0;
+  @apply p-0;
 }
 
 pre {
-    @apply my-2 p-4 rounded-xl;
+  @apply my-2 p-4 rounded-xl;
 }
 
 ol {
-    @apply list-disc list-inside;
+  @apply list-disc list-inside;
 }
 
 ul {
-    @apply list-decimal list-inside;
+  @apply list-decimal list-inside;
 }
 
 .n-title {
-    @apply text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl;
+  @apply text-xl font-semibold text-neutral-900 dark:text-white sm:text-2xl;
 }
 
 .n-table-container {
-    @apply mb-4 mt-6;
-    @apply relative overflow-x-auto shadow-md sm:rounded-lg;
+  @apply mb-4 mt-6;
+  @apply relative overflow-x-auto shadow-md sm:rounded-lg;
 }
 
 .n-table {
-    @apply w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400;
+  @apply w-full text-sm text-left rtl:text-right text-neutral-500 dark:text-neutral-400;
 }
 
 .n-table-head {
-    @apply text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400;
+  @apply text-xs text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-700 dark:text-neutral-400;
 }
 
 .n-table-head-th {
-    @apply px-6 py-3;
+  @apply px-6 py-3;
 }
 
 .n-th {
-    @apply px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white;
+  @apply px-6 py-4 font-medium text-neutral-900 whitespace-nowrap dark:text-white;
 }
 
 .n-tr {
-    @apply odd:bg-white dark:odd:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800 border-b dark:border-gray-700 border-gray-200;
+  @apply odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-50 dark:even:bg-neutral-800 border-b dark:border-neutral-700 border-neutral-200;
 }
 
 .n-td {
-    @apply px-6 py-4;
+  @apply px-6 py-4;
 }
 
 .dz-default {
-    @apply md:text-2xl font-semibold italic border border-gray-200 bg-white hover:bg-green-200 shadow-sm rounded-lg truncate
-    dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-green-800
-    transition-colors duration-200 focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
+  @apply md:text-2xl font-semibold italic border border-neutral-200 bg-white hover:bg-green-200 shadow-sm rounded-lg truncate
+  dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-green-800
+  transition-colors duration-200 focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }
