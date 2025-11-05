@@ -7,9 +7,9 @@
     <%# Modal content %>
     <div class="relative z-10 w-full max-w-2xl rounded-xl bg-white dark:bg-neutral-800 shadow-xl">
       <%# Header %>
-      <div class="flex items-center justify-between border-b border-gray-200 dark:border-neutral-700 px-6 py-4">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Serveurs MCP</h3>
-        <button type="button" data-action="click->mcp-selector#close" class="rounded-lg p-1 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+      <div class="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 px-6 py-4">
+        <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Serveurs MCP</h3>
+        <button type="button" data-action="click->mcp-selector#close" class="rounded-lg p-1 text-neutral-400 hover:text-neutral-500 dark:hover:text-neutral-300">
           <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
@@ -24,21 +24,21 @@
           <div class="space-y-3">
             <% available_servers.each do |server| %>
               <% session = chat.chat_mcp_sessions.find_by(mcp_server: server) %>
-              <div class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-neutral-700 p-4 hover:bg-gray-50 dark:hover:bg-neutral-900/50 transition-colors">
+              <div class="flex items-center justify-between rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
                 <div class="flex-1">
                   <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-gray-900 dark:text-gray-100"><%= server.name %></h4>
+                    <h4 class="font-medium text-neutral-900 dark:text-neutral-100"><%= server.name %></h4>
                     <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
                       <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
                       <%= server.latency_ms %>ms
                     </span>
                     <% if server.tools.any? %>
-                      <span class="text-xs text-gray-500 dark:text-gray-400">
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">
                         <%= server.tools.size %> tools
                       </span>
                     <% end %>
                   </div>
-                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= server.endpoint || server.command %></p>
+                  <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400"><%= server.endpoint || server.command %></p>
                 </div>
 
                 <div id="mcp_server_<%= server.id %>_actions">
@@ -63,15 +63,15 @@
           </div>
         <% else %>
           <div class="text-center py-8">
-            <p class="text-gray-500 dark:text-gray-400 mb-4">Aucun serveur MCP prêt</p>
+            <p class="text-neutral-500 dark:text-neutral-400 mb-4">Aucun serveur MCP prêt</p>
             <%= link_to "Configurer un serveur MCP", mcp_servers_path, class: "inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors" %>
           </div>
         <% end %>
       </div>
 
       <%# Footer %>
-      <div class="flex justify-end gap-2 border-t border-gray-200 dark:border-neutral-700 px-6 py-4">
-        <button type="button" data-action="click->mcp-selector#close" class="rounded-lg bg-gray-200 dark:bg-neutral-700 hover:bg-gray-300 dark:hover:bg-neutral-600 px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm transition-colors">
+      <div class="flex justify-end gap-2 border-t border-neutral-200 dark:border-neutral-700 px-6 py-4">
+        <button type="button" data-action="click->mcp-selector#close" class="rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100 shadow-sm transition-colors">
           Fermer
         </button>
       </div>

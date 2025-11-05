@@ -1,11 +1,11 @@
 .n-nav-link {
-    @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium
-    transition-colors duration-200
-    focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
+  @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium
+  transition-colors duration-200
+  focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }
 
 .n-nav-bottom {
-    @apply inline-flex flex-col items-center justify-center px-5
-    transition-colors duration-200
-    focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
+  @apply inline-flex flex-col items-center justify-center px-5
+  transition-colors duration-200
+  focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }

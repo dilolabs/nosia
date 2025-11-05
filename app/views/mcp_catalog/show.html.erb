@@ -1,6 +1,6 @@
 <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-8">
   <div class="mb-8">
-    <%= link_to mcp_catalog_index_path, class: "inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" do %>
+    <%= link_to mcp_catalog_index_path, class: "inline-flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100" do %>
       <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
       </svg>
@@ -8,13 +8,13 @@
     <% end %>
   </div>
 
-  <div class="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm">
-    <div class="border-b border-gray-200 dark:border-neutral-700 px-6 py-4">
+  <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm">
+    <div class="border-b border-neutral-200 dark:border-neutral-700 px-6 py-4">
       <div class="flex items-start gap-4">
         <span class="text-5xl"><%= @template[:icon] %></span>
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white"><%= @template[:name] %></h1>
-          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= @template[:description] %></p>
+          <h1 class="text-2xl font-bold text-neutral-900 dark:text-white"><%= @template[:name] %></h1>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400"><%= @template[:description] %></p>
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@
 
           <% @template[:requires_config].each do |config_field| %>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 <%= config_field[:label] %>
                 <% if config_field[:required] %>
                   <span class="text-red-500">*</span>
@@ -49,7 +49,7 @@
               </label>
 
               <% if config_field[:description] %>
-                <p class="mb-2 text-xs text-gray-500 dark:text-gray-400"><%= config_field[:description] %></p>
+                <p class="mb-2 text-xs text-neutral-500 dark:text-neutral-400"><%= config_field[:description] %></p>
               <% end %>
 
               <% case config_field[:type] %>
@@ -57,36 +57,36 @@
                 <%= password_field_tag "config[#{config_field[:name]}]", "",
                   required: config_field[:required],
                   placeholder: config_field[:placeholder],
-                  class: "block w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
+                  class: "block w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
 
               <% when "path" %>
                 <%= text_field_tag "config[#{config_field[:name]}]", "",
                   required: config_field[:required],
                   placeholder: config_field[:placeholder] || "/path/to/directory",
-                  class: "block w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
+                  class: "block w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
 
               <% when "select" %>
                 <%= select_tag "config[#{config_field[:name]}]",
                   options_for_select(config_field[:options] || []),
                   required: config_field[:required],
-                  class: "block w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-gray-900 dark:text-white focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
+                  class: "block w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-neutral-900 dark:text-white focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
 
               <% when "textarea" %>
                 <%= text_area_tag "config[#{config_field[:name]}]", "",
                   required: config_field[:required],
                   placeholder: config_field[:placeholder],
                   rows: 3,
-                  class: "block w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
+                  class: "block w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
 
               <% else %>
                 <%= text_field_tag "config[#{config_field[:name]}]", "",
                   required: config_field[:required],
                   placeholder: config_field[:placeholder],
-                  class: "block w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
+                  class: "block w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-4 py-2 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20" %>
               <% end %>
 
               <% if config_field[:help_text] %>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400"><%= config_field[:help_text] %></p>
+                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400"><%= config_field[:help_text] %></p>
               <% end %>
             </div>
           <% end %>
@@ -110,10 +110,10 @@
 
         <% if @template[:capabilities]&.any? %>
           <div>
-            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Capacités disponibles</h3>
+            <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">Capacités disponibles</h3>
             <div class="flex flex-wrap gap-2">
               <% @template[:capabilities].each do |capability| %>
-                <span class="inline-flex items-center rounded-lg bg-gray-100 dark:bg-neutral-700 px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span class="inline-flex items-center rounded-lg bg-neutral-100 dark:bg-neutral-700 px-3 py-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
                   <%= capability %>
                 </span>
               <% end %>
@@ -123,7 +123,7 @@
       </div>
 
       <div class="mt-8 flex gap-3">
-        <%= link_to "Annuler", mcp_catalog_index_path, class: "flex-1 rounded-lg bg-gray-200 dark:bg-neutral-700 hover:bg-gray-300 dark:hover:bg-neutral-600 px-4 py-2.5 text-center text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm transition-colors" %>
+        <%= link_to "Annuler", mcp_catalog_index_path, class: "flex-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2.5 text-center text-sm font-semibold text-neutral-900 dark:text-neutral-100 shadow-sm transition-colors" %>
         <%= form.submit "Activer #{@template[:name]}", class: "flex-1 rounded-lg bg-green-600 hover:bg-green-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors cursor-pointer" %>
       </div>
     <% end %>
