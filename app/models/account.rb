@@ -15,6 +15,7 @@ class Account < ApplicationRecord
   has_many :qnas, dependent: :destroy
   has_many :texts, dependent: :destroy
   has_many :websites, dependent: :destroy
+  has_many :mcp_servers, dependent: :destroy
 
   def augmented_context
     context = []

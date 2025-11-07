@@ -1,13 +1,27 @@
-<div class="flex w-full flex-col">
-  <div data-controller="scroll" class="flex-1 overflow-y-auto rounded-xl border n-main-border p-4 text-sm leading-6 text-slate-900 dark:text-slate-300 sm:text-base sm:leading-7">
-    <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col">
+<div class="flex w-full flex-col h-full">
+  <div data-controller="scroll" class="flex-1 overflow-y-auto p-6 sm:p-8">
+    <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col max-w-4xl mx-auto">
       <%= tag.div id: dom_id(@chat, :messages), data: { controller: "message-ordering" } do %>
         <% @chat.messages.for_user.where.not(id: nil).order(:created_at).each do |message| %>
           <%= render message %>
+        <% end %>
+
+        <%# Afficher l'animation si le dernier message est user (en attente de réponse) %>
+        <% if @chat.messages.for_user.last&.user? %>
+          <div id="thinking_animation">
+            <%= render "messages/thinking" %>
+          </div>
         <% end %>
       <% end %>
       <%= turbo_stream_from @chat, :messages %>
     </div>
   </div>
-  <%= render partial: "messages/form", locals: { chat: @chat } %>
+  <div class="">
+    <div class="max-w-4xl mx-auto pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-neutral-200 dark:ring-neutral-700 p-4">
+      <%= render partial: "messages/form", locals: { chat: @chat } %>
+    </div>
+  </div>
 </div>
+
+<%# MCP Selector Modal %>
+<%= render "chats/mcp_selector", chat: @chat %>

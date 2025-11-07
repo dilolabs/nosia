@@ -24,7 +24,7 @@
           <%= inline_svg "svg/eye.svg", title:"Show", alt:"Eye", class: "mx-auto w-6 h-6" %>
           <span class="sr-only">Show API token</span>
         </button>
-        <input type="text" value="<%= api_token.token %>" data-reveal-target="item" data-clipboard-target="source" class="hidden col-span-3 w-full truncate p-2 rounded-lg bg-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-slate-700 dark:placeholder-slate-400 dark:focus:ring-green-500">
+        <input type="text" value="<%= api_token.token %>" data-reveal-target="item" data-clipboard-target="source" class="hidden col-span-3 w-full truncate p-2 rounded-lg bg-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-neutral-700 dark:placeholder-neutral-400 dark:focus:ring-green-500">
         <button type="button" data-action="clipboard#copy" data-clipboard-target="button" data-reveal-target="item" class="hidden cursor-pointer n-btn-icon n-main-hover n-main-focus w-fit">
           <%= inline_svg "svg/clipboard.svg", title:"Copy", alt:"Copy", class: "mx-auto w-6 h-6" %>
           <span class="sr-only">Copy to clipboard</span>
