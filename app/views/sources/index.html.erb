@@ -1,25 +1,59 @@
-<div class="n-title-container">
+<div class="n-title-container flex justify-between items-center">
   <h2 class="n-main-title">Sources</h2>
+  <div>
+    <%= link_to "Texts", sources_texts_path, class: "n-btn" %>
+    <%= link_to "Q&As", sources_qnas_path, class: "n-btn" %>
+    <%= link_to "Websites", sources_websites_path, class: "n-btn" %>
+    <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary" %>
+  </div>
 </div>
-
-<div class="n-cards-grid">
-  <%= link_to sources_documents_path, title: "Documents", alt: "Open document sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/files.svg", title: "Documents", alt: "Documents", class: "mx-auto w-12 h-12" %>
-    <h5 class="n-card-title">Documents</h5>
+<ul class="n-cards-grid list-none">
+  <% @documents.each do |document| %>
+    <li class="n-card n-main-border lg:col-span-2">
+      <div class="m-5 p-1 truncate space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="n-card-subtitle"><%= document.account&.name %></p>
+          <div class="flex items-center gap-4">
+            <%= link_to sources_document_path(document), title:"Show document", class: "n-btn-icon n-main-hover n-main-focus" do %>
+              <%= inline_svg "svg/eye.svg", title:"Show", alt:"Eye", class: "mx-auto w-6 h-6" %>
+              <span class="sr-only">Show document</span>
+            <% end %>
+            <%= link_to sources_document_path(document), title:"Delete document", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+              <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
+              <span class="sr-only">Delete document</span>
+            <% end %>
+          </div>
+        </div>
+        <div>
+          <h5 class="n-card-title">
+            <span class="text-wrap"><%= document.title %></span>
+          </h5>
+          <p><%= document.created_at %></p>
+        </div>
+      </div>
+    </li>
   <% end %>
+</ul>
+<% if false %>
+  <div class="n-cards-grid">
+    <%= link_to sources_documents_path, title: "Documents", alt: "Open document sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/files.svg", title: "Documents", alt: "Documents", class: "mx-auto w-12 h-12" %>
+      <h5 class="n-card-title">Documents</h5>
+    <% end %>
 
-  <%= link_to sources_texts_path, title: "Text", alt:"Open Text sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/file-lines.svg", title: "Text", alt: "File lines", class: "mx-auto w-12 h-12" %>
-    <h5 class="n-card-title">Texts</h5>
-  <% end %>
+    <%= link_to sources_texts_path, title: "Text", alt:"Open Text sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/file-lines.svg", title: "Text", alt: "File lines", class: "mx-auto w-12 h-12" %>
+      <h5 class="n-card-title">Texts</h5>
+    <% end %>
 
-  <%= link_to sources_qnas_path, title: "Q&As", alt:"Open Q&As sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/question-circle.svg", title: "Q&As", alt: "Question circle", class: "mx-auto w-12 h-12" %>
-    <h5 class="n-card-title">Q&As</h5>
-  <% end %>
+    <%= link_to sources_qnas_path, title: "Q&As", alt:"Open Q&As sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/question-circle.svg", title: "Q&As", alt: "Question circle", class: "mx-auto w-12 h-12" %>
+      <h5 class="n-card-title">Q&As</h5>
+    <% end %>
 
-  <%= link_to sources_websites_path, title: "Websites", alt:"Open website sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/window.svg", title: "Websites", alt: "Window", class: "mx-auto w-12 h-12" %>
-    <h5 class="n-card-title">Websites</h5>
-  <% end %>
-</div>
+    <%= link_to sources_websites_path, title: "Websites", alt:"Open website sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/window.svg", title: "Websites", alt: "Window", class: "mx-auto w-12 h-12" %>
+      <h5 class="n-card-title">Websites</h5>
+    <% end %>
+  </div>
+<% end %>

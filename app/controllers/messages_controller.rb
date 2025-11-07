@@ -4,7 +4,11 @@ class MessagesController < ApplicationController
   def create
     return unless content.present?
 
-    ChatResponseJob.perform_later(@chat.id, content)
+    # Create the user message immediately for instant display
+    @user_message = @chat.messages.create!(role: "user", content: content)
+
+    # Queue the job in the background with the ID of the created message
+    ChatResponseJob.perform_later(@chat.id, content, @user_message.id)
 
     respond_to do |format|
       format.turbo_stream

@@ -3,6 +3,7 @@ class Chat < ApplicationRecord
   include AugmentedPrompt
   include Completionable
   include ContextRelevance
+  include ModelContextProtocol
   include SimilaritySearch
 
   acts_as_chat

@@ -1,0 +1,11 @@
+<%# Update the server card to show "Remove" button instead of "Add" %>
+<%= turbo_stream.replace "mcp_server_#{@mcp_server.id}_actions" do %>
+  <div id="mcp_server_<%= @mcp_server.id %>_actions">
+    <%= button_to chat_mcp_session_path(@chat, @session),
+      method: :delete,
+      data: { turbo_method: :delete },
+      class: "ml-4 rounded-lg bg-red-100 dark:bg-red-900/30 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors" do %>
+      Retirer
+    <% end %>
+  </div>
+<% end %>

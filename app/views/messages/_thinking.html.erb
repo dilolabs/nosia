@@ -1,0 +1,16 @@
+<div class="flex justify-start mb-4" data-action="animationend->scroll#scrollToBottom">
+  <div class="max-w-[85%] w-full">
+    <!-- Avatar and assistant name -->
+    <div class="flex items-center gap-2 mb-2 ml-1">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-semibold">
+        AI
+      </div>
+      <span class="text-xs font-medium text-neutral-600 dark:text-neutral-400">Assistant</span>
+    </div>
+
+    <!-- Thinking animation -->
+    <div id="thinking_animation_content" class="rounded-2xl px-5 py-4 shadow-sm border bg-white dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700">
+      <%= render "messages/thinking_animation", phase: "searching", message: "Looking for relevant information" %>
+    </div>
+  </div>
+</div>
