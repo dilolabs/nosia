@@ -8,7 +8,7 @@
     <div class="relative z-10 w-full max-w-2xl rounded-xl bg-white dark:bg-neutral-800 shadow-xl">
       <%# Header %>
       <div class="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 px-6 py-4">
-        <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Serveurs MCP</h3>
+        <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">MCP Servers</h3>
         <button type="button" data-action="click->mcp-selector#close" class="rounded-lg p-1 text-neutral-400 hover:text-neutral-500 dark:hover:text-neutral-300">
           <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -42,14 +42,14 @@
                       method: :delete,
                       data: { turbo_method: :delete },
                       class: "ml-4 rounded-lg bg-red-100 dark:bg-red-900/30 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors" do %>
-                      Retirer
+                      Remove
                     <% end %>
                   <% else %>
                     <%= button_to chat_mcp_sessions_path(chat, mcp_server_id: server.id),
                       method: :post,
                       data: { turbo_method: :post },
                       class: "ml-4 rounded-lg bg-green-600 hover:bg-green-700 px-3 py-1.5 text-sm font-medium text-white transition-colors" do %>
-                      Ajouter
+                      Add
                     <% end %>
                   <% end %>
                 </div>
@@ -67,7 +67,7 @@
       <%# Footer %>
       <div class="flex justify-end gap-2 border-t border-neutral-200 dark:border-neutral-700 px-6 py-4">
         <button type="button" data-action="click->mcp-selector#close" class="rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100 shadow-sm transition-colors">
-          Fermer
+          Close
         </button>
       </div>
     </div>
