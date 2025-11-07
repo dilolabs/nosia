@@ -1,3 +1,16 @@
+.n-dropdown-item {
+    @apply flex items-center gap-2 rounded-md px-3 py-2;
+}
+
+.n-dropdown-list {
+    @apply !list-none p-2 text-start text-sm font-medium text-gray-900 dark:text-white;
+}
+
+.n-dropdown-menu {
+    @apply z-10 md:w-60 rounded-lg bg-slate-100 shadow-md
+    dark:bg-slate-900;
+}
+
 .n-nav-link {
   @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium
   transition-colors duration-200

@@ -20,26 +20,26 @@
     </div>
 
     <% if Current.user %>
-      <button id="dropdownDefaultButton" data-dropdown-toggle="dropdown" id="user-menu-button" aria-expanded="false" data-dropdown-toggle="accountDropdown" class="n-btn n-main-hover flex shrink-0 rounded-full">
+      <button id="dropdownUser" data-dropdown-toggle="dropdown" id="user-menu-button" aria-expanded="false" data-dropdown-toggle="accountDropdown" class="n-btn n-main-hover flex shrink-0 rounded-full">
         <span class="sr-only">Open user menu</span>
         <%= inline_svg "svg/user-circle.svg", title:"User", alt:"Open user menu", class: "w-6 h-6" %>
       </button>
-      <div id="dropdown" class="hidden w-60 overflow-y-auto rounded-lg bg-neutral-100 dark:bg-neutral-900 shadow-md border n-main-border" data-popper-placement="bottom">
-        <ul aria-labelledby="dropdownButton" class="!list-none p-2 text-start text-sm font-medium text-neutral-900 dark:text-white">
+      <div id="dropdown" class="hidden n-dropdown-menu border n-main-border" data-popper-placement="bottom">
+        <ul aria-labelledby="dropdownButton" class="n-dropdown-list">
           <li>
-            <%= link_to profile_path, class:"group flex items-center gap-2 rounded-md px-3 py-2 n-main-hover n-main-focus" do %>
+            <%= link_to profile_path, class:"group n-dropdown-item n-main-hover n-main-focus" do %>
               <%= inline_svg "svg/identification.svg", title:"User", alt:"User info", class: "w-6 h-6" %>
               <span>User info</span>
             <% end %>
           </li>
           <li>
-            <%= link_to settings_path, class:"group flex items-center gap-2 rounded-md px-3 py-2 n-main-hover n-main-focus" do %>
+            <%= link_to settings_path, class:"group n-dropdown-item n-main-hover n-main-focus" do %>
               <%= inline_svg "svg/cog.svg", title:"Settings", alt:"Settings", class: "w-6 h-6" %>
               <span>Settings</span>
             <% end %>
           </li>
           <li>
-            <%= link_to logout_path, data: { turbo_method: :delete }, title: "Sign out", alt:"Sign out", class:"group flex items-center gap-2 rounded-md px-3 py-2 n-main-hover n-main-focus" do %>
+            <%= link_to logout_path, data: { turbo_method: :delete }, title: "Sign out", alt:"Sign out", class:"group n-dropdown-item n-main-hover n-main-focus" do %>
               <%= inline_svg "svg/power.svg", title:"Settings", alt:"Settings", class: "w-6 h-6" %>
               <span>Sign out</span>
             <% end %>
