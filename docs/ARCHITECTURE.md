@@ -8,11 +8,12 @@
 4. [Embedding Strategy](#embedding-strategy)
 5. [Document Processing Pipeline](#document-processing-pipeline)
 6. [Chat Completion Flow](#chat-completion-flow)
-7. [Database Schema](#database-schema)
-8. [Background Jobs](#background-jobs)
-9. [API Architecture](#api-architecture)
-10. [Security & Multi-tenancy](#security--multi-tenancy)
-11. [Deployment Architecture](#deployment-architecture)
+7. [Model Context Protocol (MCP) Integration](#model-context-protocol-mcp-integration)
+8. [Database Schema](#database-schema)
+9. [Background Jobs](#background-jobs)
+10. [API Architecture](#api-architecture)
+11. [Security & Multi-tenancy](#security--multi-tenancy)
+12. [Deployment Architecture](#deployment-architecture)
 
 ---
 
@@ -26,6 +27,7 @@ Nosia is a self-hosted Retrieval Augmented Generation (RAG) platform built on Ra
 - **Multi-source Document Ingestion**: Supports PDFs, text files, websites, and Q&A pairs
 - **Vector Similarity Search**: Uses pgvector for efficient semantic search
 - **OpenAI-Compatible API**: Drop-in replacement for OpenAI API clients
+- **Model Context Protocol (MCP)**: Connect external tools and services to extend AI capabilities
 - **Real-time Streaming**: Server-sent events for streaming responses
 - **Multi-tenancy**: Account-based isolation for secure data separation
 - **Background Processing**: Async document processing and embedding generation
@@ -37,7 +39,7 @@ Nosia is a self-hosted Retrieval Augmented Generation (RAG) platform built on Ra
 - **Vector Search**: pgvector with cosine similarity
 - **Background Jobs**: Solid Queue (database-backed)
 - **Real-time**: Action Cable with enhanced PostgreSQL adapter
-- **AI Integration**: RubyLLM gem for OpenAI-compatible model access
+- **AI Integration**: RubyLLM gem for OpenAI-compatible model access and MCP (Model Context Protocol) support
 - **Frontend**: Hotwire (Turbo + Stimulus) with TailwindCSS
 - **Deployment**: Docker Compose with Caddy reverse proxy
 
@@ -69,8 +71,15 @@ The fundamental unit of retrievable knowledge:
 
 #### Chat & Message
 - **Chat**: Conversation container with message history
-- **Message**: Individual turn (user or assistant)
+- **Message**: Individual turn (user or assistant) with optional tool call metadata
+- **ChatMcpSession**: Links chats to MCP servers for tool access
 - Uses RubyLLM's `acts_as_chat` for conversation management
+
+#### MCP Integration
+- **McpServer**: Configuration for Model Context Protocol servers
+- **ChatMcpSession**: Many-to-many relationship between chats and MCP servers
+- Supports stdio, streamable, and SSE transport types
+- Pre-configured catalog with popular services (Infomaniak, etc.)
 
 ### 2. Concerns Architecture
 
@@ -86,6 +95,7 @@ Nosia uses Rails concerns for modular, composable behavior:
 - **`AugmentedPrompt`**: Context injection into prompts
 - **`ContextRelevance`**: Validates chunk relevance to query
 - **`AnswerRelevance`**: Validates answer quality
+- **`ModelContextProtocol`**: MCP server integration and tool management
 
 #### Source Concerns
 - **`Chunkable`**: Document-to-chunk transformation
@@ -281,7 +291,10 @@ User Upload → File Attachment → Validation → Job Enqueue
 
 **Document Parsing** (`Document::Parsable`):
 - PDF: Text extraction with pdf-reader gem
-- Optional: Docling serve integration for advanced parsing
+- Advanced parsing: Docling serve integration (optional)
+  - NVIDIA GPU: `docker-compose-docling-serve-nvidia.yml`
+  - AMD GPU: `docker-compose-docling-serve-amd.yml`
+  - CPU-only: `docker-compose-docling-serve-cpu.yml`
 - Metadata extraction (title, author, page count)
 
 **Website Crawling** (`Website::Crawlable`):
@@ -390,18 +403,21 @@ def complete_with_nosia(question, model:, temperature:, ...)
   self.with_temperature(temperature)
   self.with_instructions(system_prompt)
   
-  # 2. Retrieve relevant chunks
+  # 2. Add MCP tools if available
+  self.with_tools(mcp_tools) if mcp_tools.any?
+  
+  # 3. Retrieve relevant chunks
   chunks = self.similarity_search(question)
   
-  # 3. Augment prompt if chunks found
+  # 4. Augment prompt if chunks found
   question = self.augmented_prompt(question, chunks:) if chunks.any?
   
-  # 4. Stream completion
+  # 5. Stream completion (handles tool calls automatically)
   self.ask(question) do |chunk|
     yield chunk  # Stream to client
   end
   
-  # 5. Validate answer
+  # 6. Validate answer
   message = self.messages.last
   if !self.answer_relevance(message.content, question:)
     message.update(content: "I'm sorry, but I couldn't find relevant information...")
@@ -489,8 +505,37 @@ Indexes:
 - role: integer (enum: user/assistant)
 - content: string
 - similar_chunk_ids: array (references chunks)
+- metadata: jsonb (tool calls, function results)
 - done: boolean
 - input_tokens, output_tokens: integer
+- created_at, updated_at
+```
+
+#### mcp_servers
+```sql
+- id: bigint (primary key)
+- account_id: bigint
+- name: string
+- description: text
+- transport_type: string (stdio/streamable/sse)
+- endpoint: string
+- connection_config: jsonb
+- auth_config: jsonb
+- metadata: jsonb (capabilities, tools_cache)
+- status: string (enum)
+- enabled: boolean
+- last_connected_at: timestamp
+- latency_ms: integer
+- last_error: text
+- created_at, updated_at
+```
+
+#### chat_mcp_sessions
+```sql
+- id: bigint (primary key)
+- chat_id: bigint
+- mcp_server_id: bigint
+- enabled: boolean
 - created_at, updated_at
 ```
 
@@ -913,14 +958,155 @@ bin/rails test:system
 
 ---
 
+---
+
+## Model Context Protocol (MCP) Integration
+
+### Overview
+
+Nosia supports the Model Context Protocol (MCP), enabling AI models to interact with external tools and services. This extends the AI's capabilities beyond RAG by allowing it to execute functions, access APIs, and interact with third-party services.
+
+### MCP Server Types
+
+**Transport Types**:
+- **stdio**: Local processes communicating via standard input/output
+- **streamable**: HTTP-based streaming connections
+- **sse**: Server-Sent Events for real-time updates
+
+### MCP Components
+
+#### 1. MCP Server Model
+
+Manages connection to external MCP servers:
+
+```ruby
+class McpServer < ApplicationRecord
+  # Connection configuration
+  validates :transport_type, inclusion: { in: %w[stdio streamable sse] }
+  
+  # Status management
+  enum :status, { disabled: "disabled", disconnected: "disconnected", 
+                  connecting: "connecting", ready: "ready", error: "error" }
+  
+  # Client instance
+  def client
+    RubyLLM::MCP.client(name: name, transport_type: transport_type.to_sym, config: config)
+  end
+  
+  # Available operations
+  def tools      # List executable functions
+  def prompts    # List prompt templates
+  def resources  # List available resources
+end
+```
+
+#### 2. MCP Catalog
+
+Pre-configured MCP servers for popular services:
+
+```yaml
+# config/mcp_catalog.yml
+servers:
+  - id: "infomaniak-calendar"
+    name: "Infomaniak Calendar"
+    description: "Search and create events in your calendar"
+    transport_type: stdio
+    command: npx
+    args: ["-y", "@infomaniak/mcp-server-calendar"]
+    requires_config:
+      - name: calendar_token
+        type: secret
+        required: true
+```
+
+Users can enable catalog servers with one click and provide required credentials.
+
+#### 3. Chat-MCP Integration
+
+Chats can be connected to multiple MCP servers:
+
+```ruby
+module Chat::ModelContextProtocol
+  # Get all enabled tools for this chat
+  def mcp_tools
+    chat_mcp_sessions.enabled.flat_map { |s| s.mcp_server.tools }
+  end
+  
+  # Manage server connections
+  def add_mcp_server(mcp_server)
+  def remove_mcp_server(mcp_server)
+end
+```
+
+### MCP Flow
+
+```
+┌─────────────┐
+│ User Query  │
+└──────┬──────┘
+       │
+       ▼
+┌──────────────────┐
+│ LLM with Tools   │ ← MCP tools injected
+└──────┬───────────┘
+       │
+       ├─── Needs Tool ──▶ ┌───────────────┐
+       │                   │ MCP Server    │
+       │                   │ Execute Tool  │
+       │                   └───────┬───────┘
+       │                           │
+       │ ◀──── Tool Result ────────┘
+       │
+       ▼
+┌──────────────────┐
+│ Final Response   │
+└──────────────────┘
+```
+
+### MCP Use Cases
+
+**Productivity**:
+- Calendar management (create/search events)
+- File storage access (kDrive search)
+- Team communication (kChat integration)
+
+**Development**:
+- GitHub repository access
+- Database queries
+- API interactions
+
+**Automation**:
+- Workflow triggers
+- Data transformations
+- External service orchestration
+
+### Security Considerations
+
+**Credential Management**:
+- Encrypted storage of API tokens
+- Per-account server configurations
+- Secure environment variable injection
+
+**Access Control**:
+- Account-scoped MCP servers
+- Per-chat server enablement
+- Status monitoring and error handling
+
+**Connection Safety**:
+- Health checks before tool execution
+- Timeout and retry logic
+- Error isolation per server
+
+---
+
 ## Conclusion
 
 Nosia's architecture is designed for:
 - **Privacy**: Self-hosted, full data control
-- **Flexibility**: OpenAI-compatible API, any model
+- **Flexibility**: OpenAI-compatible API, any model, MCP tool extensibility
 - **Quality**: Multi-stage RAG pipeline with validation
 - **Scalability**: Background processing, queue management
 - **Security**: Multi-tenant isolation, token authentication
-- **Extensibility**: Modular concerns, clean separation
+- **Extensibility**: Modular concerns, MCP integration, clean separation
 
-The system balances simplicity (Rails conventions, Docker Compose) with sophistication (RAG pipeline, vector search, real-time streaming) to provide a production-ready, self-hosted AI platform.
+The system balances simplicity (Rails conventions, Docker Compose) with sophistication (RAG pipeline, vector search, MCP tools, real-time streaming) to provide a production-ready, self-hosted AI platform.

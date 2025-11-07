@@ -1,14 +1,15 @@
 # Nosia
 
-**Self-hosted Retrieval Augmented Generation (RAG) Platform**
+**Self-hosted AI RAG + MCP Platform**
 
-Nosia is a platform that allows you to run AI models on your own data with complete privacy and control. It is designed to be easy to install and use, providing OpenAI-compatible APIs that work seamlessly with existing AI applications.
+Nosia is a platform that allows you to run AI models on your own data with complete privacy and control. Beyond traditional RAG capabilities, Nosia integrates the Model Context Protocol (MCP) to connect AI models with external tools, services, and data sources. It is designed to be easy to install and use, providing OpenAI-compatible APIs that work seamlessly with existing AI applications.
 
 ## Features
 
 - **🔒 Private & Secure** - Your data stays on your infrastructure
 - **🤖 OpenAI-Compatible API** - Drop-in replacement for OpenAI clients
 - **📚 RAG-Powered** - Augment AI responses with your documents
+- **🔌 MCP Integration** - Connect AI to external tools and services via Model Context Protocol
 - **🔄 Real-time Streaming** - Server-sent events for live responses
 - **📄 Multi-format Support** - PDFs, text files, websites, and Q&A pairs
 - **🎯 Semantic Search** - Vector similarity search with pgvector
@@ -63,6 +64,7 @@ https://github.com/user-attachments/assets/4720f8a3-8a91-4e51-b4af-0ba7d66fa65e
 - [Using Nosia](#using-nosia)
   - [Web Interface](#web-interface)
   - [API Access](#api-access)
+  - [MCP Integration](#mcp-integration)
 - [Managing Your Installation](#managing-your-installation)
   - [Start](#start)
   - [Stop](#stop)
@@ -390,6 +392,85 @@ console.log(response.choices[0].message.content);
 ```
 
 For more API examples and details, see the [API Guide](https://guides.nosia.ai/api#start-a-chat-completion).
+
+### MCP Integration
+
+Nosia supports the Model Context Protocol (MCP), allowing AI models to interact with external tools, services, and data sources. MCP servers can provide tools, prompts, and resources that extend the AI's capabilities beyond text generation.
+
+#### What is MCP?
+
+The Model Context Protocol is an open protocol that standardizes how applications provide context to Large Language Models (LLMs). MCP enables AI to:
+
+- **Execute Tools** - Perform actions in external systems (calendars, file storage, databases)
+- **Access Resources** - Read from various data sources in real-time
+- **Use Prompts** - Leverage pre-configured prompt templates
+- **Extend Capabilities** - Add custom functionality without modifying core code
+
+#### Using MCP Servers
+
+1. **Navigate to MCP Settings** in the web interface
+2. **Browse the MCP Catalog** - Pre-configured servers for popular services:
+   - **Productivity**: Infomaniak Calendar, kDrive file storage
+   - **Communication**: kChat messaging
+   - **And more** - Extensible catalog of integrations
+
+3. **Activate an MCP Server**:
+   - Click on a server from the catalog
+   - Provide required configuration (API keys, tokens)
+   - Test the connection
+   - Enable it for your chats
+
+4. **Add MCP to Chat**:
+   - Open or create a chat session
+   - Select which MCP servers to use
+   - The AI can now use tools from connected servers
+
+#### Example: Using Calendar MCP
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://nosia.localhost/v1",
+    api_key="your-nosia-api-token"
+)
+
+# The AI can now use calendar tools if enabled in the chat
+response = client.chat.completions.create(
+    model="default",
+    messages=[
+        {"role": "user", "content": "Schedule a meeting tomorrow at 2pm"}
+    ]
+)
+
+print(response.choices[0].message.content)
+```
+
+When MCP servers are enabled, the AI can:
+- Search your calendar for availability
+- Create new events
+- Access file storage
+- Post messages to chat systems
+- And execute any tools provided by connected MCP servers
+
+#### Custom MCP Servers
+
+Beyond the catalog, you can add custom MCP servers:
+
+1. **Navigate to MCP Settings** → **Custom Servers**
+2. **Choose transport type**:
+   - **stdio** - Local processes (NPX, Python scripts)
+   - **SSE** - Server-sent events over HTTP
+   - **HTTP** - Standard HTTP endpoints
+
+3. **Configure connection**:
+   - Provide endpoint or command
+   - Add authentication credentials
+   - Test connection
+
+4. **Use in chats** - Enable the custom server for your conversations
+
+For more details on MCP integration, see the [MCP Documentation](https://modelcontextprotocol.io/).
 
 ## Managing Your Installation
 

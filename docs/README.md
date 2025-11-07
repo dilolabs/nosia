@@ -4,7 +4,7 @@ Welcome to the Nosia documentation! This directory contains comprehensive techni
 
 ## Overview
 
-Nosia is a self-hosted Retrieval Augmented Generation (RAG) platform that allows you to run AI models on your own data with complete privacy and control. Built on Rails 8, it provides OpenAI-compatible APIs for seamless integration with existing AI applications.
+Nosia is a self-hosted Retrieval Augmented Generation (RAG) platform that allows you to run AI models on your own data with complete privacy and control. Built on Rails 8, it provides OpenAI-compatible APIs for seamless integration with existing AI applications. With Model Context Protocol (MCP) support, Nosia can connect to external tools and services to extend AI capabilities beyond document retrieval.
 
 ## Documentation Structure
 
@@ -15,6 +15,7 @@ Detailed technical documentation covering the system design and implementation o
 - System overview and technology stack
 - Core components and data models
 - RAG (Retrieval Augmented Generation) implementation
+- Model Context Protocol (MCP) integration
 - Embedding strategy and vector search
 - Document processing pipeline
 - Chat completion flow
@@ -87,6 +88,9 @@ Each account in Nosia is completely isolated, ensuring that users can only acces
 ### OpenAI Compatibility
 Nosia implements OpenAI-compatible APIs, allowing you to use existing OpenAI client libraries and tools by simply changing the base URL and API key. No code changes required in your applications.
 
+### Model Context Protocol (MCP)
+Connect external tools and services to your AI chats using the Model Context Protocol. Enable pre-configured integrations (like Infomaniak Calendar, kDrive, kChat) or create custom MCP servers to extend AI capabilities with real-world actions and data access.
+
 ### Vector Search
 Documents are split into chunks, embedded using specialized models, and stored in PostgreSQL with the pgvector extension. This enables fast semantic similarity search to find the most relevant context for each query.
 
@@ -97,7 +101,7 @@ Documents are split into chunks, embedded using specialized models, and stored i
 - **Vector Search:** pgvector with cosine similarity
 - **Background Jobs:** Solid Queue (database-backed)
 - **Real-time:** Action Cable with enhanced PostgreSQL adapter
-- **AI Integration:** RubyLLM gem for OpenAI-compatible model access
+- **AI Integration:** RubyLLM gem for OpenAI-compatible model access and MCP support
 - **Frontend:** Hotwire (Turbo + Stimulus) with TailwindCSS
 - **Deployment:** Docker Compose with Caddy reverse proxy
 

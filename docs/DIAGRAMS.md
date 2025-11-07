@@ -70,13 +70,25 @@ This document contains ASCII diagrams that complement the [ARCHITECTURE.md](ARCH
 │  LLM Service          │  Embedding Service                    │
 │  • Chat Completions   │  • Vector Generation                  │
 │  • Streaming          │  • Semantic Search                    │
-│  • Configurable       │  • Configurable Dimensions            │
+│  • Tool Calling       │  • Configurable Dimensions            │
 │                       │                                       │
 │  Examples:            │  Examples:                            │
 │  • Docker DMR         │  • ai/mistral                         │
 │  • Ollama             │  • ai/granite-embedding-multilingual  │
 │  • OpenAI             │  • bge-m3:567m                        │
 │  • Any compatible     │  • nomic-embed-text                   │
+└───────────────────────────────────────────────────────────────┘
+         ▲
+         │ (MCP connections for external tools)
+         │
+┌───────────────────────────────────────────────────────────────┐
+│                    MCP Server Ecosystem                       │
+├───────────────────────────────────────────────────────────────┤
+│  External Services    │  Custom Integrations                  │
+│  • Calendar APIs      │  • Database Access                    │
+│  • File Storage       │  • Custom Tools                       │
+│  • Chat Platforms     │  • Automation Scripts                 │
+│  • GitHub             │  • Internal APIs                      │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -187,11 +199,16 @@ This document contains ASCII diagrams that complement the [ARCHITECTURE.md](ARCH
     └────┬───────────┘
          │
          ▼
-    ┌──────────────────┐
-    │   LLM Service    │
-    │   Completion     │
-    │   (Streaming)    │
+    ┌──────────────────┐      ┌─────────────────┐
+    │   LLM Service    │ ◄────┤  MCP Tools      │
+    │   Completion     │      │  (if enabled)   │
+    │   (Streaming)    │      └─────────────────┘
     └────┬─────────────┘
+         │
+         ├─── Tool Call? ──▶ ┌───────────────┐
+         │                   │ Execute MCP   │
+         │                   │ Tool          │
+         │ ◄─── Result ──────┴───────────────┘
          │
          ▼
     ┌──────────────────┐
@@ -255,5 +272,128 @@ This document contains ASCII diagrams that complement the [ARCHITECTURE.md](ARCH
 
 ---
 
+## MCP Integration Flow
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│              MODEL CONTEXT PROTOCOL (MCP) FLOW                   │
+└──────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐
+    │ User Query  │
+    └──────┬──────┘
+           │
+           ▼
+    ┌──────────────────┐
+    │ Chat with MCP    │
+    │ Servers Enabled  │
+    └──────┬───────────┘
+           │
+           ▼
+    ┌──────────────────┐         ┌─────────────────┐
+    │ Load Available   │────────▶│  MCP Servers    │
+    │ Tools            │         │  • Calendar     │
+    └──────┬───────────┘         │  • File Storage │
+           │                     │  • GitHub       │
+           │                     │  • Custom       │
+           ▼                     └─────────────────┘
+    ┌──────────────────┐
+    │ LLM with Tools   │
+    │ + RAG Context    │
+    └──────┬───────────┘
+           │
+           ├──── No Tool Needed ────▶ Standard RAG Response
+           │
+           └──── Tool Needed ─────┐
+                                  │
+                                  ▼
+                         ┌────────────────┐
+                         │  Select Tool   │
+                         │  from MCP      │
+                         └────────┬───────┘
+                                  │
+                                  ▼
+                         ┌────────────────┐
+                         │  MCP Server    │
+                         │  Execute Tool  │
+                         │  • stdio       │
+                         │  • streamable  │
+                         │  • sse         │
+                         └────────┬───────┘
+                                  │
+                                  ▼
+                         ┌────────────────┐
+                         │  Tool Result   │
+                         │  (JSON data)   │
+                         └────────┬───────┘
+                                  │
+                                  ▼
+                         ┌────────────────┐
+                         │  LLM Processes │
+                         │  Result        │
+                         └────────┬───────┘
+                                  │
+                                  ├─── More Tools? ──┐
+                                  │                  │
+                                  │  Yes ────────────┘
+                                  │
+                                  │  No
+                                  ▼
+                         ┌────────────────┐
+                         │ Final Response │
+                         │ to User        │
+                         └────────────────┘
+```
+
+## MCP Server Types
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    MCP TRANSPORT TYPES                           │
+└──────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│  STDIO          │  Local process communication
+├─────────────────┤
+│ Nosia           │  ┌─────────────────────┐
+│   ↓             │  │ npx mcp-server      │
+│ stdin/stdout ←──┼─▶│ (Node.js process)   │
+│                 │  └─────────────────────┘
+│ Examples:       │
+│ • npm packages  │
+│ • Python CLIs   │
+└─────────────────┘
+
+┌─────────────────┐
+│  STREAMABLE     │  HTTP streaming connections
+├─────────────────┤
+│ Nosia           │  ┌─────────────────────┐
+│   ↓             │  │ Remote MCP Server   │
+│ HTTP POST   ────┼─▶│ https://api.com/mcp │
+│   ↑             │  └─────────────────────┘
+│ Response        │
+│                 │
+│ Examples:       │
+│ • Cloud APIs    │
+│ • Remote tools  │
+└─────────────────┘
+
+┌─────────────────┐
+│  SSE            │  Server-Sent Events
+├─────────────────┤
+│ Nosia           │  ┌─────────────────────┐
+│   ↓             │  │ SSE MCP Server      │
+│ EventSource ────┼─▶│ Real-time updates   │
+│   ↑             │  └─────────────────────┘
+│ Events stream   │
+│                 │
+│ Examples:       │
+│ • Live data     │
+│ • Notifications │
+└─────────────────┘
+```
+
+---
+
 These diagrams complement the detailed explanations in [ARCHITECTURE.md](ARCHITECTURE.md) and provide
-visual reference for understanding Nosia's system design.
+visual reference for understanding Nosia's system design, including the new Model Context Protocol integration.
