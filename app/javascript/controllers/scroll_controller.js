@@ -5,12 +5,12 @@ export default class extends Controller {
   connect() {
     this.scrollToBottomInstant()
 
-    // Observer pour détecter les nouveaux messages ajoutés dynamiquement
+    // Observer to detect new messages added dynamically
     this.observer = new MutationObserver(() => {
       this.scrollToBottomSmooth()
     })
 
-    // Observer tous les changements dans le conteneur de messages
+    // We observe all changes in the messages container
     const messagesContainer = this.element.querySelector('[id$="_messages"]')
     if (messagesContainer) {
       this.observer.observe(messagesContainer, {
@@ -31,7 +31,7 @@ export default class extends Controller {
   }
 
   scrollToBottomSmooth() {
-    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    // Use requestAnimationFrame to ensure the DOM is updated
     requestAnimationFrame(() => {
       this.element.scroll({
         top: this.element.scrollHeight,
@@ -41,7 +41,7 @@ export default class extends Controller {
   }
 
   scrollToBottomInstant() {
-    // Scroll instantané au chargement
+    // Instant scroll on load
     requestAnimationFrame(() => {
       this.element.scrollTop = this.element.scrollHeight
     })

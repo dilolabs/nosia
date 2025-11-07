@@ -1,16 +1,16 @@
-<%# Ajouter le message utilisateur %>
+<%# Add the user message %>
 <%= turbo_stream.append "#{dom_id(@chat, :messages)}" do %>
   <%= render partial: "messages/message", locals: { message: @user_message, chat: @chat } %>
 <% end %>
 
-<%# Ajouter l'animation de réflexion %>
+<%# Add the thinking animation %>
 <%= turbo_stream.append "#{dom_id(@chat, :messages)}" do %>
   <div id="thinking_animation">
     <%= render "messages/thinking" %>
   </div>
 <% end %>
 
-<%# Réinitialiser le formulaire %>
+<%# Reset the form %>
 <%= turbo_stream.replace "#{dom_id(@chat)}_message_form" do %>
   <%= render "form", chat: @chat %>
 <% end %>

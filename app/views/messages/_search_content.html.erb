@@ -3,12 +3,12 @@
     <% message.similar_chunks.each_with_index do |chunk, index| %>
       <%= link_to chunk, class: "block group", target: "_blank", rel: "noopener" do %>
         <div class="flex items-start gap-3 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-sm">
-          <!-- Numéro de la source -->
+          <!-- Source number -->
           <div class="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 flex items-center justify-center text-xs font-semibold">
             <%= index + 1 %>
           </div>
 
-          <!-- Contenu de la source -->
+          <!-- Source content -->
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
               <%= chunk.title %>
@@ -23,7 +23,7 @@
             <% end %>
           </div>
 
-          <!-- Icône de lien externe -->
+          <!-- External link icon -->
           <div class="flex-shrink-0">
             <svg class="w-4 h-4 text-neutral-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>

@@ -1,5 +1,5 @@
 <%
-  # Définir les icônes et messages selon la phase
+  # Define icons and messages based on phase
   phase_config = {
     "searching" => { icon: "🔍", title: "Searching", subtitle: "Looking through your documents..." },
     "generating" => { icon: "✨", title: "Generating", subtitle: "Crafting the response..." },
@@ -10,7 +10,7 @@
 %>
 
 <div class="flex items-center gap-3">
-  <!-- Spinner animé -->
+  <!-- Animated spinner -->
   <div class="thinking-spinner">
     <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

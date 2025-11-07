@@ -33,39 +33,39 @@ class Message < ApplicationRecord
   end
 
   def broadcast_created
-    # Ne pas broadcaster les messages system et tool (internes)
+    # Do not broadcast system and tool messages (internal)
     return unless assistant?
 
-    # Si c'est un message assistant avec des tool_calls, NE PAS broadcaster
-    # Ces messages sont créés par RubyLLM juste avant d'exécuter un tool
+    # EN: If it's an assistant message with tool_calls, DO NOT broadcast
+    # They are intermediate messages not meant for the user
     if assistant? && tool_calls.exists?
       Rails.logger.info "🚫 Skipping broadcast for intermediate assistant message ##{id} with tool_calls"
       return
     end
 
-    # Empêcher le broadcast des doublons consécutifs
-    # Si le dernier message (hors celui-ci) est un message user avec le même contenu
-    # et qu'il n'y a pas eu de message assistant entre, ne pas broadcaster
+    # Prevent broadcasting consecutive duplicate user messages
+    # If the last message (excluding this one) is a user message with the same content
+    # and there was no assistant message in between, do not broadcast
     if user?
       previous_message = chat.messages.where.not(id: id).order(created_at: :desc).first
       if previous_message&.user? && previous_message.question == question
-        # C'est un doublon, ne pas broadcaster
+        # It's a duplicate, do not broadcast
         return
       end
     end
 
-    # Si c'est un message assistant, retirer l'animation de réflexion
+    # If it's an assistant message, remove the thinking animation
     if assistant?
       broadcast_remove_to chat, :messages, target: "thinking_animation"
 
       previous_message = chat.messages.where.not(id: id).order(created_at: :desc).first
       if previous_message&.assistant? && previous_message.content.blank?
-        # Retirer le message vide précédent
+        # Remove the previous empty assistant message
         broadcast_remove_to chat, :messages, target: dom_id(previous_message, :messages)
       end
 
       if previous_message&.tool?
-        # Retirer le message tool précédent
+        # Remove the previous tool message
         broadcast_remove_to chat, :messages, target: dom_id(previous_message, :messages)
       end
     end
@@ -133,12 +133,12 @@ class Message < ApplicationRecord
     Document.where(id: similar_document_ids.uniq)
   end
 
-  # Helper pour vérifier si c'est un message d'erreur
+  # Helper to check if it's an error message
   def error?
     false
   end
 
-  # Helper pour obtenir le message original pour retry
+  # Helper to get the original message for retry
   def retryable?
     false
   end

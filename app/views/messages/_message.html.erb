@@ -1,8 +1,8 @@
 <%
-  # Détecter les messages assistant intermédiaires
-  # Ne PAS utiliser tool_calls.any? car ça crée une query N+1
-  # On se base uniquement sur le fait que le content est vide/nil
-  is_intermediate = false # Désactivé temporairement pour éviter les queries N+1
+  # Detect intermediate assistant messages
+  # DO NOT use tool_calls.any? because it creates an N+1 query
+  # We only rely on the fact that content is empty/nil
+  is_intermediate = false # Temporarily disabled to avoid N+1 queries
   container_class = "message-container mb-6"
 %>
 <%= tag.div data: { created_at: message.created_at.iso8601 }, id: dom_id(message, :messages), class: container_class do %>
@@ -17,7 +17,7 @@
   <% else %>
     <div class="flex justify-start">
       <div class="max-w-[100%] w-full">
-        <!-- Avatar et nom de l'assistant -->
+        <!-- Avatar and assistant name -->
         <div class="flex items-center gap-2 mb-2 ml-1">
           <% if is_intermediate %>
             <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-semibold">
@@ -25,7 +25,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
             </div>
-            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Utilisation d'un outil...</span>
+            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Using tool...</span>
           <% else %>
             <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-semibold">
               AI
@@ -34,7 +34,7 @@
           <% end %>
         </div>
 
-        <!-- Contenu de la réponse -->
+        <!-- Response content -->
         <%
           bg_classes = message.error? ? 'bg-red-50 dark:bg-red-900/10' : 'bg-white dark:bg-neutral-800'
           border_classes = message.error? ? 'border-red-300 dark:border-red-700' : 'border-neutral-100 dark:border-neutral-700'

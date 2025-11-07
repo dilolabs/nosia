@@ -7,7 +7,7 @@ class ChatMcpSessionsController < ApplicationController
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to @chat, notice: "Serveur MCP ajouté à la conversation." }
+      format.html { redirect_to @chat, notice: "MCP server added to the chat." }
     end
   end
 
@@ -18,7 +18,7 @@ class ChatMcpSessionsController < ApplicationController
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to @chat, notice: "Serveur MCP retiré de la conversation." }
+      format.html { redirect_to @chat, notice: "MCP server removed from the chat." }
     end
   end
 

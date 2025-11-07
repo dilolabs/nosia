@@ -4,7 +4,7 @@ export default class extends Controller {
   connect() {
     this.wrapTables()
 
-    // Observer pour wrapper les tableaux ajoutés dynamiquement (streaming)
+    // Observer to wrap dynamically added tables (streaming)
     this.observer = new MutationObserver(() => {
       this.wrapTables()
     })
@@ -25,18 +25,18 @@ export default class extends Controller {
     const tables = this.element.querySelectorAll('table:not(.wrapped)')
 
     tables.forEach(table => {
-      // Vérifier si le tableau n'est pas déjà wrappé
+      // Check if the table is not already wrapped
       if (!table.parentElement.classList.contains('table-wrapper')) {
         const wrapper = document.createElement('div')
         wrapper.className = 'table-wrapper'
 
-        // Insérer le wrapper avant le tableau
+        // Insert the wrapper before the table
         table.parentNode.insertBefore(wrapper, table)
 
-        // Déplacer le tableau dans le wrapper
+        // Move the table into the wrapper
         wrapper.appendChild(table)
 
-        // Marquer comme wrappé
+        // Mark as wrapped
         table.classList.add('wrapped')
       }
     })

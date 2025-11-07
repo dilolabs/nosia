@@ -1,5 +1,5 @@
 class McpServer < ApplicationRecord
-  acts_as_tenant(:account)
+  acts_as_tenant :account
   belongs_to :account
   has_many :chat_mcp_sessions, dependent: :destroy
 

@@ -20,15 +20,15 @@ class McpCatalog
       template = find(server_id)
       return nil unless template
 
-      # Remplacer les variables {{variable}} par les valeurs
+      # Replace {{variable}} with values
       auth_config = build_auth_config(template, config_values)
       env_config = build_env_config(template, config_values)
 
-      # Configuration différente selon le type de transport
+      # Different configuration depending on the transport type
       is_stdio = template[:transport_type] == "stdio"
 
       if is_stdio
-        # Pour stdio: pas d'endpoint, utiliser command/args/env
+        # For stdio: no endpoint, use command/args/env
         connection_config = {
           command: template[:command],
           args: interpolate_array(template[:args], config_values),
@@ -36,12 +36,12 @@ class McpCatalog
         }
         endpoint = nil
       else
-        # Pour streamable/http: utiliser endpoint et headers
+        # For streamable/http: use endpoint and headers
         connection_config = build_connection_config(template, config_values)
         endpoint = template[:url]
       end
 
-      # Créer le serveur MCP
+      # Create the MCP server
       mcp_server = account.mcp_servers.create!(
         name: template[:name],
         transport_type: template[:transport_type],

@@ -18,10 +18,10 @@ export default class extends Controller {
   }
 
   startAnimation() {
-    // Afficher la première phase immédiatement
+    // Display the first phase immediately
     this.updatePhase(0)
 
-    // Programmer les transitions suivantes
+    // Schedule the next transitions
     this.scheduleNextPhase()
   }
 
@@ -40,7 +40,7 @@ export default class extends Controller {
     this.phaseTarget.style.opacity = "0"
     this.subtextTarget.style.opacity = "0"
 
-    // Attendre la fin de l'animation de fade out (300ms)
+    // Wait for the fade-out animation to complete (300ms)
     setTimeout(() => {
       this.updatePhase(index)
 
@@ -65,7 +65,7 @@ export default class extends Controller {
     }
   }
 
-  // Méthode pour faire disparaître l'animation en douceur
+  // Method to smoothly fade out the animation
   fadeOut() {
     this.stopAnimation()
     this.containerTarget.style.opacity = "0"

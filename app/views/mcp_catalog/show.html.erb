@@ -4,7 +4,7 @@
       <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
       </svg>
-      Retour au catalogue
+      Back to catalog
     <% end %>
   </div>
 
@@ -31,9 +31,9 @@
                 </svg>
               </div>
               <div class="ml-3">
-                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Configuration requise</h3>
+                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Configuration required</h3>
                 <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
-                  <p>Ce serveur nécessite une configuration avant activation.</p>
+                  <p>This server requires configuration before activation.</p>
                 </div>
               </div>
             </div>
@@ -99,9 +99,9 @@
                 </svg>
               </div>
               <div class="ml-3">
-                <h3 class="text-sm font-medium text-green-800 dark:text-green-200">Prêt à activer</h3>
+                <h3 class="text-sm font-medium text-green-800 dark:text-green-200">Ready to activate</h3>
                 <div class="mt-2 text-sm text-green-700 dark:text-green-300">
-                  <p>Ce serveur ne nécessite aucune configuration supplémentaire.</p>
+                  <p>This server does not require any additional configuration.</p>
                 </div>
               </div>
             </div>
@@ -110,7 +110,7 @@
 
         <% if @template[:capabilities]&.any? %>
           <div>
-            <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">Capacités disponibles</h3>
+            <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">Available capabilities</h3>
             <div class="flex flex-wrap gap-2">
               <% @template[:capabilities].each do |capability| %>
                 <span class="inline-flex items-center rounded-lg bg-neutral-100 dark:bg-neutral-700 px-3 py-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -123,8 +123,8 @@
       </div>
 
       <div class="mt-8 flex gap-3">
-        <%= link_to "Annuler", mcp_catalog_index_path, class: "flex-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2.5 text-center text-sm font-semibold text-neutral-900 dark:text-neutral-100 shadow-sm transition-colors" %>
-        <%= form.submit "Activer #{@template[:name]}", class: "flex-1 rounded-lg bg-green-600 hover:bg-green-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors cursor-pointer" %>
+        <%= link_to "Cancel", mcp_catalog_index_path, class: "flex-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2.5 text-center text-sm font-semibold text-neutral-900 dark:text-neutral-100 shadow-sm transition-colors" %>
+        <%= form.submit "Activate #{@template[:name]}", class: "flex-1 rounded-lg bg-green-600 hover:bg-green-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors cursor-pointer" %>
       </div>
     <% end %>
   </div>

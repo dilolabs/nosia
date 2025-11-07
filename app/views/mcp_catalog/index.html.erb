@@ -4,14 +4,14 @@
       <div>
         <h1 class="text-3xl font-bold text-neutral-900 dark:text-white">Catalogue MCP</h1>
         <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-          Activez des serveurs MCP prédéfinis en un clic
+          Activate predefined MCP servers with one click
         </p>
       </div>
       <%= link_to mcp_servers_path, class: "inline-flex items-center gap-2 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100 shadow-sm transition-colors" do %>
         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
         </svg>
-        Mes serveurs
+        My servers
       <% end %>
     </div>
   </div>
@@ -45,7 +45,7 @@
                       <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                       </svg>
-                      Activé
+                      Activated
                     </span>
                   </div>
                 <% end %>
@@ -81,19 +81,19 @@
                     <div class="mt-4">
                       <% if is_activated %>
                         <button disabled class="w-full rounded-lg bg-neutral-200 dark:bg-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-500 dark:text-neutral-400 cursor-not-allowed">
-                          Déjà activé
+                          Already activated
                         </button>
                       <% elsif server[:requires_config]&.any? %>
                         <%= link_to mcp_catalog_path(server[:id]),
                           class: "block w-full text-center rounded-lg bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors" do %>
-                          Configurer et activer
+                          Configure and activate
                         <% end %>
                       <% else %>
                         <%= button_to mcp_catalog_index_path,
                           method: :post,
                           params: { id: server[:id] },
                           class: "w-full rounded-lg bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors" do %>
-                          Activer
+                          Activate
                         <% end %>
                       <% end %>
                     </div>
@@ -107,7 +107,7 @@
     </div>
   <% else %>
     <div class="text-center py-12">
-      <p class="text-neutral-500 dark:text-neutral-400">Aucun serveur disponible dans le catalogue</p>
+      <p class="text-neutral-500 dark:text-neutral-400">No servers available in the catalog</p>
     </div>
   <% end %>
 </div>
