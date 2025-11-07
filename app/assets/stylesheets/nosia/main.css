@@ -430,5 +430,5 @@ details[open] summary {
 }
 
 .n-main-tooltip {
-    @apply text-center p-2 text-sm font-medium rounded-lg shadow-xs inline-block border;
+  @apply text-center p-2 text-sm font-medium rounded-lg shadow-xs inline-block border;
 }

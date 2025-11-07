@@ -7,7 +7,7 @@
     <%= form_with model: @user, url: first_run_path, class: "flex flex-col space-y-2 rounded-lg drop-shadow-xl p-2.5" do |form| %>
       <%= form.email_field :email, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", value: params[:email], class: "n-field" %>
       <%= form.password_field :password, required: true, autocomplete: "current-password", placeholder: "Enter your password", maxlength: 72, class: "n-field" %>
-      <%= form.submit "Sign up", class: "n-btn-submit" %>
+      <%= form.submit "Sign up", class: "n-btn-primary" %>
     <% end %>
   </div>
 </section>
