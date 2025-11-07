@@ -12,7 +12,7 @@
     </div>
   </div>
 
-  <%# Filtres %>
+  <%# Filters %>
   <div class="mb-4 flex gap-2">
     <%= form_with url: mcp_servers_path, method: :get, class: "flex gap-2" do |f| %>
       <%= f.select :status,
@@ -41,7 +41,7 @@
     <% end %>
   </div>
 
-  <%# Liste des serveurs %>
+  <%# Server list %>
   <div class="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow">
     <table class="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
       <thead class="bg-neutral-50 dark:bg-neutral-900">

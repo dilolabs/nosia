@@ -6,7 +6,7 @@
           <%= render message %>
         <% end %>
 
-        <%# Afficher l'animation si le dernier message est user (en attente de réponse) %>
+        <%# Display animation if last message is from user (waiting for response) %>
         <% if @chat.messages.for_user.last&.user? %>
           <div id="thinking_animation">
             <%= render "messages/thinking" %>
