@@ -70,6 +70,7 @@ Before deploying to production, ensure you have:
 - [ ] Secret key generated (`bin/rails secret`)
 - [ ] Database passwords generated
 - [ ] API keys obtained (if using external services)
+- [ ] MCP server credentials (if using catalog servers)
 - [ ] Backup storage configured (S3, local, etc.)
 
 ---
@@ -877,6 +878,12 @@ AI_BASE_URL=http://ai-service:11434/v1
 LLM_MODEL=granite3.3:2b
 EMBEDDING_MODEL=granite-embedding:278m
 EMBEDDING_DIMENSIONS=768
+```
+
+**MCP Configuration** (Optional):
+```bash
+# Enable MCP catalog servers (requires Node.js/npm in container)
+# Individual servers configured via web UI
 ```
 
 **Performance Tuning**:
