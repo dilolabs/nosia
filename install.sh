@@ -100,9 +100,6 @@ CHUNK_MIN_TOKENS=128
 CHUNK_MERGE_PEERS=true
 RETRIEVAL_FETCH_K=3
 
-# RAG (Retrieval Augmented Generation) Configuration
-RAG_SYSTEM_TEMPLATE="You are Nosia, a helpful assistant. If necessary, use the information contained in the context. Give a complete answer to the question. Only answer the question asked, the answer must be relevant to the question. If the answer cannot be deduced from the context, do not use the context."
-
 # Optional: Guard Model for additional validation
 GUARD_MODEL=
 

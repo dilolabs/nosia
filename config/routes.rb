@@ -49,6 +49,7 @@ Rails.application.routes.draw do
       end
     end
     resource :profile, only: [ :show ]
+    resources :system_prompts, only: [ :index, :show, :edit, :update, :destroy ]
     resource :settings, only: [ :show ]
     resources :sources, only: [ :index ]
     namespace :sources do

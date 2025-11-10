@@ -6,6 +6,7 @@ class User < ApplicationRecord
   has_many :api_tokens, dependent: :destroy
   has_many :chats, dependent: :destroy
   has_many :credentials, dependent: :destroy
+  has_many :prompts, dependent: :destroy
   has_many :sessions, dependent: :destroy
 
   validates :email,

@@ -32,13 +32,12 @@ services:
       - CHUNK_MIN_TOKENS=${CHUNK_MIN_TOKENS}
       - CHUNK_MERGE_PEERS=${CHUNK_MERGE_PEERS}
       - RETRIEVAL_FETCH_K=${RETRIEVAL_FETCH_K}
-      - RAG_SYSTEM_TEMPLATE=${RAG_SYSTEM_TEMPLATE}
       - GUARD_MODEL=${GUARD_MODEL}
       - DOCLING_SERVE_BASE_URL=${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=${AUGMENTED_CONTEXT}
     models:
-     - llm
-     - embedding
+      - llm
+      - embedding
     volumes:
       - rails-storage:/rails/storage
     healthcheck:
@@ -87,13 +86,12 @@ services:
       - CHUNK_MIN_TOKENS=${CHUNK_MIN_TOKENS}
       - CHUNK_MERGE_PEERS=${CHUNK_MERGE_PEERS}
       - RETRIEVAL_FETCH_K=${RETRIEVAL_FETCH_K}
-      - RAG_SYSTEM_TEMPLATE=${RAG_SYSTEM_TEMPLATE}
       - GUARD_MODEL=${GUARD_MODEL}
       - DOCLING_SERVE_BASE_URL=${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=${AUGMENTED_CONTEXT}
     models:
-     - llm
-     - embedding
+      - llm
+      - embedding
     volumes:
       - rails-storage:/rails/storage
     depends_on:

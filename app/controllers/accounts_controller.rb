@@ -15,7 +15,7 @@ class AccountsController < ApplicationController
   end
 
   def create
-    @account = Current.user.accounts.create!(account_params.merge(owner: Current.user))
+    @account = Current.user.accounts.create_with_system_prompt!(account_params.merge(owner: Current.user))
     redirect_to accounts_path
   end
 

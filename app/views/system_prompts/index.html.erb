@@ -1,0 +1,12 @@
+<div class="n-title-container">
+  <h2 class="n-main-title">System Prompts</h2>
+</div>
+
+<div class="n-cards-grid">
+  <% @system_prompts.each do |prompt| %>
+    <%= link_to system_prompt_path(prompt), class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/chats.svg", title: "API tokens", alt:"API tokens", class: "mx-auto w-12 h-12" %>
+      <p class="n-card-title"><%= prompt.full_name %></p>
+    <% end %>
+  <% end %>
+</div>

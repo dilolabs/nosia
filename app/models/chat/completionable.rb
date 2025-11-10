@@ -16,7 +16,6 @@ module Chat::Completionable
     self.with_model(options[:model], provider: :openai)
     self.with_params(max_tokens: options[:max_tokens], top_p: options[:top_p], top_k: options[:top_k])
     self.with_temperature(options[:temperature])
-    self.with_instructions(system_prompt) if messages.empty?
 
     # Add MCP tools if available
     mcp_tools_list = mcp_tools
@@ -42,10 +41,22 @@ module Chat::Completionable
 
     # Prepare the augmented question with context
     if chunks.any?
-      augmented_question = self.augmented_prompt(question, chunks:)
-      # Update the user message content with the context
-      # BUT do not broadcast it - we just keep the visible question
-      user_message.update_column(:content, augmented_question)
+      augmented_context = ActiveModel::Type::Boolean.new.cast(ENV["AUGMENTED_CONTEXT"])
+
+      documents = chunks.map.with_index do |chunk, index|
+        {
+          "doc_id": index + 1,
+          "title": chunk.title,
+          "text": augmented_context ? chunk.augmented_context : chunk.context,
+          "source": chunk.source
+        }
+      end
+
+      augmented_system_prompt = system_prompt % { documents: documents.to_json }
+
+      self.with_instructions(augmented_system_prompt, replace: true)
+    else
+      self.with_instructions(system_prompt, replace: true)
     end
 
     # Keep the original user message ID
@@ -56,7 +67,7 @@ module Chat::Completionable
 
     # self.ask() will create a SECOND user message, but it will not be broadcasted
     # thanks to the logic in broadcast_created which detects duplicates
-    self.ask(augmented_question || question) do |chunk|
+    self.ask(question) do |chunk|
       if block_given?
         yield chunk
       elsif chunk.content && !chunk.content.blank?
@@ -94,11 +105,7 @@ module Chat::Completionable
     Rails.logger.info "Final user messages: #{self.messages.where(role: 'user').pluck(:id).inspect}"
 
     message = self.messages.last
-    if chunks.any? && !self.answer_relevance(self.messages.last.content, question:)
-      message.update(content: "I'm sorry, but I couldn't find relevant information to answer your question based on the provided context.")
-    else
-      message.update(similar_chunk_ids: chunks.pluck(:id))
-    end
+    message.update(similar_chunk_ids: chunks.pluck(:id))
 
     message
   end
@@ -127,6 +134,6 @@ module Chat::Completionable
   end
 
   def system_prompt
-    ENV["RAG_SYSTEM_TEMPLATE"]
+    self.account.system_prompt(user: self.user)
   end
 end
