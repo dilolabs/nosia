@@ -52,7 +52,7 @@ module Chat::Completionable
         }
       end
 
-      augmented_system_prompt = system_prompt % { documents: documents.to_json }
+      augmented_system_prompt = system_prompt.sub("%{documents}", documents.to_json)
 
       self.with_instructions(augmented_system_prompt, replace: true)
     else
@@ -105,6 +105,13 @@ module Chat::Completionable
     Rails.logger.info "Final user messages: #{self.messages.where(role: 'user').pluck(:id).inspect}"
 
     message = self.messages.last
+
+    if !self.answer_relevance(self.messages.last.content, question:)
+      Rails.logger.info "=== Answer deemed not relevant, adding warning ==="
+      warning_text = "\n\n*Note: The answer provided may not be relevant to your question based on the available documents.*"
+      message.update(content: message.content + warning_text)
+    end
+
     message.update(similar_chunk_ids: chunks.pluck(:id))
 
     message
