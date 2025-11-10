@@ -243,7 +243,6 @@ services:
       - RETRIEVAL_FETCH_K=${RETRIEVAL_FETCH_K}
       - CHUNK_MAX_TOKENS=${CHUNK_MAX_TOKENS}
       - CHUNK_MIN_TOKENS=${CHUNK_MIN_TOKENS}
-      - RAG_SYSTEM_TEMPLATE=${RAG_SYSTEM_TEMPLATE}
     volumes:
       - rails-storage:/rails/storage
     networks:
@@ -277,7 +276,6 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS}
       - LLM_TEMPERATURE=${LLM_TEMPERATURE}
-      - RAG_SYSTEM_TEMPLATE=${RAG_SYSTEM_TEMPLATE}
     volumes:
       - rails-storage:/rails/storage
     networks:

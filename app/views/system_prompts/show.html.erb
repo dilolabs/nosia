@@ -1,0 +1,16 @@
+<div class="n-title-container flex justify-between items-center">
+  <h2 class="n-main-title"><%= @system_prompt.full_name %></h2>
+  <div>
+    <%= link_to "Edit", edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
+  </div>
+</div>
+
+<div class="flex-1 overflow-y-auto p-6 sm:p-8">
+  <div class="flex justify-end">
+    <div class="max-w-[80%] rounded-2xl bg-gradient-to-br from-green-600 to-green-700 dark:from-neutral-600 dark:to-neutral-700 px-5 py-3 text-white shadow-sm">
+      <div class="text-[15px] leading-relaxed">
+        <%= simple_format @system_prompt.content %>
+      </div>
+    </div>
+  </div>
+</div>

@@ -5,11 +5,31 @@ class Chunk < ApplicationRecord
   belongs_to :chunkable, polymorphic: true
 
   def augmented_context
-    chunkable.context
+    previous = previous_chunks(2)
+    following = next_chunks(2)
+    (previous + [self] + following).map(&:context).join("\n")
   end
 
   def context
     content
+  end
+
+  def next_chunks(limit = 2)
+    return [] unless metadata.dig("position").is_a?(Integer)
+    chunkable.chunks.where("metadata ->> 'position' > ?", metadata["position"].to_s)
+      .order(Arel.sql("(metadata ->> 'position')::int ASC"))
+      .limit(limit)
+  end
+
+  def previous_chunks(limit = 2)
+    return [] unless metadata.dig("position").is_a?(Integer)
+    chunkable.chunks.where("metadata ->> 'position' < ?", metadata["position"].to_s)
+      .order(Arel.sql("(metadata ->> 'position')::int ASC"))
+      .limit(limit)
+  end
+
+  def source
+    ""
   end
 
   def title
