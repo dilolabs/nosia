@@ -1,7 +1,7 @@
 <nav class="h-16 flex w-full items-center justify-between border-b n-main-border n-main-bg py-2 px-4">
   <div class="flex items-center justify-start gap-4">
     <%= link_to root_path, class: "rounded-lg n-main-focus" do %>
-      <span class="self-center whitespace-nowrap text-2xl font-semibold dark:text-white">Nosia</span>
+      <%= image_tag "nosia-logo.png", class: "h-8" %>
     <% end %>
   </div>
   <div class="flex items-center">
@@ -20,7 +20,7 @@
     </div>
 
     <% if Current.user %>
-      <button id="dropdownUser" data-dropdown-toggle="dropdown" id="user-menu-button" aria-expanded="false" data-dropdown-toggle="accountDropdown" class="n-btn n-main-hover flex shrink-0 rounded-full">
+      <button id="dropdownUser" data-dropdown-toggle="dropdown" aria-expanded="false" class="n-btn n-main-hover flex shrink-0 rounded-full">
         <span class="sr-only">Open user menu</span>
         <%= inline_svg "svg/user-circle.svg", title:"User", alt:"Open user menu", class: "w-6 h-6" %>
       </button>

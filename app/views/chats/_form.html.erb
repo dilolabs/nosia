@@ -1,6 +1,6 @@
 <% is_generating = chat.persisted? && chat.generating %>
 
-<%= form_with(model: chat, url: chats_path, class: "w-full", data: { controller: "chat-input" }, id: "chat-form") do |form| %>
+<%= form_with(model: chat, url: chats_path, data: { controller: "chat-input" }, id: "chat-form", class: "w-full") do |form| %>
   <%= form.label :prompt, "Summarize the latest…", class: "sr-only" %>
 
   <%# Hidden fields for MCP server IDs - will be populated by JS %>
@@ -96,4 +96,3 @@
     <% end %>
   </div>
 <% end %>
-
