@@ -38,7 +38,7 @@ docker compose up -d
 https://nosia.localhost
 ```
 
-https://github.com/user-attachments/assets/4720f8a3-8a91-4e51-b4af-0ba7d66fa65e
+![nosia-prompt](https://github.com/user-attachments/assets/45953fce-e9f1-476c-9c47-3906c23fc9d8)
 
 ## Quick Links
 
