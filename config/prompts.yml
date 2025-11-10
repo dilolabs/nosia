@@ -113,3 +113,124 @@ system_prompt: |
     - Explicit hallucination prevention mechanisms
     - Regulatory compliance integration
     - Developer guidelines for implementation
+
+context_relevance_guard: |
+  ## Policy Definitions
+
+  ### Key Terms
+
+  **Context Relevance**: The degree to which content directly addresses the user's specific query or information need. Content is contextually relevant when it provides information, explanation, or insight that is directly pertinent to the question.
+
+  **Irrelevant Content**: Content that does not contain information useful or applicable to the user's query, including information on unrelated topics or fields.
+
+  ### Content Classification Rules
+
+  #### VIOLATES Policy (Label: 1)
+
+  Content that:
+
+  - Fails to address the user's query or does not respond to the expressed information need.
+  - Provides information about a different topic, domain, or context than what the user requested.
+  - Omits key information necessary for a complete and relevant answer.
+  - Offers insights, facts, or discussion without clear connection to the user's question.
+  - Contains details from sources or documents that do not pertain to the subject or intent of the user's input.
+
+  #### DOES NOT Violate Policy (Label: 0)
+
+  Content that is:
+
+  - Directly informative, answering the user's query or fulfilling their information need.
+  - Focused on the same topic, subject, or domain as the user's question.
+  - Comprehensive in addressing the specific details and intent of the user's query.
+  - Clearly supported by relevant document(s), source(s), or conversation context.
+  - Pertinent, and contributes meaningful context or explanation for the user's request.
+
+  ## Examples
+
+  ### Example 1 (Label: 1)
+
+  **Content**: "This article discusses economic trends in Asia, while the user's query is about climate change policies in Europe."
+
+  **Expected Response**: VIOLATES Policy (Label: 1)
+
+  ### Example 2 (Label: 1)
+
+  **Content**: "Here is information about the organization's leadership, but the question was about its recent financial performance."
+
+  **Expected Response**: VIOLATES Policy (Label: 1)
+
+  ### Example 3 (Label: 0)
+
+  **Content**: "European climate change policies since 2020 include the Green Deal, which aims to make the EU carbon-neutral by 2050."
+
+  **Expected Response**: DOES NOT Violate Policy (Label: 0)
+
+  ### Example 4 (Label: 0)
+
+  **Content**: "The document provides a summary of financial results for the organization covering the last fiscal year, directly answering the user's query."
+
+  **Expected Response**: DOES NOT Violate Policy (Label: 0)
+
+answer_relevance_guard: |
+  ## Policy Definitions
+
+  ### Key Terms
+
+  **Answer Relevance**: The degree to which a generated answer directly addresses the user's specific question or information need. An answer is relevant when it provides appropriate information, explanation, or insight that directly responds to what was asked.
+
+  **Irrelevant Answer**: A response that fails to address the user's question, provides information about unrelated topics, or does not fulfill the expressed information need.
+
+  ### Answer Classification Rules
+
+  #### VIOLATES Policy (Label: 1)
+
+  An answer that:
+
+  - Fails to address the user's query or does not respond to the expressed information need.
+  - Provides information about a different topic, domain, or context than what the user requested.
+  - Omits key information necessary for a complete and relevant response to the user's question.
+  - Offers insights, facts, or discussion without clear connection to the user's question.
+  - Ignores the intent or scope of the user's query and provides tangential or unrelated information.
+  - Provides only generic statements without specific details relevant to the question asked.
+
+  #### DOES NOT Violate Policy (Label: 0)
+
+  An answer that is:
+
+  - Directly responsive, answering the user's query or fulfilling their information need.
+  - Focused on the same topic, subject, or domain as the user's question.
+  - Comprehensive in addressing the specific details and intent of the user's query.
+  - Clearly grounded in relevant information that pertains to the question.
+  - Pertinent, and contributes meaningful information or explanation that the user requested.
+  - Specific and detailed in its response to the user's particular question.
+
+  ## Examples
+
+  ### Example 1 (Label: 1)
+
+  **Question**: "What are the health benefits of exercise?"
+  **Answer**: "Many people enjoy outdoor activities. Sports equipment can be purchased at various retailers."
+
+  **Expected Response**: VIOLATES Policy (Label: 1)
+
+  ### Example 2 (Label: 1)
+
+  **Question**: "How do I reset my password?"
+  **Answer**: "Our company was founded in 1995 and has served millions of customers worldwide."
+
+  **Expected Response**: VIOLATES Policy (Label: 1)
+
+  ### Example 3 (Label: 0)
+
+  **Question**: "What are the health benefits of exercise?"
+  **Answer**: "Regular exercise provides numerous health benefits including improved cardiovascular health, increased muscle strength, better mental health, and reduced risk of chronic diseases like diabetes and heart disease."
+
+  **Expected Response**: DOES NOT Violate Policy (Label: 0)
+
+  ### Example 4 (Label: 0)
+
+  **Question**: "How do I reset my password?"
+  **Answer**: "To reset your password, click on 'Forgot Password' on the login page, enter your email address, and follow the instructions sent to your email to create a new password."
+
+  **Expected Response**: DOES NOT Violate Policy (Label: 0)
+

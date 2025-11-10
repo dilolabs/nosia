@@ -44,13 +44,9 @@ class Account < ApplicationRecord
     context
   end
 
-  def default_system_prompt
-    YAML.load_file(Rails.root.join("config", "prompts.yml"))["system_prompt"]
-  end
-
   def system_prompt(user: nil)
     prompt = prompts.find_by(name: "system_prompt", user_id: user&.id)
     prompt ||= prompts.find_by(name: "system_prompt", user_id: nil)
-    prompt.present? ? prompt.content : default_system_prompt
+    prompt.present? ? prompt.content : Prompts.system_prompt
   end
 end
