@@ -1,5 +1,5 @@
 .n-card {
-  @apply grid overflow-hidden border bg-white dark:bg-neutral-800 shadow-sm rounded-lg truncate;
+  @apply grid overflow-hidden border bg-white dark:bg-neutral-800 shadow-sm rounded-xl truncate;
 }
 
 .n-card-content {

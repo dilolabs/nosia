@@ -1,11 +1,8 @@
 <% content_for :title, "New chat" %>
-
-<div class="flex w-full flex-col">
-  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4 py-6">
-    <div class="pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-neutral-200 dark:ring-neutral-700">
-      <div class="px-3 sm:px-4 py-3 sm:py-4">
-        <%= render "form", chat: @chat %>
-      </div>
+<div class="h-[calc(100vh-10.5rem)] lg:h-full flex flex-col justify-end">
+  <section class="w-full max-w-4xl mx-auto">
+    <div class="mx-auto pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-neutral-200 dark:ring-neutral-700 p-4">
+      <%= render "form", chat: @chat %>
     </div>
-  </div>
+  </section>
 </div>

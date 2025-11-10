@@ -1,5 +1,5 @@
-<div class="flex w-full flex-col h-full">
-  <div data-controller="scroll" class="flex-1 overflow-y-auto p-6 sm:p-8">
+<div class="h-[calc(100vh-10.5rem)] lg:h-full flex flex-col justify-between">
+  <section data-controller="scroll" class="w-full overflow-y-auto">
     <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col max-w-4xl mx-auto">
       <%= tag.div id: dom_id(@chat, :messages), data: { controller: "message-ordering" } do %>
         <% @chat.messages.for_user.where.not(id: nil).order(:created_at).each do |message| %>
@@ -15,13 +15,13 @@
       <% end %>
       <%= turbo_stream_from @chat, :messages %>
     </div>
-  </div>
-  <div class="">
-    <div class="max-w-4xl mx-auto pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-neutral-200 dark:ring-neutral-700 p-4">
+  </section>
+  <section class="w-full max-w-4xl mx-auto">
+    <div class="mx-auto pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-neutral-200 dark:ring-neutral-700 p-4">
       <%= render partial: "messages/form", locals: { chat: @chat } %>
     </div>
-  </div>
-</div>
+  </section>
 
-<%# MCP Selector Modal %>
-<%= render "chats/mcp_selector", chat: @chat %>
+  <%# MCP Selector Modal %>
+  <%= render "chats/mcp_selector", chat: @chat %>
+</div>
