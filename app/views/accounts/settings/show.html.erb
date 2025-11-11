@@ -3,8 +3,12 @@
 </div>
 
 <div class="n-cards-grid">
+  <%= link_to account_account_users_path(@account), class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
+    <%= inline_svg "svg/user-circle.svg", title: "Account Users", alt: "Account Users", class: "mx-auto w-12 h-12" %>
+    <p class="n-card-title">Account Users</p>
+  <% end %>
   <%= link_to account_system_prompt_path(@account), class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/chats.svg", title:"API tokens", alt: "System Prompts", class: "mx-auto w-12 h-12" %>
+    <%= inline_svg "svg/chats.svg", title: "System Prompt", alt: "System Prompt", class: "mx-auto w-12 h-12" %>
     <p class="n-card-title">System Prompt</p>
   <% end %>
 </div>

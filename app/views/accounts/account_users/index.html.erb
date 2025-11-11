@@ -1,0 +1,23 @@
+<div class="n-title-container md:flex md:justify-between md:items-center">
+  <h2 class="n-main-title"><%= @account.name %> Account Users</h2>
+  <div>
+    <%= form_with(model: @account_user, url: account_account_users_path(@account), method: :post) do |form| %>
+      <div class="n-form-field inline-block mr-2">
+        <%= form.label :email, "Email", class: "n-label" %>
+        <%= form.email_field :email, class: "n-field", required: true %>
+      </div>
+      <%= form.submit "Add User", class: "n-btn-primary" %>
+    <% end %>
+  </div>
+</div>
+
+<div class="n-cards-grid">
+  <% @account_users.each do |account_user| %>
+    <div class="n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2">
+      <h5 class="n-card-title"><%= account_user.user.email %></h5>
+      <% unless account_user.user == Current.user %>
+        <%= button_to "Remove", account_account_user_path(@account, account_user), method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "n-btn-danger mt-4" %>
+      <% end %>
+    </div>
+  <% end %>
+</div>
