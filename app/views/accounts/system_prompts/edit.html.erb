@@ -1,0 +1,14 @@
+<div class="n-title-container flex justify-between items-center">
+  <h2 class="n-main-title">Edit <%= @system_prompt.full_name %></h2>
+</div>
+
+<%= form_with(model: @system_prompt, url: account_system_prompt_path(@account)) do |form| %>
+  <div class="n-form-field">
+    <%= form.label :content, "System prompt", class: "n-label" %>
+    <%= form.text_area :content, rows: 25, class: "n-textarea" %>
+  </div>
+
+  <div class="n-form-actions">
+    <%= form.submit "Save", class: "n-btn-primary" %>
+  </div>
+<% end %>
