@@ -16,7 +16,7 @@
     <div class="n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2">
       <h5 class="n-card-title"><%= account_user.user.email %></h5>
       <% unless account_user.user == Current.user %>
-        <%= button_to "Remove", account_account_user_path(@account, account_user), method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "n-btn-danger mt-4" %>
+        <%= link_to "Remove", account_account_user_path(@account, account_user), data: { turbo_method: :delete, turbo_confirm: "Are you sure?" }, class: "n-btn n-main-hover-danger n-main-focus-danger border n-main-border" %>
       <% end %>
     </div>
   <% end %>
