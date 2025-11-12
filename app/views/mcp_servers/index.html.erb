@@ -1,141 +1,98 @@
-<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-  <div class="n-main-title-container mb-6">
-    <h1 class="n-main-title">MCP Servers</h1>
-    <div class="flex gap-2">
-      <%= link_to mcp_catalog_index_path, class: "inline-flex items-center gap-2 n-btn" do %>
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-        </svg>
-        Catalog
-      <% end %>
-      <%= link_to "Add Server", new_mcp_server_path, class: "n-btn-primary" %>
-    </div>
-  </div>
+<% content_for :navbar do %>
+  <li class="flex gap-1 items-center">
+    <%= link_to "Settings", settings_path, class:"hover:italic" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "MCP servers", mcp_servers_path, class:"hover:italic" %>
+  </li>
+<% end %>
 
-  <%# Filters %>
-  <div class="mb-4 flex gap-2">
-    <%= form_with url: mcp_servers_path, method: :get, class: "flex gap-2" do |f| %>
-      <%= f.select :status,
-        options_for_select([
-          ["All statuses", ""],
-          ["Ready", "ready"],
-          ["Disconnected", "disconnected"],
-          ["Error", "error"],
-          ["Disabled", "disabled"]
-        ], params[:status]),
-        {},
-        class: "n-select" %>
-
-      <%= f.select :transport_type,
-        options_for_select([
-          ["All types", ""],
-          ["Streamable HTTP", "streamable"],
-          ["SSE", "sse"],
-          ["STDIO", "stdio"]
-        ], params[:transport_type]),
-        {},
-        class: "n-select" %>
-
-      <%= f.submit "Filter", class: "n-btn-primary" %>
-      <%= link_to "Reset", mcp_servers_path, class: "n-btn-danger content-center" %>
+<div class="n-title-container md:flex md:justify-between md:items-center">
+  <h2 class="n-main-title">MCP Servers</h2>
+  <div class="flex items-center gap-2">
+    <%= link_to mcp_catalog_index_path, class: "n-btn border n-main-border n-main-hover n-main-focus" do %>
+      <p>Catalog</p>
     <% end %>
-  </div>
-
-  <%# Server list %>
-  <div class="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow">
-    <table class="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
-      <thead class="bg-neutral-50 dark:bg-neutral-900">
-        <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Name</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Type</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Endpoint</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Status</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Latency</th>
-          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Enabled</th>
-          <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700 bg-white dark:bg-neutral-800">
-        <% @mcp_servers.each do |server| %>
-          <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <%= link_to server.name, server, class: "text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline" %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium <%= server.transport_type == 'stdio' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' %>">
-                <%= server.transport_type.upcase %>
-              </span>
-            </td>
-            <td class="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
-              <%= server.endpoint || server.command %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <% case server.status %>
-              <% when "ready" %>
-                <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
-                  Ready
-                </span>
-              <% when "error" %>
-                <span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-red-600"></span>
-                  Error
-                </span>
-              <% when "connecting" %>
-                <span class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-yellow-600 animate-pulse"></span>
-                  Connecting
-                </span>
-              <% else %>
-                <span class="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-neutral-600"></span>
-                  Disconnected
-                </span>
-              <% end %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 dark:text-neutral-400">
-              <%= server.latency_ms ? "#{server.latency_ms}ms" : "-" %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <% if server.enabled? %>
-                <span class="text-green-600 dark:text-green-400">✓</span>
-              <% else %>
-                <span class="text-neutral-400">✗</span>
-              <% end %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-              <%= link_to "View", server, class: "text-blue-600 dark:text-blue-400 hover:underline" %>
-              <% if server.status_ready? %>
-                <%= button_to "Disconnect", disconnect_mcp_server_path(server), method: :post, class: "inline text-orange-600 dark:text-orange-400 hover:underline" %>
-              <% else %>
-                <%= button_to "Connect", connect_mcp_server_path(server), method: :post, class: "inline text-green-600 dark:text-green-400 hover:underline" %>
-              <% end %>
-              <%= link_to "Edit", edit_mcp_server_path(server), class: "text-neutral-600 dark:text-neutral-400 hover:underline" %>
-              <%= button_to "Delete", server, method: :delete, data: { confirm: "Are you sure?" }, class: "inline text-red-600 dark:text-red-400 hover:underline" %>
-            </td>
-          </tr>
-        <% end %>
-
-        <% if @mcp_servers.empty? %>
-          <tr>
-            <td colspan="7" class="px-6 py-12 text-center">
-              <div class="text-neutral-500 dark:text-neutral-400">
-                <p class="text-lg font-medium mb-2">No MCP servers</p>
-                <p class="text-sm mb-4">Start by enabling a server from the catalog or add one manually.</p>
-                <div class="flex gap-3 justify-center">
-                  <%= link_to mcp_catalog_index_path, class: "inline-flex items-center gap-2 rounded-lg bg-purple-600 hover:bg-purple-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors" do %>
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                    </svg>
-                    Browse Catalog
-                  <% end %>
-                  <%= link_to "Add Manually", new_mcp_server_path, class: "inline-flex items-center gap-2 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100 shadow-sm transition-colors" %>
-                </div>
-              </div>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+    <%= link_to "Add Server", new_mcp_server_path, class: "n-btn-primary" %>
   </div>
 </div>
+
+<div class="mb-4 flex gap-2">
+  <%= form_with url: mcp_servers_path, method: :get, class: "flex gap-2" do |f| %>
+    <%= f.select :status,
+      options_for_select([
+        ["All statuses", ""],
+        ["Ready", "ready"],
+        ["Disconnected", "disconnected"],
+        ["Error", "error"],
+        ["Disabled", "disabled"]
+      ], params[:status]),
+      {},
+      class: "n-select" %>
+
+    <%= f.select :transport_type,
+      options_for_select([
+        ["All types", ""],
+        ["Streamable HTTP", "streamable"],
+        ["SSE", "sse"],
+        ["STDIO", "stdio"]
+      ], params[:transport_type]),
+      {},
+      class: "n-select" %>
+
+    <%= f.submit "Filter", class: "n-btn-primary" %>
+    <%= link_to "Reset", mcp_servers_path, class: "n-btn-danger content-center" %>
+  <% end %>
+</div>
+
+<ul class="n-cards-grid !list-none">
+  <% @mcp_servers.each do |server| %>
+    <li class="relative n-card n-main-border lg:col-span-2">
+      <%= link_to server, class:"h-38 n-main-hover n-main-focus" do %>
+        <div class="flex justify-center pt-6">
+          <h5 class="n-card-title"><%= server.name %></h5>
+        </div>
+        <div class="flex items-center justify-center gap-2">
+          <% case server.status %>
+          <% when "ready" %>
+            <div class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+              Ready
+            </div>
+          <% when "error" %>
+            <div class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-400">
+              <span class="h-1.5 w-1.5 rounded-full bg-red-600"></span>
+              Error
+            </div>
+          <% when "connecting" %>
+            <div class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+              <span class="h-1.5 w-1.5 rounded-full bg-yellow-600 animate-pulse"></span>
+              Connecting
+            </div>
+          <% else %>
+            <div class="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400">
+              <span class="h-1.5 w-1.5 rounded-full bg-neutral-600"></span>
+              Disconnected
+            </div>
+          <% end %>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400"><%= server.latency_ms ? "#{server.latency_ms}ms" : "-" %></p>
+        </div>
+      <% end %>
+      <div class="absolute w-full bottom-0 px-2 pb-2 grid grid-cols-2 gap-2">
+        <%= link_to edit_mcp_server_path(server), class: "bg-white dark:bg-neutral-900 n-btn n-main-hover n-main-focus border n-main-border" do %>
+          <p>Edit</p>
+        <% end %>
+        <% if server.status_ready? %>
+          <%= link_to disconnect_mcp_server_path(server), data: { turbo_method: :post }, class: "text-red-600 dark:text-red-300 bg-white dark:bg-neutral-900 n-btn n-main-hover-danger n-main-focus-danger border n-main-border" do %>
+            <p>Disconnect</p>
+          <% end %>
+        <% else %>
+          <%= link_to connect_mcp_server_path(server), data: { turbo_method: :post }, class: "text-green-600 dark:text-green-400 bg-white dark:bg-neutral-900 n-btn n-main-hover n-main-focus border n-main-border" do %>
+            <p>Connect</p>
+          <% end %>
+        <% end %>
+      </div>
+    </li>
+  <% end %>
+</ul>

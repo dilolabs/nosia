@@ -1,10 +1,23 @@
-<div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8">
-  <div class="mb-6">
-    <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">New MCP Server</h1>
-    <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+<% content_for :navbar do %>
+  <li class="flex gap-1 items-center">
+    <%= link_to "Settings", settings_path, class:"hover:italic" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "MCP servers", mcp_servers_path, class:"hover:italic" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "New MCP Server", new_mcp_server_path, class:"hover:italic" %>
+  </li>
+<% end %>
+
+<div class="n-title-container md:flex md:justify-between md:items-center">
+  <div>
+    <h2 class="n-main-title">New MCP Server</h2>
+    <p class="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
       Connect a new Model Context Protocol server to your application.
     </p>
   </div>
-
-  <%= render "form", mcp_server: @mcp_server %>
 </div>
+<%= render "form", mcp_server: @mcp_server %>
