@@ -1,4 +1,4 @@
-<%= form_with(model: mcp_server, class: "space-y-6") do |form| %>
+<%= form_with(model: mcp_server) do |form| %>
   <% if mcp_server.errors.any? %>
     <div class="rounded-lg bg-red-50 dark:bg-red-900/10 p-4">
       <h3 class="text-sm font-medium text-red-800 dark:text-red-400 mb-2">
@@ -11,108 +11,108 @@
       </ul>
     </div>
   <% end %>
-
-  <%# Basic Information %>
-  <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
-    <h3 class="text-lg font-semibold mb-4 text-neutral-900 dark:text-neutral-100">Basic Information</h3>
-
-    <div class="space-y-4">
-      <div class="n-form-field">
-        <%= form.label :name, "Name *", class: "n-label" %>
-        <%= form.text_field :name, required: true, class: "n-field" %>
-        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Unique name to identify this MCP server</p>
-      </div>
-
-      <div class="n-form-field">
-        <%= form.label :transport_type, "Connection Type *", class: "n-label" %>
-        <%= form.select :transport_type,
-          [
-            ["Streamable HTTP (recommended)", "streamable"],
-            ["Server-Sent Events (SSE)", "sse"],
-            ["STDIO (local process)", "stdio"]
-          ],
-          {},
-          {
-            required: true,
-            data: { action: "change->mcp-form#toggleTransportFields" },
-            class: "n-select"
-          } %>
-      </div>
-
-      <div class="n-form-field" data-mcp-form-target="httpFields">
-        <%= form.label :endpoint, "Server URL *", class: "n-label" %>
-        <%= form.text_field :endpoint, placeholder: "https://your-mcp-server.com/mcp", class: "n-field" %>
-      </div>
-
-      <div data-mcp-form-target="stdioFields" class="hidden space-y-4">
+  <div class="grid sm:grid-cols-2 gap-4">
+    <%# Basic Information %>
+    <div class="n-card content-start n-main-border p-4">
+      <h3 class="text-lg font-semibold mb-2">Basic Information</h3>
+      <div class="space-y-4">
         <div class="n-form-field">
-          <%= form.label :command, "Command *", class: "n-label" %>
-          <%= form.text_field :command, placeholder: "bunx or python", class: "n-field" %>
+          <%= form.label :name, "Name *", class: "n-label" %>
+          <%= form.text_field :name, required: true, class: "n-field" %>
+          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Unique name to identify this MCP server</p>
         </div>
 
         <div class="n-form-field">
-          <%= form.label :args, "Arguments (one per line)", class: "n-label" %>
-          <%= form.text_area :args, rows: 3, placeholder: "@modelcontextprotocol/server-filesystem\n/path/to/directory", class: "n-textarea" %>
+          <%= form.label :transport_type, "Connection Type *", class: "n-label" %>
+          <%= form.select :transport_type,
+            [
+              ["Streamable HTTP (recommended)", "streamable"],
+              ["Server-Sent Events (SSE)", "sse"],
+              ["STDIO (local process)", "stdio"]
+            ],
+            {},
+            {
+              required: true,
+              data: { action: "change->mcp-form#toggleTransportFields" },
+              class: "n-select"
+            } %>
+        </div>
+
+        <div class="n-form-field" data-mcp-form-target="httpFields">
+          <%= form.label :endpoint, "Server URL *", class: "n-label" %>
+          <%= form.text_field :endpoint, placeholder: "https://your-mcp-server.com/mcp", class: "n-field" %>
+        </div>
+
+        <div data-mcp-form-target="stdioFields" class="hidden space-y-4">
+          <div class="n-form-field">
+            <%= form.label :command, "Command *", class: "n-label" %>
+            <%= form.text_field :command, placeholder: "bunx or python", class: "n-field" %>
+          </div>
+
+          <div class="n-form-field">
+            <%= form.label :args, "Arguments (one per line)", class: "n-label" %>
+            <%= form.text_area :args, rows: 3, placeholder: "@modelcontextprotocol/server-filesystem\n/path/to/directory", class: "n-textarea" %>
+          </div>
+        </div>
+
+        <div class="n-form-field">
+          <%= form.check_box :enabled, class: "rounded border-neutral-300 dark:border-neutral-700 text-green-600 focus:ring-green-500" %>
+          <%= form.label :enabled, "Server enabled", class: "n-label" %>
         </div>
       </div>
-
-      <div class="n-form-field">
-        <%= form.check_box :enabled, class: "rounded border-neutral-300 dark:border-neutral-700 text-green-600 focus:ring-green-500" %>
-        <%= form.label :enabled, "Server enabled", class: "n-label" %>
-      </div>
-    </div>
-  </div>
-
-  <%# Authentication %>
-  <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
-    <h3 class="text-lg font-semibold mb-4 text-neutral-900 dark:text-neutral-100">Authentication (optional)</h3>
-
-    <div class="space-y-4">
-      <div class="n-form-field">
-        <%= form.label :token, "Bearer Token", class: "n-label" %>
-        <%= form.password_field :token, placeholder: "your-bearer-token", autocomplete: "off", class: "n-field" %>
-        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Will be used as "Authorization: Bearer token"</p>
-      </div>
-
-      <div class="n-form-field">
-        <%= form.label :api_key, "API Key", class: "n-label" %>
-        <%= form.password_field :api_key, placeholder: "your-api-key", autocomplete: "off", class: "n-field" %>
-        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Will be used as "X-API-Key: key"</p>
-      </div>
-    </div>
-  </div>
-
-  <%# Notes and tags %>
-  <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
-    <h3 class="text-lg font-semibold mb-4 text-neutral-900 dark:text-neutral-100">Metadata</h3>
-
-    <div class="space-y-4">
-      <div class="n-form-field">
-        <%= form.label :tags, "Tags (comma separated)", class: "n-label" %>
-        <%= form.text_field :tags, placeholder: "production, filesystem, important", class: "n-field" %>
-      </div>
-
-      <div class="n-form-field">
-        <%= form.label :notes, "Notes", class: "n-label" %>
-        <%= form.text_area :notes, rows: 4, placeholder: "Notes about this MCP server...", class: "n-textarea" %>
-      </div>
-    </div>
-  </div>
-
-  <%# Actions %>
-  <div class="flex items-center justify-between gap-4">
-    <div class="flex gap-2">
-      <%= form.submit "Save", class: "n-btn-primary" %>
-      <%= link_to "Cancel", mcp_servers_path, class: "n-btn" %>
     </div>
 
-    <% if mcp_server.persisted? %>
-      <%= button_to "Test Connection",
-        test_connection_mcp_server_path(mcp_server),
-        method: :post,
-        data: { turbo: false },
-        class: "n-btn-primary" %>
-    <% end %>
+    <%# Authentication %>
+    <div class="n-card content-start n-main-border p-4">
+      <h3 class="text-lg font-semibold mb-2">Authentication (optional)</h3>
+      <div class="space-y-4">
+        <div class="n-form-field">
+          <%= form.label :token, "Bearer Token", class: "n-label" %>
+          <%= form.password_field :token, placeholder: "your-bearer-token", autocomplete: "off", class: "n-field" %>
+          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Will be used as "Authorization: Bearer token"</p>
+        </div>
+
+        <div class="n-form-field">
+          <%= form.label :api_key, "API Key", class: "n-label" %>
+          <%= form.password_field :api_key, placeholder: "your-api-key", autocomplete: "off", class: "n-field" %>
+          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Will be used as "X-API-Key: key"</p>
+        </div>
+      </div>
+    </div>
+
+    <%# Notes and tags %>
+    <div class="n-card content-start n-main-border p-4">
+      <h3 class="text-lg font-semibold mb-2">Metadata</h3>
+
+      <div class="space-y-4">
+        <div class="n-form-field">
+          <%= form.label :tags, "Tags (comma separated)", class: "n-label" %>
+          <%= form.text_field :tags, placeholder: "production, filesystem, important", class: "n-field" %>
+        </div>
+
+        <div class="n-form-field">
+          <%= form.label :notes, "Notes", class: "n-label" %>
+          <%= form.text_area :notes, rows: 4, placeholder: "Notes about this MCP server...", class: "n-textarea" %>
+        </div>
+      </div>
+    </div>
+
+    <%# Actions %>
+    <div class="sm:col-span-2 flex w-full items-center justify-between gap-4">
+      <div class="flex gap-2 items-center">
+        <%= form.submit "Save", class: "n-btn-primary" %>
+        <%= link_to "Cancel", mcp_servers_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+      </div>
+      <div class="flex gap-2 items-center">
+        <% if mcp_server.persisted? %>
+          <%= button_to "Test Connection",
+            test_connection_mcp_server_path(mcp_server),
+            method: :post,
+            data: { turbo: false },
+            class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+        <% end %>
+      </div>
+    </div>
   </div>
 <% end %>
 
