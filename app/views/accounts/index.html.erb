@@ -3,11 +3,20 @@
   <%= link_to "Add account", new_account_path, class: "n-btn-primary hidden md:inline-flex " %>
 </div>
 
-<div class="n-cards-grid">
+<ul class="n-cards-grid !list-none">
   <% @accounts.each do |account| %>
-    <%= link_to edit_account_path(account), class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-      <h5 class="n-card-title"><%= account.name %></h5>
-      <p class="n-card-subtitle"><%= account.uid %></p>
-    <% end %>
+    <li class="relative n-card border n-main-border xl:col-span-2">
+      <div class="h-32 pt-6 text-center n-main-hover">
+        <h5 class="n-card-title"><%= account.name %></h5>
+      </div>
+      <div class="absolute w-full bottom-0 px-2 pb-2 grid grid-cols-2 gap-2 ">
+        <%= link_to edit_account_path(account), class: "bg-white dark:bg-neutral-900 n-btn n-main-hover n-main-focus border n-main-border" do %>
+          <p>Rename</p>
+        <% end %>
+        <%= link_to account_settings_path(account), class: "bg-white dark:bg-neutral-900 n-btn n-main-hover n-main-focus border n-main-border" do %>
+          <p>Settings</p>
+        <% end %>
+      </div>
+    </li>
   <% end %>
-</div>
+</ul>

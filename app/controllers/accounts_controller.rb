@@ -4,7 +4,7 @@ class AccountsController < ApplicationController
   before_action :set_account, only: [ :edit, :update ]
 
   def index
-    @accounts = Current.user.accounts
+    @accounts = Current.user.accounts.order(:name)
   end
 
   def new

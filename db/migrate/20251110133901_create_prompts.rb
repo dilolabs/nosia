@@ -10,6 +10,12 @@ class CreatePrompts < ActiveRecord::Migration[8.0]
     end
 
     Account.find_each do |account|
+      Prompt.create!(
+        account:,
+        user: nil,
+        name: "system_prompt",
+        content: YAML.load_file(Rails.root.join("config", "prompts.yml"))["system_prompt"]
+      )
       account.users.find_each do |user|
         Prompt.create!(
           account:,
