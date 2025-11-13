@@ -1,18 +1,18 @@
 <% content_for :navbar do %>
-  <li class="flex gap-1 items-center">
-    <%= link_to "Settings", settings_path, class:"hover:italic" %>
+  <li class="flex items-center">
+    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
   </li>
-  <li class="flex gap-1 items-center">
+  <li class="flex items-center">
     <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to "MCP servers", mcp_servers_path, class:"hover:italic" %>
+    <%= link_to "MCP servers", mcp_servers_path, class:"n-ariane n-main-focus" %>
   </li>
-  <li class="flex gap-1 items-center">
+  <li class="flex items-center">
     <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to @mcp_server.name, mcp_server_path(@mcp_server), class:"hover:italic" %>
+    <%= link_to @mcp_server.name, mcp_server_path(@mcp_server), class:"n-ariane n-main-focus" %>
   </li>
-  <li class="flex gap-1 items-center">
+  <li class="flex items-center">
     <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to "Edit #{@mcp_server.name}", edit_mcp_server_path(@mcp_server), class:"hover:italic" %>
+    <%= link_to "Edit #{@mcp_server.name}", edit_mcp_server_path(@mcp_server), class:"n-ariane n-main-focus" %>
   </li>
 <% end %>
 
