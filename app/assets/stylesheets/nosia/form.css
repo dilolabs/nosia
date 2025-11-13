@@ -1,44 +1,44 @@
 .n-chat {
-  @apply resize-none w-full rounded-lg border border-neutral-300 bg-neutral-50 pt-4 pl-4 pr-16 pb-16 text-sm sm:text-base shadow-xl
+    @apply resize-none w-full rounded-lg border border-neutral-300 bg-neutral-50 pt-4 pl-4 pr-16 pb-16 text-sm sm:text-base shadow-xl
   transition-colors duration-200
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600;
 }
 
 .n-form-actions {
-  @apply mt-6;
+    @apply flex w-full items-center justify-between gap-4;
 }
 
 .n-form-container {
-  @apply mx-auto py-8 max-w-lg lg:py-16;
+    @apply mx-auto py-8 max-w-lg lg:py-16;
 }
 
 .n-form-content {
-  @apply mb-4 font-light text-neutral-500 sm:mb-5 dark:text-neutral-400;
+    @apply mb-4 font-light text-neutral-500 sm:mb-5 dark:text-neutral-400;
 }
 
 .n-form-field {
-  @apply my-2;
+    @apply my-2;
 }
 
 .n-form-title {
-  @apply mb-4 text-xl font-bold sm:text-2xl;
+    @apply mb-4 text-xl font-bold sm:text-2xl;
 }
 
 .n-field,
 .n-textarea {
-  @apply appearance-none block p-2.5 w-full text-sm bg-neutral-50 rounded-lg border border-neutral-300
+    @apply appearance-none block p-2.5 w-full text-sm bg-neutral-50 rounded-lg border border-neutral-300
   transition-colors duration-200
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400;
 }
 
 .n-label {
-  @apply text-left mb-1 text-sm;
+    @apply text-left mb-1 text-sm;
 }
 
 .n-select {
-  @apply appearance-none bg-neutral-50 border border-neutral-300 text-sm rounded-lg block w-full p-2.5
+    @apply appearance-none bg-neutral-50 border border-neutral-300 text-sm rounded-lg block w-full p-2.5
   transition-colors duration-200
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600;

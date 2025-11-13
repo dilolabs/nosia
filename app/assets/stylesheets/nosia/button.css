@@ -4,6 +4,10 @@
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }
 
+.n-btn-not-allowed {
+    @apply cursor-not-allowed text-center text-sm rounded-lg px-4 py-2;
+}
+
 .n-btn-chat {
     @apply px-4 py-2 rounded-lg text-sm sm:text-base text-white
   transition-colors duration-200
@@ -37,4 +41,16 @@
   transition-colors duration-200 hover:bg-green-400
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-green-900 dark:hover:bg-green-800;
+}
+
+.n-tab-active {
+    @apply text-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+  border-green-500 text-green-600 dark:text-green-400
+  hover:border-neutral-300 hover:text-neutral-700 dark:hover:text-neutral-300;
+}
+
+.n-tab {
+    @apply text-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+  text-neutral-500 dark:text-neutral-400
+  hover:border-neutral-300 hover:text-neutral-700 dark:hover:text-neutral-300;
 }
