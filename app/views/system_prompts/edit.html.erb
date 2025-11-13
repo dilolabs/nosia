@@ -1,14 +1,35 @@
-<div class="n-title-container flex justify-between items-center">
+<% content_for :navbar do %>
+  <li class="flex items-center">
+    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "System prompts", system_prompts_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to @system_prompt.account.name, system_prompt_path(@system_prompt), class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "Edit", edit_system_prompt_path(@system_prompt), class:"n-ariane n-main-focus" %>
+  </li>
+<% end %>
+
+<div class="n-title-container mt-0.5">
   <h2 class="n-main-title">Edit <%= @system_prompt.full_name %></h2>
 </div>
 
-<%= form_with(model: @system_prompt, url: system_prompt_path(@system_prompt)) do |form| %>
+<%= form_with(model: @system_prompt, url: system_prompt_path(@system_prompt), class:"max-w-4xl mx-auto") do |form| %>
   <div class="n-form-field">
     <%= form.label :content, "System prompt", class: "n-label" %>
     <%= form.text_area :content, rows: 25, class: "n-textarea" %>
   </div>
 
-  <div class="n-form-actions">
-    <%= form.submit "Save", class: "n-btn-primary" %>
+  <div class="sm:col-span-2 n-form-actions">
+    <div class="flex gap-2 items-center">
+      <%= form.submit "Save", class: "n-btn-primary" %>
+      <%= link_to "Cancel", system_prompt_path(@system_prompt), class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+    </div>
   </div>
 <% end %>
