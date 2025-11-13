@@ -19,6 +19,8 @@ class User < ApplicationRecord
     length: { minimum: 12 },
     on: :create
 
+  encrypts :email, deterministic: true
+
   def self.create_with_account!(user_params)
     user = User.create!(user_params)
 
