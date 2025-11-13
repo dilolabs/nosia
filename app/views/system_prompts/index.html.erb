@@ -1,12 +1,26 @@
-<div class="n-title-container">
+<% content_for :navbar do %>
+  <li class="flex items-center">
+    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "System prompts", system_prompts_path, class:"n-ariane n-main-focus" %>
+  </li>
+<% end %>
+
+<div class="n-title-container mt-0.5">
   <h2 class="n-main-title">System Prompts</h2>
 </div>
 
-<div class="n-cards-grid">
+<ul class="n-cards-grid !list-none">
   <% @system_prompts.each do |prompt| %>
-    <%= link_to system_prompt_path(prompt), class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/chats.svg", title: "API tokens", alt:"API tokens", class: "mx-auto w-12 h-12" %>
-      <p class="n-card-title"><%= prompt.full_name %></p>
-    <% end %>
+    <li class="n-card n-main-border lg:col-span-2 xl:col-span-2">
+      <%= link_to system_prompt_path(prompt), class: "content-center text-center n-main-focus n-main-hover h-48" do %>
+        <%= inline_svg "svg/chats.svg", title: "API tokens", alt:"API tokens", class: "mx-auto w-12 h-12" %>
+        <p class="n-card-title">
+          <span class="text-wrap"><%= prompt.account.name %></span>
+        </p>
+      <% end %>
+    </li>
   <% end %>
-</div>
+</ul>
