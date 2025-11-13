@@ -1,6 +1,19 @@
+<% content_for :navbar do %>
+  <li class="flex items-center">
+    <%= link_to "Accounts", accounts_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to @account.name, "#", class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "Edit #{@account.name}", edit_account_path(@account), class:"n-ariane n-main-focus" %>
+  </li>
+<% end %>
+
 <div class="n-title-container">
-  <h2 class="n-main-title">Edit Account <%= @account.name %></h2>
+  <h2 class="n-main-title mt-0.5 mb-2">Edit Account <%= @account.name %></h2>
 </div>
-<div class="n-form-container">
-  <%= render "form", account: @account %>
-</div>
+
+<%= render "form", account: @account %>
