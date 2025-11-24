@@ -47,9 +47,6 @@ ENV["JOB_CONCURRENCY"] ||= worker_count.to_s
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart
 
-# Reset all membership connections
-Membership.disconnect_all
-
 Signal.trap :SIGPROF do
   Thread.list.each do |t|
     puts t
