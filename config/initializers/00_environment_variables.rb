@@ -137,4 +137,4 @@ module EnvironmentValidator
 end
 
 # Run validation at startup
-EnvironmentValidator.validate! unless ENV["SKIP_ENV_VALIDATION"] == "true"
+EnvironmentValidator.validate! unless ENV["SECRET_KEY_BASE_DUMMY"] == "1"
