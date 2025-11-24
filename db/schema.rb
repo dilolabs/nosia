@@ -234,7 +234,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_24_130414) do
   end
 
   create_table "prompts", force: :cascade do |t|
-    t.bigint "account_id", null: false
+    t.bigint "account_id"
     t.bigint "user_id"
     t.string "name"
     t.text "content"

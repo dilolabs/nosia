@@ -38,6 +38,12 @@ class Account < ApplicationRecord
     context
   end
 
+  def create_default_system_prompt!(user: nil)
+    prompts.where(name: "system_prompt", user:).first_or_create!(
+      content: YAML.load_file(Rails.root.join("config", "prompts.yml"))["system_prompt"]
+    )
+  end
+
   def default_context
     context = []
     context << texts.map(&:context)
