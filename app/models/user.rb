@@ -23,11 +23,20 @@ class User < ApplicationRecord
 
   def self.create_with_account!(user_params)
     user = User.create!(user_params)
+    user.create_default_system_prompt!
 
     account = Account.create!(name: FirstRun::ACCOUNT_NAME, owner: user)
     account.account_users.grant_to user
+    account.create_default_system_prompt!
+    account.create_default_system_prompt!(user:)
 
     user
+  end
+
+  def create_default_system_prompt!(account: nil)
+    prompts.where(name: "system_prompt", account:).first_or_create!(
+      content: YAML.load_file(Rails.root.join("config", "prompts.yml"))["system_prompt"]
+    )
   end
 
   def first_account
