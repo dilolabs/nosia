@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_10_133901) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_24_130414) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -116,7 +116,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_133901) do
     t.string "chunkable_type"
     t.bigint "account_id", null: false
     t.jsonb "metadata", default: {}
-    t.integer "index"
     t.index ["account_id"], name: "index_chunks_on_account_id"
     t.index ["chunkable_type", "chunkable_id"], name: "index_chunks_on_chunkable_type_and_chunkable_id"
   end
@@ -188,8 +187,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_133901) do
     t.bigint "tool_call_id"
     t.integer "input_tokens"
     t.integer "output_tokens"
-    t.string "step", default: "default"
     t.jsonb "metadata", default: {}, null: false
+    t.integer "cached_tokens"
+    t.integer "cache_creation_tokens"
+    t.jsonb "content_raw"
     t.index ["chat_id"], name: "index_messages_on_chat_id"
     t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["model_id"], name: "index_messages_on_model_id"

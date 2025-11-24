@@ -140,8 +140,8 @@ GEM
       logger
     faraday-multipart (1.1.1)
       multipart-post (~> 2.0)
-    faraday-net_http (3.4.1)
-      net-http (>= 0.5.0)
+    faraday-net_http (3.4.2)
+      net-http (~> 0.5)
     faraday-retry (2.3.2)
       faraday (~> 2.0)
     fiddle (1.1.8)
@@ -171,7 +171,7 @@ GEM
     jbuilder (2.14.1)
       actionview (>= 7.0.0)
       activesupport (>= 7.0.0)
-    json (2.15.2)
+    json (2.16.0)
     json-schema (5.2.2)
       addressable (~> 2.8)
       bigdecimal (~> 3.1)
@@ -220,8 +220,8 @@ GEM
     multipart-post (2.4.1)
     neighbor (0.6.0)
       activerecord (>= 7.1)
-    net-http (0.7.0)
-      uri
+    net-http (0.8.0)
+      uri (>= 0.11.1)
     net-imap (0.5.12)
       date
       net-protocol
@@ -385,7 +385,7 @@ GEM
       json-schema (~> 5.0)
       ruby_llm (~> 1.9)
       zeitwerk (~> 2)
-    ruby_llm-schema (0.2.1)
+    ruby_llm-schema (0.2.5)
     rubyzip (3.2.2)
     securerandom (0.4.1)
     selenium-webdriver (4.38.0)
