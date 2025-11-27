@@ -18,7 +18,7 @@
       <%= link_to system_prompt_path(prompt), class: "content-center text-center n-main-focus n-main-hover h-48" do %>
         <%= inline_svg "svg/chats.svg", title: "API tokens", alt:"API tokens", class: "mx-auto w-12 h-12" %>
         <p class="n-card-title">
-          <span class="text-wrap"><%= prompt.account.name %></span>
+          <span class="text-wrap"><%= prompt.full_name %></span>
         </p>
       <% end %>
     </li>
