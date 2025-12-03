@@ -126,7 +126,7 @@ GEM
       reline (>= 0.3.8)
     dockerfile-rails (1.7.10)
       rails (>= 3.0.0)
-    dotenv (3.1.8)
+    dotenv (3.2.0)
     drb (2.2.3)
     ed25519 (1.4.0)
     erb (5.1.3)
