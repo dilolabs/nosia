@@ -1,0 +1,83 @@
+<!-- Model Selector Modal -->
+<div id="model-selector-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <!-- Background overlay -->
+    <div class="fixed inset-0 bg-neutral-500 bg-opacity-75 dark:bg-neutral-900 dark:bg-opacity-75 transition-opacity" aria-hidden="true" onclick="document.getElementById('model-selector-modal').classList.add('hidden')"></div>
+
+    <!-- Modal panel -->
+    <div class="inline-block align-bottom bg-white dark:bg-neutral-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-white dark:bg-neutral-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="sm:flex sm:items-start">
+          <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+            <h3 class="text-lg leading-6 font-medium text-neutral-900 dark:text-white mb-4" id="modal-title">
+              Velg AI-modell
+            </h3>
+            
+            <!-- Current Model Display -->
+            <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-sm border border-blue-200 dark:border-blue-800">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                </svg>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-white">Nåværende modell</p>
+                  <p class="text-xs text-neutral-600 dark:text-neutral-400 font-mono"><%= ENV["LLM_MODEL"] || "granite-4.0-h-tiny" %></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Available Models List -->
+            <div class="space-y-2">
+              <h4 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Tilgjengelige modeller:</h4>
+              
+              <%
+                # Common models that can be used with Docker Hub AI
+                models = [
+                  { id: "ai/granite-4.0-h-tiny", name: "Granite 4.0 Tiny", size: "7B", description: "Rask og effektiv (standard)" },
+                  { id: "ai/granite-4.0-h-small", name: "Granite 4.0 Small", size: "32B", description: "Større og smartere" },
+                  { id: "ai/mistral", name: "Mistral", size: "7B", description: "Høy ytelse" },
+                  { id: "ai/llama3.3", name: "Llama 3.3", size: "70B", description: "Meta's modell" },
+                  { id: "ai/deepseek-r1-distill-llama", name: "DeepSeek R1", size: "70B", description: "Avansert resonnering" },
+                ]
+              %>
+              
+              <% models.each do |model| %>
+                <div class="p-3 border border-neutral-200 dark:border-neutral-700 rounded-sm hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer transition-colors <%= 'bg-blue-50 dark:bg-blue-900/20 border-primary' if ENV['LLM_MODEL'] == model[:id] %>">
+                  <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2">
+                        <p class="text-sm font-medium text-neutral-900 dark:text-white"><%= model[:name] %></p>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300"><%= model[:size] %></span>
+                      </div>
+                      <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1"><%= model[:description] %></p>
+                      <p class="text-xs text-neutral-500 dark:text-neutral-500 font-mono mt-1"><%= model[:id] %></p>
+                    </div>
+                    <% if ENV["LLM_MODEL"] == model[:id] %>
+                      <svg class="w-5 h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                      </svg>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <!-- Info Note -->
+            <div class="mt-4 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-sm">
+              <p class="text-xs text-neutral-600 dark:text-neutral-400">
+                <strong>Merk:</strong> For å endre modell, oppdater <code class="px-1 py-0.5 bg-neutral-200 dark:bg-neutral-800 rounded text-xs">LLM_MODEL</code> i .env-filen og start Docker på nytt.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="bg-neutral-50 dark:bg-neutral-700/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <button type="button" onclick="document.getElementById('model-selector-modal').classList.add('hidden')" class="w-full inline-flex justify-center rounded-sm border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:ml-3 sm:w-auto sm:text-sm">
+          Lukk
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
