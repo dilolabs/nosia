@@ -41,7 +41,7 @@
               <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
             </div>
           </button>
-          <aside id="accordion-right-actions" aria-labelledby="accordion-right-button" class="w-72 h-full lg:border-l n-main-border">
+          <aside id="accordion-right-actions" aria-labelledby="accordion-right-button" class="w-72 h-full lg:border-l border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
             <%= render "sidebar" %>
           </aside>
         </div>
@@ -50,7 +50,7 @@
             <%= inline_svg_tag "svg/chevron-left.svg", class: "shrink-0 h-5 w-5" %>
           </div>
         </button>
-        <aside id="drawer-right" class="fixed top-0 right-0 z-60 h-screen py-4 transition-transform translate-x-full border-l n-main-border n-main-bg w-80" tabindex="-1" aria-labelledby="drawer-right-label">
+        <aside id="drawer-right" class="fixed top-0 right-0 z-60 h-screen py-4 transition-transform translate-x-full border-l border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 w-80" tabindex="-1" aria-labelledby="drawer-right-label">
           <button type="button" data-drawer-hide="drawer-right" aria-controls="drawer-right" class="absolute top-2.5 end-2.5 n-main-hover n-main-focus rounded-lg" >
             <%= inline_svg "svg/close.svg", class: "w-6 h-6" %>
             <span class="sr-only">Close menu</span>

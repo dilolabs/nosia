@@ -1,23 +1,29 @@
 <% if Current.user %>
-  <div class="w-full max-w-max overflow-y-auto overflow-x-hidden hidden lg:block border-r n-main-border n-main-bg p-1" data-controller="reveal" data-reveal-hidden-class="hidden">
-    <button data-action="reveal#toggle" type="button" class="hidden lg:block cursor-pointer n-nav-link n-main-hover w-fit">
-      <%= inline_svg "svg/menu.svg", title: "Menu", alt: "Menu" %>
-      <span class="sr-only">View menu</span>
+  <!-- Medietilsynet-style Sidebar -->
+  <div class="w-full max-w-max overflow-y-auto overflow-x-hidden hidden lg:block border-r border-neutral-200 bg-white dark:bg-neutral-900 dark:border-neutral-700 p-4" data-controller="reveal" data-reveal-hidden-class="hidden">
+    <!-- Toggle Button -->
+    <button data-action="reveal#toggle" type="button" class="mb-4 p-2 rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+      <%= inline_svg "svg/menu.svg", title: "Toggle Menu", alt: "Toggle Menu", class: "w-6 h-6 text-medietilsynet-text-primary dark:text-white" %>
+      <span class="sr-only">Toggle menu</span>
     </button>
-    <div class="w-max">
-      <%= link_to root_path, title: "Home", alt: "Home page", class: "n-nav-link n-main-hover" do %>
-        <%= inline_svg "svg/home.svg", title: "Home", alt: "Home page", class: "w-6 h-6" %>
-        <span data-reveal-target="item" class="hidden">Home</span>
+    
+    <!-- Sidebar Navigation Items -->
+    <nav class="space-y-2 w-max">
+      <%= link_to root_path, title: "Hjem", class: "flex items-center gap-3 px-4 py-3 rounded-sm text-medietilsynet-text-primary dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-sans text-base" do %>
+        <%= inline_svg "svg/home.svg", title: "Home", alt: "Home", class: "w-5 h-5" %>
+        <span data-reveal-target="item" class="hidden">Hjem</span>
       <% end %>
-      <%= link_to accounts_path, title: "Accounts", alt: "Accounts", class: "n-nav-link n-main-hover" do %>
-        <%= inline_svg "svg/folders.svg", title: "Accounts", alt: "Folders", class: "w-6 h-6" %>
-        <span data-reveal-target="item" class="hidden">Accounts</span>
+      
+      <%= link_to accounts_path, title: "Kontoer", class: "flex items-center gap-3 px-4 py-3 rounded-sm text-medietilsynet-text-primary dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-sans text-base" do %>
+        <%= inline_svg "svg/folders.svg", title: "Accounts", alt: "Accounts", class: "w-5 h-5" %>
+        <span data-reveal-target="item" class="hidden">Kontoer</span>
       <% end %>
-      <%= link_to sources_path, title: "Sources", alt: "Sources", class: "n-nav-link n-main-hover" do %>
-        <%= inline_svg "svg/file-search.svg", title: "Sources", alt: "File-search", class: "w-6 h-6" %>
-        <span data-reveal-target="item" class="hidden">Sources</span>
+      
+      <%= link_to sources_path, title: "Kilder", class: "flex items-center gap-3 px-4 py-3 rounded-sm text-medietilsynet-text-primary dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-sans text-base" do %>
+        <%= inline_svg "svg/file-search.svg", title: "Sources", alt: "Sources", class: "w-5 h-5" %>
+        <span data-reveal-target="item" class="hidden">Kilder</span>
       <% end %>
-    </div>
+    </nav>
   </div>
 
   <div class="lg:hidden fixed z-50 w-full h-16 max-w-sm -translate-x-1/2 n-main-bg border n-main-border rounded-full bottom-2 left-1/2">
