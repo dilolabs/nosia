@@ -21,7 +21,9 @@
                 </svg>
                 <div>
                   <p class="text-sm font-medium text-neutral-900 dark:text-white">Nåværende modell</p>
-                  <p class="text-xs text-neutral-600 dark:text-neutral-400 font-mono"><%= ENV["LLM_MODEL"] || "granite-4.0-h-tiny" %></p>
+                  <p class="text-xs text-neutral-600 dark:text-neutral-400 font-mono">
+                    <%= ENV["AZURE_OPENAI_ENDPOINT"].present? ? ENV.fetch("AZURE_LLM_DEPLOYMENT", ENV["LLM_MODEL"]) : ENV["LLM_MODEL"] || "granite-4.0-h-tiny" %>
+                  </p>
                 </div>
               </div>
             </div>
@@ -36,7 +38,8 @@
                 
                 # Azure OpenAI models (if configured)
                 if ENV["AZURE_OPENAI_ENDPOINT"].present?
-                  models << { id: "gpt-5-chat", name: "GPT-5 Chat", size: "Azure", description: "Azure AI Foundry (sky)", category: "azure" }
+                  azure_deployment = ENV.fetch("AZURE_LLM_DEPLOYMENT", "gpt-5-chat")
+                  models << { id: azure_deployment, name: "GPT-5 Chat", size: "Azure", description: "Azure AI Foundry (sky)", category: "azure" }
                 end
                 
                 # Local/Docker Hub AI models
@@ -49,8 +52,11 @@
                 ]
               %>
               
+              <%
+                current_model = ENV["AZURE_OPENAI_ENDPOINT"].present? ? ENV.fetch("AZURE_LLM_DEPLOYMENT", ENV["LLM_MODEL"]) : ENV["LLM_MODEL"]
+              %>
               <% models.each do |model| %>
-                <div class="p-3 border border-neutral-200 dark:border-neutral-700 rounded-sm hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer transition-colors <%= 'bg-blue-50 dark:bg-blue-900/20 border-primary' if ENV['LLM_MODEL'] == model[:id] %>">
+                <div class="p-3 border border-neutral-200 dark:border-neutral-700 rounded-sm hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer transition-colors <%= 'bg-blue-50 dark:bg-blue-900/20 border-primary' if current_model == model[:id] %>">
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
                       <div class="flex items-center gap-2">
@@ -60,7 +66,7 @@
                       <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1"><%= model[:description] %></p>
                       <p class="text-xs text-neutral-500 dark:text-neutral-500 font-mono mt-1"><%= model[:id] %></p>
                     </div>
-                    <% if ENV["LLM_MODEL"] == model[:id] %>
+                    <% if current_model == model[:id] %>
                       <svg class="w-5 h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                       </svg>

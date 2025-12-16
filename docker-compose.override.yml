@@ -8,9 +8,15 @@ services:
       - ./config:/rails/config
       - rails-storage:/rails/storage
       # Don't mount ./public - it would overwrite compiled assets
+    # When using Azure, we only need the embedding model
+    models:
+      - embedding
       
   solidq:
     volumes:
       - ./app:/rails/app
       - ./config:/rails/config
       - rails-storage:/rails/storage
+    # When using Azure, we only need the embedding model  
+    models:
+      - embedding

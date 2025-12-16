@@ -18,11 +18,15 @@ module EnvironmentValidator
       # Required variables for all environments
       required_vars = {
         "SECRET_KEY_BASE" => { validator: :non_empty_string },
-        "AI_BASE_URL" => { validator: :url },
         "LLM_MODEL" => { validator: :non_empty_string },
         "EMBEDDING_MODEL" => { validator: :non_empty_string },
         "EMBEDDING_DIMENSIONS" => { validator: :positive_integer }
       }
+      
+      # AI_BASE_URL is required unless using Azure OpenAI
+      if ENV["AZURE_OPENAI_ENDPOINT"].blank?
+        required_vars["AI_BASE_URL"] = { validator: :url }
+      end
 
       # Production-specific required variables
       if defined?(Rails) && Rails.env.production?
