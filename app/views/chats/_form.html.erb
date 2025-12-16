@@ -86,13 +86,24 @@
 
   <div class="mt-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
     <span>Enter to send · Shift+Enter for a line break</span>
-    <% if chat.persisted? %>
-      <button type="button" onclick="document.getElementById('mcp-selector-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
+    <div class="flex items-center gap-3">
+      <!-- Model Selector Button (always visible) -->
+      <button type="button" onclick="document.getElementById('model-selector-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 text-primary hover:underline">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
         </svg>
-        MCP (<%= chat.mcp_servers.count %>)
+        Modell
       </button>
-    <% end %>
+      
+      <% if chat.persisted? %>
+        <!-- MCP Button (only for existing chats) -->
+        <button type="button" onclick="document.getElementById('mcp-selector-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+          </svg>
+          MCP (<%= chat.mcp_servers.count %>)
+        </button>
+      <% end %>
+    </div>
   </div>
 <% end %>
