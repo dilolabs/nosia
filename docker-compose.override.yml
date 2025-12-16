@@ -6,8 +6,11 @@ services:
     volumes:
       - ./app:/rails/app
       - ./config:/rails/config
+      - ./lib:/rails/lib
       - rails-storage:/rails/storage
       # Don't mount ./public - it would overwrite compiled assets
+      # But we need to keep a persistent volume for assets
+      - rails-public-assets:/rails/public/assets
     # When using Azure, we only need the embedding model
     models:
       - embedding
@@ -16,7 +19,12 @@ services:
     volumes:
       - ./app:/rails/app
       - ./config:/rails/config
+      - ./lib:/rails/lib
       - rails-storage:/rails/storage
+      - rails-public-assets:/rails/public/assets
     # When using Azure, we only need the embedding model  
     models:
       - embedding
+
+volumes:
+  rails-public-assets:

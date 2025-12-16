@@ -1,11 +1,10 @@
 RubyLLM.configure do |config|
   # Azure OpenAI Service configuration
   if ENV["AZURE_OPENAI_ENDPOINT"].present?
-    # Use Azure deployment name if provided, otherwise fallback to LLM_MODEL
-    config.default_model = ENV.fetch("AZURE_LLM_DEPLOYMENT", ENV["LLM_MODEL"])
-    # Azure OpenAI uses deployment-based URLs
-    # API version is handled via query parameter by the underlying HTTP client
-    config.openai_api_base = "#{ENV['AZURE_OPENAI_ENDPOINT']}/openai/deployments"
+    # For Azure, we need to use the GitHub Models / AI Foundry endpoint format instead
+    # as it's simpler and doesn't require api-version in the URL
+    config.default_model = "gpt-5-chat"  # This is the model name in Azure AI Foundry
+    config.openai_api_base = ENV["AZURE_OPENAI_ENDPOINT"]
     config.openai_api_key = ENV["AZURE_OPENAI_API_KEY"]
   else
     # Standard OpenAI-compatible endpoint (Ollama, OpenAI, GitHub Models, etc.)
