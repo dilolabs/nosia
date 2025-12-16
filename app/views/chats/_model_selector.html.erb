@@ -31,13 +31,21 @@
               <h4 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Tilgjengelige modeller:</h4>
               
               <%
-                # Common models that can be used with Docker Hub AI
-                models = [
-                  { id: "ai/granite-4.0-h-tiny", name: "Granite 4.0 Tiny", size: "7B", description: "Rask og effektiv (standard)" },
-                  { id: "ai/granite-4.0-h-small", name: "Granite 4.0 Small", size: "32B", description: "Større og smartere" },
-                  { id: "ai/mistral", name: "Mistral", size: "7B", description: "Høy ytelse" },
-                  { id: "ai/llama3.3", name: "Llama 3.3", size: "70B", description: "Meta's modell" },
-                  { id: "ai/deepseek-r1-distill-llama", name: "DeepSeek R1", size: "70B", description: "Avansert resonnering" },
+                # Build model list dynamically based on configuration
+                models = []
+                
+                # Azure OpenAI models (if configured)
+                if ENV["AZURE_OPENAI_ENDPOINT"].present?
+                  models << { id: "gpt-5-chat", name: "GPT-5 Chat", size: "Azure", description: "Azure AI Foundry (sky)", category: "azure" }
+                end
+                
+                # Local/Docker Hub AI models
+                models += [
+                  { id: "ai/granite-4.0-h-tiny", name: "Granite 4.0 Tiny", size: "7B", description: "Rask og effektiv (lokal)", category: "local" },
+                  { id: "ai/granite-4.0-h-small", name: "Granite 4.0 Small", size: "32B", description: "Større og smartere (lokal)", category: "local" },
+                  { id: "ai/mistral", name: "Mistral", size: "7B", description: "Høy ytelse (lokal)", category: "local" },
+                  { id: "ai/llama3.3", name: "Llama 3.3", size: "70B", description: "Meta's modell (lokal)", category: "local" },
+                  { id: "ai/deepseek-r1-distill-llama", name: "DeepSeek R1", size: "70B", description: "Avansert resonnering (lokal)", category: "local" },
                 ]
               %>
               
@@ -47,7 +55,7 @@
                     <div class="flex-1">
                       <div class="flex items-center gap-2">
                         <p class="text-sm font-medium text-neutral-900 dark:text-white"><%= model[:name] %></p>
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300"><%= model[:size] %></span>
+                        <span class="text-xs px-2 py-0.5 rounded-full <%= model[:category] == 'azure' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300' %>"><%= model[:size] %></span>
                       </div>
                       <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1"><%= model[:description] %></p>
                       <p class="text-xs text-neutral-500 dark:text-neutral-500 font-mono mt-1"><%= model[:id] %></p>
