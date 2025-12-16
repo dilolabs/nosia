@@ -1,5 +1,5 @@
 .n-ariane {
-    @apply rounded-lg px-1 hover:italic;
+    @apply rounded-sm px-1 hover:italic;
 }
 
 .n-dropdown-item {
@@ -11,18 +11,19 @@
 }
 
 .n-dropdown-menu {
-    @apply z-10 md:w-60 rounded-lg bg-neutral-100 shadow-md
+    @apply z-10 md:w-60 rounded-sm bg-neutral-100 shadow-md
   dark:bg-neutral-900;
 }
 
+/* Medietilsynet Brand - Navigation Links */
 .n-nav-link {
-    @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium
+    @apply flex items-center gap-x-2 rounded-sm p-2 text-left text-sm font-medium
   transition-colors duration-200
-  focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
+  focus:outline-2 focus:outline-offset-1 focus:outline-primary;
 }
 
 .n-nav-bottom {
     @apply inline-flex flex-col items-center justify-center px-5
   transition-colors duration-200
-  focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
+  focus:outline-2 focus:outline-offset-1 focus:outline-primary;
 }

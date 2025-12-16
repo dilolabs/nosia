@@ -36,8 +36,9 @@
   @apply border-neutral-200 dark:border-neutral-700;
 }
 
+/* Medietilsynet Brand - Focus States */
 .n-main-focus {
-  @apply transition-colors duration-200 focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
+  @apply transition-colors duration-200 focus:outline-2 focus:outline-offset-1 focus:outline-primary;
 }
 
 .n-main-focus-danger {
@@ -48,8 +49,9 @@
   @apply transition-colors duration-200 focus:outline-2 focus:outline-offset-1 focus:outline-orange-500;
 }
 
+/* Medietilsynet Brand - Hover States */
 .n-main-hover {
-  @apply cursor-pointer transition-colors duration-200 hover:bg-green-200 dark:hover:bg-green-800;
+  @apply cursor-pointer transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20;
 }
 
 .n-main-hover-danger {
@@ -409,15 +411,15 @@ details[open] summary {
   @apply p-0 bg-transparent text-neutral-100 text-sm;
 }
 
-/* Citations */
+/* Citations - Medietilsynet Brand */
 .ai-response-content blockquote {
-  @apply mb-4 pl-4 border-l-4 border-blue-500 dark:border-blue-400 italic text-neutral-700 dark:text-neutral-300;
+  @apply mb-4 pl-4 border-l-4 border-primary dark:border-primary-light italic text-neutral-700 dark:text-neutral-300;
   line-height: 1.7;
 }
 
-/* Liens */
+/* Liens - Medietilsynet Brand */
 .ai-response-content a {
-  @apply text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline transition-colors;
+  @apply text-link hover:text-link-hover dark:text-link dark:hover:text-link-hover underline transition-colors;
 }
 
 /* Séparateurs horizontaux */

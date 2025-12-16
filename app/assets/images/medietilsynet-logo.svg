@@ -1,0 +1,7 @@
+<svg width="200" height="40" xmlns="http://www.w3.org/2000/svg">
+  <!-- Medietilsynet Logo Placeholder -->
+  <rect width="200" height="40" fill="#0c5da4" rx="3"/>
+  <text x="100" y="25" font-family="Inter, sans-serif" font-size="18" font-weight="700" fill="white" text-anchor="middle">
+    Medietilsynet
+  </text>
+</svg>

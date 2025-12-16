@@ -1,18 +1,20 @@
+/* Medietilsynet Brand - Base Button */
 .n-btn {
-    @apply cursor-pointer text-center text-sm rounded-lg px-4 py-2
+    @apply cursor-pointer text-center text-sm rounded-sm px-4 py-2
   transition-colors duration-200
-  focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
+  focus:outline-2 focus:outline-offset-1 focus:outline-primary;
 }
 
 .n-btn-not-allowed {
-    @apply cursor-not-allowed text-center text-sm rounded-lg px-4 py-2;
+    @apply cursor-not-allowed text-center text-sm rounded-sm px-4 py-2;
 }
 
+/* Medietilsynet Brand - Chat Button */
 .n-btn-chat {
-    @apply px-4 py-2 rounded-lg text-sm sm:text-base text-white
+    @apply px-4 py-2 rounded-sm text-sm sm:text-base text-white
   transition-colors duration-200
-  focus:outline-2 focus:outline-offset-1 focus:outline-green-500
-  bg-green-300 dark:bg-green-900 hover:bg-green-400 dark:hover:bg-green-800;
+  focus:outline-2 focus:outline-offset-1 focus:outline-primary
+  bg-primary dark:bg-primary hover:bg-primary-hover dark:hover:bg-primary-hover;
 }
 
 .n-btn-danger {
@@ -22,10 +24,11 @@
   bg-red-200 dark:bg-red-900 hover:bg-red-300 dark:hover:bg-red-800;
 }
 
+/* Medietilsynet Brand - Drawer Button */
 .n-btn-drawer {
-    @apply cursor-pointer h-42 bg-green-300 text-white rounded-l-lg flex items-center
-  hover:bg-green-400
-  dark:bg-green-900 dark:hover:bg-green-800;
+    @apply cursor-pointer h-42 bg-primary text-white rounded-l-sm flex items-center
+  hover:bg-primary-hover
+  dark:bg-primary dark:hover:bg-primary-hover;
 }
 
 .n-btn-group {
@@ -36,16 +39,18 @@
     @apply cursor-pointer p-2 rounded-lg;
 }
 
+/* Medietilsynet Brand - Primary Button */
 .n-btn-primary {
-    @apply cursor-pointer bg-green-300 text-center text-sm items-center rounded-lg px-4 py-2
-  transition-colors duration-200 hover:bg-green-400
-  focus:outline-2 focus:outline-offset-1 focus:outline-green-500
-  dark:bg-green-900 dark:hover:bg-green-800;
+    @apply cursor-pointer bg-primary text-white text-center text-sm items-center rounded-sm px-4 py-2
+  transition-colors duration-200 hover:bg-primary-hover
+  focus:outline-2 focus:outline-offset-1 focus:outline-primary
+  dark:bg-primary dark:hover:bg-primary-hover;
 }
 
+/* Medietilsynet Brand - Active Tab */
 .n-tab-active {
     @apply text-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
-  border-green-500 text-green-600 dark:text-green-400
+  border-primary text-primary dark:text-primary-light
   hover:border-neutral-300 hover:text-neutral-700 dark:hover:text-neutral-300;
 }
 

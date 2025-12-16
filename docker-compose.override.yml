@@ -1,0 +1,16 @@
+# Development overrides to use local code instead of pre-built image
+# This file is automatically used by docker compose
+
+services:
+  web:
+    volumes:
+      - ./app:/rails/app
+      - ./config:/rails/config
+      - rails-storage:/rails/storage
+      # Don't mount ./public - it would overwrite compiled assets
+      
+  solidq:
+    volumes:
+      - ./app:/rails/app
+      - ./config:/rails/config
+      - rails-storage:/rails/storage
