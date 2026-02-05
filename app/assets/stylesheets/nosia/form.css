@@ -1,8 +1,10 @@
-.n-chat {
-  @apply resize-none w-full rounded-lg border border-neutral-300 bg-neutral-50 pt-4 pl-4 pr-16 pb-16 text-sm sm:text-base shadow-xl
-  transition-colors duration-200
-  focus:outline-2 focus:outline-offset-1 focus:outline-green-500
-  dark:bg-neutral-700 dark:border-neutral-600;
+.n-form-chat {
+  @apply w-full min-h-[58px] resize-none overflow-hidden rounded-xl border py-3.5 pl-4 pr-14 text-base leading-6
+  border-neutral-200 bg-white text-neutral-900 placeholder-neutral-400
+  transition duration-200
+  focus:outline-none focus:ring-2 focus:ring-green-500
+  dark:border-neutral-700 dark:bg-neutral-700 dark:text-white dark:placeholder-neutral-400
+  disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .n-form-actions {
@@ -28,7 +30,7 @@
 .n-field,
 .n-textarea {
   @apply appearance-none block p-2.5 w-full text-sm bg-neutral-50 rounded-lg border border-neutral-300
-  transition-colors duration-200
+  transition duration-200
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600 dark:placeholder-neutral-400;
 }
@@ -39,7 +41,7 @@
 
 .n-select {
   @apply appearance-none bg-neutral-50 border border-neutral-300 text-sm rounded-lg block w-full p-2.5
-  transition-colors duration-200
+  transition duration-200
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600;
 }

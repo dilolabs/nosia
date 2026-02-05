@@ -3,20 +3,10 @@
     <%= form.label :content, "Ask anything…", class: "sr-only" %>
 
     <div class="relative w-full">
-      <%= form.text_area :content,
-        rows: 1,
-        autofocus: true,
-        placeholder: "Ask anything…",
-        data: {
-          chat_input_target: "textarea",
-          action: "input->chat-input#autogrow keydown->chat-input#handleKeys keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit"
-        },
-        class: "w-full min-h-[58px] resize-none overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-700 py-3.5 pl-4 pr-14 text-base leading-6 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-700"
-      %>
+      <%= form.text_area :content, rows: 2, autofocus: true, placeholder: "Ask anything...", data: { chat_input_target: "textarea", action: "input->chat-input#autogrow keydown->chat-input#handleKeys keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit"}, class: "n-form-chat" %>
 
-      <%= form.button type: :submit,
-        data: { action: "chat-input#submit" },
-        class: "absolute right-2.5 bottom-3.5 hover:-rotate-90 transition duration-150 ease-in-out inline-flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-900 dark:bg-neutral-900 cursor-pointer text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-40" do %>
+      <%= form.button type: :submit,data: { action: "chat-input#submit" },
+        class: "n-btn-chat n-btn-chat-send" do %>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
             fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
           <path stroke-linecap="round" stroke-linejoin="round"
