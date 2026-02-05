@@ -2,7 +2,7 @@
 
 # Make sure it matches the Ruby version in .ruby-version and Gemfile
 ARG RUBY_VERSION=3.4.5
-FROM dhi.io/library/ruby:$RUBY_VERSION-slim AS base
+FROM dhi.io/ruby:$RUBY_VERSION-slim AS base
 
 # Rails app lives here
 WORKDIR /rails
