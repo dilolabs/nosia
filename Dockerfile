@@ -1,8 +1,8 @@
 # syntax = docker/dockerfile:1
 
 # Make sure it matches the Ruby version in .ruby-version and Gemfile
-ARG RUBY_VERSION=3.4.5
-FROM dhi.io/ruby:$RUBY_VERSION-slim AS base
+ARG RUBY_VERSION=4
+FROM dhi.io/ruby:$RUBY_VERSION AS base
 
 # Rails app lives here
 WORKDIR /rails
