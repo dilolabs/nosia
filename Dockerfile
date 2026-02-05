@@ -2,7 +2,7 @@
 
 # Make sure it matches the Ruby version in .ruby-version and Gemfile
 ARG RUBY_VERSION=4
-FROM dhi.io/ruby:$RUBY_VERSION AS base
+FROM dhi.io/ruby:$RUBY_VERSION-dev AS base
 
 # Rails app lives here
 WORKDIR /rails
@@ -51,11 +51,6 @@ LABEL org.opencontainers.image.description="${OCI_DESCRIPTION}"
 ARG OCI_SOURCE
 LABEL org.opencontainers.image.source="${OCI_SOURCE}"
 LABEL org.opencontainers.image.licenses="MIT"
-
-# Run and own only the runtime files as a non-root user for security
-RUN groupadd --system --gid 1000 rails && \
-    useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
-USER 1000:1000
 
 # Configure environment defaults
 ENV HTTP_IDLE_TIMEOUT=60
