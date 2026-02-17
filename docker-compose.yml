@@ -14,6 +14,20 @@ services:
       - caddy-config:/config
       - caddy-data:/data
 
+  db-migrate:
+    image: dilolabs/nosia:latest
+    command: bundle exec rails db:prepare
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: "no"
+
   web:
     image: dilolabs/nosia:latest
     environment:
@@ -51,6 +65,8 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     restart: on-failure:5
 
   postgres-db:
