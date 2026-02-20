@@ -85,7 +85,7 @@ GEM
     ast (2.4.3)
     baran (0.2.1)
     base64 (0.3.0)
-    bcrypt (3.1.20)
+    bcrypt (3.1.21)
     bcrypt_pbkdf (1.1.2)
     benchmark (0.5.0)
     bigdecimal (3.3.1)
@@ -460,7 +460,7 @@ DEPENDENCIES
   actioncable-enhanced-postgresql-adapter
   acts_as_tenant
   baran
-  bcrypt (~> 3.1.7)
+  bcrypt (~> 3.1.21)
   blingfire
   bootsnap
   brakeman
