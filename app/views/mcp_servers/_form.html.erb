@@ -11,6 +11,7 @@
       </ul>
     </div>
   <% end %>
+
   <div class="grid sm:grid-cols-2 gap-4">
     <%# Basic Information %>
     <div class="n-card content-start n-main-border p-4">
@@ -98,7 +99,7 @@
     </div>
 
     <%# Actions %>
-    <div class="sm:col-span-2 flex w-full items-center justify-between gap-4">
+    <div class="sm:col-span-2 n-form-actions">
       <div class="flex gap-2 items-center">
         <%= form.submit "Save", class: "n-btn-primary" %>
         <%= link_to "Cancel", mcp_servers_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>

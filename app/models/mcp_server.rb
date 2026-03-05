@@ -29,7 +29,9 @@ class McpServer < ApplicationRecord
 
   # Callbacks
   before_validation :set_default_status
-  before_save :encrypt_secrets
+
+  # Encrypt sensitive fields
+  encrypts :auth_config, :connection_config
 
   # Get MCP client instance
   def client

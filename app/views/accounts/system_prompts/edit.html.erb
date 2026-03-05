@@ -1,14 +1,47 @@
+<% content_for :navbar do %>
+  <li class="flex items-center">
+    <%= link_to "Accounts", accounts_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to @account.name, "#", class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "Settings", account_system_prompt_path(@account), class:"n-ariane n-main-focus" %>
+  </li>
+
+  <li class="flex items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "Edit system prompt", edit_account_system_prompt_path(@account), class:"n-ariane n-main-focus" %>
+  </li>
+<% end %>
+
 <div class="n-title-container flex justify-between items-center">
-  <h2 class="n-main-title">Edit <%= @system_prompt.full_name %></h2>
+  <h2 class="n-main-title mt-0.5">Edit <%= @system_prompt.full_name %></h2>
 </div>
 
-<%= form_with(model: @system_prompt, url: account_system_prompt_path(@account)) do |form| %>
+<div class="border-b border-neutral-200 dark:border-neutral-700">
+  <nav class="-mb-px grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-x-8 gap-y-2">
+    <%= link_to account_account_users_path(@account), class: "n-tab n-main-focus rounded-t-lg" do %>
+      <p>Users</p>
+    <% end %>
+    <%= link_to account_system_prompt_path(@account), class: "n-tab-active n-main-focus rounded-t-lg" do %>
+      <p>System Prompt</p>
+    <% end %>
+  </nav>
+</div>
+
+<%= form_with(model: @system_prompt, url: account_system_prompt_path(@account), class:"max-w-4xl mx-auto") do |form| %>
   <div class="n-form-field">
     <%= form.label :content, "System prompt", class: "n-label" %>
     <%= form.text_area :content, rows: 25, class: "n-textarea" %>
   </div>
 
-  <div class="n-form-actions">
-    <%= form.submit "Save", class: "n-btn-primary" %>
+  <div class="sm:col-span-2 n-form-actions">
+    <div class="flex gap-2 items-center">
+      <%= form.submit "Save", class: "n-btn-primary" %>
+      <%= link_to "Cancel", account_system_prompt_path(@account), class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+    </div>
   </div>
 <% end %>

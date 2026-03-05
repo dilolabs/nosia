@@ -9,10 +9,14 @@ servers:
     icon: "📆"
     category: "productivity"
     transport_type: stdio
-    command: npx
+    command: docker
     args:
-      - "-y"
-      - "@infomaniak/mcp-server-calendar"
+      - "run"
+      - "-i"
+      - "--rm"
+      - "-e"
+      - "CALENDAR_TOKEN"
+      - "infomaniak/mcp-server-kdrive"
     requires_config:
       - name: calendar_token
         label: "Infomaniak Calendar Token"
@@ -30,10 +34,16 @@ servers:
     icon: "📝"
     category: "productivity"
     transport_type: stdio
-    command: npx
+    command: docker
     args:
-      - "-y"
-      - "@infomaniak/mcp-server-kdrive"
+      - "run"
+      - "-i"
+      - "--rm"
+      - "-e"
+      - "KDRIVE_TOKEN"
+      - "-e"
+      - "KDRIVE_ID"
+      - "infomaniak/mcp-server-kdrive"
     requires_config:
       - name: kdrive_token
         label: "kDrive Token"

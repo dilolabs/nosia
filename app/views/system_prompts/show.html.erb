@@ -1,16 +1,31 @@
-<div class="n-title-container flex justify-between items-center">
+<% content_for :navbar do %>
+  <li class="flex items-center">
+    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "System prompts", system_prompts_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to @system_prompt.account.name, system_prompt_path(@system_prompt), class:"n-ariane n-main-focus" %>
+  </li>
+<% end %>
+
+<div class="n-title-container mt-0.5">
   <h2 class="n-main-title"><%= @system_prompt.full_name %></h2>
-  <div>
-    <%= link_to "Edit", edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
-  </div>
 </div>
 
-<div class="flex-1 overflow-y-auto p-6 sm:p-8">
-  <div class="flex justify-end">
-    <div class="max-w-[80%] rounded-2xl bg-gradient-to-br from-green-600 to-green-700 dark:from-neutral-600 dark:to-neutral-700 px-5 py-3 text-white shadow-sm">
-      <div class="text-[15px] leading-relaxed">
-        <%= simple_format @system_prompt.content %>
-      </div>
+<div class="pb-1 pt-4 flex-1 overflow-y-auto space-y-2">
+  <div class="flex justify-center">
+    <%= link_to "Edit", edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
+  </div>
+  <div class="max-w-4xl mx-auto n-card n-main-border px-5 py-3">
+    <div class="text-[15px] leading-relaxed">
+      <%= simple_format @system_prompt.content %>
     </div>
+  </div>
+  <div class="flex justify-center">
+    <%= link_to "Edit", edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
   </div>
 </div>

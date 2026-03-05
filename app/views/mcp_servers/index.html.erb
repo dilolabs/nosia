@@ -1,10 +1,10 @@
 <% content_for :navbar do %>
-  <li class="flex gap-1 items-center">
-    <%= link_to "Settings", settings_path, class:"hover:italic" %>
+  <li class="flex items-center">
+    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
   </li>
   <li class="flex gap-1 items-center">
     <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to "MCP servers", mcp_servers_path, class:"hover:italic" %>
+    <%= link_to "MCP servers", mcp_servers_path, class:"n-ariane n-main-focus" %>
   </li>
 <% end %>
 

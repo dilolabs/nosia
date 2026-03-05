@@ -1,23 +1,60 @@
+<% content_for :navbar do %>
+  <li class="flex items-center">
+    <%= link_to "Accounts", accounts_path, class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to @account.name, "#", class:"n-ariane n-main-focus" %>
+  </li>
+  <li class="flex items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= link_to "Settings", account_account_users_path(@account), class:"n-ariane n-main-focus" %>
+  </li>
+<% end %>
+
 <div class="n-title-container md:flex md:justify-between md:items-center">
-  <h2 class="n-main-title"><%= @account.name %> Account Users</h2>
-  <div>
-    <%= form_with(model: @account_user, url: account_account_users_path(@account), method: :post) do |form| %>
-      <div class="n-form-field inline-block mr-2">
+  <h2 class="n-main-title mt-0.5"><%= @account.name %> settings</h2>
+</div>
+
+<div class="border-b border-neutral-200 dark:border-neutral-700 mb-6">
+  <nav class="-mb-px grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-x-8 gap-y-2">
+    <%= link_to account_account_users_path(@account), class: "n-tab-active n-main-focus rounded-t-lg" do %>
+      <p>Users</p>
+    <% end %>
+    <%= link_to account_system_prompt_path(@account), class: "n-tab n-main-focus rounded-t-lg" do %>
+      <p>System Prompt</p>
+    <% end %>
+  </nav>
+</div>
+
+<div>
+  <%= form_with(model: @account_user, url: account_account_users_path(@account), method: :post) do |form| %>
+    <div class="n-form-field flex items-end gap-2">
+      <div class="w-full sm:w-1/2">
         <%= form.label :email, "Email", class: "n-label" %>
         <%= form.email_field :email, class: "n-field", required: true %>
       </div>
-      <%= form.submit "Add User", class: "n-btn-primary" %>
-    <% end %>
-  </div>
-</div>
-
-<div class="n-cards-grid">
-  <% @account_users.each do |account_user| %>
-    <div class="n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2">
-      <h5 class="n-card-title"><%= account_user.user.email %></h5>
-      <% unless account_user.user == Current.user %>
-        <%= link_to "Remove", account_account_user_path(@account, account_user), data: { turbo_method: :delete, turbo_confirm: "Are you sure?" }, class: "n-btn n-main-hover-danger n-main-focus-danger border n-main-border" %>
-      <% end %>
+      <%= form.submit "Add User", class: "n-btn-primary my-0.5" %>
     </div>
   <% end %>
 </div>
+
+<ul class="n-cards-grid !list-none">
+  <% @account_users.each do |account_user| %>
+    <li class="truncate relative n-card h-28 n-main-border p-6">
+      <div>
+        <p data-tooltip-target="tooltip-<%= account_user.user.email %>" class="n-card-subtitle text-wrap"><%= account_user.user.email %></p>
+      </div>
+      <div class="absolute w-full bottom-0 px-2 pb-2 grid">
+        <% if account_user.user == Current.user %>
+          <p class="n-btn-not-allowed border n-main-border italic">Current user</p>
+        <% else %>
+          <%= link_to "Remove", account_account_user_path(@account, account_user), data: { turbo_method: :delete, turbo_confirm: "Are you sure?" }, class: "n-btn n-main-hover-danger n-main-focus-danger border n-main-border" %>
+        <% end %>
+      </div>
+    </li>
+    <div id="tooltip-<%= account_user.user.email %>" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-xs opacity-0 tooltip dark:bg-gray-700">
+      <%= account_user.user.email %>
+    </div>
+  <% end %>
+</ul>

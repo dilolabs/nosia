@@ -1,40 +1,55 @@
 #!/usr/bin/env ruby
 require "fileutils"
+require "socket"
+require "timeout"
 
 APP_ROOT = File.expand_path("..", __dir__)
-APP_NAME = "nosia"
 
 def system!(*args)
   system(*args, exception: true)
 end
 
-FileUtils.chdir APP_ROOT do
-  # This script is a way to set up or update your development environment automatically.
-  # This script is idempotent, so that you can run it at any time and get an expectable outcome.
-  # Add necessary setup steps to this file.
+def installed?(tool)
+  system("command -v #{tool} > /dev/null 2>&1")
+end
 
+if ENV["RAILS_ENV"] == "production"
+  puts "RAILS_ENV is production; bailing out"
+  exit
+end
+
+FileUtils.chdir APP_ROOT do
   puts "== Installing dependencies =="
-  system! "gem install bundler --conservative"
+
+  if installed?("brew")
+    system "brew install postgresql@17 pgvector mise"
+  elsif installed?("pacman")
+    system "sudo pacman -S --noconfirm --needed postgresql mise"
+  elsif installed?("apt")
+    system "sudo apt-get install --no-install-recommends -y postgresql-17 postgresql-17-pgvector"
+  end
+
+  if installed?("mise")
+    system "mise install"
+  else
+    puts "Couldn't install mise"
+    puts "Install mise using your package manager or via:"
+    puts "https://mise.jdx.dev/installing-mise.html"
+    exit 1
+  end
+
   system("bundle check") || system!("bundle install")
 
-  # puts "\n== Copying sample files =="
-  # unless File.exist?("config/database.yml")
-  #   FileUtils.cp "config/database.yml.sample", "config/database.yml"
-  # end
-
   puts "\n== Preparing database =="
+  if ARGV.include?("--reset")
+    system "rm -rf ./storage/{db,files}"
+    system! "bin/rails db:reset"
+  end
   system! "bin/rails db:prepare"
-
-  puts "\n== Loading models =="
-  system! "bin/rails ruby_llm:load_models"
 
   puts "\n== Removing old logs and tempfiles =="
   system! "bin/rails log:clear tmp:clear"
 
-  puts "\n== Restarting application server =="
+  puts "\n== Restarting services =="
   system! "bin/rails restart"
-
-  # puts "\n== Configuring puma-dev =="
-  # system "ln -nfs #{APP_ROOT} ~/.puma-dev/#{APP_NAME}"
-  # system "curl -Is https://#{APP_NAME}.test/up | head -n 1"
 end

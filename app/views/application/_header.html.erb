@@ -5,22 +5,22 @@
     <% end %>
   </div>
   <div class="flex items-center">
-    <div class="flex items-center space-x-1 sm:pe-3">
+    <div class="flex items-center">
       <% if Current.user %>
-        <button command="show-modal" commandfor="dialog" id="toggleSidebarMobileSearch" type="button" class="n-btn n-main-hover">
+        <button command="show-modal" commandfor="dialog" id="toggleSidebarMobileSearch" type="button" class="n-nav-link n-main-hover">
           <span class="sr-only">Search</span>
           <%= inline_svg "svg/search.svg", title:"Search", alt:"Search", class:"w-5 h-5" %>
         </button>
         <%= render "search" %>
       <% end %>
-      <button id="theme-toggle" type="button" class="n-btn n-main-hover">
+      <button id="theme-toggle" type="button" class="n-nav-link n-main-hover">
         <%= inline_svg "svg/moon.svg", id: "theme-toggle-dark-icon", title:"Dark mode", alt:"Toggle dark mode", class:"hidden h-6 w-6" %>
         <%= inline_svg "svg/sun.svg", id: "theme-toggle-light-icon", title:"Light mode", alt:"Toggle light mode", class:"hidden h-6 w-6" %>
       </button>
     </div>
 
     <% if Current.user %>
-      <button id="dropdownUser" data-dropdown-toggle="dropdown" aria-expanded="false" class="n-btn n-main-hover flex shrink-0 rounded-full">
+      <button id="dropdownUser" data-dropdown-toggle="dropdown" aria-expanded="false" class="n-nav-link n-main-hover flex shrink-0 rounded-full">
         <span class="sr-only">Open user menu</span>
         <%= inline_svg "svg/user-circle.svg", title:"User", alt:"Open user menu", class: "w-6 h-6" %>
       </button>

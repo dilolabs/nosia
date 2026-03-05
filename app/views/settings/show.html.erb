@@ -1,18 +1,24 @@
 <div class="n-title-container">
-  <h2 class="n-main-title">Settings</h2>
+  <h2 class="n-main-title mt-0.5">Settings</h2>
 </div>
 
-<div class="n-cards-grid">
-  <%= link_to api_tokens_path, class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/code-bracket.svg", title:"API tokens", alt: "API Tokens", class: "mx-auto w-12 h-12" %>
-    <p class="n-card-title">API Tokens</p>
-  <% end %>
-  <%= link_to mcp_servers_path, class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/code-bracket.svg", title:"API tokens", alt: "MCP Servers", class: "mx-auto w-12 h-12" %>
-    <p class="n-card-title">MCP Servers</p>
-  <% end %>
-  <%= link_to system_prompts_path, class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-    <%= inline_svg "svg/chats.svg", title:"API tokens", alt: "System Prompts", class: "mx-auto w-12 h-12" %>
-    <p class="n-card-title">System Prompts</p>
-  <% end %>
-</div>
+<ul class="n-cards-grid !list-none">
+  <li class="n-card n-main-border lg:col-span-2">
+    <%= link_to api_tokens_path, class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/code-bracket.svg", title:"API tokens", alt: "API Tokens", class: "mx-auto w-12 h-12" %>
+      <p class="n-card-title">API Tokens</p>
+    <% end %>
+  </li>
+  <li class="n-card n-main-border lg:col-span-2">
+    <%= link_to mcp_servers_path, class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/code-bracket.svg", title:"API tokens", alt: "MCP Servers", class: "mx-auto w-12 h-12" %>
+      <p class="n-card-title">MCP Servers</p>
+    <% end %>
+  </li>
+  <li class="n-card n-main-border lg:col-span-2">
+    <%= link_to system_prompts_path, class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/chats.svg", title:"API tokens", alt: "System Prompts", class: "mx-auto w-12 h-12" %>
+      <p class="n-card-title">System Prompts</p>
+    <% end %>
+  </li>
+</ul>

@@ -1,24 +1,28 @@
+.n-ariane {
+    @apply rounded-lg px-1 hover:italic;
+}
+
 .n-dropdown-item {
-  @apply flex items-center gap-2 rounded-md px-3 py-2;
+    @apply flex items-center gap-2 rounded-md px-3 py-2;
 }
 
 .n-dropdown-list {
-  @apply !list-none p-2 text-start text-sm font-medium text-neutral-900 dark:text-white;
+    @apply !list-none p-2 text-start text-sm font-medium text-neutral-900 dark:text-white;
 }
 
 .n-dropdown-menu {
-  @apply z-10 md:w-60 rounded-lg bg-neutral-100 shadow-md
+    @apply z-10 md:w-60 rounded-lg bg-neutral-100 shadow-md
   dark:bg-neutral-900;
 }
 
 .n-nav-link {
-  @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium
+    @apply flex items-center gap-x-2 rounded-lg p-2 text-left text-sm font-medium
   transition-colors duration-200
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }
 
 .n-nav-bottom {
-  @apply inline-flex flex-col items-center justify-center px-5
+    @apply inline-flex flex-col items-center justify-center px-5
   transition-colors duration-200
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500;
 }
