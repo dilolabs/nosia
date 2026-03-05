@@ -13,7 +13,7 @@ export default class extends Controller {
       paramName: "document[file]",
       maxFiles: 100,
       clickable: true,
-      acceptedFiles: "application/pdf,text/*,.md",
+      acceptedFiles: "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*",
       addRemoveLinks: false,
       headers: {
         "X-CSRF-Token": document.querySelector("meta[name=csrf-token]").content,
