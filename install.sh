@@ -66,11 +66,11 @@ setup_env() {
   fi
 
   if ! [ -n "$LLM_MODEL" ]; then
-    LLM_MODEL=ai/granite-4.0-h-tiny
+    LLM_MODEL=ai/ministral3:3B-BF16
   fi
 
   if ! [ -n "$EMBEDDING_MODEL" ]; then
-    EMBEDDING_MODEL=ai/granite-embedding-multilingual
+    EMBEDDING_MODEL=ai/granite-embedding-multilingual:278M-F16
   fi
 
   if ! [ -n "$EMBEDDING_DIMENSIONS" ]; then
@@ -113,7 +113,7 @@ AI_API_KEY=$AI_API_KEY
 # LLM Model Configuration
 LLM_MODEL=$LLM_MODEL
 LLM_TEMPERATURE=0.1
-LLM_MAX_TOKENS=1_024
+LLM_MAX_TOKENS=32_768
 LLM_TOP_K=40
 LLM_TOP_P=0.9
 
@@ -125,9 +125,8 @@ EMBEDDING_DIMENSIONS=$EMBEDDING_DIMENSIONS
 # EMBEDDING_BASE_URL=$EMBEDDING_BASE_URL
 
 # Document Processing Configuration
-CHUNK_MAX_TOKENS=512
-CHUNK_MIN_TOKENS=128
-CHUNK_MERGE_PEERS=true
+CHUNK_SIZE=512
+CHUNK_OVERLAP=128
 RETRIEVAL_FETCH_K=3
 
 # Optional: Guard Model for additional validation
@@ -148,7 +147,7 @@ DOCLING_SERVE_BASE_URL=
 
 # Optional: Augmented Context
 # Enable for enhanced chat completions with context augmentation
-AUGMENTED_CONTEXT=false
+AUGMENTED_CONTEXT=true
 
 # Development/Test Database Configuration (handled by config/database.yml)
 # DB_HOST=localhost
