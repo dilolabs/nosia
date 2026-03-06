@@ -5,14 +5,202 @@
 # Usage:
 # curl -fsSL https://get.nosia.ai | sh
 
+# Detect architecture and return appropriate platform string
+get_platform() {
+  case "$(uname -m)" in
+    aarch64|arm64)
+      case "$OSTYPE" in
+        darwin*) echo "linux/arm64" ;;  # Apple M-series
+        *) echo "linux/arm64" ;;
+      esac
+      ;;
+    x86_64|amd64)
+      case "$OSTYPE" in
+        darwin*) echo "linux/amd64" ;;  # Apple Intel
+        *) echo "linux/amd64" ;;
+      esac
+      ;;
+    *)
+      # Default to amd64 for unknown architectures
+      echo "linux/amd64"
+      ;;
+  esac
+}
+
+# Generate docker-compose.yml with optional docling-serve service
+generate_docker_compose() {
+  local platform="$1"
+
+  cat > docker-compose.yml <<EOF
+services:
+  reverse-proxy:
+    image: caddy:latest
+    depends_on:
+      - web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - NOSIA_URL=\${NOSIA_URL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-config:/config
+      - caddy-data:/data
+
+  db-migrate:
+    image: dilolabs/nosia:latest
+    command: bundle exec rails db:prepare
+    environment:
+      - DATABASE_URL=\${DATABASE_URL}
+      - SECRET_KEY_BASE=\${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=\${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=\${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=\${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    image: dilolabs/nosia:latest
+    environment:
+      - DATABASE_URL=\${DATABASE_URL}
+      - SECRET_KEY_BASE=\${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=\${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=\${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=\${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
+      - AI_BASE_URL=\${AI_BASE_URL}
+      - AI_API_KEY=\${AI_API_KEY}
+      - LLM_MODEL=\${LLM_MODEL}
+      - LLM_TEMPERATURE=\${LLM_TEMPERATURE}
+      - LLM_MAX_TOKENS=\${LLM_MAX_TOKENS}
+      - LLM_TOP_P=\${LLM_TOP_P}
+      - LLM_TOP_K=\${LLM_TOP_K}
+      - EMBEDDING_MODEL=\${EMBEDDING_MODEL}
+      - EMBEDDING_DIMENSIONS=\${EMBEDDING_DIMENSIONS}
+      - CHUNK_SIZE=\${CHUNK_SIZE}
+      - CHUNK_OVERLAP=\${CHUNK_OVERLAP}
+      - RETRIEVAL_FETCH_K=\${RETRIEVAL_FETCH_K}
+      - GUARD_MODEL=\${GUARD_MODEL}
+      - DOCLING_SERVE_BASE_URL=\${DOCLING_SERVE_BASE_URL}
+      - AUGMENTED_CONTEXT=\${AUGMENTED_CONTEXT}
+    models:
+      - llm
+      - embedding
+    volumes:
+      - rails-storage:/rails/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/up"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    restart: on-failure:5
+
+  postgres-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      - POSTGRES_DB=\${POSTGRES_DB}
+      - POSTGRES_USER=\${POSTGRES_USER}
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: on-failure:5
+
+  solidq:
+    image: dilolabs/nosia:latest
+    command: bundle exec rake solid_queue:start
+    environment:
+      - DATABASE_URL=\${DATABASE_URL}
+      - SECRET_KEY_BASE=\${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=\${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=\${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=\${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
+      - AI_BASE_URL=\${AI_BASE_URL}
+      - AI_API_KEY=\${AI_API_KEY}
+      - LLM_MODEL=\${LLM_MODEL}
+      - LLM_TEMPERATURE=\${LLM_TEMPERATURE}
+      - LLM_MAX_TOKENS=\${LLM_MAX_TOKENS}
+      - LLM_TOP_P=\${LLM_TOP_P}
+      - LLM_TOP_K=\${LLM_TOP_K}
+      - EMBEDDING_MODEL=\${EMBEDDING_MODEL}
+      - EMBEDDING_DIMENSIONS=\${EMBEDDING_DIMENSIONS}
+      - CHUNK_SIZE=\${CHUNK_SIZE}
+      - CHUNK_OVERLAP=\${CHUNK_OVERLAP}
+      - RETRIEVAL_FETCH_K=\${RETRIEVAL_FETCH_K}
+      - GUARD_MODEL=\${GUARD_MODEL}
+      - DOCLING_SERVE_BASE_URL=\${DOCLING_SERVE_BASE_URL}
+      - AUGMENTED_CONTEXT=\${AUGMENTED_CONTEXT}
+    models:
+      - llm
+      - embedding
+    volumes:
+      - rails-storage:/rails/storage
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    restart: on-failure:5
+
+EOF
+
+  # Add docling-serve service if ADVANCED_DOCUMENTS_UNDERSTANDING is true
+  if [ "$ADVANCED_DOCUMENTS_UNDERSTANDING" = "true" ]; then
+    cat >> docker-compose.yml <<EOF
+  docling-serve:
+    image: quay.io/docling-project/docling-serve:latest
+    platform: ${platform}
+    ports:
+      - "5001:5001"
+    environment:
+      - DOCLING_SERVE_ENABLE_UI=0
+      - DOCLING_SERVE_HOST=0.0.0.0
+      - DOCLING_SERVE_PORT=5001
+    volumes:
+      - docling-data:/app/data
+    restart: unless-stopped
+EOF
+  fi
+
+  # Add volumes section
+  cat >> docker-compose.yml <<EOF
+
+models:
+  llm:
+    model: \${LLM_MODEL}
+  embedding:
+    model: \${EMBEDDING_MODEL}
+
+volumes:
+  caddy-config:
+  caddy-data:
+  postgres-db-data:
+  rails-storage:
+EOF
+
+  # Add docling-data volume if ADVANCED_DOCUMENTS_UNDERSTANDING is true
+  if [ "$ADVANCED_DOCUMENTS_UNDERSTANDING" = "true" ]; then
+    echo "  docling-data:" >> docker-compose.yml
+  fi
+}
+
 pull() {
   echo "Pulling latest Caddyfile..."
   curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/main/Caddyfile >Caddyfile
   echo "Caddyfile pulled successfully."
-
-  echo "Pulling latest docker-compose.yml..."
-  curl -fsSL https://raw.githubusercontent.com/dilolabs/nosia/main/docker-compose.yml >docker-compose.yml
-  echo "docker-compose.yml pulled successfully."
 
   echo "Pulling latest Docker images..."
   docker compose pull
@@ -88,6 +276,13 @@ setup_env() {
   POSTGRES_PASSWORD=$(openssl rand -hex 32)
   DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
 
+  # Set DOCLING_SERVE_BASE_URL if ADVANCED_DOCUMENTS_UNDERSTANDING is enabled
+  if [ "$ADVANCED_DOCUMENTS_UNDERSTANDING" = "true" ]; then
+    DOCLING_SERVE_BASE_URL=http://docling-serve:5001
+  else
+    DOCLING_SERVE_BASE_URL=
+  fi
+
   cat <<EOF >.env
 # Nosia Environment Configuration
 
@@ -142,8 +337,8 @@ POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 DATABASE_URL=$DATABASE_URL
 
 # Optional: Docling Serve Configuration
-# For advanced document processing
-DOCLING_SERVE_BASE_URL=
+# For advanced documents understanding
+DOCLING_SERVE_BASE_URL=$DOCLING_SERVE_BASE_URL
 
 # Optional: Augmented Context
 # Enable for enhanced chat completions with context augmentation
@@ -261,6 +456,12 @@ do_install() {
   cygwin* | msys* | win32) setup_windows ;;
   *) echo "Unsupported OS: $OSTYPE" ;;
   esac
+
+  # Detect platform for docling-serve
+  PLATFORM=$(get_platform)
+
+  # Generate docker-compose.yml
+  generate_docker_compose "$PLATFORM"
 
   setup_env
   pull
