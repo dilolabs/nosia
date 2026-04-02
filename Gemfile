@@ -85,4 +85,4 @@ gem "pundit" # Minimal authorization through OO design and pure Ruby classes [ht
 gem "ruby_llm" # Build chatbots, AI agents, RAG applications [https://github.com/crmne/ruby_llm]
 gem "ruby_llm-mcp" # Model Context Protocol support for RubyLLM [https://github.com/crmne/ruby_llm-mcp]
 gem "solid_queue" # Database-backed Active Job backend [https://github.com/rails/solid_queue]
-gem "thruster-dilolabs" # HTTP/2 proxy for simple production-ready deployments [https://github.com/dilolabs/thruster]
+gem "thruster" # HTTP/2 proxy for simple production-ready deployments [https://github.com/basecamp/thruster]
