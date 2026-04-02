@@ -23,9 +23,6 @@ module Chat::Completionable
       self.with_tools(*mcp_tools_list)
     end
 
-    # If a user message already exists (created in the controller), we delete it
-    user_message.destroy if user_message
-
     # Phase 1: Searching for context
     broadcast_thinking_phase("searching", "Searching through your documents...")
     chunks = self.similarity_search(question)
@@ -53,17 +50,19 @@ module Chat::Completionable
     # Phase 2: Generating the response
     broadcast_thinking_phase("generating", "Generating response...")
 
-    # self.ask() will create a new user message, but it will not be broadcasted
-    # thanks to the logic in broadcast_created which detects duplicates
-    self.ask(question) do |chunk|
+    # Process the latest user message
+    self.complete do |chunk|
+      # Get the assistant message record (created before streaming starts)
+      message = self.messages.last
       if block_given?
         yield chunk
-      elsif chunk.content && !chunk.content.blank?
-        message = self.messages.last
+      elsif chunk.content && message
+        # Append the chunk content to the message's target div
         message.broadcast_append_chunk(chunk.content)
       end
     end
 
+    # Final assistant message is now fully persisted
     message = self.messages.last
 
     if !self.answer_relevance(self.messages.last.content, question:)
