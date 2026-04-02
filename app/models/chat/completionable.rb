@@ -20,20 +20,8 @@ module Chat::Completionable
     # Add MCP tools if available
     mcp_tools_list = mcp_tools
     if mcp_tools_list.any?
-      Rails.logger.info "=== Adding #{mcp_tools_list.size} MCP tools to conversation ==="
       self.with_tools(*mcp_tools_list)
     end
-
-    # If a user message already exists (created in the controller), we use it
-    # Otherwise, we create a new one
-    if user_message
-      Rails.logger.info "=== Using existing user message ##{user_message.id} ==="
-    else
-      Rails.logger.info "=== Creating a new user message ==="
-      user_message = self.messages.create!(role: "user", content: question)
-    end
-
-    Rails.logger.info "Messages user before self.ask: #{self.messages.where(role: 'user').pluck(:id, :content).inspect}"
 
     # Phase 1: Searching for context
     broadcast_thinking_phase("searching", "Searching through your documents...")
@@ -59,13 +47,13 @@ module Chat::Completionable
       self.with_instructions(system_prompt, replace: true)
     end
 
-    # Keep the original user message ID
-    original_user_message_id = user_message.id
-
     # Phase 2: Generating the response
     broadcast_thinking_phase("generating", "Generating response...")
 
-    # self.ask() will create a SECOND user message, but it will not be broadcasted
+    # If a user message already exists (created in the controller), we delete it
+    user_message.destroy if user_message
+
+    # self.ask() will create a new user message, but it will not be broadcasted
     # thanks to the logic in broadcast_created which detects duplicates
     self.ask(question) do |chunk|
       if block_given?
@@ -76,38 +64,9 @@ module Chat::Completionable
       end
     end
 
-    # Remove the duplicate user message created by self.ask() to avoid duplicates on reload
-    # We look for user messages created AFTER our original message
-    Rails.logger.info "Messages user after self.ask: #{self.messages.where(role: 'user').pluck(:id, :content).inspect}"
-
-    duplicate_user_messages = self.messages
-      .where(role: "user")
-      .where.not(id: original_user_message_id)
-      .where("created_at >= ?", user_message.created_at)
-
-    Rails.logger.info "Potential duplicates found: #{duplicate_user_messages.pluck(:id).inspect}"
-
-    duplicate_user_messages.each do |duplicate|
-      # Check that it's really a duplicate (same question without context)
-      original_q = user_message.question&.strip
-      duplicate_q = duplicate.question&.strip
-
-      Rails.logger.info "Comparison: original='#{original_q}' vs duplicate='#{duplicate_q}'"
-
-      if original_q == duplicate_q
-        Rails.logger.info "✓ Deleting duplicate user message ##{duplicate.id}"
-        duplicate.destroy
-      else
-        Rails.logger.info "✗ Not an exact duplicate, keeping message ##{duplicate.id}"
-      end
-    end
-
-    Rails.logger.info "Final user messages: #{self.messages.where(role: 'user').pluck(:id).inspect}"
-
     message = self.messages.last
 
     if !self.answer_relevance(self.messages.last.content, question:)
-      Rails.logger.info "=== Answer deemed not relevant, adding warning ==="
       warning_text = "\n\n*Note: The answer provided may not be relevant to your question based on the available documents.*"
       message.update(content: message.content + warning_text)
     end

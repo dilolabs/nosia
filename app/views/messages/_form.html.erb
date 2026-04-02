@@ -5,7 +5,7 @@
     <div class="relative w-full">
       <%= form.text_area :content, rows: 2, autofocus: true, placeholder: "Ask anything...", data: { chat_input_target: "textarea", action: "input->chat-input#autogrow keydown->chat-input#handleKeys keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit"}, class: "n-form-chat" %>
 
-      <%= form.button type: :submit,data: { action: "chat-input#submit" },
+      <%= form.button type: :submit, data: { action: "chat-input#submit" },
         class: "n-btn-chat n-btn-chat-send" do %>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
             fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">

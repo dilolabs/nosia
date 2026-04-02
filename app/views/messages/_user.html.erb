@@ -1,0 +1,16 @@
+<%
+  # Detect intermediate assistant messages
+  # DO NOT use tool_calls.any? because it creates an N+1 query
+  # We only rely on the fact that content is empty/nil
+  is_intermediate = false # Temporarily disabled to avoid N+1 queries
+  container_class = "message-container mb-6"
+%>
+<%= tag.div data: { created_at: message.created_at.iso8601 }, id: dom_id(message, :messages), class: container_class do %>
+  <div class="flex justify-end">
+    <div class="max-w-[80%] rounded-2xl bg-gradient-to-br from-green-600 to-green-700 dark:from-neutral-600 dark:to-neutral-700 px-5 py-3 text-white shadow-sm">
+      <div class="text-[15px] leading-relaxed">
+        <%== sanitize message.content_without_context %>
+      </div>
+    </div>
+  </div>
+<% end %>

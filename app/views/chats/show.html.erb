@@ -3,7 +3,7 @@
     <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col max-w-4xl mx-auto">
       <%= tag.div id: dom_id(@chat, :messages), data: { controller: "message-ordering" } do %>
         <% @chat.messages.for_user.where.not(id: nil).order(:created_at).each do |message| %>
-          <%= render message %>
+          <%= render message, message: %>
         <% end %>
 
         <%# Display animation if last message is from user (waiting for response) %>
