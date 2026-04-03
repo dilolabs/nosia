@@ -133,7 +133,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - NOSIA_URL=\${NOSIA_URL}
+      - NOSIA_URL=${NOSIA_URL}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy-config:/config
