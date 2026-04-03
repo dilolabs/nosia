@@ -361,7 +361,7 @@ function Setup-Env {
     $POSTGRES_PORT = 5432
     $POSTGRES_DB = "nosia_production"
     $POSTGRES_USER = "nosia"
-    $DATABASE_URL = "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    $DATABASE_URL = "postgresql://`${POSTGRES_USER}:`${POSTGRES_PASSWORD}@`${POSTGRES_HOST}:`${POSTGRES_PORT}/`${POSTGRES_DB}"
     
     # Docling configuration
     $DOCLING_SERVE_BASE_URL = ""
