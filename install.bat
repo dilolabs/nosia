@@ -3,7 +3,7 @@
 :: This batch file downloads and runs the PowerShell installation script
 
 echo Downloading Nosia installation script...
-powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/dilolabs/nosia/main/install.ps1' -OutFile 'install.ps1'"
+powershell -Command "Invoke-WebRequest -Uri 'https://get.nosia.ai/install.ps1' -OutFile 'install.ps1'"
 
 if %ERRORLEVEL% NEQ 0 (
     echo Error downloading installation script
