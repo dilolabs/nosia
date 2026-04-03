@@ -20,8 +20,14 @@ Nosia is a platform that allows you to run AI models on your own data with compl
 
 ### Install
 
+**macOS/Linux:**
 ```sh
 curl -fsSL https://get.nosia.ai | sh
+```
+
+**Windows:**
+```powershell
+Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1; .\install.ps1
 ```
 
 ![nosia-install](https://github.com/user-attachments/assets/9a11c964-ed84-4bab-be9a-01b1d1191fee)
@@ -78,24 +84,31 @@ https://nosia.localhost
 
 ### One Command Installation
 
-Get Nosia up and running in minutes on macOS, Debian, or Ubuntu.
+Get Nosia up and running in minutes on macOS, Debian, Ubuntu, or Windows.
 
 #### Prerequisites
 
-- macOS, Debian, or Ubuntu operating system
+- macOS, Debian, Ubuntu, or Windows 10/11 (64-bit) operating system
 - Internet connection
-- sudo/root access (for Docker installation if needed)
+- sudo/root access (for Docker installation if needed on macOS/Linux)
+- Docker Desktop installed and running (Windows)
 
 #### Installation
 
 The installation script will:
-1. Install Docker and Docker Compose if not already present
+1. Install Docker and Docker Compose if not already present (macOS/Linux)
 2. Download Nosia configuration files
 3. Generate a secure `.env` file
 4. Pull all required Docker images
 
+**macOS/Linux:**
 ```bash
 curl -fsSL https://get.nosia.ai | sh
+```
+
+**Windows:**
+```powershell
+Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1; .\install.ps1
 ```
 
 You should see the following output:
@@ -131,6 +144,8 @@ Once started, access Nosia at:
 - **API Endpoint:** `https://nosia.localhost/v1`
 
 > **Note:** The default installation uses a self-signed SSL certificate. Your browser will show a security warning on first access. For production deployments, see the [Deployment Guide](docs/DEPLOYMENT.md) for proper SSL certificate configuration.
+
+> **Windows Note:** You may need to add `nosia.localhost` to your hosts file pointing to `127.0.0.1`.
 
 ### Custom Installation
 
