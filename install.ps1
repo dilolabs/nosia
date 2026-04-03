@@ -121,6 +121,10 @@ function Select-EmbeddingModel {
 
 # Generate docker-compose.yml
 function Generate-DockerCompose {
+    # Set default NOSIA_URL if not defined
+    if (-not (Test-Path variable:global:NOSIA_URL)) {
+        $global:NOSIA_URL = "https://nosia.localhost"
+    }
     
     $composeContent = @"
 services:
@@ -133,7 +137,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - NOSIA_URL=${NOSIA_URL}
+      - NOSIA_URL=$global:NOSIA_URL
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy-config:/config
