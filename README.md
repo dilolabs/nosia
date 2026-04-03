@@ -580,6 +580,24 @@ sudo usermod -aG docker $USER
 # Log out and back in, then try again
 ```
 
+**Windows PowerShell execution policy error:**
+If you see `script execution is disabled on this system`:
+
+```powershell
+# Temporarily bypass execution policy for the current session
+Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1; .\install.ps1
+```
+
+Or run these commands separately:
+```powershell
+# Set execution policy to allow scripts (temporary for current session)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+
+# Download and run the installation script
+Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1
+.\install.ps1
+```
+
 #### Runtime Issues
 
 **Services won't start:**
