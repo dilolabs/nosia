@@ -197,7 +197,7 @@ GEM
       net-imap
       net-pop
       net-smtp
-    mailbin (1.1.0)
+    mailbin (1.1.1)
       importmap-rails
       rails (>= 7.1.0)
       turbo-rails
