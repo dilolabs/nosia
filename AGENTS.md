@@ -19,7 +19,7 @@ Stack: Ruby on Rails 8 · PostgreSQL 16 + pgvector · Solid Queue
 
 1. Read this file — orient, then pull the relevant doc from `docs/`
 2. For any change: write a plan (see Plans below), implement, verify
-3. Run `bin/ci` before opening a PR (rubocop + full test suite)
+3. Run tests and linters before opening a PR: `bin/rails test` and `bundle exec rubocop`
 4. If blocked: identify the missing capability, don't guess
 
 ---
@@ -38,6 +38,7 @@ Stack: Ruby on Rails 8 · PostgreSQL 16 + pgvector · Solid Queue
 | Active execution plans    | `docs/plans/active/`        |
 | Completed plans           | `docs/plans/done/`          |
 | MCP Catalog Configuration | `config/mcp_catalog.yml`   |
+| MCP Integration Guide     | `docs/ARCHITECTURE.md#model-context-protocol-mcp-integration` |
 | Prompts Configuration     | `config/prompts.yml`       |
 
 ---
@@ -90,6 +91,7 @@ app/
 7. LLM via RubyLLM    — no raw HTTP to AI providers
 8. EMBEDDING_DIMENSIONS constant — never hardcode a dimension number
 9. Account isolation  — all queries scoped to current account via acts_as_tenant
+10. MCP tool access   — always through chat_mcp_sessions, never direct mcp_server access
 
 ---
 
