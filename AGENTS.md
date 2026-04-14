@@ -37,6 +37,8 @@ Stack: Ruby on Rails 8 · PostgreSQL 16 + pgvector · Solid Queue
 | Known technical debt      | `docs/DEBT.md`              |
 | Active execution plans    | `docs/plans/active/`        |
 | Completed plans           | `docs/plans/done/`          |
+| MCP Catalog Configuration | `config/mcp_catalog.yml`   |
+| Prompts Configuration     | `config/prompts.yml`       |
 
 ---
 
@@ -49,11 +51,13 @@ app/
 │   ├── chat.rb             # Conversation container (acts_as_chat)
 │   ├── message.rb          # Individual turn + optional tool metadata
 │   ├── mcp_server.rb       # MCP server configuration
+│   ├── chat_mcp_session.rb # Links chats to MCP servers
 │   └── sources/            # Document, Text, Website, QnA
 │
 ├── concerns/
 │   ├── chunk/
 │   │   ├── vectorizable.rb        # Embedding generation + similarity search
+│   │   ├── searchable.rb           # Vector similarity search
 │   │   └── enrichable.rb          # Metadata enhancement
 │   ├── chat/
 │   │   ├── completionable.rb      # Main orchestration — START HERE
@@ -83,6 +87,7 @@ app/
 6. Jobs via SolidQueue — no raw threads, no Kernel#spawn
 7. LLM via RubyLLM    — no raw HTTP to AI providers
 8. EMBEDDING_DIMENSIONS constant — never hardcode a dimension number
+9. Account isolation  — all queries scoped to current account via acts_as_tenant
 
 ---
 
@@ -101,9 +106,11 @@ app/
 |--------------------------|----------------------------------|
 | bin/rails test           | Full test suite                  |
 | bundle exec rubocop      | Style + custom architecture cops |
-| bin/ci                   | Full gate (rubocop + tests)      |
+| bin/rails db:test:prepare test test:system | Full test suite with system tests |
 | docker compose up        | Local stack                      |
 | bin/rails console        | REPL for exploration             |
+| bin/brakeman              | Security vulnerability scanner   |
+| bin/importmap audit       | JavaScript dependency auditor    |
 
 ---
 
@@ -111,7 +118,8 @@ app/
 
 1. This file (you are here)
 2. docs/ARCHITECTURE.md  — domain understanding
-3. Task-specific doc from table above
-4. Relevant model/concern source files
+3. docs/PRINCIPLES.md    — guiding principles and patterns
+4. Task-specific doc from table above
+5. Relevant model/concern source files
 
 > "Give the agent a map, not a 1,000-page manual." — Ryan Lopopolo, OpenAI
