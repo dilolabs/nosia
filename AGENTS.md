@@ -44,6 +44,7 @@ Stack: Ruby on Rails 8 · PostgreSQL 16 + pgvector · Solid Queue
 
 ## Domain Map
 
+```
 app/
 ├── models/
 │   ├── account.rb          # Multi-tenant isolation boundary
@@ -74,6 +75,7 @@ app/
 ├── jobs/          # ALL background work (Solid Queue only)
 ├── controllers/   # API v1 + web UI
 └── views/         # Hotwire (Turbo + Stimulus)
+```
 
 ---
 
