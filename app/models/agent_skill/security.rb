@@ -39,16 +39,25 @@ module AgentSkill::Security
     sanitized = sanitized.gsub(/[\r\n]+/, " ").gsub(/\s+/, " ").strip[0...8000]
   end
 
-  def validate_upload(files)
-    total_size = files.sum(&:size)
+  def validate_upload(attachments)
+    files_with_metadata = attachments.map do |attachment|
+      blob = attachment.blob
+      {
+        filename: attachment.filename.to_s,
+        size: blob.byte_size,
+        extension: File.extname(attachment.filename.to_s).downcase
+      }
+    end
+
+    total_size = files_with_metadata.sum { |f| f[:size] }
     return [false, "Total size exceeds #{MAX_TOTAL_SIZE / 1_048_576}MB"] if total_size > MAX_TOTAL_SIZE
 
-    files.each do |file|
-      extension = File.extname(file.filename.to_s).downcase
+    files_with_metadata.each do |file|
+      extension = file[:extension]
       unless FILE_ALLOWLIST.include?(extension)
         return [false, "File type '#{extension}' not allowed. Allowed: #{FILE_ALLOWLIST.join(', ')}"]
       end
-      return [false, "File '#{file.filename}' exceeds #{MAX_FILE_SIZE / 1_048_576}MB"] if file.size > MAX_FILE_SIZE
+      return [false, "File '#{file[:filename]}' exceeds #{MAX_FILE_SIZE / 1_048_576}MB"] if file[:size] > MAX_FILE_SIZE
     end
 
     [true, nil]

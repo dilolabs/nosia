@@ -44,13 +44,15 @@ class AgentSkill < ApplicationRecord
   end
 
   def validate_metadata_present
+    return if name.present?
     return if metadata.present? && metadata["name"].present?
     errors.add(:skill_md, "must contain valid YAML frontmatter with at least 'name' field")
   end
 
   def validate_uploaded_files
-    return unless skill_md_attached? || files.attached?
-    all_files = files + [skill_md].compact
+    return unless skill_md.attached? || files.attached?
+    all_files = files.to_a
+    all_files << skill_md if skill_md.attached?
     valid, error = AgentSkill::Security.validate_upload(all_files)
     errors.add(:base, error) unless valid
   end
