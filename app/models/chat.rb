@@ -5,6 +5,7 @@ class Chat < ApplicationRecord
   include ContextRelevance
   include ModelContextProtocol
   include SimilaritySearch
+  include AgentSkillable
 
   acts_as_chat
   broadcasts_to ->(chat) { [ chat, "messages" ] }
