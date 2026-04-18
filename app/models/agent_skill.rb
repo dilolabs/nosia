@@ -22,6 +22,7 @@ class AgentSkill < ApplicationRecord
   validates :priority, numericality: { only_integer: true, greater_than_or_equal_to: 0, less_than_or_equal_to: 100 }
   validate :validate_skill_md_present, on: :create
   validate :validate_metadata_present, on: :create
+  validate :validate_uploaded_files, on: :create
 
   scope :runnable, -> { where(enabled: true) }
   scope :by_name, ->(name) { where(name: name) }
@@ -45,5 +46,12 @@ class AgentSkill < ApplicationRecord
   def validate_metadata_present
     return if metadata.present? && metadata["name"].present?
     errors.add(:skill_md, "must contain valid YAML frontmatter with at least 'name' field")
+  end
+
+  def validate_uploaded_files
+    return unless skill_md_attached? || files.attached?
+    all_files = files + [skill_md].compact
+    valid, error = AgentSkill::Security.validate_upload(all_files)
+    errors.add(:base, error) unless valid
   end
 end
