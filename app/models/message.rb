@@ -6,7 +6,7 @@ class Message < ApplicationRecord
   has_many_attached :attachments
 
   scope :for_user, -> { without_system_prompts.with_content.without_tool_calls }
-  scope :without_system_prompts, -> { where.not(role: [:system, :tool]) }
+  scope :without_system_prompts, -> { where.not(role: [ :system, :tool ]) }
   scope :with_content, -> { where("role != 10 OR (role = 10 AND content IS NOT NULL AND content != '')") }
   scope :without_tool_calls, -> {
     left_joins(:tool_calls)

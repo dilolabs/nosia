@@ -47,7 +47,7 @@ class McpCatalog
         transport_type: template[:transport_type],
         endpoint: endpoint,
         enabled: true,
-        tags: [template[:category], "catalog"].join(","),
+        tags: [ template[:category], "catalog" ].join(","),
         notes: template[:description],
         connection_config: connection_config,
         auth_config: auth_config,

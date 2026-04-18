@@ -50,16 +50,16 @@ module AgentSkill::Security
     end
 
     total_size = files_with_metadata.sum { |f| f[:size] }
-    return [false, "Total size exceeds #{MAX_TOTAL_SIZE / 1_048_576}MB"] if total_size > MAX_TOTAL_SIZE
+    return [ false, "Total size exceeds #{MAX_TOTAL_SIZE / 1_048_576}MB" ] if total_size > MAX_TOTAL_SIZE
 
     files_with_metadata.each do |file|
       extension = file[:extension]
       unless FILE_ALLOWLIST.include?(extension)
-        return [false, "File type '#{extension}' not allowed. Allowed: #{FILE_ALLOWLIST.join(', ')}"]
+        return [ false, "File type '#{extension}' not allowed. Allowed: #{FILE_ALLOWLIST.join(', ')}" ]
       end
-      return [false, "File '#{file[:filename]}' exceeds #{MAX_FILE_SIZE / 1_048_576}MB"] if file[:size] > MAX_FILE_SIZE
+      return [ false, "File '#{file[:filename]}' exceeds #{MAX_FILE_SIZE / 1_048_576}MB" ] if file[:size] > MAX_FILE_SIZE
     end
 
-    [true, nil]
+    [ true, nil ]
   end
 end

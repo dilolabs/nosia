@@ -18,7 +18,7 @@ Rails.application.routes.draw do
       resources :qnas, only: [ :create ]
       resources :texts, only: [ :create ]
       resources :websites, only: [ :create ]
-      resources :agent_skills, only: [:index, :create, :show, :update, :destroy]
+      resources :agent_skills, only: [ :index, :create, :show, :update, :destroy ]
     end
   end
 
@@ -39,12 +39,12 @@ Rails.application.routes.draw do
     end
     resources :chunks, only: [ :show ]
     resources :dashboards, only: [ :show ]
-    resources :agent_skills, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
+    resources :agent_skills, only: [ :index, :new, :create, :show, :edit, :update, :destroy ] do
       member do
         patch :toggle
       end
     end
-    resources :mcp_catalog, only: [:index, :show, :create]
+    resources :mcp_catalog, only: [ :index, :show, :create ]
     resources :mcp_servers do
       member do
         post :test_connection

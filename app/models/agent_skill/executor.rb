@@ -18,11 +18,11 @@ class AgentSkill
 
       begin
         result = case @agent_skill.execution_mode.to_sym
-                when :llm
+        when :llm
                   LLMExecutor.new(@agent_skill, @context, execution).call
-                when :ruby
+        when :ruby
                   RubyExecutor.new(@agent_skill, @context, execution).call
-                end
+        end
 
         execution.update!(status: "completed", output: format_output(result), duration_ms: duration(execution))
         result
@@ -48,7 +48,7 @@ class AgentSkill
     def format_output(result)
       case result
       when Hash then result.except(:chat, :user, :account, :query, :message)
-      when Message then result.as_json(only: [:role, :content, :metadata])
+      when Message then result.as_json(only: [ :role, :content, :metadata ])
       else { content: result.to_s }
       end
     end
@@ -77,7 +77,7 @@ class AgentSkill
     private
 
     def build_sanitized_instructions
-      parts = ["## Agent Skill: #{AgentSkill::Security.sanitize_text(@agent_skill.name)}"]
+      parts = [ "## Agent Skill: #{AgentSkill::Security.sanitize_text(@agent_skill.name)}" ]
       parts << ""
       parts << "**Description:** #{AgentSkill::Security.sanitize_text(@agent_skill.description.to_s)}"
       parts << ""

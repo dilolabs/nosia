@@ -86,8 +86,8 @@ module AgentSkills
       return {} if source_ids.empty?
 
       {
-        chunks: chunks.as_json(only: [:id, :content, :title, :source, :metadata]),
-        documents: Document.where(id: source_ids).as_json(only: [:id, :title, :content_type, :metadata])
+        chunks: chunks.as_json(only: [ :id, :content, :title, :source, :metadata ]),
+        documents: Document.where(id: source_ids).as_json(only: [ :id, :title, :content_type, :metadata ])
       }
     rescue => e
       log "Failed to extract documents: #{e.message}", level: :error

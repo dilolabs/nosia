@@ -14,9 +14,9 @@ class CreateAgentSkillExecutions < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :agent_skill_executions, [:chat_id, :created_at]
-    add_index :agent_skill_executions, [:agent_skill_id, :created_at]
-    add_index :agent_skill_executions, [:status]
-    add_index :agent_skill_executions, [:created_at]
+    add_index :agent_skill_executions, [ :chat_id, :created_at ]
+    add_index :agent_skill_executions, [ :agent_skill_id, :created_at ]
+    add_index :agent_skill_executions, [ :status ]
+    add_index :agent_skill_executions, [ :created_at ]
   end
 end

@@ -6,9 +6,9 @@
     </div>
     <div class="flex gap-2">
       <%= button_to toggle_agent_skill_path(skill), method: :patch, 
-          class: "btn btn-sm <%= skill.enabled? ? 'btn-success' : 'btn-secondary' %>",
+          class: "btn btn-sm #{skill.enabled_button_class}",
           form: { data: { turbo: false } } do %>
-        <%= skill.enabled? ? "Enabled" : "Disabled" %>
+        <%= skill.enabled_button_text %>
       <% end %>
       <%= link_to "Edit", edit_agent_skill_path(skill), class: "btn btn-sm btn-outline" %>
       <%= button_to "Delete", agent_skill_path(skill), method: :delete, 
@@ -21,9 +21,9 @@
   <div class="card-body">
     <p><%= simple_format(skill.description) %></p>
     <div class="mt-4 text-sm text-gray-500">
-      <p><strong>Files:</strong> <%= skill.files.count + (skill.skill_md.attached? ? 1 : 0) %></p>
-      <% if skill.metadata["tags"].present? %>
-        <p><strong>Tags:</strong> <%= skill.metadata["tags"].join(", ") %></p>
+      <p><strong>Files:</strong> <%= skill.total_file_count %></p>
+      <% if skill.tags_list.present? %>
+        <p><strong>Tags:</strong> <%= skill.tags_list %></p>
       <% end %>
     </div>
   </div>

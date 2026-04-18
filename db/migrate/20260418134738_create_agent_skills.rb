@@ -13,10 +13,10 @@ class CreateAgentSkills < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :agent_skills, [:account_id, :name], unique: true
-    add_index :agent_skills, [:account_id, :enabled]
-    add_index :agent_skills, [:account_id, :execution_mode]
-    add_index :agent_skills, [:account_id, :trigger_mode]
-    add_index :agent_skills, [:name]
+    add_index :agent_skills, [ :account_id, :name ], unique: true
+    add_index :agent_skills, [ :account_id, :enabled ]
+    add_index :agent_skills, [ :account_id, :execution_mode ]
+    add_index :agent_skills, [ :account_id, :trigger_mode ]
+    add_index :agent_skills, [ :name ]
   end
 end

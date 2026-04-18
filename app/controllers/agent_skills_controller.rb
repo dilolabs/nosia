@@ -1,6 +1,6 @@
 class AgentSkillsController < ApplicationController
   before_action :set_account
-  before_action :set_agent_skill, only: [:show, :edit, :update, :destroy, :toggle]
+  before_action :set_agent_skill, only: [ :show, :edit, :update, :destroy, :toggle ]
 
   def index
     @agent_skills = @account.agent_skills.order(priority: :desc, created_at: :asc)

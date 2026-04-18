@@ -31,6 +31,23 @@ class AgentSkill < ApplicationRecord
     "AgentSkills::#{name.camelize}"
   end
 
+  def total_file_count
+    files.count + (skill_md.attached? ? 1 : 0)
+  end
+
+  def enabled_button_class
+    enabled? ? "btn-success" : "btn-secondary"
+  end
+
+  def enabled_button_text
+    enabled? ? "Enabled" : "Disabled"
+  end
+
+  def tags_list
+    return "" unless metadata.is_a?(Hash) && metadata["tags"].present?
+    metadata["tags"].join(", ")
+  end
+
   def runnable?
     enabled? &&
       (execution_mode == "llm" ||

@@ -24,15 +24,15 @@ class AgentSkill
     private
 
     def split_frontmatter(content)
-      return [nil, content] unless content.start_with?("---")
+      return [ nil, content ] unless content.start_with?("---")
       end_marker_idx = content.index("\n---\n")
-      return [nil, content] unless end_marker_idx
-      [content[3...end_marker_idx], content[end_marker_idx + 5..-1]]
+      return [ nil, content ] unless end_marker_idx
+      [ content[3...end_marker_idx], content[end_marker_idx + 5..-1] ]
     end
 
     def parse_yaml(yaml_content)
       return {} unless yaml_content && !yaml_content.strip.empty?
-      Psych.safe_load(yaml_content, permitted_classes: [Date, Time], aliases: true) rescue {}
+      Psych.safe_load(yaml_content, permitted_classes: [ Date, Time ], aliases: true) rescue {}
     rescue Psych::SyntaxError => e
       Rails.logger.error "Invalid YAML in SKILL.md: #{e.message}"
       {}
