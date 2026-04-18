@@ -1,0 +1,63 @@
+<%= form_with model: agent_skill, class: "space-y-4" do |f| %>
+  <% if agent_skill.errors.any? %>
+    <div class="alert alert-danger">
+      <h4><%= pluralize(agent_skill.errors.count, "error") %> prevented this skill from being saved:</h4>
+      <ul>
+        <% agent_skill.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= f.label :skill_md, "SKILL.md File (Required)" %>
+    <%= f.file_field :skill_md, accept: ".md,.markdown" %>
+    <% if agent_skill.skill_md.attached? %>
+      <p class="text-sm text-gray-500 mt-1">Current: <%= agent_skill.skill_md.filename %></p>
+    <% end %>
+  </div>
+
+  <div class="field">
+    <%= f.label :files, "Additional Files" %>
+    <%= f.file_field :files, multiple: true, accept: ".txt,.yaml,.yml,.json" %>
+    <% if agent_skill.files.attached? %>
+      <p class="text-sm text-gray-500 mt-1"><%= agent_skill.files.count %> file(s) attached</p>
+    <% end %>
+  </div>
+
+  <div class="field">
+    <%= f.label :execution_mode %>
+    <%= f.select :execution_mode, options_for_select(AgentSkill.execution_modes.map { |k,v| [k.humanize, k] }, agent_skill.execution_mode), { include_blank: false } %>
+    <p class="text-sm text-gray-500 mt-1">
+      <strong>LLM:</strong> Prompt injection. <strong>Ruby:</strong> Requires class in app/models/agent_skills/
+    </p>
+  </div>
+
+  <div class="field">
+    <%= f.label :trigger_mode %>
+    <%= f.select :trigger_mode, options_for_select(AgentSkill.trigger_modes.map { |k,v| [k.humanize, k] }, agent_skill.trigger_mode), { include_blank: false } %>
+  </div>
+
+  <div class="field">
+    <%= f.label :requires_rag_context %>
+    <%= f.check_box :requires_rag_context %>
+    <p class="text-sm text-gray-500 mt-1">Enable if skill needs document/chunk access</p>
+  </div>
+
+  <div class="field">
+    <%= f.label :priority %>
+    <%= f.number_field :priority, in: 0..100, step: 1 %>
+    <p class="text-sm text-gray-500 mt-1">Higher priority = tried first (0-100)</p>
+  </div>
+
+  <div class="field">
+    <%= f.label :enabled %>
+    <%= f.check_box :enabled %>
+  </div>
+
+  <div class="actions">
+    <%= f.submit agent_skill.persisted? ? "Update Skill" : "Upload Skill", class: "btn btn-primary" %>
+    <%= link_to "Cancel", agent_skills_path, class: "btn btn-outline" %>
+  </div>
+<% end %>

@@ -1,0 +1,30 @@
+<div class="card" id="<%= dom_id(skill) %>">
+  <div class="card-header flex justify-between items-center">
+    <div>
+      <h3 class="font-semibold"><%= skill.name %></h3>
+      <p class="text-sm text-gray-500"><%= skill.execution_mode %> | <%= skill.trigger_mode %></p>
+    </div>
+    <div class="flex gap-2">
+      <%= button_to toggle_agent_skill_path(skill), method: :patch, 
+          class: "btn btn-sm <%= skill.enabled? ? 'btn-success' : 'btn-secondary' %>",
+          form: { data: { turbo: false } } do %>
+        <%= skill.enabled? ? "Enabled" : "Disabled" %>
+      <% end %>
+      <%= link_to "Edit", edit_agent_skill_path(skill), class: "btn btn-sm btn-outline" %>
+      <%= button_to "Delete", agent_skill_path(skill), method: :delete, 
+          class: "btn btn-sm btn-danger", 
+          form: { data: { turbo_confirm: "Are you sure?", turbo: false } } do %>
+        Delete
+      <% end %>
+    </div>
+  </div>
+  <div class="card-body">
+    <p><%= simple_format(skill.description) %></p>
+    <div class="mt-4 text-sm text-gray-500">
+      <p><strong>Files:</strong> <%= skill.files.count + (skill.skill_md.attached? ? 1 : 0) %></p>
+      <% if skill.metadata["tags"].present? %>
+        <p><strong>Tags:</strong> <%= skill.metadata["tags"].join(", ") %></p>
+      <% end %>
+    </div>
+  </div>
+</div>

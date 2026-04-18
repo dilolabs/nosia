@@ -1,0 +1,26 @@
+<h1 class="text-2xl font-bold mb-6"><%= @agent_skill.name %></h1>
+<div class="card">
+  <div class="card-body">
+    <p><strong>Description:</strong> <%= simple_format(@agent_skill.description) %></p>
+    <p><strong>Execution Mode:</strong> <%= @agent_skill.execution_mode %></p>
+    <p><strong>Trigger Mode:</strong> <%= @agent_skill.trigger_mode %></p>
+    <p><strong>Requires RAG Context:</strong> <%= @agent_skill.requires_rag_context %></p>
+    <p><strong>Enabled:</strong> <%= @agent_skill.enabled %></p>
+    <p><strong>Priority:</strong> <%= @agent_skill.priority %></p>
+    
+    <h3 class="mt-4">Files</h3>
+    <ul>
+      <% if @agent_skill.skill_md.attached? %>
+        <li><%= @agent_skill.skill_md.filename %> (SKILL.md)</li>
+      <% end %>
+      <% @agent_skill.files.each do |file| %>
+        <li><%= file.filename %></li>
+      <% end %>
+    </ul>
+    
+    <div class="mt-4">
+      <%= link_to "Edit", edit_agent_skill_path(@agent_skill), class: "btn btn-outline mr-2" %>
+      <%= link_to "Back", agent_skills_path, class: "btn btn-outline" %>
+    </div>
+  </div>
+</div>

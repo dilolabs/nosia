@@ -1,0 +1,18 @@
+<div class="container mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Agent Skills</h1>
+    <%= link_to "Upload Skill", new_agent_skill_path, class: "btn btn-primary" %>
+  </div>
+
+  <% if @agent_skills.any? %>
+    <div class="grid gap-4">
+      <% @agent_skills.each do |skill| %>
+        <%= render "skill_card", skill: skill %>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="alert alert-info">
+      <p>No agent skills uploaded yet. Upload your first skill to get started!</p>
+    </div>
+  <% end %>
+</div>
