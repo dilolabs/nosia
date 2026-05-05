@@ -77,6 +77,7 @@ gem "blingfire" # High speed text tokenization [https://github.com/ankane/blingf
 gem "commonmarker" # CommonMark and GitHub Flavored Markdown compatible parser and renderer [https://github.com/gjtorikian/commonmarker]
 gem "faraday" # HTTP client library abstraction layer [https://github.com/lostisland/faraday]
 gem "inline_svg" # Embed SVG documents in views and style them with CSS [https://github.com/jamesmartin/inline_svg]
+gem "mcp" # The official Ruby SDK for the Model Context Protocol [https://github.com/modelcontextprotocol/ruby-sdk]
 gem "mission_control-jobs" # Dashboard and Active Job extensions to operate and troubleshoot background jobs [https://github.com/rails/mission_control-jobs]
 gem "neighbor" # Nearest neighbor search [https://github.com/ankane/neighbor]
 gem "pdf-reader" # PDF parser conforming as much as possible to the PDF specification from Adobe [https://github.com/yob/pdf-reader]
