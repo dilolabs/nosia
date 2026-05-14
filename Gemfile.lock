@@ -204,7 +204,7 @@ GEM
     marcel (1.1.0)
     matrix (0.4.3)
     mini_mime (1.1.5)
-    minitest (6.0.4)
+    minitest (6.0.6)
       drb (~> 2.0)
       prism (~> 1.5)
     mission_control-jobs (1.1.0)
@@ -219,7 +219,7 @@ GEM
       turbo-rails
     msgpack (1.8.0)
     multipart-post (2.4.1)
-    neighbor (1.0.0)
+    neighbor (1.1.0)
       activerecord (>= 7.2)
     net-http (0.9.1)
       uri (>= 0.11.1)
