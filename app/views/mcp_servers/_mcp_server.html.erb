@@ -1,0 +1,59 @@
+<li class="n-card n-main-border lg:col-span-2" id="<%= dom_id(server) %>">
+  <div class="m-5 p-1 truncate space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <%= render "status", server: server %>
+
+      <div class="flex items-center gap-1">
+        <%= link_to mcp_server_path(server), title: "Show server", class: "n-btn-icon n-main-hover n-main-focus" do %>
+          <%= inline_svg_tag "svg/eye.svg", title: "Show", alt: "Eye", class: "mx-auto w-5 h-5" %>
+          <span class="sr-only">Show server</span>
+        <% end %>
+
+        <%= link_to edit_mcp_server_path(server), title: "Edit server", class: "n-btn-icon n-main-hover n-main-focus" do %>
+          <%= inline_svg_tag "svg/edit.svg", title: "Edit", alt: "Edit", class: "mx-auto w-5 h-5" %>
+          <span class="sr-only">Edit server</span>
+        <% end %>
+
+        <% if server.status_ready? %>
+          <%= button_to disconnect_mcp_server_path(server), method: :post,
+              title: "Disconnect server",
+              class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger",
+              form: { data: { turbo: false } } do %>
+            <%= inline_svg_tag "svg/power.svg", title: "Disconnect", alt: "Power", class: "mx-auto w-5 h-5" %>
+            <span class="sr-only">Disconnect server</span>
+          <% end %>
+        <% else %>
+          <%= button_to connect_mcp_server_path(server), method: :post,
+              title: "Connect server",
+              class: "text-green-600 dark:text-green-400 n-btn-icon n-main-hover n-main-focus",
+              form: { data: { turbo: false } } do %>
+            <%= inline_svg_tag "svg/power.svg", title: "Connect", alt: "Power", class: "mx-auto w-5 h-5" %>
+            <span class="sr-only">Connect server</span>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div>
+      <h5 class="n-card-title">
+        <%= link_to server.name, mcp_server_path(server), class: "n-main-focus text-wrap" %>
+      </h5>
+      <div class="flex flex-wrap items-center gap-2 mt-1">
+        <span class="n-tag n-tag-disconnected"><%= server.transport_type.upcase %></span>
+        <% if server.latency_ms %>
+          <span class="text-sm text-neutral-500 dark:text-neutral-400"><%= server.latency_ms %>ms</span>
+        <% end %>
+      </div>
+    </div>
+
+    <% if (server.endpoint || server.command).present? %>
+      <p class="n-card-subtitle text-wrap"><%= server.endpoint || server.command %></p>
+    <% end %>
+
+    <% if server.tags.present? %>
+      <p class="text-sm text-neutral-500 dark:text-neutral-400 text-wrap">
+        <span class="font-medium">Tags:</span> <%= server.tags %>
+      </p>
+    <% end %>
+  </div>
+</li>
