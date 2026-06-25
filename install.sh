@@ -87,38 +87,50 @@ detect_system_resources() {
   echo "System resources: ${SYSTEM_RAM_GB}GB RAM, ${CPU_CORES} CPU cores, ${GPU_TYPE} (${GPU_VRAM_GB}GB VRAM)"
 }
 
-# Select LLM model based on system resources
-select_llm_model() {
+# Memory available to model inference: the larger of GPU VRAM (GPU/offloaded
+# inference) or system RAM (CPU inference). Docker Model Runner can run on
+# either, so the bigger pool bounds the largest model that fits.
+usable_memory_gb() {
   gpu_vram=$1
   system_ram=$2
 
-  if [ "$gpu_vram" -lt 4 ]; then
-    if [ "$system_ram" -lt 8 ]; then
-      echo "ai/gemma4:E2B|32768|512|128"
-    else
-      echo "ai/gemma4:E4B|32768|512|128"
-    fi
-  elif [ "$gpu_vram" -ge 4 ] && [ "$gpu_vram" -lt 8 ]; then
-    if [ "$system_ram" -ge 16 ] && [ "$system_ram" -lt 32 ]; then
-      echo "ai/gemma4:26B|32768|1024|256"
-    else
-      echo "ai/gemma4:E4B|32768|512|128"
-    fi
+  if [ "$gpu_vram" -gt "$system_ram" ]; then
+    echo "$gpu_vram"
   else
-    if [ "$system_ram" -ge 32 ]; then
-      echo "ai/mistral-small4:119B|32768|1024|256"
-    else
-      echo "ai/gemma4:26B|32768|1024|256"
-    fi
+    echo "$system_ram"
   fi
 }
 
-# Select embedding model based on system resources
+# Select LLM model based on system resources.
+# Footprints (approx, with context + a concurrent embedding model):
+#   ai/mistral-small4:119B ~70GB  | ai/gemma4:26B ~16GB
+#   ai/gemma4:E4B ~4GB            | ai/gemma4:E2B ~2GB
+select_llm_model() {
+  gpu_vram=$1
+  system_ram=$2
+  available=$(usable_memory_gb "$gpu_vram" "$system_ram")
+
+  if [ "$available" -ge 96 ]; then
+    echo "ai/mistral-small4:119B|32768|1024|256"
+  elif [ "$available" -ge 24 ]; then
+    echo "ai/gemma4:26B|32768|1024|256"
+  elif [ "$available" -ge 8 ]; then
+    echo "ai/gemma4:E4B|32768|512|128"
+  else
+    echo "ai/gemma4:E2B|32768|512|128"
+  fi
+}
+
+# Select embedding model based on system resources.
+# ai/qwen3-embedding:8B-F16 needs ~16GB on top of the LLM, so it is reserved
+# for machines that also comfortably run a large LLM. Everything else uses the
+# tiny ~0.6GB ai/granite-embedding-multilingual:278M-F16.
 select_embedding_model() {
   gpu_vram=$1
   system_ram=$2
+  available=$(usable_memory_gb "$gpu_vram" "$system_ram")
 
-  if [ "$system_ram" -ge 16 ] && [ "$gpu_vram" -ge 8 ]; then
+  if [ "$available" -ge 48 ]; then
     echo "ai/qwen3-embedding:8B-F16|4096|1024|256"
   else
     echo "ai/granite-embedding-multilingual:278M-F16|768|512|128"

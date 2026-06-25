@@ -75,42 +75,58 @@ function Detect-SystemResources {
     }
 }
 
-# Select LLM model based on system resources
+# Memory available to model inference: the larger of GPU VRAM (GPU/offloaded
+# inference) or system RAM (CPU inference). Docker Model Runner can run on
+# either, so the bigger pool bounds the largest model that fits.
+function Get-UsableMemoryGB {
+    param(
+        [int]$gpu_vram,
+        [int]$system_ram
+    )
+
+    if ($gpu_vram -gt $system_ram) {
+        return $gpu_vram
+    } else {
+        return $system_ram
+    }
+}
+
+# Select LLM model based on system resources.
+# Footprints (approx, with context + a concurrent embedding model):
+#   ai/mistral-small4:119B ~70GB  | ai/gemma4:26B ~16GB
+#   ai/gemma4:E4B ~4GB            | ai/gemma4:E2B ~2GB
 function Select-LLMModel {
     param(
         [int]$gpu_vram,
         [int]$system_ram
     )
     
-    if ($gpu_vram -lt 4) {
-        if ($system_ram -lt 8) {
-            return "ai/gemma4:E2B|32768|512|128"
-        } else {
-            return "ai/gemma4:E4B|32768|512|128"
-        }
-    } elseif ($gpu_vram -ge 4 -and $gpu_vram -lt 8) {
-        if ($system_ram -ge 16 -and $system_ram -lt 32) {
-            return "ai/gemma4:26B|32768|1024|256"
-        } else {
-            return "ai/gemma4:E4B|32768|512|128"
-        }
+    $available = Get-UsableMemoryGB -gpu_vram $gpu_vram -system_ram $system_ram
+
+    if ($available -ge 96) {
+        return "ai/mistral-small4:119B|32768|1024|256"
+    } elseif ($available -ge 24) {
+        return "ai/gemma4:26B|32768|1024|256"
+    } elseif ($available -ge 8) {
+        return "ai/gemma4:E4B|32768|512|128"
     } else {
-        if ($system_ram -ge 32) {
-            return "ai/mistral-small4:119B|32768|1024|256"
-        } else {
-            return "ai/gemma4:26B|32768|1024|256"
-        }
+        return "ai/gemma4:E2B|32768|512|128"
     }
 }
 
-# Select embedding model based on system resources
+# Select embedding model based on system resources.
+# ai/qwen3-embedding:8B-F16 needs ~16GB on top of the LLM, so it is reserved
+# for machines that also comfortably run a large LLM. Everything else uses the
+# tiny ~0.6GB ai/granite-embedding-multilingual:278M-F16.
 function Select-EmbeddingModel {
     param(
         [int]$gpu_vram,
         [int]$system_ram
     )
-    
-    if ($system_ram -ge 16 -and $gpu_vram -ge 8) {
+
+    $available = Get-UsableMemoryGB -gpu_vram $gpu_vram -system_ram $system_ram
+
+    if ($available -ge 48) {
         return "ai/qwen3-embedding:8B-F16|4096|1024|256"
     } else {
         return "ai/granite-embedding-multilingual:278M-F16|768|512|128"
