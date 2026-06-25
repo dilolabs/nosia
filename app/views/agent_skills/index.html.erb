@@ -1,18 +1,24 @@
-<div class="container mx-auto px-4 py-8">
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">Agent Skills</h1>
-    <%= link_to "Upload Skill", new_agent_skill_path, class: "btn btn-primary" %>
-  </div>
-
-  <% if @agent_skills.any? %>
-    <div class="grid gap-4">
-      <% @agent_skills.each do |skill| %>
-        <%= render "skill_card", skill: skill %>
-      <% end %>
-    </div>
-  <% else %>
-    <div class="alert alert-info">
-      <p>No agent skills uploaded yet. Upload your first skill to get started!</p>
-    </div>
+<div class="n-title-container flex justify-between items-center">
+  <h2 class="n-main-title">Agent Skills</h2>
+  <%= link_to new_agent_skill_path, class: "n-btn-primary inline-flex items-center gap-2" do %>
+    <%= inline_svg "svg/plus.svg", title: "Create skill", alt: "Plus", class: "w-5 h-5" %>
+    <span>Create skill</span>
   <% end %>
 </div>
+
+<% if @agent_skills.any? %>
+  <ul class="n-cards-grid !list-none">
+    <% @agent_skills.each do |skill| %>
+      <%= render "skill_card", skill: skill %>
+    <% end %>
+  </ul>
+<% else %>
+  <div class="n-card n-main-border my-4 lg:col-span-2">
+    <div class="m-6 flex flex-col items-center text-center gap-3 py-8">
+      <%= inline_svg "svg/code-bracket.svg", title: "Agent Skills", alt: "Agent Skills", class: "w-12 h-12 text-neutral-400" %>
+      <p class="n-card-title text-wrap">No agent skills yet</p>
+      <p class="n-card-subtitle text-wrap">Create your first skill to extend what your assistant can do.</p>
+      <%= link_to "Create skill", new_agent_skill_path, class: "n-btn-primary mt-2" %>
+    </div>
+  </div>
+<% end %>

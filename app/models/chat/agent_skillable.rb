@@ -44,17 +44,18 @@ module Chat::AgentSkillable
   end
 
   def format_skill_results(results, skills)
+    base_count = Message.where(chat_id: id).count
     results.map.with_index do |result, index|
       case result
       when Hash
         { role: result[:role] || "assistant", content: result[:content],
-          response_number: messages.count + index,
+          response_number: base_count + index,
           metadata: (result[:metadata] || {}).merge(agent_skill_names: skills.map(&:name)) }
       when String
-        { role: "assistant", content: result, response_number: messages.count + index,
+        { role: "assistant", content: result, response_number: base_count + index,
           metadata: { agent_skill_names: skills.map(&:name) } }
       else
-        { role: "assistant", content: result.to_s, response_number: messages.count + index,
+        { role: "assistant", content: result.to_s, response_number: base_count + index,
           metadata: { agent_skill_names: skills.map(&:name) } }
       end
     end

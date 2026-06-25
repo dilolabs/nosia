@@ -1,30 +1,51 @@
-<div class="card" id="<%= dom_id(skill) %>">
-  <div class="card-header flex justify-between items-center">
+<li class="n-card n-main-border lg:col-span-2" id="<%= dom_id(skill) %>">
+  <div class="m-5 p-1 truncate space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <span class="n-tag <%= skill.enabled? ? "n-tag-ready" : "n-tag-disconnected" %>">
+        <%= skill.enabled? ? "Enabled" : "Disabled" %>
+      </span>
+      <div class="flex items-center gap-1">
+        <%= button_to toggle_agent_skill_path(skill), method: :patch,
+            title: skill.enabled? ? "Disable skill" : "Enable skill",
+            class: "n-btn-icon n-main-hover n-main-focus",
+            form: { data: { turbo: false } } do %>
+          <%= inline_svg "svg/power.svg", title: "Toggle", alt: "Power", class: "mx-auto w-5 h-5" %>
+          <span class="sr-only"><%= skill.enabled? ? "Disable" : "Enable" %> skill</span>
+        <% end %>
+        <%= link_to agent_skill_path(skill), title: "Show skill", class: "n-btn-icon n-main-hover n-main-focus" do %>
+          <%= inline_svg "svg/eye.svg", title: "Show", alt: "Eye", class: "mx-auto w-5 h-5" %>
+          <span class="sr-only">Show skill</span>
+        <% end %>
+        <%= link_to edit_agent_skill_path(skill), title: "Edit skill", class: "n-btn-icon n-main-hover n-main-focus" do %>
+          <%= inline_svg "svg/edit.svg", title: "Edit", alt: "Edit", class: "mx-auto w-5 h-5" %>
+          <span class="sr-only">Edit skill</span>
+        <% end %>
+        <%= button_to agent_skill_path(skill), method: :delete,
+            title: "Delete skill",
+            class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger",
+            form: { data: { turbo_confirm: "Are you sure?", turbo: false } } do %>
+          <%= inline_svg "svg/trash-bin.svg", title: "Delete", alt: "Trash bin", class: "mx-auto w-5 h-5" %>
+          <span class="sr-only">Delete skill</span>
+        <% end %>
+      </div>
+    </div>
+
     <div>
-      <h3 class="font-semibold"><%= skill.name %></h3>
-      <p class="text-sm text-gray-500"><%= skill.execution_mode %> | <%= skill.trigger_mode %></p>
+      <h5 class="n-card-title">
+        <span class="text-wrap"><%= skill.name %></span>
+      </h5>
+      <div class="flex flex-wrap gap-2 mt-1">
+        <span class="n-tag n-tag-disconnected"><%= skill.execution_mode.humanize %></span>
+        <span class="n-tag n-tag-disconnected"><%= skill.trigger_mode.humanize %></span>
+      </div>
     </div>
-    <div class="flex gap-2">
-      <%= button_to toggle_agent_skill_path(skill), method: :patch, 
-          class: "btn btn-sm #{skill.enabled_button_class}",
-          form: { data: { turbo: false } } do %>
-        <%= skill.enabled_button_text %>
-      <% end %>
-      <%= link_to "Edit", edit_agent_skill_path(skill), class: "btn btn-sm btn-outline" %>
-      <%= button_to "Delete", agent_skill_path(skill), method: :delete, 
-          class: "btn btn-sm btn-danger", 
-          form: { data: { turbo_confirm: "Are you sure?", turbo: false } } do %>
-        Delete
-      <% end %>
-    </div>
+
+    <p class="n-card-subtitle text-wrap"><%= truncate(skill.description.to_s, length: 140) %></p>
+
+    <% if skill.tags_list.present? %>
+      <p class="text-sm text-neutral-500 dark:text-neutral-400 text-wrap">
+        <span class="font-medium">Tags:</span> <%= skill.tags_list %>
+      </p>
+    <% end %>
   </div>
-  <div class="card-body">
-    <p><%= simple_format(skill.description) %></p>
-    <div class="mt-4 text-sm text-gray-500">
-      <p><strong>Files:</strong> <%= skill.total_file_count %></p>
-      <% if skill.tags_list.present? %>
-        <p><strong>Tags:</strong> <%= skill.tags_list %></p>
-      <% end %>
-    </div>
-  </div>
-</div>
+</li>

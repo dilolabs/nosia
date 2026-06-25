@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_18_134919) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_18_204846) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -74,6 +74,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_134919) do
     t.integer "duration_ms"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "account_id", null: false
+    t.index ["account_id"], name: "index_agent_skill_executions_on_account_id"
     t.index ["agent_skill_id", "created_at"], name: "index_agent_skill_executions_on_agent_skill_id_and_created_at"
     t.index ["agent_skill_id"], name: "index_agent_skill_executions_on_agent_skill_id"
     t.index ["chat_id", "created_at"], name: "index_agent_skill_executions_on_chat_id_and_created_at"
@@ -95,6 +97,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_134919) do
     t.integer "priority", default: 0
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "skill_content"
     t.index ["account_id", "enabled"], name: "index_agent_skills_on_account_id_and_enabled"
     t.index ["account_id", "execution_mode"], name: "index_agent_skills_on_account_id_and_execution_mode"
     t.index ["account_id", "name"], name: "index_agent_skills_on_account_id_and_name", unique: true
@@ -480,6 +483,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_134919) do
   add_foreign_key "accounts", "users", column: "owner_id"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "agent_skill_executions", "accounts"
   add_foreign_key "agent_skill_executions", "agent_skills"
   add_foreign_key "agent_skill_executions", "chats"
   add_foreign_key "agent_skill_executions", "messages"

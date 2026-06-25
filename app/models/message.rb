@@ -20,6 +20,7 @@ class Message < ApplicationRecord
   has_many :tool_calls, dependent: :destroy
 
   before_create :set_default_role
+  before_create :set_response_number
   after_create_commit -> { broadcast_created }
   after_update_commit -> { broadcast_updated }
 
@@ -119,6 +120,10 @@ class Message < ApplicationRecord
 
   def set_default_role
     self.role ||= "user"
+  end
+
+  def set_response_number
+    self.response_number = Message.where(chat_id: chat_id).count if response_number.blank?
   end
 
   def similar_authors

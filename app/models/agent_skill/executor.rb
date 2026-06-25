@@ -36,6 +36,7 @@ class AgentSkill
 
     def create_execution_record
       AgentSkillExecution.create!(
+        account: @context[:account],
         agent_skill: @agent_skill,
         chat: @context[:chat],
         message: @context[:message],
@@ -49,6 +50,7 @@ class AgentSkill
       case result
       when Hash then result.except(:chat, :user, :account, :query, :message)
       when Message then result.as_json(only: [ :role, :content, :metadata ])
+      when Chat then { content: result.messages.last&.content || result.to_s }
       else { content: result.to_s }
       end
     end
@@ -71,7 +73,7 @@ class AgentSkill
 
       @execution.update!(input: { instructions: instructions.truncate(1000) })
 
-      chat.with_instructions(instructions, replace: false) { chat.ask(@context[:query]) }
+      chat.with_instructions(instructions, replace: false).ask(@context[:query])
     end
 
     private
@@ -88,11 +90,7 @@ class AgentSkill
       end
 
       parts << "**Instructions:**"
-      begin
-        skill_content = @agent_skill.skill_md.blob.download
-      rescue => e
-        skill_content = ""
-      end
+      skill_content = @agent_skill.skill_content.to_s
       parts << AgentSkill::Security.sanitize_prompt(skill_content)
       parts << ""
       parts.join("\n")

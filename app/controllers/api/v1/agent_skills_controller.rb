@@ -48,7 +48,7 @@ module Api
       def agent_skill_params
         params.require(:agent_skill).permit(
           :name, :description, :execution_mode, :trigger_mode,
-          :requires_rag_context, :enabled, :priority
+          :requires_rag_context, :enabled, :priority, :skill_content
         )
       end
     end

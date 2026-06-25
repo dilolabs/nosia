@@ -7,13 +7,14 @@ class AgentSkill
     end
 
     def parse
-      return unless @agent_skill.skill_md.attached?
+      content = @agent_skill.skill_content.to_s
+      return if content.blank?
 
-      content = @agent_skill.skill_md.blob.download
       yaml_content, markdown_body = split_frontmatter(content)
       metadata = parse_yaml(yaml_content)
 
-      @agent_skill.metadata = metadata
+      @agent_skill.metadata ||= {}
+      @agent_skill.metadata.merge!(metadata)
       @agent_skill.name ||= metadata["name"]
       @agent_skill.description ||= metadata["description"] || markdown_body.split("\n").first
       @agent_skill.execution_mode ||= metadata["execution_mode"] || "llm"
@@ -34,14 +35,14 @@ class AgentSkill
       return {} unless yaml_content && !yaml_content.strip.empty?
       Psych.safe_load(yaml_content, permitted_classes: [ Date, Time ], aliases: true) rescue {}
     rescue Psych::SyntaxError => e
-      Rails.logger.error "Invalid YAML in SKILL.md: #{e.message}"
+      Rails.logger.error "Invalid YAML in skill content: #{e.message}"
       {}
     end
 
     def validate_metadata!(metadata)
       return if metadata.blank?
       missing = REQUIRED_FIELDS.select { |f| metadata[f].blank? }
-      raise ArgumentError, "SKILL.md missing required fields: #{missing.join(', ')}" if missing.any?
+      raise ArgumentError, "Skill content missing required fields: #{missing.join(', ')}" if missing.any?
 
       if metadata["execution_mode"] && !AgentSkill.execution_modes.key?(metadata["execution_mode"])
         raise ArgumentError, "Invalid execution_mode: #{metadata['execution_mode']}"

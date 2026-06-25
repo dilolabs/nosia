@@ -23,7 +23,7 @@ class Chat < ApplicationRecord
   end
 
   def response_number
-    messages.count
+    Message.where(chat_id: id).count
   end
 
   def title

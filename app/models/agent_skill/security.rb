@@ -28,7 +28,7 @@ module AgentSkill::Security
 
   def sanitize_text(text)
     return "" unless text
-    ActionView::Helpers::TextHelper.strip_tags(text.to_s)[0...10_000]
+    text.to_s.gsub(/<[^>]*>/, "")[0...10_000]
   end
 
   def sanitize_prompt(text)

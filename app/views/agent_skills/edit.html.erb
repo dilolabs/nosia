@@ -1,2 +1,8 @@
-<h1 class="text-2xl font-bold mb-6">Edit Agent Skill</h1>
-<%= render "form", agent_skill: @agent_skill %>
+<div class="n-title-container flex justify-between items-center">
+  <h2 class="n-main-title">Edit Agent Skill</h2>
+  <%= link_to "Back", agent_skills_path, class: "n-btn" %>
+</div>
+
+<div class="my-4 max-w-3xl">
+  <%= render "form", agent_skill: @agent_skill %>
+</div>

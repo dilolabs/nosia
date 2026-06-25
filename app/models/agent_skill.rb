@@ -3,9 +3,6 @@ class AgentSkill < ApplicationRecord
 
   acts_as_tenant :account
 
-  has_many_attached :files
-  has_one_attached :skill_md
-
   belongs_to :account
 
   has_many :agent_skill_executions, dependent: :destroy
@@ -20,9 +17,10 @@ class AgentSkill < ApplicationRecord
   validates :execution_mode, presence: true
   validates :trigger_mode, presence: true
   validates :priority, numericality: { only_integer: true, greater_than_or_equal_to: 0, less_than_or_equal_to: 100 }
-  validate :validate_skill_md_present, on: :create
+  validates :skill_content, presence: true, on: :create
   validate :validate_metadata_present, on: :create
-  validate :validate_uploaded_files, on: :create
+
+  before_validation :parse_skill_content
 
   scope :runnable, -> { where(enabled: true) }
   scope :by_name, ->(name) { where(name: name) }
@@ -31,16 +29,8 @@ class AgentSkill < ApplicationRecord
     "AgentSkills::#{name.camelize}"
   end
 
-  def total_file_count
-    files.count + (skill_md.attached? ? 1 : 0)
-  end
-
-  def enabled_button_class
-    enabled? ? "btn-success" : "btn-secondary"
-  end
-
-  def enabled_button_text
-    enabled? ? "Enabled" : "Disabled"
+  def skill_content_text
+    skill_content.to_s
   end
 
   def tags_list
@@ -56,21 +46,13 @@ class AgentSkill < ApplicationRecord
 
   private
 
-  def validate_skill_md_present
-    errors.add(:skill_md, "must be attached") unless skill_md.attached?
+  def parse_skill_content
+    AgentSkill::Parser.new(self).parse
   end
 
   def validate_metadata_present
     return if name.present?
     return if metadata.present? && metadata["name"].present?
-    errors.add(:skill_md, "must contain valid YAML frontmatter with at least 'name' field")
-  end
-
-  def validate_uploaded_files
-    return unless skill_md.attached? || files.attached?
-    all_files = files.to_a
-    all_files << skill_md if skill_md.attached?
-    valid, error = AgentSkill::Security.validate_upload(all_files)
-    errors.add(:base, error) unless valid
+    errors.add(:skill_content, "must contain valid YAML frontmatter with at least 'name' field")
   end
 end

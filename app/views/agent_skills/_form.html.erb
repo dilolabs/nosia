@@ -1,8 +1,8 @@
 <%= form_with model: agent_skill, class: "space-y-4" do |f| %>
   <% if agent_skill.errors.any? %>
-    <div class="alert alert-danger">
-      <h4><%= pluralize(agent_skill.errors.count, "error") %> prevented this skill from being saved:</h4>
-      <ul>
+    <div class="n-tag-error rounded-lg p-4 text-sm">
+      <h4 class="font-semibold mb-1"><%= pluralize(agent_skill.errors.count, "error") %> prevented this skill from being saved:</h4>
+      <ul class="list-disc list-inside">
         <% agent_skill.errors.each do |error| %>
           <li><%= error.full_message %></li>
         <% end %>
@@ -10,54 +10,44 @@
     </div>
   <% end %>
 
-  <div class="field">
-    <%= f.label :skill_md, "SKILL.md File (Required)" %>
-    <%= f.file_field :skill_md, accept: ".md,.markdown" %>
-    <% if agent_skill.skill_md.attached? %>
-      <p class="text-sm text-gray-500 mt-1">Current: <%= agent_skill.skill_md.filename %></p>
-    <% end %>
+  <div class="n-form-field">
+    <%= f.label :skill_content, "SKILL.md content (required)", class: "n-label block font-medium" %>
+    <%= f.text_area :skill_content, rows: 20, class: "n-textarea font-mono", placeholder: "---\nname: my_skill\ndescription: My skill description\nexecution_mode: llm\ntrigger_mode: explicit\n---\n\n# Instructions\nYour skill instructions here..." %>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Enter SKILL.md content with YAML frontmatter (name, description, execution_mode, trigger_mode, requires_rag_context)</p>
   </div>
 
-  <div class="field">
-    <%= f.label :files, "Additional Files" %>
-    <%= f.file_field :files, multiple: true, accept: ".txt,.yaml,.yml,.json" %>
-    <% if agent_skill.files.attached? %>
-      <p class="text-sm text-gray-500 mt-1"><%= agent_skill.files.count %> file(s) attached</p>
-    <% end %>
-  </div>
-
-  <div class="field">
-    <%= f.label :execution_mode %>
-    <%= f.select :execution_mode, options_for_select(AgentSkill.execution_modes.map { |k,v| [k.humanize, k] }, agent_skill.execution_mode), { include_blank: false } %>
-    <p class="text-sm text-gray-500 mt-1">
+  <div class="n-form-field">
+    <%= f.label :execution_mode, class: "n-label block font-medium" %>
+    <%= f.select :execution_mode, options_for_select(AgentSkill.execution_modes.map { |k, v| [ k.humanize, k ] }, agent_skill.execution_mode), { include_blank: false }, class: "n-select" %>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
       <strong>LLM:</strong> Prompt injection. <strong>Ruby:</strong> Requires class in app/models/agent_skills/
     </p>
   </div>
 
-  <div class="field">
-    <%= f.label :trigger_mode %>
-    <%= f.select :trigger_mode, options_for_select(AgentSkill.trigger_modes.map { |k,v| [k.humanize, k] }, agent_skill.trigger_mode), { include_blank: false } %>
+  <div class="n-form-field">
+    <%= f.label :trigger_mode, class: "n-label block font-medium" %>
+    <%= f.select :trigger_mode, options_for_select(AgentSkill.trigger_modes.map { |k, v| [ k.humanize, k ] }, agent_skill.trigger_mode), { include_blank: false }, class: "n-select" %>
   </div>
 
-  <div class="field">
-    <%= f.label :requires_rag_context %>
-    <%= f.check_box :requires_rag_context %>
-    <p class="text-sm text-gray-500 mt-1">Enable if skill needs document/chunk access</p>
+  <div class="n-form-field">
+    <%= f.label :priority, class: "n-label block font-medium" %>
+    <%= f.number_field :priority, in: 0..100, step: 1, class: "n-field" %>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Higher priority = tried first (0-100)</p>
   </div>
 
-  <div class="field">
-    <%= f.label :priority %>
-    <%= f.number_field :priority, in: 0..100, step: 1 %>
-    <p class="text-sm text-gray-500 mt-1">Higher priority = tried first (0-100)</p>
+  <div class="n-form-field flex items-center gap-2">
+    <%= f.check_box :requires_rag_context, class: "w-4 h-4 rounded n-main-focus" %>
+    <%= f.label :requires_rag_context, "Requires RAG context", class: "n-label !mb-0" %>
+    <span class="text-sm text-neutral-500 dark:text-neutral-400">— enable if skill needs document/chunk access</span>
   </div>
 
-  <div class="field">
-    <%= f.label :enabled %>
-    <%= f.check_box :enabled %>
+  <div class="n-form-field flex items-center gap-2">
+    <%= f.check_box :enabled, class: "w-4 h-4 rounded n-main-focus" %>
+    <%= f.label :enabled, class: "n-label !mb-0" %>
   </div>
 
-  <div class="actions">
-    <%= f.submit agent_skill.persisted? ? "Update Skill" : "Upload Skill", class: "btn btn-primary" %>
-    <%= link_to "Cancel", agent_skills_path, class: "btn btn-outline" %>
+  <div class="n-form-actions !justify-start gap-2 pt-2">
+    <%= f.submit agent_skill.persisted? ? "Update skill" : "Create skill", class: "n-btn-primary" %>
+    <%= link_to "Cancel", agent_skills_path, class: "n-btn" %>
   </div>
 <% end %>

@@ -13,7 +13,7 @@ class AgentSkillsController < ApplicationController
   def create
     @agent_skill = @account.agent_skills.new(agent_skill_params)
     if @agent_skill.save
-      redirect_to agent_skills_path, notice: "Agent skill uploaded successfully"
+      redirect_to agent_skills_path, notice: "Agent skill created successfully"
     else
       render :new
     end
@@ -56,8 +56,7 @@ class AgentSkillsController < ApplicationController
   def agent_skill_params
     params.require(:agent_skill).permit(
       :name, :description, :execution_mode, :trigger_mode,
-      :requires_rag_context, :enabled, :priority,
-      files: [], skill_md: []
+      :requires_rag_context, :enabled, :priority, :skill_content
     )
   end
 end

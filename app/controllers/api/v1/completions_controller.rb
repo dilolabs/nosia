@@ -22,7 +22,6 @@ module Api
           messages.each do |message_params|
             @chat.messages.create(
               content: message_params[:content],
-              response_number: @chat.messages.count,
               role: message_params[:role]
             )
           end
