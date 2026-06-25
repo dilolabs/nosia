@@ -397,16 +397,13 @@ setup_env() {
   POSTGRES_USER=nosia
   DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
 
-  # Docling configuration
-  if [ "$use_docling" = "true" ] || [ "$system_ram" -ge 8 ] || [ "$gpu_vram" -ge 4 ]; then
-    DOCLING_SERVE_BASE_URL=http://docling-serve:5001
-    AUGMENTED_CONTEXT=true
-    echo "Docling Serve enabled (resources available or user request)"
-  else
-    DOCLING_SERVE_BASE_URL=""
-    AUGMENTED_CONTEXT=false
-    echo "Docling Serve disabled (insufficient resources)"
-  fi
+  # Optional: Docling Serve Configuration
+  # For advanced documents understanding
+  DOCLING_SERVE_BASE_URL=
+
+  # Optional: Augmented Context
+  # Enable for enhanced chat completions with context augmentation
+  AUGMENTED_CONTEXT=true
 
   cat >.env <<EOF
 # Nosia Environment Configuration

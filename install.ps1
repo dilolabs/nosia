@@ -373,7 +373,7 @@ function Setup-Env {
     
     # Docling configuration
     $DOCLING_SERVE_BASE_URL = ""
-    $AUGMENTED_CONTEXT = "false"
+    $AUGMENTED_CONTEXT = "true"
     
     $envContent = @"
 # Nosia Environment Configuration
