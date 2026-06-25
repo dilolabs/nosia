@@ -1,0 +1,22 @@
+<% case server.status %>
+<% when "ready" %>
+  <span class="n-tag n-tag-ready">
+    <span class="h-2 w-2 rounded-full bg-green-600"></span>
+    Ready
+  </span>
+<% when "error" %>
+  <span class="n-tag n-tag-error">
+    <span class="h-2 w-2 rounded-full bg-red-600"></span>
+    Error
+  </span>
+<% when "connecting" %>
+  <span class="n-tag n-tag-connecting">
+    <span class="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></span>
+    Connecting
+  </span>
+<% else %>
+  <span class="n-tag n-tag-disconnected">
+    <span class="h-2 w-2 rounded-full bg-neutral-600"></span>
+    Disconnected
+  </span>
+<% end %>

@@ -1,4 +1,4 @@
-<%= form_with(model: mcp_server) do |form| %>
+<%= form_with(model: mcp_server, data: { controller: "mcp-form" }) do |form| %>
   <% if mcp_server.errors.any? %>
     <div class="rounded-lg bg-red-50 dark:bg-red-900/10 p-4">
       <h3 class="text-sm font-medium text-red-800 dark:text-red-400 mb-2">
@@ -56,9 +56,9 @@
           </div>
         </div>
 
-        <div class="n-form-field">
+        <div class="n-form-field flex items-center gap-2">
           <%= form.check_box :enabled, class: "rounded border-neutral-300 dark:border-neutral-700 text-green-600 focus:ring-green-500" %>
-          <%= form.label :enabled, "Server enabled", class: "n-label" %>
+          <%= form.label :enabled, "Server enabled", class: "n-label mb-0" %>
         </div>
       </div>
     </div>
