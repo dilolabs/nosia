@@ -9,6 +9,6 @@ class CreateChatMcpSessions < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :chat_mcp_sessions, [:chat_id, :mcp_server_id], unique: true
+    add_index :chat_mcp_sessions, [ :chat_id, :mcp_server_id ], unique: true
   end
 end

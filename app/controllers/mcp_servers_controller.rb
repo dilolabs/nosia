@@ -1,5 +1,5 @@
 class McpServersController < ApplicationController
-  before_action :set_mcp_server, only: [:show, :edit, :update, :destroy, :test_connection, :connect, :disconnect]
+  before_action :set_mcp_server, only: [ :show, :edit, :update, :destroy, :test_connection, :connect, :disconnect ]
 
   def index
     @mcp_servers = Current.account.mcp_servers.order(created_at: :desc)

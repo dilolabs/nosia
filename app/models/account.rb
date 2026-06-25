@@ -17,6 +17,7 @@ class Account < ApplicationRecord
   has_many :qnas, dependent: :destroy
   has_many :texts, dependent: :destroy
   has_many :websites, dependent: :destroy
+  has_many :agent_skills, dependent: :destroy
 
   def self.create_with_system_prompt!(attributes)
     account = Account.create!(attributes)

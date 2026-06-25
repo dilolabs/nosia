@@ -5,6 +5,7 @@ class Chat < ApplicationRecord
   include ContextRelevance
   include ModelContextProtocol
   include SimilaritySearch
+  include AgentSkillable
 
   acts_as_chat
   broadcasts_to ->(chat) { [ chat, "messages" ] }
@@ -22,7 +23,7 @@ class Chat < ApplicationRecord
   end
 
   def response_number
-    messages.count
+    Message.where(chat_id: id).count
   end
 
   def title

@@ -4,6 +4,12 @@
 
 <ul class="n-cards-grid !list-none">
   <li class="n-card n-main-border lg:col-span-2">
+    <%= link_to agent_skills_path, title: "Agent Skills", alt: "Manage agent skills", class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
+      <%= inline_svg "svg/code-bracket.svg", title: "Agent Skills", alt: "Agent Skills", class: "mx-auto w-12 h-12" %>
+      <p class="n-card-title">Agent Skills</p>
+    <% end %>
+  </li>
+  <li class="n-card n-main-border lg:col-span-2">
     <%= link_to api_tokens_path, class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
       <%= inline_svg "svg/code-bracket.svg", title:"API tokens", alt: "API Tokens", class: "mx-auto w-12 h-12" %>
       <p class="n-card-title">API Tokens</p>
