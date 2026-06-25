@@ -86,3 +86,5 @@ gem "ruby_llm" # Build chatbots, AI agents, RAG applications [https://github.com
 gem "ruby_llm-mcp" # Model Context Protocol support for RubyLLM [https://github.com/crmne/ruby_llm-mcp]
 gem "solid_queue" # Database-backed Active Job backend [https://github.com/rails/solid_queue]
 gem "thruster" # HTTP/2 proxy for simple production-ready deployments [https://github.com/basecamp/thruster]
+
+gem "concurrent-ruby", "~> 1.3"

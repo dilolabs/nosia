@@ -2,8 +2,10 @@
   <%= form_with(model: Message.new, url: [chat, chat.messages.new], data: { controller: "form chat-input", form_target: "form", chat_input_target: "wrapper" }, class: "w-full") do |form| %>
     <%= form.label :content, "Ask anything…", class: "sr-only" %>
 
-    <div class="relative w-full">
-      <%= form.text_area :content, rows: 2, autofocus: true, placeholder: "Ask anything...", data: { chat_input_target: "textarea", action: "input->chat-input#autogrow keydown->chat-input#handleKeys keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit"}, class: "n-form-chat" %>
+    <div class="relative w-full" data-controller="skill-autocomplete" data-skill-autocomplete-skills-value="<%= agent_skill_autocomplete_data %>">
+      <%= form.text_area :content, rows: 2, autofocus: true, placeholder: "Ask anything...", data: { chat_input_target: "textarea", skill_autocomplete_target: "input", action: "input->skill-autocomplete#onInput input->chat-input#autogrow keydown->skill-autocomplete#keydown keydown->chat-input#handleKeys keydown.meta+enter->form#submit keydown.ctrl+enter->form#submit"}, class: "n-form-chat" %>
+
+      <div class="n-skill-menu hidden" role="listbox" aria-label="Available skills" data-skill-autocomplete-target="menu"></div>
 
       <%= form.button type: :submit, data: { action: "chat-input#submit" },
         class: "n-btn-chat n-btn-chat-send" do %>
@@ -16,7 +18,7 @@
     </div>
 
     <div class="mt-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-      <span>Enter to send · Shift+Enter for a line break</span>
+      <span>Enter to send · Shift+Enter for a line break<%= " · Type / for skills" if Current.account.agent_skills.explicitly_invocable.exists? %></span>
       <button type="button" onclick="document.getElementById('mcp-selector-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>

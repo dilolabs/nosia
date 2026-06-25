@@ -470,6 +470,7 @@ DEPENDENCIES
   bundler-audit
   capybara
   commonmarker
+  concurrent-ruby (~> 1.3)
   debug
   dockerfile-rails
   dotenv

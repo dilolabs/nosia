@@ -10,6 +10,7 @@ Nosia is a platform that allows you to run AI models on your own data with compl
 - **🤖 OpenAI-Compatible API** - Drop-in replacement for OpenAI clients
 - **📚 RAG-Powered** - Augment AI responses with your documents
 - **🔌 MCP Integration** - Connect AI to external tools and services via Model Context Protocol
+- **🤖 Agent Skills** - Extend chat with custom LLM-driven and Ruby-based skills
 - **🔄 Real-time Streaming** - Server-sent events for live responses
 - **📄 Multi-format Support** - PDFs, text files, websites, and Q&A pairs
 - **🎯 Semantic Search** - Vector similarity search with pgvector
@@ -57,6 +58,7 @@ https://nosia.localhost
 - [📐 Architecture](docs/ARCHITECTURE.md) - Detailed system design and implementation
 - [📊 System Diagrams](docs/DIAGRAMS.md) - Visual representations of system components
 - [🚀 Deployment Guide](docs/DEPLOYMENT.md) - Production deployment strategies and best practices
+- [🤖 Agent Skills Development](docs/agent-skills-development.md) - Create custom skills for Nosia
 - [📋 Documentation Index](docs/README.md) - Complete documentation overview
 - [🤝 Code of Conduct](CODE_OF_CONDUCT.md) - Community guidelines
 

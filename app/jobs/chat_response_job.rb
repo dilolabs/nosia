@@ -5,9 +5,13 @@ class ChatResponseJob < ApplicationJob
     Rails.logger.info "=== ChatResponseJob started for chat ##{chat_id} ==="
     chat = Chat.find(chat_id)
     user_message = user_message_id ? Message.find(user_message_id) : nil
-    Rails.logger.info "User message: #{user_message&.id} - Content: #{content}"
+    Rails.logger.info "User message: #{user_message&.id} - Content: #{content[0..100]}..."
 
-    result = chat.complete_with_nosia(content, user_message: user_message)
+    if Rails.application.config.agent_skills.enabled
+      result = chat.complete_with_agent_skills(content, user_message: user_message)
+    else
+      result = chat.complete_with_nosia(content, user_message: user_message)
+    end
 
     Rails.logger.info "=== ChatResponseJob completed. Result: #{result&.id} ==="
   rescue Faraday::TimeoutError => e
