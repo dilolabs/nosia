@@ -84,21 +84,21 @@ function Select-LLMModel {
     
     if ($gpu_vram -lt 4) {
         if ($system_ram -lt 8) {
-            return "ai/ministral3:3B-Q4_K_M|32768|512|128"
+            return "ai/gemma4:E2B|32768|512|128"
         } else {
-            return "ai/ministral3:8B-Q4_K_M|32768|512|128"
+            return "ai/gemma4:E4B|32768|512|128"
         }
     } elseif ($gpu_vram -ge 4 -and $gpu_vram -lt 8) {
         if ($system_ram -ge 16 -and $system_ram -lt 32) {
-            return "ai/magistral-small-3.2:24B-UD-IQ2_XXS|32768|1024|256"
+            return "ai/gemma4:26B|32768|1024|256"
         } else {
-            return "ai/ministral3:8B-Q4_K_M|32768|512|128"
+            return "ai/gemma4:E4B|32768|512|128"
         }
     } else {
         if ($system_ram -ge 32) {
-            return "ai/ministral3:14B-BF16|32768|1024|256"
+            return "ai/mistral-small4:119B|32768|1024|256"
         } else {
-            return "ai/ministral3:8B-BF16|32768|1024|256"
+            return "ai/gemma4:26B|32768|1024|256"
         }
     }
 }
@@ -110,10 +110,8 @@ function Select-EmbeddingModel {
         [int]$system_ram
     )
     
-    if ($system_ram -ge 16 -and $gpu_vram -ge 4) {
-        return "ai/qwen3-0.6B-F16|4096|1024|256"
-    } elseif ($gpu_vram -ge 4) {
-        return "ai/qwen3-0.6B-F16|4096|1024|256"
+    if ($system_ram -ge 16 -and $gpu_vram -ge 8) {
+        return "ai/qwen3-embedding:8B-F16|4096|1024|256"
     } else {
         return "ai/granite-embedding-multilingual:278M-F16|768|512|128"
     }
@@ -336,8 +334,8 @@ function Setup-Env {
     # Set embedding dimensions if not set but model is
     if ([string]::IsNullOrEmpty($EMBEDDING_DIMENSIONS) -and -not [string]::IsNullOrEmpty($EMBEDDING_MODEL)) {
         switch -Regex ($EMBEDDING_MODEL) {
-            "granite-278M|278M" { $EMBEDDING_DIMENSIONS = 768 }
-            "qwen3-0.6B|0.6B" { $EMBEDDING_DIMENSIONS = 4096 }
+            "granite-embedding|278M" { $EMBEDDING_DIMENSIONS = 768 }
+            "qwen3-embedding|8B" { $EMBEDDING_DIMENSIONS = 4096 }
             "384|384d" { $EMBEDDING_DIMENSIONS = 384 }
             "768|768d" { $EMBEDDING_DIMENSIONS = 768 }
             default { $EMBEDDING_DIMENSIONS = 768 }

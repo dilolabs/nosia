@@ -94,21 +94,21 @@ select_llm_model() {
 
   if [ "$gpu_vram" -lt 4 ]; then
     if [ "$system_ram" -lt 8 ]; then
-      echo "ai/ministral3:3B-Q4_K_M|32768|512|128"
+      echo "ai/gemma4:E2B|32768|512|128"
     else
-      echo "ai/ministral3:8B-Q4_K_M|32768|512|128"
+      echo "ai/gemma4:E4B|32768|512|128"
     fi
   elif [ "$gpu_vram" -ge 4 ] && [ "$gpu_vram" -lt 8 ]; then
     if [ "$system_ram" -ge 16 ] && [ "$system_ram" -lt 32 ]; then
-      echo "ai/magistral-small-3.2:24B-UD-IQ2_XXS|32768|1024|256"
+      echo "ai/gemma4:26B|32768|1024|256"
     else
-      echo "ai/ministral3:8B-Q4_K_M|32768|512|128"
+      echo "ai/gemma4:E4B|32768|512|128"
     fi
   else
     if [ "$system_ram" -ge 32 ]; then
-      echo "ai/ministral3:14B-BF16|32768|1024|256"
+      echo "ai/mistral-small4:119B|32768|1024|256"
     else
-      echo "ai/ministral3:8B-BF16|32768|1024|256"
+      echo "ai/gemma4:26B|32768|1024|256"
     fi
   fi
 }
@@ -118,10 +118,8 @@ select_embedding_model() {
   gpu_vram=$1
   system_ram=$2
 
-  if [ "$system_ram" -ge 16 ] && [ "$gpu_vram" -ge 4 ]; then
-    echo "ai/qwen3-0.6B-F16|4096|1024|256"
-  elif [ "$gpu_vram" -ge 4 ]; then
-    echo "ai/qwen3-0.6B-F16|4096|1024|256"
+  if [ "$system_ram" -ge 16 ] && [ "$gpu_vram" -ge 8 ]; then
+    echo "ai/qwen3-embedding:8B-F16|4096|1024|256"
   else
     echo "ai/granite-embedding-multilingual:278M-F16|768|512|128"
   fi
@@ -365,8 +363,8 @@ setup_env() {
   # Set embedding dimensions if not set but model is
   if [ -z "$EMBEDDING_DIMENSIONS" ] && [ -n "$EMBEDDING_MODEL" ]; then
     case "$EMBEDDING_MODEL" in
-      *granite-278M*|*278M*) EMBEDDING_DIMENSIONS=768 ;;
-      *qwen3-0.6B*|*0.6B*) EMBEDDING_DIMENSIONS=4096 ;;
+      *granite-embedding*|*278M*) EMBEDDING_DIMENSIONS=768 ;;
+      *qwen3-embedding*|*8B*) EMBEDDING_DIMENSIONS=4096 ;;
       *384*|*384d*) EMBEDDING_DIMENSIONS=384 ;;
       *768*|*768d*) EMBEDDING_DIMENSIONS=768 ;;
       *) EMBEDDING_DIMENSIONS=768 ;;
