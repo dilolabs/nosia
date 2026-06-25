@@ -115,7 +115,7 @@ function Select-EmbeddingModel {
     } elseif ($gpu_vram -ge 4) {
         return "ai/qwen3-0.6B-F16|4096|1024|256"
     } else {
-        return "ai/granite-embedding-multilingual:278M-F16|278|512|128"
+        return "ai/granite-embedding-multilingual:278M-F16|768|512|128"
     }
 }
 
@@ -336,7 +336,7 @@ function Setup-Env {
     # Set embedding dimensions if not set but model is
     if ([string]::IsNullOrEmpty($EMBEDDING_DIMENSIONS) -and -not [string]::IsNullOrEmpty($EMBEDDING_MODEL)) {
         switch -Regex ($EMBEDDING_MODEL) {
-            "granite-278M|278M" { $EMBEDDING_DIMENSIONS = 278 }
+            "granite-278M|278M" { $EMBEDDING_DIMENSIONS = 768 }
             "qwen3-0.6B|0.6B" { $EMBEDDING_DIMENSIONS = 4096 }
             "384|384d" { $EMBEDDING_DIMENSIONS = 384 }
             "768|768d" { $EMBEDDING_DIMENSIONS = 768 }
