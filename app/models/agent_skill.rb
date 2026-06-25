@@ -24,6 +24,7 @@ class AgentSkill < ApplicationRecord
 
   scope :runnable, -> { where(enabled: true) }
   scope :by_name, ->(name) { where(name: name) }
+  scope :explicitly_invocable, -> { runnable.where(trigger_mode: %w[explicit combined]).order(priority: :desc, name: :asc) }
 
   def ruby_class_name
     "AgentSkills::#{name.camelize}"
