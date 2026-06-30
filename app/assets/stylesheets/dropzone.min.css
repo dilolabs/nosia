@@ -297,7 +297,7 @@
   min-width: 100%;
   max-width: 100%;
   padding: 2em 1em;
-  text-align: center;
+  text-align: left;
   color: rgba(0, 0, 0, 0.9);
   line-height: 150%;
 }
@@ -375,7 +375,7 @@
 }
 .dropzone .dz-preview .dz-success-mark svg,
 .dropzone .dz-preview .dz-error-mark svg {
-  display: block;
+  display: inline-block;
   width: 54px;
   height: 54px;
 }
