@@ -4,7 +4,7 @@ export default class extends Controller {
   static targets = ["container", "input", "list"];
   static values = {
     url: String,
-    maxFileSize: Number, // in MB
+    maxFileSize: { type: Number, default: 50 }, // in MB
     acceptedFiles: String, // comma-separated MIME types
     multiple: Boolean,
     variant: String, // "dashboard" or "minimal"
@@ -81,8 +81,16 @@ export default class extends Controller {
   }
 
   _validateFile(file) {
-    // Check file size
-    const maxSizeBytes = this.maxFileSizeValue * 1024 * 1024;
+    // Check file size - ensure we have a valid number with robust fallback
+    let maxSizeMB = parseInt(this.maxFileSizeValue, 10);
+    
+    // If parsing fails or value is invalid, use default of 50 MB
+    if (isNaN(maxSizeMB) || maxSizeMB <= 0) {
+      maxSizeMB = 50;
+    }
+    
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+    
     if (file.size > maxSizeBytes) {
       return false;
     }
