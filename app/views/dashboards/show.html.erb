@@ -9,10 +9,20 @@
     </p>
     <div class="mt-3 lg:mt-12 flex justify-center">
       <div class="w-full bg-white dark:bg-neutral-800 shadow-sm rounded-3xl border n-main-border">
-        <div data-controller="dropzone" data-action="dragenter->dropzone#highlight dragover->dropzone#highlight dragleave->dropzone#unhighlight drop->dropzone#drop click->dropzone#pick"
-          class="group relative flex-wrap m-6 sm:m-8 p-3 sm:p-6 md:py-14 rounded-xl text-center transition-all border-2 border-dashed n-main-border n-main-hover n-main-focus"
-          >
-          <input type="file" multiple class="hidden" data-dropzone-target="input">
+        <div data-controller="dropzone"
+             data-variant="dashboard"
+             data-url-value="/sources/documents"
+             data-max-file-size-value="512"
+             data-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg"
+             class="relative m-6 sm:m-8 p-3 sm:p-6 md:py-14 rounded-xl text-center">
+
+          <div data-dropzone-target="container"
+               class="group relative flex-wrap p-3 sm:p-6 md:py-14 rounded-xl text-center transition-all border-2 border-dashed n-main-border n-main-hover n-main-focus"
+               data-active="false">
+          <input type="file" multiple
+                 accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg"
+                 class="hidden"
+                 data-dropzone-target="input">
           <div class="mx-auto mb-4 h-12 w-12 rounded-2xl ring-1 ring-neutral-200/70 flex items-center justify-center
                       group-data-[active=true]:ring-neutral-300 transition">
             <%= inline_svg_tag "svg/download.svg", class: "h-6 w-6 text-neutral-500 dark:text-neutral-400" %>
@@ -24,9 +34,11 @@
 
           <div class="pointer-events-none absolute inset-0 rounded-2xl ring-8 ring-transparent
                       group-data-[active=true]:ring-neutral-100 transition"></div>
-
-          <ul class="mt-6 max-w-md mx-auto space-y-2 text-left hidden" data-dropzone-target="list"></ul>
         </div>
+
+        <ul data-dropzone-target="list"
+            class="mt-6 max-w-md mx-auto space-y-2 text-left hidden">
+        </ul>
       </div>
     </div>
   </section>
