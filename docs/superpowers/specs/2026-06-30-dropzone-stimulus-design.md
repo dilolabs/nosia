@@ -47,9 +47,10 @@ The current implementation uses the Dropzone.js library (v6.0.0) wrapped in a St
 
 **Key implementation details:**
 - File input: `<input type="file" multiple class="hidden" data-dropzone-target="input">`
-- Drag events: `dragenter`, `dragover`, `drop` on container element
+- Drag events: `dragenter`, `dragover`, `drop` on container element (the outer wrapper div, not the input itself)
 - Upload: `fetch()` with FormData, CSRF token in headers, progress via XHR upload event
 - Parallel uploads: limit to 5 concurrent (matches current Dropzone config)
+- File size limit: controlled by `data-max-file-size` attribute on controller element (default: 512 MB, matches current Dropzone config)
 
 ---
 
@@ -73,11 +74,15 @@ The current implementation uses the Dropzone.js library (v6.0.0) wrapped in a St
 **Minimal variant (`data-variant="minimal"`):**
 ```html
 <div data-controller="dropzone" data-variant="minimal">
-  <input type="file" multiple hidden data-dropzone-target="input">
-  <p class="text-sm text-neutral-500">Drop files here or click to browse</p>
+  <div data-dropzone-target="container" class="border-2 border-dashed p-4 text-center cursor-pointer hover:border-blue-500 transition">
+    <input type="file" multiple hidden data-dropzone-target="input">
+    <p class="text-sm text-neutral-500">Drop files here or click to browse</p>
+  </div>
   <ul data-dropzone-target="list" class="mt-4"></ul>
 </div>
 ```
+
+**Note:** The minimal variant includes a container div for drag highlight styling (same as dashboard), but with simpler visual treatment — no icon, shorter text, no rounded corners. Drag events attach to this container element.
 
 **File entry markup (dashboard):**
 ```html
