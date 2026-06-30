@@ -238,6 +238,15 @@ export default class extends Controller {
       this.activeUploads = this.activeUploads.filter((f) => f.name !== file.name);
       this.xhrsByFileName.delete(file.name);
       
+      // Debug: log the response for troubleshooting
+      console.log('Upload completed:', {
+        status: xhr.status,
+        statusText: xhr.statusText,
+        fileName: file.name,
+        url: this.urlValue,
+        responseBody: xhr.responseText?.substring(0, 500)
+      });
+      
       if (xhr.status >= 200 && xhr.status < 300) {
         // Success
         if (entry) {
@@ -275,6 +284,8 @@ export default class extends Controller {
     };
 
     const formData = new FormData();
+    // Add document parameters - title is required by the controller
+    formData.append("document[title]", file.name);
     formData.append("document[file]", file);
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
