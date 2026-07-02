@@ -9,20 +9,21 @@
     </p>
     <div class="mt-3 lg:mt-12 flex justify-center">
       <div class="w-full bg-white dark:bg-neutral-800 shadow-sm rounded-3xl border n-main-border">
-        <div data-controller="dropzone" data-variant="dashboard" data-url-value="/sources/documents" data-max-file-size-value="50" data-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg" class="relative m-4 p-3 sm:p-6 rounded-xl text-center">
+        <div data-controller="dropzone" data-variant="dashboard" data-dropzone-url-value="/sources/documents" data-dropzone-max-file-size-value="50" data-dropzone-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg" class="relative m-4 p-3 sm:p-6 rounded-xl text-center">
           <div data-dropzone-target="container" class="group relative flex-wrap p-3 sm:p-6 md:py-14 rounded-xl text-center transition-all border-2 border-dashed n-main-border n-main-hover n-main-focus" data-active="false">
-          <input type="file" multiple accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg" class="hidden" data-dropzone-target="input">
-          <div class="mx-auto mb-4 h-12 w-12 rounded-2xl ring-1 ring-neutral-200/70 flex items-center justify-center group-data-[active=true]:ring-neutral-300 transition">
-            <%= inline_svg_tag "svg/download.svg", class: "h-6 w-6 text-neutral-500 dark:text-neutral-400" %>
+            <input type="file" multiple accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg" class="hidden" data-dropzone-target="input">
+            <div class="mx-auto mb-4 h-12 w-12 rounded-2xl ring-1 ring-neutral-200/70 flex items-center justify-center group-data-[active=true]:ring-neutral-300 transition">
+              <%= inline_svg_tag "svg/download.svg", class: "h-6 w-6 text-neutral-500 dark:text-neutral-400" %>
+            </div>
+            <p class="text-base sm:text-lg font-semibold text-neutral-800 dark:text-white">Add any document</p>
+            <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">Click or drag’n’drop files here to upload</p>
+            <p class="mt-2 text-xs text-neutral-400 dark:text-neutral-500">PDF, PNG, JPG, DOCX · max 50&nbsp;MB</p>
+            <div class="pointer-events-none absolute inset-0 rounded-2xl ring-8 ring-transparent group-data-[active=true]:ring-neutral-100 transition"></div>
           </div>
-          <p class="text-base sm:text-lg font-semibold text-neutral-800 dark:text-white">Add any document</p>
-          <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">Click or drag’n’drop files here to upload</p>
-          <p class="mt-2 text-xs text-neutral-400 dark:text-neutral-500">PDF, PNG, JPG, DOCX · max 50&nbsp;MB</p>
-          <div class="pointer-events-none absolute inset-0 rounded-2xl ring-8 ring-transparent group-data-[active=true]:ring-neutral-100 transition"></div>
-        </div>
 
-        <ul data-dropzone-target="list" class="mt-6 max-w-md mx-auto space-y-2 text-left hidden">
-        </ul>
+          <ul data-dropzone-target="list" class="mt-6 max-w-md mx-auto space-y-2 text-left hidden">
+          </ul>
+        </div>
       </div>
     </div>
   </section>
