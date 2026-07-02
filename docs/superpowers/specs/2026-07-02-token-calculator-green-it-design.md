@@ -78,9 +78,12 @@ class TokenUsage < ApplicationRecord
   enum :kind, { completion: "completion", embedding: "embedding", agent_skill: "agent_skill" }
 
   # input_tokens, output_tokens, cached_tokens, cache_creation_tokens, thinking_tokens : integer
-  # model_id : string (ruby_llm model_id, not an FK — the models catalog is refreshable)
+  # model_id : string — the ruby_llm model id (e.g. "glm-5.2"), NOT the bigint FK on messages.
+  #   Stored as a string so it survives `models` catalog refresh and keys the GreenIt lookup directly.
 end
 ```
+
+**Resolving the string model_id (important):** `messages.model_id` is a `bigint` FK to `models`, and `models.model_id` is the ruby_llm string — two different columns that share a name. `Message` currently has **no** `belongs_to :model` declared. This feature adds `belongs_to :model` to `Message` so the string is resolved as `assistant_message.model.model_id` at write time (and `message.model&.model_id` for the footer). If the `Model` row is absent (deleted by a catalog refresh), `model.model_id` is nil and `GreenIt` falls back to its default coefficient — the same transparent fallback used for any unknown model.
 
 Source mapping:
 - **completion** → `source` = the assistant `Message`; `chat_id` copied from `message.chat_id`.
@@ -168,10 +171,13 @@ After `self.complete` returns, RubyLLM has persisted the assistant message(s) wi
 ```ruby
 TokenUsage.create!(
   kind: :completion, source: assistant_message,
-  chat_id: id, account_id:, model_id: assistant_message.model_id,
+  chat_id: id, account_id:,
+  model_id: assistant_message.model.model_id,   # ruby_llm string id via the new belongs_to :model
   input_tokens:, output_tokens:, cached_tokens:, cache_creation_tokens:, thinking_tokens:
 )
 ```
+
+If `assistant_message.model` is nil (catalog refreshed away), `model_id` is stored as nil and `GreenIt` uses its fallback coefficient for this row.
 
 Called from both `complete_with_nosia` and `complete_with_agent_skills` (both end in `self.complete`). Explicit, in the model layer.
 
@@ -200,7 +206,7 @@ After an `AgentSkillExecution` with `execution_mode: "llm"` call returns: `kind:
 ↑ 1,240 ↓ 320 · 0.006 kWh · 2.1 gCO2e*
 ```
 
-Reads from the message's token columns + `message.model_id` → `GreenIt`. Renders on the final `broadcast_updated` (when `done` flips true) — no new Turbo plumbing. The `*` appears only when the model used the Comparia fallback, with a tooltip explaining the estimate.
+Reads from the message's token columns + `message.model&.model_id` → `GreenIt` (resolves the ruby_llm string id via the new `belongs_to :model`; falls back to `GreenIt`'s default coefficient when the model is unknown/absent, marked with the `*`). Renders on the final `broadcast_updated` (when `done` flips true) — no new Turbo plumbing. The `*` appears only when the model used the Comparia fallback, with a tooltip explaining the estimate.
 
 ### 7.2 Per-chat totals
 
@@ -226,6 +232,8 @@ Reads from the message's token columns + `message.model_id` → `GreenIt`. Rende
 
 ## 8. Migrations
 
+**Prerequisite (non-migration):** add `belongs_to :model` to `Message` (and to `Chat` if not already present) so the ruby_llm string `model_id` is resolvable from a message/chat. The `models.model_id` column is the string; `messages.model_id` is the bigint FK.
+
 1. `create_table :token_usages` — UUIDv7 (base36 25-char), columns per Section 4, indexes: `(account_id, created_at)`, `(chat_id)`, `(source_type, source_id)`, `(account_id, kind)`, `(account_id, model_id)`.
 2. `add_column :chats, :input_tokens_count, :integer, default: 0` + `:output_tokens_count`.
 3. `add_column :accounts, :input_tokens_count, :integer, default: 0` + `:output_tokens_count`.
@@ -238,7 +246,7 @@ Reads from the message's token columns + `message.model_id` → `GreenIt`. Rende
 
 - `TokenUsageTest` — validations, enum, `acts_as_tenant` scoping, `after_create` counter increments, `energy_kwh`/`co2e_g` delegation.
 - `GreenItTest` — conversion math against known CSV rows (e.g. `glm-5.2` → 4095 mWh/1000tok), fallback path, ENV grid-intensity override, retroactive-update property (changing coefficient changes historical figure).
-- `Chat::CompletionableTest` — records a `TokenUsage` after complete; idempotent (no dupe on re-run).
+- `Chat::CompletionableTest` — records a `TokenUsage` after complete; idempotent (no dupe on re-run); stores the ruby_llm string `model_id` (via `message.model.model_id`), not the bigint FK; falls back gracefully when `message.model` is nil.
 - `Chunk::VectorizableTest` / `Chunk::SearchableTest` — embedding usage recorded, `chat_id` nil (indexing) / set (query).
 - `ChatTest` / `AccountTest` — `recount!` repairs drift.
 - Controller/view tests — footer renders when done, chat totals present, dashboard shows breakdowns.
