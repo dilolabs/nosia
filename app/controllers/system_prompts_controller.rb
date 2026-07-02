@@ -4,7 +4,8 @@ class SystemPromptsController < ApplicationController
   before_action :set_system_prompt, only: %i[show edit update destroy]
 
   def index
-    @system_prompts = Current.user.prompts
+    Current.user.accounts.each { |account| account.create_default_system_prompt!(user: nil) }
+    @system_prompts = Prompt.where(account: Current.user.accounts, name: "system_prompt").order(:account_id)
   end
 
   def show
@@ -29,7 +30,7 @@ class SystemPromptsController < ApplicationController
   private
 
   def set_system_prompt
-    @system_prompt = Current.user.prompts.find(params[:id])
+    @system_prompt = Prompt.where(account: Current.user.accounts, name: "system_prompt").find(params[:id])
   end
 
   def system_prompt_params

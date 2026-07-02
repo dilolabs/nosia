@@ -26,7 +26,7 @@ module Accounts
     end
 
     def set_system_prompt
-      @system_prompt = @account.prompts.find_by!(name: "system_prompt", user_id: nil)
+      @system_prompt = @account.create_default_system_prompt!(user: nil)
     end
 
     def system_prompt_params
