@@ -1,6 +1,14 @@
 <section>
+  <div class="n-title-container md:flex md:justify-between md:items-center">
+    <h2 class="n-main-title">New Website</h2>
+    <div class="flex gap-4">
+      <%= link_to sources_websites_path, class: "n-btn-secondary" do %>
+        <%= inline_svg "svg/return-up-back.svg", title:"Retour", alt:"Retour", class: "mx-auto w-6 h-6" %>
+        <span class="sr-only">Retour</span>
+      <% end %>
+    </div>
+  </div>
   <div class="n-form-container">
-    <h2 class="n-form-title">New Website</h2>
     <%= render "form", website: @website %>
   </div>
 </section>
