@@ -1,5 +1,9 @@
-<div class="n-title-container">
+<div class="n-title-container md:flex md:justify-between md:items-center">
   <h2 class="n-main-title">Edit website #<%= @website.id %></h2>
+  <%= link_to sources_website_path(@website), class: "n-btn-secondary" do %>
+    <%= inline_svg "svg/return-up-back.svg", title:"Retour", alt:"Retour", class: "mx-auto w-6 h-6" %>
+    <span class="sr-only">Retour</span>
+  <% end %>
 </div>
 <div class="n-form-container">
   <%= render "form", website: @website %>
