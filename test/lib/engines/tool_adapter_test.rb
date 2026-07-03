@@ -40,6 +40,36 @@ class Engines::ToolAdapterTest < ActiveSupport::TestCase
     end
   end
 
+  # An MCP::Tool that raises inside call -> execute rescue swallows into error string.
+  class RaisingTool < MCP::Tool
+    tool_name "raising_demo"
+    description "raises"
+    input_schema(properties: { query: { type: "string" } }, required: [ "query" ])
+    def self.call(query:, server_context:)
+      raise "boom"
+    end
+  end
+
+  # An MCP::Tool that returns an error Response -> unwrap error branch.
+  class ErrorDemoTool < MCP::Tool
+    tool_name "error_demo"
+    description "error response"
+    input_schema(properties: { query: { type: "string" } }, required: [ "query" ])
+    def self.call(query:, server_context:)
+      MCP::Tool::Response.new([ { type: "text", text: "failed" } ], error: true)
+    end
+  end
+
+  # An MCP::Tool returning hash structured_content -> appended as JSON.
+  class StructuredTool < MCP::Tool
+    tool_name "structured_demo"
+    description "structured"
+    input_schema(properties: { query: { type: "string" } }, required: [ "query" ])
+    def self.call(query:, server_context:)
+      MCP::Tool::Response.new([ { type: "text", text: "body" } ], structured_content: { query: query, count: 3 })
+    end
+  end
+
   test "returns a RubyLLM::Tool instance named from the tool_name" do
     adapted = Engines::ToolAdapter.for(FlatTool, server_context: { api_key: "sekret" })
     assert_kind_of RubyLLM::Tool, adapted
@@ -66,5 +96,28 @@ class Engines::ToolAdapterTest < ActiveSupport::TestCase
     assert Engines::ToolAdapter.supported?(FlatTool)
     assert Engines::ToolAdapter.supported?(NestedTool)
     assert_not Engines::ToolAdapter.supported?(UnsupportedTool)
+  end
+
+  test "execute swallows a raised exception into an error string" do
+    adapted = Engines::ToolAdapter.for(RaisingTool, server_context: {})
+    result = adapted.call({ "query" => "x" })
+    assert_match(/^Error calling raising_demo: boom/, result)
+  end
+
+  test "unwrap error branch surfaces an error response as Error: prefix" do
+    adapted = Engines::ToolAdapter.for(ErrorDemoTool, server_context: {})
+    result = adapted.call({ "query" => "x" })
+    assert_match(/^Error: /, result)
+    assert_includes result, "failed"
+  end
+
+  test "unwrap appends hash structured_content as JSON" do
+    adapted = Engines::ToolAdapter.for(StructuredTool, server_context: {})
+    result = adapted.call({ "query" => "x" })
+    assert_match(/^body/, result)
+    json_tail = result.sub(/\Abody\n\n/, "")
+    parsed = JSON.parse(json_tail)
+    assert_equal "x", parsed.fetch("query")
+    assert_equal 3, parsed.fetch("count")
   end
 end

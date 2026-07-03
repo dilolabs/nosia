@@ -50,6 +50,7 @@ module Engines
             response = @mcp_tool_class.call(**args, server_context: @server_context)
             Engines::ToolAdapter.unwrap(response)
           rescue => e
+            Rails.logger.error("[ToolAdapter] #{@mcp_tool_class.tool_name}: #{e.class}: #{e.message}")
             "Error calling #{@mcp_tool_class.tool_name}: #{e.message}"
           end
         end
