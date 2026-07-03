@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_18_204846) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -30,6 +30,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_204846) do
     t.string "uid"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "input_tokens_count", default: 0, null: false
+    t.integer "output_tokens_count", default: 0, null: false
     t.index ["owner_id"], name: "index_accounts_on_owner_id"
   end
 
@@ -146,6 +148,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_204846) do
     t.bigint "model_id"
     t.bigint "chat_id"
     t.boolean "generating", default: false, null: false
+    t.integer "input_tokens_count", default: 0, null: false
+    t.integer "output_tokens_count", default: 0, null: false
     t.index ["account_id"], name: "index_chats_on_account_id"
     t.index ["chat_id"], name: "index_chats_on_chat_id"
     t.index ["model_id"], name: "index_chats_on_model_id"
@@ -445,6 +449,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_204846) do
     t.index ["account_id"], name: "index_texts_on_account_id"
   end
 
+  create_table "token_usages", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "chat_id"
+    t.string "source_type"
+    t.bigint "source_id"
+    t.string "kind", null: false
+    t.string "model_id"
+    t.integer "input_tokens", default: 0, null: false
+    t.integer "output_tokens", default: 0, null: false
+    t.integer "cached_tokens", default: 0
+    t.integer "cache_creation_tokens", default: 0
+    t.integer "thinking_tokens", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_token_usages_on_account_id_and_created_at"
+    t.index ["account_id", "kind"], name: "index_token_usages_on_account_id_and_kind"
+    t.index ["account_id", "model_id"], name: "index_token_usages_on_account_id_and_model_id"
+    t.index ["account_id"], name: "index_token_usages_on_account_id"
+    t.index ["chat_id"], name: "index_token_usages_on_chat_id"
+    t.index ["source_type", "source_id"], name: "index_token_usages_on_source_type_and_source_id"
+  end
+
   create_table "tool_calls", force: :cascade do |t|
     t.string "tool_call_id", null: false
     t.string "name", null: false
@@ -515,6 +541,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_204846) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "texts", "accounts"
+  add_foreign_key "token_usages", "accounts"
+  add_foreign_key "token_usages", "chats"
   add_foreign_key "tool_calls", "messages"
   add_foreign_key "websites", "accounts"
 end

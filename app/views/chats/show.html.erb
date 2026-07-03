@@ -2,6 +2,7 @@
   <section data-controller="scroll" class="w-full overflow-y-auto">
     <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col max-w-4xl mx-auto">
       <%= tag.div id: dom_id(@chat, :messages), data: { controller: "message-ordering" } do %>
+        <%= render "chats/token_totals", chat: @chat %>
         <% @chat.messages.for_user.where.not(id: nil).order(:created_at).each do |message| %>
           <%= render message, message: %>
         <% end %>
@@ -14,6 +15,7 @@
         <% end %>
       <% end %>
       <%= turbo_stream_from @chat, :messages %>
+      <%= turbo_stream_from @chat, :token_totals %>
     </div>
   </section>
   <section class="w-full max-w-4xl mx-auto">

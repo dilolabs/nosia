@@ -1,0 +1,52 @@
+<%# Transparency & methodology behind the energy estimates %>
+<section class="w-full max-w-4xl mx-auto mt-4">
+  <details class="group rounded-2xl bg-white dark:bg-neutral-800 shadow-sm border n-main-border">
+    <summary class="flex cursor-pointer items-center gap-3 p-4 list-none n-main-hover rounded-2xl">
+      <%= inline_svg "svg/question-circle.svg", title: "Methodology", alt: "Methodology", class: "w-5 h-5 text-neutral-500 dark:text-neutral-400 shrink-0" %>
+      <span class="text-sm font-semibold text-neutral-700 dark:text-neutral-300">How is the energy impact of models calculated?</span>
+      <%= inline_svg "svg/chevron-down.svg", title: "Expand", alt: "Expand", class: "w-4 h-4 ml-auto text-neutral-400 transition-transform group-open:rotate-180 shrink-0" %>
+    </summary>
+
+    <div class="px-4 pb-4 pt-1 space-y-3 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed border-t n-main-border">
+      <p>
+        Nosia uses the methodology developed by
+        <a href="https://ecologits.ai" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300">Ecologits</a>
+        (GenAI Impact) — the same one powering
+        <a href="https://comparia.beta.gouv.fr" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300">compar:IA</a>
+        — to estimate the energy balance of generative-AI model inference. This lets you compare the environmental
+        impact of different models for the same request. Transparency is essential to encourage the development and
+        adoption of more eco-responsible AI models.
+      </p>
+
+      <p>
+        Ecologits applies life-cycle assessment (LCA) principles following the <strong class="text-neutral-700 dark:text-neutral-300">ISO 14044</strong>
+        standard, focusing for now on the impact of <em>inference</em> (using models to answer requests) and the
+        manufacturing of graphics cards (resource extraction, manufacturing, and transport).
+      </p>
+
+      <p>
+        The model's electricity consumption is estimated from parameters such as the size and architecture of the
+        model, the location of the servers where the models are deployed, and the number of output tokens. The
+        climate-change potential indicator, expressed in <strong class="text-neutral-700 dark:text-neutral-300">CO₂-equivalent</strong>,
+        is derived from the electricity-consumption measurement.
+      </p>
+
+      <p class="text-neutral-500 dark:text-neutral-500 italic">
+        Methodologies for assessing the environmental impact of AI are still under development.
+      </p>
+
+      <div class="rounded-lg bg-neutral-50 dark:bg-neutral-900/40 border n-main-border p-3 text-xs text-neutral-500 dark:text-neutral-400">
+        <p class="font-medium text-neutral-600 dark:text-neutral-300 mb-1">Data source</p>
+        <p>
+          Per-model consumption (mWh per 1000 tokens) from the
+          <a href="https://comparia.beta.gouv.fr/ranking" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 underline">Comparia model-energy dataset</a>
+          — <span class="font-medium">licence Etalab 2.0</span>, snapshot dated <span class="font-medium">2 July 2026</span>.
+        </p>
+        <p class="mt-1.5">
+          Models absent from the dataset (notably most API-only models, whose consumption is reported as <code class="px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 text-pink-600 dark:text-pink-400 font-mono">N/A</code>)
+          use a fallback coefficient — marked with <span class="font-medium">*</span> in the breakdowns above.
+        </p>
+      </div>
+    </div>
+  </details>
+</section>

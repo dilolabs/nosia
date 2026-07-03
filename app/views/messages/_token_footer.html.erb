@@ -1,0 +1,20 @@
+<%# app/views/messages/_token_footer.html.erb %>
+<%# Compact token + environmental-impact footer for a finalized assistant message. %>
+<%# Guarded at the call site (rendered only when message.done? && tokens present). %>
+<%
+  total_in = message.input_tokens || 0
+  total_out = message.output_tokens || 0
+  total = total_in + total_out
+  energy = GreenIt.energy_kwh(tokens: total, model_id: message.model&.model_id, kind: :completion)
+  kwh = energy[:kwh]
+  co2e = GreenIt.co2e_g(kwh: kwh)
+  fallback = energy[:fallback]
+  asterisk = fallback ? "*" : ""
+%>
+<footer class="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-2 flex-wrap">
+  <span title="Input / output tokens">↑ <%= number_with_delimiter(total_in) %> ↓ <%= number_with_delimiter(total_out) %></span>
+  <span aria-hidden="true">·</span>
+  <span title="Energy estimate (kWh)"><%= number_with_precision(kwh, precision: 6) %> kWh</span>
+  <span aria-hidden="true">·</span>
+  <span title="<%= fallback ? 'estimation — modèle absent du benchmark Comparia' : 'CO2e estimate' %>"><%= number_with_precision(co2e, precision: 2) %> gCO2e<%= asterisk %></span>
+</footer>

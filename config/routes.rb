@@ -39,6 +39,7 @@ Rails.application.routes.draw do
     end
     resources :chunks, only: [ :show ]
     resources :dashboards, only: [ :show ]
+    resource :token_usage, only: [ :show ], controller: "token_usages"
     resources :agent_skills, only: [ :index, :new, :create, :show, :edit, :update, :destroy ] do
       member do
         patch :toggle

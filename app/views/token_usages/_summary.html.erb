@@ -1,0 +1,143 @@
+<% cache [ Current.account, "token-usage-summary" ] do %>
+  <%
+    total_input  = token_totals[:input]
+    total_output = token_totals[:output]
+    total_tokens = total_input + total_output
+
+    # Headline environmental impact: per-model completion energy + embedding energy.
+    model_energy     = tokens_by_model.sum { |model_id, t| GreenIt.energy_kwh(tokens: t, model_id: model_id, kind: :completion)[:kwh] }
+    embedding_tokens = tokens_by_kind.fetch("embedding", 0)
+    embedding_energy = GreenIt.energy_kwh(tokens: embedding_tokens, model_id: nil, kind: :embedding)[:kwh]
+    total_kwh        = model_energy + embedding_energy
+    total_co2e       = GreenIt.co2e_g(kwh: total_kwh)
+    fallback_used    = tokens_by_model.any? { |model_id, t| GreenIt.energy_kwh(tokens: t, model_id: model_id, kind: :completion)[:fallback] }
+
+    max_model = tokens_by_model.first&.last.to_f
+    max_kind  = tokens_by_kind.values.max.to_f
+  %>
+  <section class="w-full max-w-4xl mx-auto space-y-4">
+    <%# Headline stat tiles %>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="rounded-xl border n-main-border bg-white dark:bg-neutral-800 p-4 shadow-sm">
+        <div class="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">↑</span>
+          Input
+        </div>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100"><%= number_with_delimiter(total_input) %></p>
+        <p class="text-[11px] text-neutral-400 dark:text-neutral-500">tokens</p>
+      </div>
+
+      <div class="rounded-xl border n-main-border bg-white dark:bg-neutral-800 p-4 shadow-sm">
+        <div class="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">↓</span>
+          Output
+        </div>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100"><%= number_with_delimiter(total_output) %></p>
+        <p class="text-[11px] text-neutral-400 dark:text-neutral-500">tokens</p>
+      </div>
+
+      <div class="rounded-xl border n-main-border bg-white dark:bg-neutral-800 p-4 shadow-sm">
+        <div class="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">∑</span>
+          Total
+        </div>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100"><%= number_with_delimiter(total_tokens) %></p>
+        <p class="text-[11px] text-neutral-400 dark:text-neutral-500">tokens</p>
+      </div>
+
+      <div class="rounded-xl border n-main-border bg-green-50 dark:bg-green-900/20 p-4 shadow-sm">
+        <div class="flex items-center gap-2 text-xs font-medium text-green-700 dark:text-green-400">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200">⚡</span>
+          Energy
+        </div>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100"><%= number_with_precision(total_kwh, precision: 6) %></p>
+        <p class="text-[11px] text-neutral-400 dark:text-neutral-500">kWh · <%= number_with_precision(total_co2e, precision: 2) %> gCO₂e</p>
+      </div>
+    </div>
+
+    <%# Breakdown card %>
+    <div class="rounded-2xl bg-white dark:bg-neutral-800 shadow-sm border n-main-border p-4 space-y-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">Per model (top 5)</p>
+          <ul class="space-y-3">
+            <% tokens_by_model.each do |model_id, t| %>
+              <% e = GreenIt.energy_kwh(tokens: t, model_id: model_id, kind: :completion) %>
+              <li>
+                <div class="flex items-center justify-between text-xs mb-1.5">
+                  <span class="font-medium text-neutral-700 dark:text-neutral-300 truncate"><%= model_id %></span>
+                  <span class="text-neutral-500 dark:text-neutral-400 shrink-0 ml-2"><%= number_with_delimiter(t) %> tok</span>
+                </div>
+                <div class="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-700 overflow-hidden">
+                  <div class="h-full rounded-full bg-green-500 dark:bg-green-400" style="width: <%= max_model.zero? ? 0 : (t.to_f / max_model * 100).round %>%"></div>
+                </div>
+                <div class="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1"><%= number_with_precision(e[:kwh], precision: 6) %> kWh<%= e[:fallback] ? "*" : "" %></div>
+              </li>
+            <% end %>
+            <% if tokens_by_model.empty? %>
+              <li class="text-sm text-neutral-400 dark:text-neutral-500">No usage yet.</li>
+            <% end %>
+          </ul>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">Per kind</p>
+          <ul class="space-y-2">
+            <% tokens_by_kind.each do |kind, t| %>
+              <li class="rounded-lg bg-neutral-50 dark:bg-neutral-900/40 px-3 py-2.5">
+                <div class="flex items-center justify-between text-xs mb-1.5">
+                  <span class="capitalize font-medium text-neutral-700 dark:text-neutral-300"><%= kind %></span>
+                  <span class="text-neutral-500 dark:text-neutral-400"><%= number_with_delimiter(t) %> tok</span>
+                </div>
+                <div class="h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
+                  <div class="h-full rounded-full bg-neutral-400 dark:bg-neutral-400" style="width: <%= max_kind.zero? ? 0 : (t.to_f / max_kind * 100).round %>%"></div>
+                </div>
+              </li>
+            <% end %>
+            <% if tokens_by_kind.empty? %>
+              <li class="text-sm text-neutral-400 dark:text-neutral-500">No usage yet.</li>
+            <% end %>
+          </ul>
+        </div>
+      </div>
+
+      <%# 30-day area sparkline, inline SVG, no chart library %>
+      <% if tokens_by_day.any? %>
+        <%
+          days = (0..29).map { |i| (30.days.ago.to_date + i) }
+          max  = tokens_by_day.values.max.to_f
+          max  = 1 if max.zero?
+          pts  = days.map.with_index { |d, i|
+            v = tokens_by_day.fetch(d.to_s, 0)
+            x = i * (300 / 29.0)
+            y = 36 - (v / max) * 32
+            "#{x.round(1)},#{y.round(1)}"
+          }
+          area = "0,40 #{pts.join(' ')} 300,40"
+          range_start = 30.days.ago.to_date
+          range_end   = Time.zone.today
+        %>
+        <div class="pt-2 border-t n-main-border">
+          <div class="flex items-baseline justify-between mb-2">
+            <p class="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Last 30 days</p>
+            <p class="text-[11px] text-neutral-400 dark:text-neutral-500"><%= l(range_start, format: :short) %> – <%= l(range_end, format: :short) %></p>
+          </div>
+          <svg viewBox="0 0 300 40" class="w-full h-12 text-green-500 dark:text-green-400" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="tokenGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="currentColor" stop-opacity="0.25" />
+                <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <polygon fill="url(#tokenGradient)" points="<%= area %>" />
+            <polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" points="<%= pts.join(' ') %>" />
+          </svg>
+        </div>
+      <% end %>
+
+      <% if fallback_used %>
+        <p class="text-[11px] text-neutral-400 dark:text-neutral-500">* estimated using a fallback energy coefficient (model not in the Comparia dataset).</p>
+      <% end %>
+    </div>
+  </section>
+<% end %>
