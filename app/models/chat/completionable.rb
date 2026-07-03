@@ -72,6 +72,8 @@ module Chat::Completionable
 
     message.update(similar_chunk_ids: chunks.pluck(:id))
 
+    record_completion_usage!(message)
+
     message
   end
 

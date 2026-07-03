@@ -1,0 +1,13 @@
+---
+# World-average grid intensity (gCO2e per kWh). Override for a local grid.
+# Source: IEA world average ~475 gCO2e/kWh.
+grid_intensity_gco2e_per_kwh: 475
+
+# Fallback for chat/completion models not in the Comparia dataset
+# (api-only models, unknown ids). Conservative default.
+fallback_kwh_per_token: 0.0000000900
+
+# Embedding models are generally not in Comparia (chat-focused).
+# Separate fallback for embedding input tokens.
+embedding:
+  kwh_per_input_token: 0.0000000100

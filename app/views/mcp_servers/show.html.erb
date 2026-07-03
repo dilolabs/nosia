@@ -8,32 +8,11 @@
 
 <div data-controller="mcp-server">
   <div class="n-title-container md:flex md:items-center md:justify-between">
-    <div class="items-center gap-1 xl:flex">
+    <div class="items-center gap-2 xl:flex">
       <h2 class="n-main-title"><%= @mcp_server.name %></h2>
 
-      <div class="flex items-center gap-1">
-        <% case @mcp_server.status %>
-        <% when "ready" %>
-          <span class="n-tag n-tag-ready">
-            <span class="h-2 w-2 rounded-full bg-green-600"></span>
-            Ready
-          </span>
-        <% when "error" %>
-          <span class="n-tag n-tag-error">
-            <span class="h-2 w-2 rounded-full bg-red-600"></span>
-            Error
-          </span>
-        <% when "connecting" %>
-          <span class="n-tag n-tag-connecting">
-            <span class="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></span>
-            Connecting
-          </span>
-        <% else %>
-          <span class="n-tag n-tag-disconnected">
-            <span class="h-2 w-2 rounded-full bg-neutral-600"></span>
-            Disconnected
-          </span>
-        <% end %>
+      <div class="flex items-center gap-2">
+        <%= render "status", server: @mcp_server %>
 
         <% if @mcp_server.latency_ms %>
           <span class="text-sm text-neutral-500 dark:text-neutral-400"><%= @mcp_server.latency_ms %>ms</span>
@@ -55,36 +34,27 @@
   </div>
 
   <% if @mcp_server.last_error.present? %>
-    <div class="mb-6">
-      <div class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/10">
-        <p class="text-sm font-medium text-red-800 dark:text-red-400">
-          Last error:
-        </p>
-
-        <p class="mt-1 text-sm text-red-700 dark:text-red-300"><%= @mcp_server.last_error %></p>
-      </div>
+    <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/10">
+      <p class="text-sm font-medium text-red-800 dark:text-red-400">Last error:</p>
+      <p class="mt-1 text-sm text-red-700 dark:text-red-300"><%= @mcp_server.last_error %></p>
     </div>
   <% end %>
 
-  <div class="border-b border-neutral-200 dark:border-neutral-700 mb-6">
+  <div class="border-b n-main-border mb-6">
     <nav class="-mb-px grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-      <a href="#overview" data-action="click->mcp-server#showTab" data-tab="overview"
-        class="mcp-tab n-main-focus active rounded-t-lg border-green-500 text-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium text-green-600 hover:border-neutral-300 hover:text-neutral-700 dark:text-green-400 dark:hover:text-neutral-300">
+      <a href="#overview" data-action="click->mcp-server#showTab" data-tab="overview" class="mcp-tab n-tab-active n-main-focus active rounded-t-lg">
         Overview
       </a>
 
-      <a href="#tools" data-action="click->mcp-server#showTab" data-tab="tools"
-        class="mcp-tab n-main-focus rounded-t-lg border-transparent text-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium text-neutral-500 hover:border-neutral-300 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300">
+      <a href="#tools" data-action="click->mcp-server#showTab" data-tab="tools" class="mcp-tab n-tab n-main-focus rounded-t-lg">
         Tools <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @tools.size %></span>
       </a>
 
-      <a href="#prompts" data-action="click->mcp-server#showTab" data-tab="prompts"
-        class="mcp-tab n-main-focus rounded-t-lg border-transparent text-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium text-neutral-500 hover:border-neutral-300 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300">
+      <a href="#prompts" data-action="click->mcp-server#showTab" data-tab="prompts" class="mcp-tab n-tab n-main-focus rounded-t-lg">
         Prompts <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @prompts.size %></span>
       </a>
 
-      <a href="#resources" data-action="click->mcp-server#showTab" data-tab="resources"
-        class="mcp-tab n-main-focus rounded-t-lg border-transparent text-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium text-neutral-500 hover:border-neutral-300 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300">
+      <a href="#resources" data-action="click->mcp-server#showTab" data-tab="resources" class="mcp-tab n-tab n-main-focus rounded-t-lg">
         Resources <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @resources.size %></span>
       </a>
     </nav>
@@ -95,40 +65,44 @@
     <%# Overview tab %>
     <div id="overview-tab" class="tab-pane">
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div class="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-          <h3 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">Configuration</h3>
-          <dl class="space-y-3">
-            <div>
-              <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Transport Type</dt>
-              <dd class="mt-1 text-sm text-neutral-900 dark:text-neutral-100"><%= @mcp_server.transport_type.upcase %></dd>
-            </div>
-            <div>
-              <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Endpoint</dt>
-              <dd class="mt-1 text-sm break-all text-neutral-900 dark:text-neutral-100"><%= @mcp_server.endpoint || @mcp_server.command %></dd>
-            </div>
-            <% if @mcp_server.last_connected_at %>
+        <div class="n-card n-main-border">
+          <div class="m-6">
+            <h3 class="mb-4 text-lg font-semibold">Configuration</h3>
+            <dl class="space-y-3">
               <div>
-                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Last Connected</dt>
-                <dd class="mt-1 text-sm text-neutral-900 dark:text-neutral-100"><%= time_ago_in_words(@mcp_server.last_connected_at) %></dd>
+                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Transport Type</dt>
+                <dd class="mt-1 text-sm"><%= @mcp_server.transport_type.upcase %></dd>
               </div>
-            <% end %>
-            <% if @mcp_server.tags.present? %>
               <div>
-                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Tags</dt>
-                <dd class="mt-1 flex flex-wrap gap-2">
-                  <% @mcp_server.tags.split(',').each do |tag| %>
-                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"><%= tag.strip %></span>
-                  <% end %>
-                </dd>
+                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Endpoint</dt>
+                <dd class="mt-1 text-sm break-all"><%= @mcp_server.endpoint || @mcp_server.command %></dd>
               </div>
-            <% end %>
-          </dl>
+              <% if @mcp_server.last_connected_at %>
+                <div>
+                  <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Last Connected</dt>
+                  <dd class="mt-1 text-sm"><%= time_ago_in_words(@mcp_server.last_connected_at) %> ago</dd>
+                </div>
+              <% end %>
+              <% if @mcp_server.tags.present? %>
+                <div>
+                  <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Tags</dt>
+                  <dd class="mt-1 flex flex-wrap gap-2">
+                    <% @mcp_server.tags.split(',').each do |tag| %>
+                      <span class="n-tag n-tag-disconnected"><%= tag.strip %></span>
+                    <% end %>
+                  </dd>
+                </div>
+              <% end %>
+            </dl>
+          </div>
         </div>
 
         <% if @mcp_server.notes.present? %>
-          <div class="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-            <h3 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">Notes</h3>
-            <p class="text-sm whitespace-pre-wrap text-neutral-600 dark:text-neutral-400"><%= @mcp_server.notes %></p>
+          <div class="n-card n-main-border">
+            <div class="m-6">
+              <h3 class="mb-4 text-lg font-semibold">Notes</h3>
+              <p class="text-sm whitespace-pre-wrap text-neutral-600 dark:text-neutral-400"><%= @mcp_server.notes %></p>
+            </div>
           </div>
         <% end %>
       </div>
@@ -139,15 +113,15 @@
       <% if @tools.any? %>
         <div class="grid grid-cols-1 gap-4">
           <% @tools.each do |tool| %>
-            <div class="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-              <div class="flex items-start justify-between">
+            <div class="n-card n-main-border">
+              <div class="m-6 flex items-start justify-between gap-4">
                 <div class="flex-1">
-                  <h4 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"><%= tool.name %></h4>
+                  <h4 class="text-lg font-semibold"><%= tool.name %></h4>
                   <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"><%= tool.description %></p>
                   <% if tool.respond_to?(:input_schema) && tool.input_schema %>
                     <div class="mt-4">
                       <p class="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">Parameters:</p>
-                      <pre class="overflow-x-auto rounded bg-neutral-50 p-3 text-xs dark:bg-neutral-900"><%= JSON.pretty_generate(tool.input_schema) %></pre>
+                      <pre class="overflow-x-auto rounded-lg bg-neutral-50 p-3 text-xs dark:bg-neutral-900"><%= JSON.pretty_generate(tool.input_schema) %></pre>
                     </div>
                   <% end %>
                 </div>
@@ -168,10 +142,10 @@
       <% if @prompts.any? %>
         <div class="grid grid-cols-1 gap-4">
           <% @prompts.each do |prompt| %>
-            <div class="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-              <div class="flex items-start justify-between">
+            <div class="n-card n-main-border">
+              <div class="m-6 flex items-start justify-between gap-4">
                 <div class="flex-1">
-                  <h4 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"><%= prompt.name %></h4>
+                  <h4 class="text-lg font-semibold"><%= prompt.name %></h4>
                   <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"><%= prompt.description %></p>
                   <% if prompt.respond_to?(:arguments) && prompt.arguments&.any? %>
                     <div class="mt-4">
@@ -190,7 +164,7 @@
                     </div>
                   <% end %>
                 </div>
-                <button class="ml-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">Test</button>
+                <button class="n-btn-primary">Test</button>
               </div>
             </div>
           <% end %>
@@ -207,12 +181,14 @@
       <% if @resources.any? %>
         <div class="grid grid-cols-1 gap-4">
           <% @resources.each do |resource| %>
-            <div class="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-              <h4 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"><%= resource.uri %></h4>
-              <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"><%= resource.description %></p>
-              <% if resource.respond_to?(:mime_type) %>
-                <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Type: <%= resource.mime_type %></p>
-              <% end %>
+            <div class="n-card n-main-border">
+              <div class="m-6">
+                <h4 class="text-lg font-semibold break-all"><%= resource.uri %></h4>
+                <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"><%= resource.description %></p>
+                <% if resource.respond_to?(:mime_type) %>
+                  <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Type: <%= resource.mime_type %></p>
+                <% end %>
+              </div>
             </div>
           <% end %>
         </div>
@@ -235,11 +211,11 @@ document.addEventListener('turbo:load', () => {
 
       // Update tab styles
       document.querySelectorAll('.mcp-tab').forEach(t => {
-        t.classList.remove('active', 'border-green-500', 'text-green-600', 'dark:text-green-400')
-        t.classList.add('border-transparent', 'text-neutral-500', 'dark:text-neutral-400')
+        t.classList.remove('active', 'n-tab-active')
+        t.classList.add('n-tab')
       })
-      e.currentTarget.classList.add('active', 'border-green-500', 'text-green-600', 'dark:text-green-400')
-      e.currentTarget.classList.remove('border-transparent', 'text-neutral-500', 'dark:text-neutral-400')
+      e.currentTarget.classList.add('active', 'n-tab-active')
+      e.currentTarget.classList.remove('n-tab')
 
       // Show/hide tab panes
       document.querySelectorAll('.tab-pane').forEach(pane => {

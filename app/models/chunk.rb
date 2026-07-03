@@ -7,7 +7,7 @@ class Chunk < ApplicationRecord
   def augmented_context
     previous = previous_chunks(2)
     following = next_chunks(2)
-    (previous + [self] + following).map(&:context).join("\n")
+    (previous + [ self ] + following).map(&:context).join("\n")
   end
 
   def context

@@ -1,9 +1,15 @@
-<div class="n-title-container flex justify-between items-center">
+<div class="flex items-center justify-between n-title-container">
   <h2 class="n-main-title">Q&As</h2>
-  <%= link_to "Add Q&A", new_sources_qna_path, class: "n-btn-primary" %>
+  <div class="flex gap-4">
+    <%= link_to sources_path, class: "n-btn-secondary" do %>
+      <%= inline_svg "svg/return-up-back.svg", title:"Retour", alt:"Retour", class: "mx-auto w-6 h-6" %>
+      <span class="sr-only">Retour</span>
+    <% end %>
+    <%= link_to "Add Q&A", new_sources_qna_path, class: "n-btn-primary" %>
+  </div>
 </div>
 
-<ul class="n-cards-grid list-none">
+<ul class="list-none n-cards-grid">
   <% @qnas.each do |qna| %>
     <li class="n-card n-main-border lg:col-span-2 ">
       <div class="m-6 space-y-2">

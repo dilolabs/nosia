@@ -1,3 +1,8 @@
+production:
+  green_it_recount:
+    class: GreenIt::RecountJob
+    schedule: every hour at minute 7
+
 # production:
 #   periodic_upgrade_documents:
 #     class: UpgradeDocumentsJob

@@ -6,7 +6,7 @@ class Message < ApplicationRecord
   has_many_attached :attachments
 
   scope :for_user, -> { without_system_prompts.with_content.without_tool_calls }
-  scope :without_system_prompts, -> { where.not(role: [:system, :tool]) }
+  scope :without_system_prompts, -> { where.not(role: [ :system, :tool ]) }
   scope :with_content, -> { where("role != 10 OR (role = 10 AND content IS NOT NULL AND content != '')") }
   scope :without_tool_calls, -> {
     left_joins(:tool_calls)
@@ -17,9 +17,12 @@ class Message < ApplicationRecord
   enum :role, { system: 0, assistant: 10, user: 20, tool: 30 }
 
   belongs_to :chat
+  belongs_to :model, optional: true
   has_many :tool_calls, dependent: :destroy
+  has_many :token_usages, as: :source, dependent: :destroy
 
   before_create :set_default_role
+  before_create :set_response_number
   after_create_commit -> { broadcast_created }
   after_update_commit -> { broadcast_updated }
 
@@ -119,6 +122,10 @@ class Message < ApplicationRecord
 
   def set_default_role
     self.role ||= "user"
+  end
+
+  def set_response_number
+    self.response_number = Message.where(chat_id: chat_id).count if response_number.blank?
   end
 
   def similar_authors

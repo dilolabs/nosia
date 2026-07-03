@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -30,6 +30,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
     t.string "uid"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "input_tokens_count", default: 0, null: false
+    t.integer "output_tokens_count", default: 0, null: false
     t.index ["owner_id"], name: "index_accounts_on_owner_id"
   end
 
@@ -59,6 +61,51 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "agent_skill_executions", force: :cascade do |t|
+    t.bigint "agent_skill_id", null: false
+    t.bigint "chat_id", null: false
+    t.bigint "message_id"
+    t.string "execution_mode", null: false
+    t.string "status", null: false
+    t.jsonb "trigger_context", default: {}
+    t.jsonb "input", default: {}
+    t.jsonb "output", default: {}
+    t.text "error_message"
+    t.integer "duration_ms"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "account_id", null: false
+    t.index ["account_id"], name: "index_agent_skill_executions_on_account_id"
+    t.index ["agent_skill_id", "created_at"], name: "index_agent_skill_executions_on_agent_skill_id_and_created_at"
+    t.index ["agent_skill_id"], name: "index_agent_skill_executions_on_agent_skill_id"
+    t.index ["chat_id", "created_at"], name: "index_agent_skill_executions_on_chat_id_and_created_at"
+    t.index ["chat_id"], name: "index_agent_skill_executions_on_chat_id"
+    t.index ["created_at"], name: "index_agent_skill_executions_on_created_at"
+    t.index ["message_id"], name: "index_agent_skill_executions_on_message_id"
+    t.index ["status"], name: "index_agent_skill_executions_on_status"
+  end
+
+  create_table "agent_skills", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.string "execution_mode", default: "llm", null: false
+    t.string "trigger_mode", default: "explicit", null: false
+    t.jsonb "metadata", default: {}
+    t.boolean "requires_rag_context", default: false
+    t.boolean "enabled", default: true
+    t.integer "priority", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.text "skill_content"
+    t.index ["account_id", "enabled"], name: "index_agent_skills_on_account_id_and_enabled"
+    t.index ["account_id", "execution_mode"], name: "index_agent_skills_on_account_id_and_execution_mode"
+    t.index ["account_id", "name"], name: "index_agent_skills_on_account_id_and_name", unique: true
+    t.index ["account_id", "trigger_mode"], name: "index_agent_skills_on_account_id_and_trigger_mode"
+    t.index ["account_id"], name: "index_agent_skills_on_account_id"
+    t.index ["name"], name: "index_agent_skills_on_name"
   end
 
   create_table "api_tokens", force: :cascade do |t|
@@ -101,6 +148,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
     t.bigint "model_id"
     t.bigint "chat_id"
     t.boolean "generating", default: false, null: false
+    t.integer "input_tokens_count", default: 0, null: false
+    t.integer "output_tokens_count", default: 0, null: false
     t.index ["account_id"], name: "index_chats_on_account_id"
     t.index ["chat_id"], name: "index_chats_on_chat_id"
     t.index ["model_id"], name: "index_chats_on_model_id"
@@ -110,7 +159,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
   create_table "chunks", force: :cascade do |t|
     t.bigint "chunkable_id", null: false
     t.text "content"
-    t.vector "embedding", limit: 768
+    t.vector "embedding", limit: 4096
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "chunkable_type"
@@ -400,6 +449,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
     t.index ["account_id"], name: "index_texts_on_account_id"
   end
 
+  create_table "token_usages", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "chat_id"
+    t.string "source_type"
+    t.bigint "source_id"
+    t.string "kind", null: false
+    t.string "model_id"
+    t.integer "input_tokens", default: 0, null: false
+    t.integer "output_tokens", default: 0, null: false
+    t.integer "cached_tokens", default: 0
+    t.integer "cache_creation_tokens", default: 0
+    t.integer "thinking_tokens", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_token_usages_on_account_id_and_created_at"
+    t.index ["account_id", "kind"], name: "index_token_usages_on_account_id_and_kind"
+    t.index ["account_id", "model_id"], name: "index_token_usages_on_account_id_and_model_id"
+    t.index ["account_id"], name: "index_token_usages_on_account_id"
+    t.index ["chat_id"], name: "index_token_usages_on_chat_id"
+    t.index ["source_type", "source_id"], name: "index_token_usages_on_source_type_and_source_id"
+  end
+
   create_table "tool_calls", force: :cascade do |t|
     t.string "tool_call_id", null: false
     t.string "name", null: false
@@ -438,6 +509,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
   add_foreign_key "accounts", "users", column: "owner_id"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "agent_skill_executions", "accounts"
+  add_foreign_key "agent_skill_executions", "agent_skills"
+  add_foreign_key "agent_skill_executions", "chats"
+  add_foreign_key "agent_skill_executions", "messages"
+  add_foreign_key "agent_skills", "accounts"
   add_foreign_key "api_tokens", "accounts"
   add_foreign_key "api_tokens", "users"
   add_foreign_key "chat_mcp_sessions", "chats"
@@ -465,6 +541,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_02_102301) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "texts", "accounts"
+  add_foreign_key "token_usages", "accounts"
+  add_foreign_key "token_usages", "chats"
   add_foreign_key "tool_calls", "messages"
   add_foreign_key "websites", "accounts"
 end

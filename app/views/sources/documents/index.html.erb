@@ -1,13 +1,33 @@
 <div class="n-title-container md:flex md:justify-between md:items-center">
   <h2 class="n-main-title">Documents</h2>
-  <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary hidden md:inline-flex " %>
+  <div class="flex gap-4">
+    <%= link_to sources_path, class: "n-btn-secondary" do %>
+      <%= inline_svg "svg/return-up-back.svg", title:"Retour", alt:"Retour", class: "mx-auto w-6 h-6" %>
+      <span class="sr-only">Retour</span>
+    <% end %>
+    <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary hidden md:inline-flex " %>
+  </div>
 </div>
 
-<div data-controller="dropzone" class="mt-2 !flex items-stretch justify-center dropzone"></div>
+<div data-controller="dropzone" 
+     data-variant="minimal"
+     data-url-value="/sources/documents"
+     data-max-file-size-value="50"
+     class="mt-2">
+  <div data-dropzone-target="container" 
+       class="border-2 border-dashed p-4 text-center cursor-pointer hover:border-blue-500 transition rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
+    <input type="file" multiple 
+           accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg"
+           class="hidden" 
+           data-dropzone-target="input">
+    <p class="text-sm text-neutral-500 dark:text-neutral-400">Drop files here or click to browse</p>
+  </div>
+  <ul data-dropzone-target="list" class="mt-4 space-y-1"></ul>
+</div>
 <ul class="n-cards-grid !list-none">
   <% @documents.each do |document| %>
     <li class="n-card n-main-border lg:col-span-2">
-      <div class="m-5 p-1 truncate space-y-2">
+      <div class="p-1 m-5 space-y-2 truncate">
         <div class="flex items-center justify-between">
           <p class="n-card-subtitle"><%= document.account&.name %></p>
           <div class="flex items-center gap-4">

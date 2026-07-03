@@ -17,6 +17,15 @@ class Account < ApplicationRecord
   has_many :qnas, dependent: :destroy
   has_many :texts, dependent: :destroy
   has_many :websites, dependent: :destroy
+  has_many :agent_skills, dependent: :destroy
+  has_many :token_usages, dependent: :destroy
+
+  # Recompute cached token counters from the token_usages event log (drift repair).
+  # Rails 8's sum takes a single column, so two queries (small, indexed).
+  def recount!
+    update!(input_tokens_count: token_usages.sum(:input_tokens) || 0,
+            output_tokens_count: token_usages.sum(:output_tokens) || 0)
+  end
 
   def self.create_with_system_prompt!(attributes)
     account = Account.create!(attributes)
