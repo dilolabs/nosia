@@ -88,13 +88,13 @@ class McpCatalog
     end
 
     def build_registry_auth(template, config_values)
-      Array(template[:required_config]).each_with_object({}) do |field, auth|
+      Array(template[:requires_config]).each_with_object({}) do |field, auth|
         auth[field[:name].to_s] = config_values[field[:name].to_s].to_s
       end
     end
 
     def validate_required(template, auth)
-      missing = Array(template[:required_config]).select do |field|
+      missing = Array(template[:requires_config]).select do |field|
         field[:required] && auth[field[:name].to_s].blank?
       end
       return if missing.empty?

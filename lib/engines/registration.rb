@@ -26,7 +26,10 @@ module Engines
         category: category,
         source: :registry,
         capabilities: capabilities,
-        required_config: required_config
+        # Key matches the YAML catalog + views convention (`requires_config`),
+        # so the activation form renders registry entries unchanged. The
+        # internal attribute stays `required_config`; only the catalog key aligns.
+        requires_config: required_config
       }
     end
   end
