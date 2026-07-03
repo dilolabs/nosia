@@ -105,9 +105,12 @@ a different shape (no command/args/env/url/headers; they carry `tool_classes`, `
 
 - **Listing:** `McpCatalog.all`/`find` merge registry entries into the same list, each tagged
   `source: :registry` (YAML entries carry `source: :yaml` implicitly). `load_catalog` becomes
-  `yaml_servers + Engines::Registry.all.map(&:to_catalog_entry)`. The catalog controller and views
-  are source-agnostic — they already render from `@servers`, so registry entries appear with no
-  template-specific UI changes beyond a "Built-in" badge.
+  `yaml_servers + Engines::Registry.all.map(&:to_catalog_entry)`. `to_catalog_entry` emits the full
+  hash the catalog/UI reads: `{ id:, name:, icon:, description:, category: "engines", source:
+  :registry, capabilities: <engine-declared or []>, required_config: }` — `category` is a fixed
+  `"engines"` (used for `tags` and grouping), `capabilities` is engine-declared (defaults to
+  `[]`). The catalog controller and views are source-agnostic — they render from `@servers`, so
+  registry entries appear with no template-specific UI changes beyond a "Built-in" badge.
 - **Activation:** `activate_for_account` branches on `template[:source]`. For `:registry` it
   builds a `local` server directly — `transport_type: "local"`, `endpoint: nil`,
   `connection_config: {}`, `metadata: { engine: template[:id], catalog_id: template[:id], icon:,
@@ -140,6 +143,8 @@ These are listed engine changes, not assumptions about the current `ApiClient`.
   `metadata.engine` holds the registry id; `auth_config` holds credentials (`api_key`, or
   `token` + `drive_id`), already encrypted via `encrypts :auth_config`.
 - `#client` returns `nil` for `local` (no `RubyLLM::MCP.client`).
+- `metadata.engine` is read directly off the JSONB `metadata` (`metadata[:engine]`); no new
+  `store_accessor` is added (the existing accessors for `:capabilities` etc. are untouched).
 - `#tools` for `local` resolves `Engines::Registry[metadata.engine].tool_classes`, maps each
   through `Engines::ToolAdapter` with `server_context` from decrypted `auth_config`. Returns
   RubyLLM tools.
