@@ -1,0 +1,115 @@
+id,Bradley-Terry Score,Consumption mWh (1000 tokens),Size,Parameters (B),Architecture,Organisation,License
+glm-5.2,1158,4095,XL,744,moe,Zhipu,open-weights
+gpt-5.3,1143,N/A,L,N/A,maybe-moe,OpenAI,api-only
+gemini-3-flash-preview,1132,N/A,XL,N/A,moe,Google,api-only
+claude-4-6-sonnet,1126,N/A,XL,N/A,maybe-moe,Anthropic,api-only
+gemini-3.1-flash-lite-preview,1116,N/A,L,N/A,moe,Google,api-only
+minimax-m3,1113,1718,XL,428,moe,MiniMax,open-weights
+gpt-5.5,1111,N/A,L,N/A,maybe-moe,OpenAI,api-only
+gemini-2.0-flash,1107,N/A,XL,N/A,moe,Google,api-only
+gpt-5.4,1105,N/A,L,N/A,maybe-moe,OpenAI,api-only
+gemma-4-31b-it,1104,117,S,31,dense,Google,open-weights
+qwen3-max-2025-09-23,1102,N/A,XL,N/A,moe,Alibaba,api-only
+gpt-5.2,1095,N/A,L,N/A,maybe-moe,OpenAI,api-only
+gpt-5.4-mini,1093,N/A,S,N/A,maybe-moe,OpenAI,api-only
+gemma-4-26b-a4b-it,1093,84,S,26,moe,Google,open-weights
+gemini-2.5-flash,1092,N/A,XL,N/A,moe,Google,api-only
+deepseek-v3-0324,1090,3979,XL,685,moe,DeepSeek,open-weights
+gpt-5.1,1090,N/A,L,N/A,maybe-moe,OpenAI,api-only
+claude-3-7-sonnet,1090,N/A,XL,N/A,maybe-moe,Anthropic,api-only
+deepseek-v3-chat,1089,3979,XL,671,moe,DeepSeek,open-weights
+claude-4-5-sonnet,1087,N/A,XL,N/A,maybe-moe,Anthropic,api-only
+magistral-medium,1080,N/A,L,N/A,maybe-dense,Mistral AI,api-only
+kimi-k2,1074,3785,XL,1000,moe,Moonshot AI,open-weights
+qwen3-coder-next,1072,332,M,80,moe,Alibaba,open-weights
+claude-4-sonnet,1072,N/A,XL,N/A,maybe-moe,Anthropic,api-only
+gemma-3-27b,1069,112,S,27,dense,Google,open-weights
+gpt-4.1-mini,1066,N/A,M,N/A,maybe-dense,OpenAI,api-only
+gpt-5.4-nano,1066,N/A,XS,N/A,maybe-moe,OpenAI,api-only
+mistral-medium-2508,1065,N/A,L,N/A,maybe-dense,Mistral AI,api-only
+deepseek-v4-flash,1065,1524,L,284,moe,DeepSeek,open-weights
+gemini-3.1-pro-preview,1063,N/A,XL,N/A,moe,Google,api-only
+DeepSeek-V3.2,1062,3979,XL,685,moe,DeepSeek,open-weights
+deepseek-chat-v3.1,1060,3979,XL,685,moe,DeepSeek,open-weights
+gemini-3-pro-preview,1058,N/A,XL,N/A,moe,Google,api-only
+trinity-large-preview,1055,1524,L,398,moe,Arcee,open-weights
+Qwen3-Coder-480B-A35B-Instruct,1055,1951,XL,480,moe,Alibaba,open-weights
+gemini-3.5-flash,1049,N/A,XL,N/A,maybe-moe,Google,api-only
+mistral-large-2512,1048,4134,XL,675,moe,Mistral AI,open-weights
+gpt-5-mini,1046,N/A,S,N/A,maybe-moe,OpenAI,api-only
+command-a,1046,857,L,111,dense,Cohere,open-weights
+o4-mini,1046,N/A,S,N/A,maybe-dense,OpenAI,api-only
+mistral-small-2506,1041,109,S,24,dense,Mistral AI,open-weights
+gemma-3-12b,1040,94,XS,12,dense,Google,open-weights
+llama-maverick,1038,1601,XL,400,moe,Meta,open-weights
+gemini-1.5-pro,1038,N/A,XL,N/A,moe,Google,api-only
+deepseek-v4-pro,1038,8890,XL,1600,moe,DeepSeek,open-weights
+gpt-5,1037,N/A,L,N/A,maybe-moe,OpenAI,api-only
+glm-4.5,1035,1892,L,355,moe,Zhipu,open-weights
+trinity-large-thinking,1033,1524,L,398,moe,Arcee,open-weights
+claude-3-5-sonnet-v2,1031,N/A,XL,N/A,maybe-moe,Anthropic,api-only
+mistral-small-2603,1031,347,L,119,moe,Mistral AI,open-weights
+o3-mini,1020,N/A,S,N/A,maybe-dense,OpenAI,api-only
+magistral-small-2506,1019,109,S,24,dense,Mistral AI,open-weights
+llama-4-scout,1016,400,L,109,moe,Meta,open-weights
+kimi-k2.6,1015,3785,XL,1000,moe,Moonshot AI,open-weights
+kimi-k2.5,1013,3785,XL,1000,moe,Moonshot AI,open-weights
+kimi-k2-thinking,1013,3785,XL,1000,moe,Moonshot AI,open-weights
+glm-4.6,1013,1892,L,357,moe,Zhipu,open-weights
+gemma-3-4b,1011,84,XS,4,dense,Google,open-weights
+lfm2-8b-a1b,1010,81,XS,8,moe,Liquid,open-weights
+gemma-3n-e4b-it,1006,84,XS,8,matformer,Google,open-weights
+deepseek-r1,1006,3979,XL,671,moe,DeepSeek,open-weights
+deepseek-r1-0528,1006,3979,XL,685,moe,DeepSeek,open-weights
+gpt-4.1-nano,1002,N/A,S,N/A,maybe-dense,OpenAI,api-only
+llama-3.1-nemotron-70b-instruct,1001,658,M,70,dense,Nvidia,open-weights
+minimax-m2.5,999,733,L,229,moe,MiniMax,open-weights
+hermes-4-70b,997,658,M,70,dense,Nous,open-weights
+mistral-saba,997,N/A,S,N/A,maybe-dense,Mistral AI,api-only
+minimax-m2,997,733,L,230,moe,MiniMax,open-weights
+mistral-small-3.1-24b,996,109,S,24,dense,Mistral AI,open-weights
+gpt-4o-mini-2024-07-18,992,N/A,S,N/A,maybe-dense,OpenAI,api-only
+llama-3.3-70b,991,658,M,70,dense,Meta,open-weights
+qwen3.6-plus,990,N/A,XL,N/A,maybe-moe,Alibaba,api-only
+Apertus-70B-Instruct-2509,989,658,M,70,dense,Swiss AI,fully-open-source
+aya-expanse-32b,988,118,S,32,dense,Cohere,open-weights
+gemma-2-27b-it-q8,988,112,S,27,dense,Google,open-weights
+granite-4.1-8b,986,89,XS,8,dense,IBM,open-weights
+qwen3-32b,985,118,S,32,dense,Alibaba,open-weights
+gpt-4o-2024-08-06,979,N/A,XL,N/A,maybe-moe,OpenAI,api-only
+lfm2-24b-a2b,978,82,S,24,moe,Liquid,open-weights
+mistral-small-24b-instruct-2501,977,109,S,24,dense,Mistral AI,open-weights
+EuroLLM-22B-Instruct-2512,977,106,S,22,dense,EuroLLM,open-weights
+llama-3.1-70b,977,658,M,70,dense,Meta,open-weights
+gpt-oss-120b,970,342,L,117,moe,OpenAI,open-weights
+minimax-m2.7,970,733,L,230,moe,MiniMax,open-weights
+llama-3.1-405b,964,9134,XL,405,dense,Meta,open-weights
+hermes-3-llama-3.1-405b,964,9134,XL,405,dense,Nous,open-weights
+gpt-5-nano,951,N/A,XS,N/A,maybe-moe,OpenAI,api-only
+qwen3.5-397b-a17b,949,1601,L,397,moe,Alibaba,open-weights
+gemma-2-9b-it,943,90,XS,9,dense,Google,open-weights
+glm-5,942,4095,XL,744,moe,Zhipu,open-weights
+aya-expanse-8b,940,89,XS,8,dense,Cohere,open-weights
+glm-5.1,940,4095,XL,744,moe,Zhipu,open-weights
+phi-4,938,96,XS,14,dense,Microsoft,open-weights
+nemotron-3-super-120b-a12b,935,376,L,120,moe,Nvidia,open-weights
+deepseek-r1-distill-llama-70b,922,658,M,70,dense,DeepSeek,open-weights
+glm-4.7,922,1892,L,357,moe,Zhipu,open-weights
+qwen3-30b-a3b,918,83,S,30,moe,Alibaba,open-weights
+qwen3.7-max,918,N/A,XL,N/A,moe,Alibaba,api-only
+gpt-oss-20b,918,83,S,21,moe,OpenAI,open-weights
+llama-3.1-8b,915,89,XS,8,dense,Meta,open-weights
+mixtral-8x7b-instruct-v0.1,911,193,S,56,moe,Mistral AI,open-weights
+qwen3.5-35b-a3b,904,166,S,35,moe,Alibaba,open-weights
+qwen2.5-7b-instruct,895,88,XS,7,dense,Alibaba,open-weights
+lfm-40b,891,N/A,S,N/A,moe,Liquid,api-only
+mistral-nemo-2407,872,94,XS,12,dense,Mistral AI,open-weights
+qwen-3-8b,871,89,XS,8,dense,Alibaba,open-weights
+qwq-32b,865,118,S,32,dense,Alibaba,open-weights
+mixtral-8x22b-instruct-v0.1,859,1063,L,176,moe,Mistral AI,open-weights
+chocolatine-2-14b-instruct-v2.0.3-q8,850,88,XS,14,dense,jpacifico,open-weights
+phi-3.5-mini-instruct,837,83,XS,3.8,dense,Microsoft,open-weights
+chocolatine-14b-instruct-dpo-v1.2-q4,790,96,XS,14,dense,jpacifico,open-weights
+olmo-3-32b-think,759,118,S,32,dense,Ai2,fully-open-source
+Yi-1.5-9B-Chat,758,90,XS,9,dense,01-ai,open-weights
+qwen2-7b-instruct,749,88,XS,7,dense,Alibaba,open-weights

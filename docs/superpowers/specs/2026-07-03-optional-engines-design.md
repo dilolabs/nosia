@@ -81,8 +81,10 @@ Chat::Completionable#complete_with_nosia ──> with_tools(*mcp_tools_list)   (
    `params(schema:)`), and `execute` → `MCP::Tool.call(**args, server_context: <auth>)`, unwrapping
    `MCP::Tool::Response` into a RubyLLM tool result.
 4. **Catalog "Built-in engines" section** — `McpCatalog` lists registry entries alongside YAML
-   docker servers and routes their activation through the existing `activate_for_account` flow,
-   producing a `local` `McpServer`.
+   docker servers and routes their activation through `activate_for_account`, producing a
+   `local` `McpServer`. See "McpCatalog changes" below for the concrete shape — the existing
+   `activate_for_account` is hard-shaped around YAML templates (command/args/env/url/headers)
+   and cannot handle registry entries as-is, so a new branch is required.
 
 ### Engines (Rails engines in `lib/`)
 
@@ -92,11 +94,47 @@ Chat::Completionable#complete_with_nosia ──> with_tools(*mcp_tools_list)   (
 - **`kdrive`** (new): `Kdrive::ApiClient` (Infomaniak kDrive REST API), `Kdrive::Tool` facade,
   `KdriveTools::*` `MCP::Tool` subclasses, and an `EngineRegistration`.
 
+### McpCatalog changes (concrete)
+
+The existing `McpCatalog` (`lib/mcp_catalog.rb`) is hard-shaped around YAML templates:
+`activate_for_account` branches on `is_stdio`, builds `connection_config` from
+`template[:command]/[:args]/[:env]` or `template[:url]/[:headers]`, sets `endpoint: template[:url]`,
+and interpolates `{{vars}}` from `template[:auth_config]`/`template[:env]`. Registry entries have
+a different shape (no command/args/env/url/headers; they carry `tool_classes`, `health_check`,
+`required_config`). To handle them without breaking the YAML path:
+
+- **Listing:** `McpCatalog.all`/`find` merge registry entries into the same list, each tagged
+  `source: :registry` (YAML entries carry `source: :yaml` implicitly). `load_catalog` becomes
+  `yaml_servers + Engines::Registry.all.map(&:to_catalog_entry)`. The catalog controller and views
+  are source-agnostic — they already render from `@servers`, so registry entries appear with no
+  template-specific UI changes beyond a "Built-in" badge.
+- **Activation:** `activate_for_account` branches on `template[:source]`. For `:registry` it
+  builds a `local` server directly — `transport_type: "local"`, `endpoint: nil`,
+  `connection_config: {}`, `metadata: { engine: template[:id], catalog_id: template[:id], icon:,
+  capabilities: }`, and `auth_config` from the submitted `config_values` validated against the
+  entry's `required_config` (required keys present, else raise `ActiveRecord::RecordInvalid`).
+  The YAML/stdio branch is untouched.
+
+### Engine `ApiClient` changes (concrete)
+
+To thread `server_context` credentials into the engines, the API clients must accept auth at
+construction (they do not today):
+
+- **`OpenAlex::ApiClient` / `OpenAlex::Configuration`** (`lib/open_alex/api_client.rb`,
+  `lib/open_alex/configuration.rb`): `ApiClient.new` accepts an optional auth hash
+  (`{ api_key: }`) that overrides `Configuration`'s ENV-derived default, and gains a lightweight
+  `ping` (e.g. one-row `/works?per-page=1`) for `health_check`. The `OpenAlex::Tool` facade
+  passes the auth through from `server_context`.
+- **`Kdrive::ApiClient`** (new): constructed with `{ token:, drive_id: }` from `server_context`;
+  exposes a `ping` (e.g. drive root listing) for `health_check`.
+
+These are listed engine changes, not assumptions about the current `ApiClient`.
+
 ## Data model
 
 **No new tables.** Everything rides on the existing `mcp_servers` row + a Ruby registry.
 
-`McpServer` changes (migration-free — `transport_type` is a plain string with an app-level enum):
+`McpServer` changes (migration-free — `transport_type` is a plain string with an app-level `inclusion` validation, not a Rails `enum`; the only change is adding `"local"` to that inclusion list):
 - `transport_type` validation adds `"local"` to its inclusion list.
 - For `local` servers: `endpoint` not required (existing guard already handles this);
   `metadata.engine` holds the registry id; `auth_config` holds credentials (`api_key`, or
@@ -115,7 +153,7 @@ Engines::Registry.register(OpenAlex::EngineRegistration.new)
 # => id "open_alex", name "OpenAlex", icon "📚", description,
 #     required_config [{ name: :api_key, type: :secret, required: false }],
 #     tool_classes [OpenAlexTools::SearchWorksTool, ...],
-#     health_check: ->(auth) { OpenAlex::ApiClient.new(auth).ping }
+#     health_check: ->(auth) { OpenAlex::ApiClient.new(auth).ping }   # ApiClient modified to accept auth — see "Engine ApiClient changes"
 ```
 
 ## Data flow
@@ -252,7 +290,11 @@ user data) so Brakeman passes clean.
 
 - **Schema-translation spike:** confirm the adapter handles every `input_schema` shape the
   OpenAlex and kDrive tools actually use (flat, nested object, arrays). This is the main risk;
-  resolved early with a failing test, then the adapter implementation.
+  resolved early with a failing test, then the adapter implementation. Note: `RubyLLM::Tool`
+  derives its tool `name` from the Ruby class name (normalize + `delete_suffix('_tool')`), not
+  from a `param` — so the adapter must create a properly-named class (e.g.
+  `OpenalexSearchWorksTool`) to produce the `openalex_search_works` tool name the LLM sees.
+  Prefixing by engine avoids cross-engine collisions.
 - **Infomaniak kDrive API surface:** confirm endpoint shapes for search / list / download
   against current Infomaniak kDrive REST docs, and the auth header format (`Bearer` token).
 - **Test-fixture encryption:** how `auth_config` fixtures work under ActiveRecord Encryption in
