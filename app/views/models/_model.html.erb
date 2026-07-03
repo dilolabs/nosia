@@ -11,6 +11,10 @@
       <% end %>
     <% end %>
   </td>
+  <td>
+    <% mwh = GreenIt.dataset_mwh_per_1000_tokens(model.model_id) %>
+    <%= mwh ? number_with_delimiter(mwh.to_i) : "—" %>
+  </td>
   <td><%= link_to "Show", model %></td>
   <td><%= link_to "Start chat", new_chat_path(model: model.model_id) %></td>
 </tr>

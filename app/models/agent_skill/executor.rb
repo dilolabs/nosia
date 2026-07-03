@@ -73,10 +73,29 @@ class AgentSkill
 
       @execution.update!(input: { instructions: instructions.truncate(1000) })
 
-      chat.with_instructions(instructions, replace: false).ask(@context[:query])
+      message = chat.with_instructions(instructions, replace: false).ask(@context[:query])
+      record_agent_skill_usage(message)
+      message
     end
 
     private
+
+    def record_agent_skill_usage(message)
+      return unless message && (message.input_tokens || message.output_tokens)
+
+      TokenUsage.create!(
+        account_id: @execution.account_id,
+        chat_id: @execution.chat_id,
+        kind: :agent_skill,
+        source: @execution,
+        model_id: message.model&.model_id,
+        input_tokens: message.input_tokens || 0,
+        output_tokens: message.output_tokens || 0,
+        cached_tokens: message.cached_tokens || 0,
+        cache_creation_tokens: message.cache_creation_tokens || 0,
+        thinking_tokens: message.thinking_tokens || 0
+      )
+    end
 
     def build_sanitized_instructions
       parts = [ "## Agent Skill: #{AgentSkill::Security.sanitize_text(@agent_skill.name)}" ]

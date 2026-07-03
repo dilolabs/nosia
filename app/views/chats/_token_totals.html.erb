@@ -1,0 +1,36 @@
+<%# app/views/chats/_token_totals.html.erb %>
+<%# Live token totals for a chat. Refreshed via Turbo Stream when a new %>
+<%# chat-scoped TokenUsage is created (TokenUsage#broadcast_token_totals). %>
+<%
+  total_in  = chat.input_tokens_count
+  total_out = chat.output_tokens_count
+  totals    = chat.token_totals_by_kind # { "completion" => [in, out], ... }
+  per_row_kwh  = chat.token_usages.sum(&:energy_kwh)
+  per_row_co2e = chat.token_usages.sum(&:co2e_g)
+  fallback     = chat.token_usages.any?(&:used_fallback?)
+%>
+<%= tag.div id: dom_id(chat, :token_totals),
+      class: "mb-3 flex items-center gap-1.5 flex-wrap text-[11px] rounded-xl border n-main-border bg-neutral-50 dark:bg-neutral-900/40 px-3 py-2" do %>
+  <span class="inline-flex items-center gap-1.5 font-semibold text-neutral-700 dark:text-neutral-300">
+    <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" aria-hidden="true">⚡</span>
+    Tokens
+  </span>
+
+  <span class="inline-flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+    <span class="font-medium text-green-600 dark:text-green-400" aria-hidden="true">↑</span><%= number_with_delimiter(total_in) %>
+    <span class="font-medium text-blue-600 dark:text-blue-400" aria-hidden="true">↓</span><%= number_with_delimiter(total_out) %>
+  </span>
+
+  <% totals.each do |kind, sums| %>
+    <span class="inline-flex items-center gap-1 rounded-full bg-white dark:bg-neutral-800 border n-main-border px-2 py-0.5 capitalize text-neutral-600 dark:text-neutral-400">
+      <%= kind %>
+      <span class="text-green-600 dark:text-green-400" aria-hidden="true">↑</span><%= number_with_delimiter(sums[0]) %>
+      <span class="text-blue-600 dark:text-blue-400" aria-hidden="true">↓</span><%= number_with_delimiter(sums[1]) %>
+    </span>
+  <% end %>
+
+  <span class="ml-auto inline-flex items-center gap-1.5 rounded-full bg-green-50 dark:bg-green-900/30 px-2.5 py-0.5 font-medium text-green-700 dark:text-green-400"
+        title="Total energy & CO₂e — Ecologits methodology<%= " (incl. fallback estimate)" if fallback %>">
+    <%= number_with_precision(per_row_kwh, precision: 6) %> kWh · <%= number_with_precision(per_row_co2e, precision: 2) %> gCO₂e<%= "*" if fallback %>
+  </span>
+<% end %>

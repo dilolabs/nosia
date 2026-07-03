@@ -17,11 +17,15 @@
         <%= inline_svg "svg/file-search.svg", title: "Sources", alt: "File-search", class: "w-6 h-6" %>
         <span data-reveal-target="item" class="hidden">Sources</span>
       <% end %>
+      <%= link_to token_usage_path, title: "Token usage", alt: "Token usage", class: "n-nav-link n-main-hover" do %>
+        <%= inline_svg "svg/chart-bar.svg", title: "Token usage", alt: "Token usage", class: "w-6 h-6" %>
+        <span data-reveal-target="item" class="hidden">Token usage</span>
+      <% end %>
     </div>
   </div>
 
   <div class="lg:hidden fixed z-50 w-full h-16 max-w-sm -translate-x-1/2 n-main-bg border n-main-border rounded-full bottom-2 left-1/2">
-    <div class="grid h-full max-w-lg grid-cols-5 mx-auto">
+    <div class="grid h-full max-w-lg grid-cols-6 mx-auto">
       <%= link_to root_path, title: "Home", alt: "Home page", class: "n-nav-bottom n-main-hover rounded-s-full" do %>
         <%= inline_svg "svg/home.svg", title: "Home", alt: "Home",class: "w-6 h-6" %>
       <% end %>
@@ -34,8 +38,11 @@
       <%= link_to sources_path, title: "Sources", alt: "Sources", class: "n-nav-bottom n-main-hover" do %>
         <%= inline_svg "svg/file-search.svg", title: "Sources", alt: "File-search", class: "w-6 h-6" %>
       <% end %>
-      <%= link_to settings_path, title: "Settings", alt:"Seetings", class: "n-nav-bottom n-main-hover rounded-e-full" do %>
+      <%= link_to settings_path, title: "Settings", alt:"Seetings", class: "n-nav-bottom n-main-hover" do %>
         <%= inline_svg "svg/cog.svg", title: "Settings", alt:"Cog", class: "w-6 h-6" %>
+      <% end %>
+      <%= link_to token_usage_path, title: "Token usage", alt: "Token usage", class: "n-nav-bottom n-main-hover rounded-e-full" do %>
+        <%= inline_svg "svg/chart-bar.svg", title: "Token usage", alt: "Token usage", class: "w-6 h-6" %>
       <% end %>
     </div>
   </div>

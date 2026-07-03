@@ -17,7 +17,9 @@ class Message < ApplicationRecord
   enum :role, { system: 0, assistant: 10, user: 20, tool: 30 }
 
   belongs_to :chat
+  belongs_to :model, optional: true
   has_many :tool_calls, dependent: :destroy
+  has_many :token_usages, as: :source, dependent: :destroy
 
   before_create :set_default_role
   before_create :set_response_number
