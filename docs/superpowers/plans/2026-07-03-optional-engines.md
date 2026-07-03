@@ -21,9 +21,9 @@
 ## File Structure
 
 **New files:**
-- `lib/nosia/engines/registry.rb` — `Engines::Registry` module: register/all/find/`[]`, duplicate-id guard, test reset.
-- `lib/nosia/engines/registration.rb` — `Engines::Registration` value object (id, name, icon, description, required_config, tool_classes, health_check, capabilities) + `to_catalog_entry`.
-- `lib/nosia/engines/tool_adapter.rb` — `Engines::ToolAdapter`: maps an `MCP::Tool` subclass to a cached `RubyLLM::Tool` instance bound to `server_context`; drops unsupported schemas with a warning.
+- `lib/engines/registry.rb` — `Engines::Registry` module: register/all/find/`[]`, duplicate-id guard, test reset.
+- `lib/engines/registration.rb` — `Engines::Registration` value object (id, name, icon, description, required_config, tool_classes, health_check, capabilities) + `to_catalog_entry`.
+- `lib/engines/tool_adapter.rb` — `Engines::ToolAdapter`: maps an `MCP::Tool` subclass to a cached `RubyLLM::Tool` instance bound to `server_context`; drops unsupported schemas with a warning.
 - `config/initializers/engines.rb` — eager-loads engine registration files and registers them; logs dropped tools at boot.
 - `lib/open_alex/engine_registration.rb` — `OpenAlex::EngineRegistration < Engines::Registration`.
 - `app/models/open_alex_tools.rb` — `OpenAlexTools.all` helper listing tool classes.
@@ -52,7 +52,7 @@
 ## Task 1: Engines::Registration value object
 
 **Files:**
-- Create: `lib/nosia/engines/registration.rb`
+- Create: `lib/engines/registration.rb`
 - Test: `test/lib/engines/registration_test.rb`
 
 - [ ] **Step 1: Write the failing test**
@@ -97,7 +97,7 @@ Expected: FAIL `NameError: uninitialized constant Engines::Registration`
 - [ ] **Step 3: Write minimal implementation**
 
 ```ruby
-# lib/nosia/engines/registration.rb
+# lib/engines/registration.rb
 module Engines
   class Registration
     attr_reader :id, :name, :icon, :description, :category,
@@ -140,7 +140,7 @@ Expected: PASS (2 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/nosia/engines/registration.rb test/lib/engines/registration_test.rb
+git add lib/engines/registration.rb test/lib/engines/registration_test.rb
 git commit -m "feat(engines): add Registration value object
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
@@ -151,7 +151,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ## Task 2: Engines::Registry
 
 **Files:**
-- Create: `lib/nosia/engines/registry.rb`
+- Create: `lib/engines/registry.rb`
 - Test: `test/lib/engines/registry_test.rb`
 
 - [ ] **Step 1: Write the failing test**
@@ -204,7 +204,7 @@ Expected: FAIL `NameError: uninitialized constant Engines::Registry`
 - [ ] **Step 3: Write minimal implementation**
 
 ```ruby
-# lib/nosia/engines/registry.rb
+# lib/engines/registry.rb
 require_relative "registration"
 
 module Engines
@@ -247,7 +247,7 @@ Expected: PASS (3 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/nosia/engines/registry.rb test/lib/engines/registry_test.rb
+git add lib/engines/registry.rb test/lib/engines/registry_test.rb
 git commit -m "feat(engines): add Registry with duplicate-id guard
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
@@ -260,7 +260,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 `RubyLLM::Tool` derives its tool `name` from the Ruby class name (normalize + `delete_suffix("_tool")`). Nesting the generated class under `Engines::ToolAdapter` would make that derivation produce `engines--tool_adapter--openalex_search_works`, **not** `openalex_search_works` — so the adapter **overrides `name`** on the generated class to return the MCP tool's `tool_name` directly. This makes the LLM-facing name independent of the class's constant path (verified: `assert_equal "flat_demo", adapted.name` passes for a tool whose `tool_name` is `"flat_demo"`). `with_tools` accepts a class or instance and keys by `tool_instance.name.to_sym`; we return **instances** pre-bound to `server_context`. `execute` returns a String (the tool-message content). `call(args)` validates against `execute`'s keyword signature, so `execute(**args)` accepts any keywords the model sends.
 
 **Files:**
-- Create: `lib/nosia/engines/tool_adapter.rb`
+- Create: `lib/engines/tool_adapter.rb`
 - Test: `test/lib/engines/tool_adapter_test.rb`
 
 - [ ] **Step 1: Write the failing test**
@@ -347,7 +347,7 @@ Expected: FAIL `NameError: uninitialized constant Engines::ToolAdapter`
 - [ ] **Step 3: Write minimal implementation**
 
 ```ruby
-# lib/nosia/engines/tool_adapter.rb
+# lib/engines/tool_adapter.rb
 module Engines
   class ToolAdapter
     SUPPORTED_TYPES = %w[string integer number boolean].freeze
@@ -461,7 +461,7 @@ If the nested-schema or stringification test fails, inspect `adapted.params_sche
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/nosia/engines/tool_adapter.rb test/lib/engines/tool_adapter_test.rb
+git add lib/engines/tool_adapter.rb test/lib/engines/tool_adapter_test.rb
 git commit -m "feat(engines): add ToolAdapter (MCP::Tool -> RubyLLM::Tool)
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
