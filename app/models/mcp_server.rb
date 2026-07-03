@@ -5,7 +5,7 @@ class McpServer < ApplicationRecord
 
   # Validations
   validates :name, presence: true, uniqueness: { scope: :account_id }
-  validates :transport_type, presence: true, inclusion: { in: %w[stdio streamable sse] }
+  validates :transport_type, presence: true, inclusion: { in: %w[stdio streamable sse local] }
   validates :endpoint, presence: true, if: -> { %w[streamable sse].include?(transport_type) }
 
   # Enums
@@ -33,8 +33,14 @@ class McpServer < ApplicationRecord
   # Encrypt sensitive fields
   encrypts :auth_config, :connection_config
 
+  def local?
+    transport_type == "local"
+  end
+
   # Get MCP client instance
   def client
+    return nil if local?
+
     @client ||= begin
       config = build_client_config
       RubyLLM::MCP.client(
@@ -50,6 +56,8 @@ class McpServer < ApplicationRecord
 
   # Test connection and update status
   def test_connection!
+    return test_local_connection! if local?
+
     start_time = Time.current
     update!(status: "connecting", last_error: nil)
 
@@ -88,6 +96,8 @@ class McpServer < ApplicationRecord
   # Get available tools
   def tools
     return [] unless status_ready?
+
+    return local_tools if local?
 
     begin
       client&.tools || []
@@ -173,6 +183,48 @@ class McpServer < ApplicationRecord
     else
       {}
     end
+  end
+
+  def local_tools
+    registration = Engines::Registry[metadata["engine"]]
+    return [] unless registration
+
+    registration.tool_classes.filter_map do |tool_class|
+      Engines::ToolAdapter.for(tool_class, server_context: auth_config_for_tools)
+    end
+  end
+
+  def auth_config_for_tools
+    # auth_config round-trips through JSON (store_accessor + encrypts), so it
+    # comes back string-keyed. with_indifferent_access lets tools read either
+    # auth[:api_key] or auth["api_key"].
+    (auth_config || {}).with_indifferent_access
+  end
+
+  def test_local_connection!
+    start_time = Time.current
+    update!(status: "connecting", last_error: nil)
+
+    registration = Engines::Registry[metadata["engine"]]
+    raise "Unknown engine: #{metadata["engine"]}" unless registration
+
+    registration.health_check.call(auth_config_for_tools)
+    latency = ((Time.current - start_time) * 1000).to_i
+    update!(
+      status: "ready",
+      last_connected_at: Time.current,
+      latency_ms: latency,
+      last_error: nil,
+      metadata: metadata.merge(last_test_at: Time.current.iso8601)
+    )
+    true
+  rescue => e
+    update!(
+      status: "error",
+      last_error: e.message,
+      metadata: metadata.merge(last_test_at: Time.current.iso8601)
+    )
+    false
   end
 
   def encrypt_secrets
