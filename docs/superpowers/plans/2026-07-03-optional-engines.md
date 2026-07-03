@@ -628,7 +628,7 @@ end
 private
 
 def local_tools
-  registration = Engines::Registry[metadata[:engine]]
+  registration = Engines::Registry[metadata["engine"]]
   return [] unless registration
 
   registration.tool_classes.filter_map do |tool_class|
@@ -647,8 +647,8 @@ def test_local_connection!
   start_time = Time.current
   update!(status: "connecting", last_error: nil)
 
-  registration = Engines::Registry[metadata[:engine]]
-  raise "Unknown engine: #{metadata[:engine]}" unless registration
+  registration = Engines::Registry[metadata["engine"]]
+  raise "Unknown engine: #{metadata["engine"]}" unless registration
 
   registration.health_check.call(auth_config_for_tools)
   latency = ((Time.current - start_time) * 1000).to_i
@@ -747,8 +747,10 @@ class McpCatalogRegistryTest < ActiveSupport::TestCase
     assert server.persisted?
     assert_equal "local", server.transport_type
     assert_nil server.endpoint
-    assert_equal "demo", server.metadata[:engine]
-    assert_equal "demo", server.metadata[:catalog_id]
+    # metadata round-trips through Postgres JSONB as a string-keyed Hash,
+    # so read back with string keys (not symbols).
+    assert_equal "demo", server.metadata["engine"]
+    assert_equal "demo", server.metadata["catalog_id"]
     assert_equal "sekret", server.auth_config["api_key"]
   end
 
