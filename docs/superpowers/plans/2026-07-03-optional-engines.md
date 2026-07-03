@@ -162,11 +162,11 @@ require "test_helper"
 
 class Engines::RegistryTest < ActiveSupport::TestCase
   def setup
-    Engines::Registry.reset!
+    Engines::Registry.clear
   end
 
   def teardown
-    Engines::Registry.reset!
+    Engines::Registry.clear
   end
 
   def registration(id = "open_alex")
@@ -231,7 +231,7 @@ module Engines
       end
       alias_method :[], :find
 
-      def reset!
+      def clear
         @registrations.clear
       end
     end
@@ -492,7 +492,7 @@ class McpServerLocalTest < ActiveSupport::TestCase
 
   def teardown
     ActsAsTenant.current_tenant = nil
-    Engines::Registry.reset!
+    Engines::Registry.clear
   end
 
   def stub_registration(health_check: ->(auth) {}, tool_classes: [])
@@ -714,7 +714,7 @@ class McpCatalogRegistryTest < ActiveSupport::TestCase
     @user = User.create!(email: "cat@example.com", password: "testpassword123")
     @account = Account.create!(name: "Cat Account", owner: @user)
     ActsAsTenant.current_tenant = @account
-    Engines::Registry.reset!
+    Engines::Registry.clear
     Engines::Registry.register(Engines::Registration.new(
       id: "demo", name: "Demo", icon: "🧪", description: "demo engine",
       required_config: [ { name: "api_key", label: "Key", type: "secret", required: true } ],
@@ -724,7 +724,7 @@ class McpCatalogRegistryTest < ActiveSupport::TestCase
 
   def teardown
     ActsAsTenant.current_tenant = nil
-    Engines::Registry.reset!
+    Engines::Registry.clear
     # `McpCatalog.all`/`categories` memoize at the class level; clear so
     # registry changes between tests are picked up.
     McpCatalog.instance_variable_set(:@catalog, nil)

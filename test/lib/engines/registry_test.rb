@@ -3,11 +3,11 @@ require "test_helper"
 
 class Engines::RegistryTest < ActiveSupport::TestCase
   def setup
-    Engines::Registry.reset!
+    Engines::Registry.clear
   end
 
   def teardown
-    Engines::Registry.reset!
+    Engines::Registry.clear
   end
 
   def registration(id = "open_alex")

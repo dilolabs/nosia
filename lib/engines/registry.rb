@@ -25,7 +25,7 @@ module Engines
       end
       alias_method :[], :find
 
-      def reset!
+      def clear
         @registrations.clear
       end
     end
