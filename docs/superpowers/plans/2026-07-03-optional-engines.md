@@ -403,7 +403,9 @@ module Engines
           end
         end
         # Name the constant purely for organization/debuggability; it has no
-        # effect on the LLM-facing name (overridden above).
+        # effect on the LLM-facing name (overridden above). Assumes distinct
+        # tool_names across engines (OpenAlex/kDrive names are distinct), so
+        # two tools never camelize to the same constant.
         Engines::ToolAdapter.const_set(const_name_for(tool_name), klass)
         klass.description(mcp_tool_class.description_value)
         schema = mcp_tool_class.input_schema_value&.to_h
@@ -842,9 +844,9 @@ def validate_required!(template, auth)
   end
   return if missing.empty?
 
-  raise ActiveRecord::RecordInvalid.new(
-    McpServer.new(name: template[:name])
-  ), "Missing required config: #{missing.map { |f| f[:name] }.join(", ")}"
+  record = McpServer.new(name: template[:name])
+  record.errors.add(:base, "Missing required config: #{missing.map { |f| f[:name] }.join(", ")}")
+  raise ActiveRecord::RecordInvalid.new(record)
 end
 ```
 
