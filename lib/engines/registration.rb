@@ -1,4 +1,4 @@
-# lib/nosia/engines/registration.rb
+# lib/engines/registration.rb
 module Engines
   class Registration
     attr_reader :id, :name, :icon, :description, :category,
