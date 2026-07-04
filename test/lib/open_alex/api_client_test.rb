@@ -18,9 +18,11 @@ class OpenAlex::ApiClientTest < ActiveSupport::TestCase
   end
 
   test "#get injects api_key from auth into query params" do
-    stubs.get("/works") { |env| [ 200, {}, '{"results":[]}' ] }
+    captured = nil
+    stubs.get("/works") { |env| captured = env.params["api_key"]; [ 200, {}, '{"results":[]}' ] }
     response = client({ api_key: "sekret" }, connection: connection_with_stubs).get("/works")
     assert_equal({ "results" => [] }, response)
+    assert_equal "sekret", captured
     stubs.verify_stubbed_calls
   end
 
