@@ -305,3 +305,81 @@ user data) so Brakeman passes clean.
   against current Infomaniak kDrive REST docs, and the auth header format (`Bearer` token).
 - **Test-fixture encryption:** how `auth_config` fixtures work under ActiveRecord Encryption in
   test (test credential or plaintext override) — to be settled in implementation.
+
+## kDrive API findings (post-spike)
+
+Researched 2026-07-04. Sources (URLs actually fetched/read):
+
+- Official developer portal search hits (developer.infomaniak.com) confirming individual
+  endpoint paths — the portal pages are JS-rendered so WebFetch returned only the page shell,
+  but search result snippets quote the official paths verbatim:
+  - `GET /2/drive/{drive_id}/files/{file_id}/download`
+    (https://developer.infomaniak.com/docs/api/get/2/drive/%7Bdrive_id%7D/files/%7Bfile_id%7D/download)
+  - `GET /3/drive/{drive_id}/files/{file_id}/count`
+  - `GET /3/drive/{drive_id}/files/recents`, `.../largest`, `.../most_versions`,
+    `.../shared_with_me`
+  - `POST /3/drive/{drive_id}/files/{file_id}/directory`
+- `https://api.infomaniak.com/doc` (redirects to the developer portal) — search snippet
+  confirms the standard JSON return format with `data`, `error`, and `context` fields.
+- Community MCP server source (read via `git clone`, not just README): `ddanssaert/kdrive-mcp`
+  `src/client.js` — implements the same four operations against the live API and unwraps the
+  response envelope as `json.result === 'success'` then `json.data`. Its paths match the
+  official portal snippets above. https://github.com/ddanssaert/kdrive-mcp
+- Official `@infomaniak/mcp-server-kdrive` README (npm/GitHub) — confirms env vars
+  `KDRIVE_TOKEN` + `KDRIVE_ID` and that drive id is the numeric id in the webapp URL
+  (`https://ksuite.infomaniak.com/all/kdrive/app/drive/12` → `12`).
+
+### Confirmed endpoint list
+
+- **Base:** `https://api.infomaniak.com` (no global version prefix — the version is per-path:
+  `/2/...` for file-metadata/download, `/3/...` for search/list/recents/etc.). The spec's
+  expected `https://api.infomaniak.com/2` base is **wrong**; use the host root and put the
+  version in each path.
+- **Auth:** `Authorization: Bearer <token>` (token created at
+  https://manager.infomaniak.com/v3/ng/accounts/token/list with `drive` scope; also needs
+  `user_info` + `user_email` for some operations).
+- **Drive scope:** all paths are `/drive/{drive_id}/...` where `drive_id` is the numeric drive
+  id from the webapp URL.
+- **Search (full-text, indexed content):**
+  `GET /3/drive/{drive_id}/files/search?query=<q>&limit=<n>&with_path=true`
+  - Param name is `query` (confirmed). `limit` 1–50. `with_path=true` includes the file path.
+  - Binary files (xlsx, pdf, docx, …) are NOT indexed — for filename lookup use the list
+    endpoint recursively. # SPIKE: confirm the exact official doc page (portal is JS-rendered;
+    path confirmed via the community client calling the live API successfully).
+- **List folder contents:** `GET /3/drive/{drive_id}/files/{file_id}/files`
+  - Path-based, NOT `?parent_id=`. The folder id is a path segment.
+  - **Root folder id is `1`** (NOT `0`). Confirmed by both the community client default and the
+    official `@infomaniak/mcp-server-kdrive` tool descriptions ("default: root=1").
+  - Returns an array of `{ id, name, type: "dir"|"file", mime_type, size, ... }`; paginated via
+    `cursor` / `has_more` / `response_at`. # SPIKE: confirm pagination param names against the
+    official doc page.
+- **File metadata:** `GET /2/drive/{drive_id}/files/{file_id}`
+  - Note this is the **v2** path (the spec's expected `/drive/{drive_id}/files/{file_id}` was
+    missing the version segment). Returns the full file object.
+- **Download raw bytes:** `GET /2/drive/{drive_id}/files/{file_id}/download`
+  - Confirmed official (developer portal search hit). Returns `application/octet-stream`
+  (binary); may `302`-redirect to the actual storage URL. Supports `?as=pdf|text` for
+  conversion and an `x-kdrive-file-password` header for protected files. The spec's expected
+  `/files/{file_id}/file` path is **wrong** — the correct suffix is `/download`.
+- **Response envelope:** `{ "result": "success"|"error"|"asynchronous", "data": <payload or
+  array>, "error": <...>, "context": <...> }` — NOT the bare `{ "data": ... }` the spec
+  expected. The client must check `result == "success"` then read `data`. Confirmed by both
+  the community client (`json.result !== 'success'` → raise; `return json.data`) and the
+  `api.infomaniak.com/doc` snippet ("JSON return format with `data`, `error`, and `context`
+  fields"). Paginated list endpoints put `cursor`, `has_more`, `response_at` inside `data`
+  (or alongside it). # SPIKE: confirm whether `cursor`/`has_more` live at the envelope top
+  level or nested in `data` for the list/search endpoints.
+
+### Corrections to the pre-spike assumptions in this doc
+
+The "kDrive specifics" section above and the task prompt assumed:
+- base `https://api.infomaniak.com/2` → actually `https://api.infomaniak.com` (version per path)
+- search `GET /drive/{drive_id}/search?query=...&with=files` → actually
+  `GET /3/drive/{drive_id}/files/search?query=...&limit=...&with_path=true`
+- list `GET /drive/{drive_id}/files?parent_id=0` → actually
+  `GET /3/drive/{drive_id}/files/{file_id}/files` with root id `1` (path segment, not query)
+- download `GET /drive/{drive_id}/files/{file_id}/file` → actually
+  `GET /2/drive/{drive_id}/files/{file_id}/download`
+- envelope `{ "data": ... }` → actually `{ "result": ..., "data": ..., "error": ..., "context": ... }`
+
+`Kdrive::ApiClient` must be implemented against the corrected paths above.
