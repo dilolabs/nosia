@@ -10,6 +10,7 @@ require "open_alex/entities/topic"
 require "open_alex/entities/publisher"
 require "open_alex/entities/funder"
 require "open_alex/tool"
+require "open_alex/engine_registration"
 
 module OpenAlex
   VERSION = Version::STRING
