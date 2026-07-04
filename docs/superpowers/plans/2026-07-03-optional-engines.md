@@ -1191,6 +1191,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ```ruby
 # test/lib/kdrive/api_client_test.rb
 require "test_helper"
+require "faraday/adapter/test"
 
 class Kdrive::ApiClientTest < ActiveSupport::TestCase
   def stubs; @stubs ||= Faraday::Adapter::Test::Stubs.new; end
@@ -1206,24 +1207,31 @@ class Kdrive::ApiClientTest < ActiveSupport::TestCase
     Kdrive::ApiClient.new(auth, connection: connection)
   end
 
-  test "sends the Bearer token and drive_id in the path" do
-    stubs.get("/drive/12/search") do |env|
+  test "search sends the Bearer token and unwraps the data envelope" do
+    stubs.get("/3/drive/12/files/search") do |env|
       assert_equal "Bearer t", env.request_headers["Authorization"]
-      [ 200, {}, '{"data":[]}' ]
+      assert_equal "report", env.params["query"]
+      [ 200, {}, '{"result":"success","data":[{"id":"f1","name":"report.pdf"}]}' ]
     end
-    client.get("/search", query: "report")
+    data = client.search("report", limit: 20)
+    assert_equal [ { "id" => "f1", "name" => "report.pdf" } ], data
     stubs.verify_stubbed_calls
   end
 
-  test "ping returns true on success" do
-    stubs.get("/drive/12/file") { |env| [ 200, {}, '{"data":[]}' ] }
+  test "ping lists the root folder (id 1) and returns true on success" do
+    stubs.get("/3/drive/12/files/1/files") { |env| [ 200, {}, '{"result":"success","data":[]}' ] }
     assert client.ping
   end
 
-  test "get raises on 404 (wrong drive_id)" do
-    stubs.get("/drive/12/file") { |env| [ 404, {}, '{"error":"not found"}' ] }
-    err = assert_raises(RuntimeError) { client.get("/file") }
+  test "file raises on 404 (wrong drive_id or file id)" do
+    stubs.get("/2/drive/12/files/999") { |env| [ 404, {}, '{"result":"error","error":"not found"}' ] }
+    err = assert_raises(RuntimeError) { client.file("999") }
     assert_match(/404/, err.message)
+  end
+
+  test "raises on a non-success envelope result" do
+    stubs.get("/3/drive/12/files/search") { |env| [ 200, {}, '{"result":"error","error":"boom"}' ] }
+    assert_raises(RuntimeError) { client.search("x") }
   end
 end
 ```
@@ -1242,14 +1250,23 @@ require_relative "kdrive/tool"
 require_relative "kdrive/engine_registration"
 
 module Kdrive
+  class << self
+    # Test seam: inject a Faraday connection (e.g. a :test adapter). nil in production.
+    def default_connection; @default_connection; end
+    def default_connection=(connection); @default_connection = connection; end
+  end
 end
 ```
 
 ```ruby
 # lib/kdrive/api_client.rb
+require "faraday"
+
 module Kdrive
   class ApiClient
-    BASE_URL = "https://api.infomaniak.com/2".freeze
+    # No global version prefix — kDrive versions each path (/2 for file metadata +
+    # download, /3 for search/list). See "kDrive API findings (post-spike)" in the spec.
+    BASE_URL = "https://api.infomaniak.com"
 
     def initialize(auth, connection: nil)
       @token = auth[:token] || auth["token"]
@@ -1257,14 +1274,47 @@ module Kdrive
       @connection = connection || build_default_connection
     end
 
+    def search(query, limit: 20)
+      get("/3/drive/#{@drive_id}/files/search", query: query, limit: limit, with_path: true)
+    end
+
+    def list_folder(folder_id = 1, limit: 50)
+      get("/3/drive/#{@drive_id}/files/#{folder_id}/files", limit: limit)
+    end
+
+    def file(file_id)
+      get("/2/drive/#{@drive_id}/files/#{file_id}")
+    end
+
+    # Raw bytes (may 302-redirect to storage; Faraday does not follow redirects
+    # unless the follow_redirects middleware is added, so a redirect surfaces as a
+    # non-2xx and the caller degrades to metadata-only). Supports ?as=pdf|text.
+    def download(file_id)
+      response = @connection.get("/2/drive/#{@drive_id}/files/#{file_id}/download") do |req|
+        req.headers["Authorization"] = "Bearer #{@token}"
+      end
+      raise "kDrive download failed (HTTP #{response.status})" unless response.status.between?(200, 299)
+
+      response.body
+    end
+
+    def ping
+      list_folder(1, limit: 1)
+      true
+    rescue
+      false
+    end
+
+    private
+
     def get(path, params = {})
-      response = @connection.get("/drive/#{@drive_id}#{path}", params) do |req|
+      response = @connection.get(path, params) do |req|
         req.headers["Authorization"] = "Bearer #{@token}"
       end
 
       case response.status
       when 200..299
-        JSON.parse(response.body)
+        unwrap(JSON.parse(response.body))
       when 404
         raise "kDrive not found — check your drive id (HTTP 404)"
       when 401, 403
@@ -1274,14 +1324,11 @@ module Kdrive
       end
     end
 
-    def ping
-      get("/file", per_page: 1)
-      true
-    rescue
-      false
-    end
+    def unwrap(body)
+      return body["data"] if body.is_a?(Hash) && body["result"] == "success"
 
-    private
+      raise "kDrive error: #{body.is_a?(Hash) ? body["error"] : body}"
+    end
 
     def build_default_connection
       Faraday.new(url: BASE_URL) do |f|
@@ -1293,12 +1340,15 @@ module Kdrive
 end
 ```
 
-> If the spike (Task 8) found different endpoint paths, update `ping` and the tool paths in Tasks 10–11 to match. The `/file` and `/search` paths here are the documented shapes; tests stub them, so the suite stays green regardless.
+> Endpoints and the `{ result:, data:, error: }` envelope are spike-confirmed in the
+> "kDrive API findings (post-spike)" section of the design doc. The client checks
+> `result == "success"` and returns `data`; the tools receive the unwrapped payload
+> (an array for search/list, a file hash for `file`).
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `bin/rails test test/lib/kdrive/api_client_test.rb`
-Expected: PASS (3 tests)
+Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -1323,6 +1373,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ```ruby
 # test/models/kdrive_tools_test.rb
 require "test_helper"
+require "faraday/adapter/test"
 
 class KdriveToolsTest < ActiveSupport::TestCase
   def stubs; @stubs ||= Faraday::Adapter::Test::Stubs.new; end
@@ -1345,28 +1396,28 @@ class KdriveToolsTest < ActiveSupport::TestCase
   end
 
   test "search_files returns a Response with structured results" do
-    stubs.get("/drive/12/search") do |env|
-      [ 200, {}, '{"data":[{"id":"f1","name":"report.pdf","file_type":"file"}]}' ]
+    stubs.get("/3/drive/12/files/search") do |env|
+      [ 200, {}, '{"result":"success","data":[{"id":"f1","name":"report.pdf"}]}' ]
     end
     response = KdriveTools::SearchFilesTool.call(query: "report", server_context: auth)
     assert_kind_of MCP::Tool::Response, response
     assert_match(/Found/, response.content.first[:text])
-    assert_equal "f1", response.structured_content.first[:id]
+    assert_equal [ { "id" => "f1", "name" => "report.pdf" } ], response.structured_content
   end
 
   test "list_folder returns a Response" do
-    stubs.get("/drive/12/files") do |env|
-      [ 200, {}, '{"data":[{"id":"f1","name":"doc.txt"}]}' ]
+    stubs.get("/3/drive/12/files/1/files") do |env|
+      [ 200, {}, '{"result":"success","data":[{"id":"f1","name":"doc.txt"}]}' ]
     end
-    response = KdriveTools::ListFolderTool.call(folder_id: "0", server_context: auth)
+    response = KdriveTools::ListFolderTool.call(server_context: auth)
     assert_kind_of MCP::Tool::Response, response
   end
 
   test "get_file inlines a text-able file's bounded content" do
-    stubs.get("/drive/12/files/77") do |env|
-      [ 200, {}, '{"data":{"id":"77","name":"note.txt","size":42,"content_type":"text/plain"}}' ]
+    stubs.get("/2/drive/12/files/77") do |env|
+      [ 200, {}, '{"result":"success","data":{"id":"77","name":"note.txt","size":42,"content_type":"text/plain"}}' ]
     end
-    stubs.get("/drive/12/files/77/file") do |env|
+    stubs.get("/2/drive/12/files/77/download") do |env|
       [ 200, { "Content-Type" => "text/plain" }, "hello world" ]
     end
     response = KdriveTools::GetFileTool.call(file_id: "77", server_context: auth)
@@ -1375,8 +1426,8 @@ class KdriveToolsTest < ActiveSupport::TestCase
   end
 
   test "get_file returns metadata-only for a binary file" do
-    stubs.get("/drive/12/files/88") do |env|
-      [ 200, {}, '{"data":{"id":"88","name":"img.png","size":99999,"content_type":"image/png"}}' ]
+    stubs.get("/2/drive/12/files/88") do |env|
+      [ 200, {}, '{"result":"success","data":{"id":"88","name":"img.png","size":99999,"content_type":"image/png"}}' ]
     end
     response = KdriveTools::GetFileTool.call(file_id: "88", server_context: auth)
     assert_match(/binary|too large|metadata/i, response.content.first[:text])
@@ -1401,18 +1452,16 @@ module Kdrive
     INLINE_CAP_BYTES = 1.megabyte
 
     def self.search_files(query, auth:)
-      client = build_client(auth)
-      client.get("/search", query: query, with: "files")
+      build_client(auth).search(query)
     end
 
     def self.list_folder(folder_id, auth:)
-      client = build_client(auth)
-      client.get("/files", parent_id: folder_id, with: "files")
+      build_client(auth).list_folder(folder_id)
     end
 
     def self.get_file(file_id, auth:)
       client = build_client(auth)
-      meta = client.get("/files/#{file_id}")
+      meta = client.file(file_id)
       { meta: meta, content: maybe_inline(client, meta) }
     end
 
@@ -1425,39 +1474,28 @@ module Kdrive
         Kdrive::ApiClient.new(auth, connection: Kdrive.default_connection)
       end
 
+      # `meta` is the unwrapped file hash from ApiClient#file (string-keyed).
+      # kDrive reports content type as `content_type` (and sometimes `mime_type`).
       def maybe_inline(client, meta)
-        data = meta["data"] || meta[:data]
-        type = data["content_type"]
-        size = data["size"].to_i
+        type = meta["content_type"] || meta["mime_type"]
+        size = meta["size"].to_i
         return nil unless type.to_s.start_with?("text/") || INLINEABLE_TYPES.include?(type.to_s)
         return nil if size > INLINE_CAP_BYTES
 
-        download(client, data["id"])
+        download(client, meta["id"])
+      rescue
+        nil
       end
 
       def download(client, file_id)
-        # raw bytes endpoint (spike-confirmed in Task 8)
-        client.get("/files/#{file_id}/file")
-      rescue
-        nil
+        client.download(file_id)
       end
     end
   end
 end
 ```
 
-3b. Test-connection accessor in `lib/kdrive.rb` (extend the module added in Task 9):
-
-```ruby
-module Kdrive
-  class << self
-    def default_connection; @default_connection; end
-    def default_connection=(c); @default_connection = c; end
-  end
-end
-```
-
-3c. Tools:
+3b. Tools:
 
 ```ruby
 # app/models/kdrive_tools.rb
@@ -1478,8 +1516,7 @@ class KdriveTools::SearchFilesTool < MCP::Tool
   annotations(read_only_hint: true, destructive_hint: false, idempotent_hint: true, open_world_hint: false)
 
   def self.call(query:, server_context:)
-    results = Kdrive::Tool.search_files(query, auth: server_context)
-    items = results["data"] || []
+    items = Array(Kdrive::Tool.search_files(query, auth: server_context))
     MCP::Tool::Response.new(
       [ { type: "text", text: "Found #{items.size} files matching '#{query}'" } ],
       structured_content: items
@@ -1495,14 +1532,13 @@ class KdriveTools::ListFolderTool < MCP::Tool
   title "List kDrive folder"
   description "List the contents of a folder in the user's Infomaniak kDrive (defaults to drive root)"
   input_schema(
-    properties: { folder_id: { type: "string", description: "Folder id; '0' for the drive root" } },
+    properties: { folder_id: { type: "string", description: "Folder id; '1' for the drive root" } },
     required: []
   )
   annotations(read_only_hint: true, destructive_hint: false, idempotent_hint: true, open_world_hint: false)
 
-  def self.call(folder_id: "0", server_context:)
-    results = Kdrive::Tool.list_folder(folder_id, auth: server_context)
-    items = results["data"] || []
+  def self.call(folder_id: "1", server_context:)
+    items = Array(Kdrive::Tool.list_folder(folder_id, auth: server_context))
     MCP::Tool::Response.new(
       [ { type: "text", text: "Folder has #{items.size} items" } ],
       structured_content: items
@@ -1522,7 +1558,7 @@ class KdriveTools::GetFileTool < MCP::Tool
 
   def self.call(file_id:, server_context:)
     result = Kdrive::Tool.get_file(file_id, auth: server_context)
-    data = (result[:meta]["data"] || result[:meta][:data] || {})
+    data = result[:meta] || {}
     content = result[:content]
     text = if content
              "File #{file_id} (#{data['name']}): #{content}"
