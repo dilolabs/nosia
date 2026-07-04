@@ -1,4 +1,5 @@
 require_relative "kdrive/api_client"
+require_relative "kdrive/tool"
 
 module Kdrive
   class << self
