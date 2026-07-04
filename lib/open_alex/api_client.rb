@@ -1,19 +1,36 @@
 module OpenAlex
   class ApiClient
-    def initialize(config = OpenAlex::Configuration.new)
-      @config = config
-      @connection = Faraday.new(url: @config.base_url) do |f|
+    def initialize(auth = {}, connection: nil)
+      @config = OpenAlex::Configuration.new
+      @auth = auth || {}
+      @connection = connection || build_default_connection
+    end
+
+    def get(path, params = {})
+      params[:api_key] = api_key
+      fetch_with_retry(path, params)
+    end
+
+    # Lightweight authenticated request used by McpServer#test_connection!.
+    def ping
+      get("/works", per_page: 1)
+      true
+    rescue
+      false
+    end
+
+    private
+
+    def api_key
+      @auth[:api_key].presence || @auth["api_key"].presence || @config.api_key
+    end
+
+    def build_default_connection
+      Faraday.new(url: @config.base_url) do |f|
         f.request :url_encoded
         f.adapter Faraday.default_adapter
       end
     end
-
-    def get(path, params = {})
-      params[:api_key] = @config.api_key
-      fetch_with_retry(path, params)
-    end
-
-    private
 
     def fetch_with_retry(path, params, attempt = 0)
       response = @connection.get(path, params)
