@@ -1589,8 +1589,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ## Task 11: Engine registrations + boot initializer
 
 **Files:**
+- Create: `app/models/open_alex_tools.rb` (the `OpenAlexTools.all` helper referenced by the OpenAlex registration — does not exist yet)
 - Create: `lib/open_alex/engine_registration.rb`, `lib/kdrive/engine_registration.rb`
 - Modify: `lib/open_alex.rb` (require engine_registration)
+- Modify: `lib/kdrive.rb` (require engine_registration)
 - Create: `config/initializers/engines.rb`
 
 - [ ] **Step 1: Write the failing test**
@@ -1623,13 +1625,38 @@ Expected: FAIL (engines not registered)
 
 - [ ] **Step 3: Write minimal implementation**
 
-3a. `lib/open_alex.rb` — add the require:
+3a. `app/models/open_alex_tools.rb` — the `OpenAlexTools.all` helper (mirrors `KdriveTools.all` from Task 10). The OpenAlex tools currently have no such module file, so the registration has nothing to enumerate. List all 15 tool classes:
+
+```ruby
+# app/models/open_alex_tools.rb
+module OpenAlexTools
+  def self.all
+    [
+      SearchWorksTool, GetWorkByDoiTool,
+      SearchAuthorsTool, GetAuthorWorksTool, GetAuthorComprehensiveWorksTool,
+      SearchSourcesTool, GetSourceWorksTool,
+      SearchInstitutionsTool, GetInstitutionWorksTool,
+      SearchTopicsTool, GetTopicWorksTool,
+      SearchPublishersTool, GetPublisherWorksTool,
+      SearchFundersTool, GetFunderWorksTool
+    ]
+  end
+end
+```
+
+3b. `lib/open_alex.rb` — add the require (keep the existing requires; add this alongside `require "open_alex/tool"`):
 
 ```ruby
 require "open_alex/engine_registration"
 ```
 
-3b. `lib/open_alex/engine_registration.rb`:
+3c. `lib/kdrive.rb` — add the require (keep the existing `api_client` + `tool` requires and the `default_connection` accessor):
+
+```ruby
+require_relative "kdrive/engine_registration"
+```
+
+3d. `lib/open_alex/engine_registration.rb`:
 
 ```ruby
 module OpenAlex
@@ -1652,7 +1679,7 @@ module OpenAlex
 end
 ```
 
-3c. `lib/kdrive/engine_registration.rb`:
+3e. `lib/kdrive/engine_registration.rb`:
 
 ```ruby
 module Kdrive
@@ -1676,7 +1703,7 @@ module Kdrive
 end
 ```
 
-3d. `config/initializers/engines.rb`:
+3f. `config/initializers/engines.rb`:
 
 ```ruby
 # Register built-in optional engines. Each engine is always bundled;
@@ -1712,7 +1739,7 @@ Expected: PASS (2 tests). If the "translatable" assertion fails for a tool, fix 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/open_alex.rb lib/open_alex/engine_registration.rb lib/kdrive/engine_registration.rb config/initializers/engines.rb test/integration/engines_boot_test.rb
+git add app/models/open_alex_tools.rb lib/open_alex.rb lib/open_alex/engine_registration.rb lib/kdrive.rb lib/kdrive/engine_registration.rb config/initializers/engines.rb test/integration/engines_boot_test.rb
 git commit -m "feat(engines): register open_alex + kdrive at boot
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
