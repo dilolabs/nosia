@@ -80,7 +80,7 @@ class Engines::RegistrationTest < ActiveSupport::TestCase
     assert_equal "engines", entry[:category]
     assert_equal :registry, entry[:source]
     assert_equal [ "tools" ], entry[:capabilities]
-    assert_equal [ { name: :api_key, type: :secret, required: false } ], entry[:required_config]
+    assert_equal [ { name: :api_key, type: :secret, required: false } ], entry[:requires_config]
   end
 
   test "capabilities defaults to an empty array" do
@@ -125,7 +125,7 @@ module Engines
         category: category,
         source: :registry,
         capabilities: capabilities,
-        required_config: required_config
+        requires_config: required_config
       }
     end
   end
@@ -835,13 +835,13 @@ def activate_registry(account, template, config_values)
 end
 
 def build_registry_auth(template, config_values)
-  Array(template[:required_config]).each_with_object({}) do |field, auth|
+  Array(template[:requires_config]).each_with_object({}) do |field, auth|
     auth[field[:name].to_s] = config_values[field[:name].to_s].to_s
   end
 end
 
 def validate_required!(template, auth)
-  missing = Array(template[:required_config]).select do |field|
+  missing = Array(template[:requires_config]).select do |field|
     field[:required] && auth[field[:name].to_s].blank?
   end
   return if missing.empty?

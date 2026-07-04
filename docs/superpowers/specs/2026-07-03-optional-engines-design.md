@@ -107,7 +107,8 @@ a different shape (no command/args/env/url/headers; they carry `tool_classes`, `
   `source: :registry` (YAML entries carry `source: :yaml` implicitly). `load_catalog` becomes
   `yaml_servers + Engines::Registry.all.map(&:to_catalog_entry)`. `to_catalog_entry` emits the full
   hash the catalog/UI reads: `{ id:, name:, icon:, description:, category: "engines", source:
-  :registry, capabilities: <engine-declared or []>, required_config: }` — `category` is a fixed
+  :registry, capabilities: <engine-declared or []>, requires_config: }` (key matches the
+  YAML catalog + views convention so the activation form renders unchanged) — `category` is a fixed
   `"engines"` (used for `tags` and grouping), `capabilities` is engine-declared (defaults to
   `[]`). The catalog controller and views are source-agnostic — they render from `@servers`, so
   registry entries appear with no template-specific UI changes beyond a "Built-in" badge.
@@ -115,7 +116,7 @@ a different shape (no command/args/env/url/headers; they carry `tool_classes`, `
   builds a `local` server directly — `transport_type: "local"`, `endpoint: nil`,
   `connection_config: {}`, `metadata: { engine: template[:id], catalog_id: template[:id], icon:,
   capabilities: }`, and `auth_config` from the submitted `config_values` validated against the
-  entry's `required_config` (required keys present, else raise `ActiveRecord::RecordInvalid`).
+  entry's `requires_config` (required keys present, else raise `ActiveRecord::RecordInvalid`).
   The YAML/stdio branch is untouched.
 
 ### Engine `ApiClient` changes (concrete)
