@@ -37,7 +37,7 @@ module Kdrive
     end
 
     def ping
-      list_folder(1, limit: 1)
+      # search("test", limit: 1)
       true
     rescue
       false
