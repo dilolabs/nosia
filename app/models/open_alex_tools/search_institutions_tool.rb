@@ -2,14 +2,14 @@ class OpenAlexTools::SearchInstitutionsTool < MCP::Tool
   tool_name "openalex_search_institutions"
   title "Search Institutions"
   description "Search academic institutions (universities, research organizations)"
-  
+
   input_schema(
     properties: {
       name: { type: "string", description: "Institution name to search for" }
     },
-    required: ["name"]
+    required: [ "name" ]
   )
-  
+
   output_schema(
     type: "array",
     items: {
@@ -22,7 +22,7 @@ class OpenAlexTools::SearchInstitutionsTool < MCP::Tool
       }
     }
   )
-  
+
   annotations(
     read_only_hint: true,
     destructive_hint: false,
@@ -31,11 +31,11 @@ class OpenAlexTools::SearchInstitutionsTool < MCP::Tool
   )
 
   def self.call(name:, server_context:)
-    results = OpenAlex::Tool.search_institutions(name)
-    
-    MCP::Tool::Response.new([{
+    results = OpenAlex::Tool.search_institutions(name, auth: server_context)
+
+    MCP::Tool::Response.new([ {
       type: "text",
       text: "Found #{results.length} institutions matching '#{name}'"
-    }], structured_content: results)
+    } ], structured_content: results)
   end
 end

@@ -2,22 +2,22 @@ class OpenAlexTools::GetAuthorComprehensiveWorksTool < MCP::Tool
   tool_name "openalex_get_author_comprehensive_works"
   title "Get Author Comprehensive Works"
   description "Search for an author and retrieve all their works in a single comprehensive response"
-  
+
   input_schema(
     properties: {
-      author_name: { 
-        type: "string", 
+      author_name: {
+        type: "string",
         description: "Full name of the author to search for"
       },
-      language: { 
-        type: "string", 
+      language: {
+        type: "string",
         description: "Preferred language for response (fr, en, etc.)",
         default: "en"
       }
     },
-    required: ["author_name"]
+    required: [ "author_name" ]
   )
-  
+
   output_schema(
     properties: {
       author_found: { type: "boolean" },
@@ -41,7 +41,7 @@ class OpenAlexTools::GetAuthorComprehensiveWorksTool < MCP::Tool
       message: { type: "string" }
     }
   )
-  
+
   annotations(
     read_only_hint: true,
     destructive_hint: false,
@@ -51,29 +51,29 @@ class OpenAlexTools::GetAuthorComprehensiveWorksTool < MCP::Tool
 
   def self.call(author_name:, language: "en", server_context:)
     # Step 1: Search for authors
-    authors = OpenAlex::Tool.search_authors(author_name)
-    
+    authors = OpenAlex::Tool.search_authors(author_name, auth: server_context)
+
     if authors.empty?
       message = translate("No authors found", language)
-      return MCP::Tool::Response.new([{
+      return MCP::Tool::Response.new([ {
         type: "text",
         text: message
-      }], structured_content: {
+      } ], structured_content: {
         author_found: false,
         message: message
       })
     end
-    
+
     # Step 2: Get works for each author
     all_works = []
     authors.each do |author|
-      works = OpenAlex::Tool.get_author_works(author[:id])
+      works = OpenAlex::Tool.get_author_works(author[:id], auth: server_context)
       all_works.concat(works)
     end
-    
+
     # Step 3: Format comprehensive response
     first_author = authors.first
-    
+
     response_data = {
       author_found: true,
       author_name: first_author[:name],
@@ -83,11 +83,11 @@ class OpenAlexTools::GetAuthorComprehensiveWorksTool < MCP::Tool
       works: all_works,
       message: format_response_message(authors.length, all_works.length, language)
     }
-    
-    MCP::Tool::Response.new([{
+
+    MCP::Tool::Response.new([ {
       type: "text",
       text: response_data[:message]
-    }], structured_content: response_data)
+    } ], structured_content: response_data)
   end
 
   private
@@ -107,7 +107,7 @@ class OpenAlexTools::GetAuthorComprehensiveWorksTool < MCP::Tool
         "response_message" => "Trouvé %d auteur(s) avec un total de %d travaux. Voici les détails :"
       }
     }
-    
+
     translations.dig(language, text) || translations.dig("en", text) || text
   end
 

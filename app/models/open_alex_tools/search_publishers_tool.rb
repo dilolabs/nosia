@@ -2,14 +2,14 @@ class OpenAlexTools::SearchPublishersTool < MCP::Tool
   tool_name "openalex_search_publishers"
   title "Search Publishers"
   description "Search academic publishers"
-  
+
   input_schema(
     properties: {
       name: { type: "string", description: "Publisher name to search for" }
     },
-    required: ["name"]
+    required: [ "name" ]
   )
-  
+
   output_schema(
     type: "array",
     items: {
@@ -21,7 +21,7 @@ class OpenAlexTools::SearchPublishersTool < MCP::Tool
       }
     }
   )
-  
+
   annotations(
     read_only_hint: true,
     destructive_hint: false,
@@ -30,11 +30,11 @@ class OpenAlexTools::SearchPublishersTool < MCP::Tool
   )
 
   def self.call(name:, server_context:)
-    results = OpenAlex::Tool.search_publishers(name)
-    
-    MCP::Tool::Response.new([{
+    results = OpenAlex::Tool.search_publishers(name, auth: server_context)
+
+    MCP::Tool::Response.new([ {
       type: "text",
       text: "Found #{results.length} publishers matching '#{name}'"
-    }], structured_content: results)
+    } ], structured_content: results)
   end
 end

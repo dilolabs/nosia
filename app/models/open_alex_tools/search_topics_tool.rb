@@ -2,14 +2,14 @@ class OpenAlexTools::SearchTopicsTool < MCP::Tool
   tool_name "openalex_search_topics"
   title "Search Topics"
   description "Search academic topics and subject classifications"
-  
+
   input_schema(
     properties: {
       name: { type: "string", description: "Topic name to search for" }
     },
-    required: ["name"]
+    required: [ "name" ]
   )
-  
+
   output_schema(
     type: "array",
     items: {
@@ -23,7 +23,7 @@ class OpenAlexTools::SearchTopicsTool < MCP::Tool
       }
     }
   )
-  
+
   annotations(
     read_only_hint: true,
     destructive_hint: false,
@@ -32,11 +32,11 @@ class OpenAlexTools::SearchTopicsTool < MCP::Tool
   )
 
   def self.call(name:, server_context:)
-    results = OpenAlex::Tool.search_topics(name)
-    
-    MCP::Tool::Response.new([{
+    results = OpenAlex::Tool.search_topics(name, auth: server_context)
+
+    MCP::Tool::Response.new([ {
       type: "text",
       text: "Found #{results.length} topics matching '#{name}'"
-    }], structured_content: results)
+    } ], structured_content: results)
   end
 end

@@ -24,5 +24,14 @@ module OpenAlex
     def configure
       yield(configuration)
     end
+
+    # Used by tests to inject a Faraday :test-adapter connection.
+    def default_connection
+      @default_connection
+    end
+
+    def default_connection=(connection)
+      @default_connection = connection
+    end
   end
 end

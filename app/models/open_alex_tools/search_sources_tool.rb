@@ -2,14 +2,14 @@ class OpenAlexTools::SearchSourcesTool < MCP::Tool
   tool_name "openalex_search_sources"
   title "Search Sources"
   description "Search academic sources (journals, repositories, conferences)"
-  
+
   input_schema(
     properties: {
       name: { type: "string", description: "Source name to search for" }
     },
-    required: ["name"]
+    required: [ "name" ]
   )
-  
+
   output_schema(
     type: "array",
     items: {
@@ -22,7 +22,7 @@ class OpenAlexTools::SearchSourcesTool < MCP::Tool
       }
     }
   )
-  
+
   annotations(
     read_only_hint: true,
     destructive_hint: false,
@@ -31,11 +31,11 @@ class OpenAlexTools::SearchSourcesTool < MCP::Tool
   )
 
   def self.call(name:, server_context:)
-    results = OpenAlex::Tool.search_sources(name)
-    
-    MCP::Tool::Response.new([{
+    results = OpenAlex::Tool.search_sources(name, auth: server_context)
+
+    MCP::Tool::Response.new([ {
       type: "text",
       text: "Found #{results.length} sources matching '#{name}'"
-    }], structured_content: results)
+    } ], structured_content: results)
   end
 end

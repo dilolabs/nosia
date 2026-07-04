@@ -2,7 +2,7 @@ class OpenAlexTools::SearchWorksTool < MCP::Tool
   tool_name "openalex_search_works"
   title "Search Works"
   description "Search scholarly works by query"
-  
+
   input_schema(
     properties: {
       query: { type: "string", description: "Search query" },
@@ -15,9 +15,9 @@ class OpenAlexTools::SearchWorksTool < MCP::Tool
         }
       }
     },
-    required: ["query"]
+    required: [ "query" ]
   )
-  
+
   output_schema(
     type: "array",
     items: {
@@ -30,7 +30,7 @@ class OpenAlexTools::SearchWorksTool < MCP::Tool
       }
     }
   )
-  
+
   annotations(
     read_only_hint: true,
     destructive_hint: false,
@@ -39,11 +39,11 @@ class OpenAlexTools::SearchWorksTool < MCP::Tool
   )
 
   def self.call(query:, params: {}, server_context:)
-    results = OpenAlex::Tool.search_works(query, params)
-    
-    MCP::Tool::Response.new([{
+    results = OpenAlex::Tool.search_works(query, params, auth: server_context)
+
+    MCP::Tool::Response.new([ {
       type: "text",
       text: "Found #{results.length} works matching '#{query}'"
-    }], structured_content: results)
+    } ], structured_content: results)
   end
 end
