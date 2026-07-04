@@ -5,6 +5,9 @@ class McpCatalogRegistryTest < ActiveSupport::TestCase
     @user = User.create!(email: "cat@example.com", password: "testpassword123")
     @account = Account.create!(name: "Cat Account", owner: @user)
     ActsAsTenant.current_tenant = @account
+    # Preserve boot-time registrations; restore in teardown so later tests
+    # (e.g. EnginesBootTest) still see the engines registered at boot.
+    @engines = Engines::Registry.all
     Engines::Registry.clear
     Engines::Registry.register(Engines::Registration.new(
       id: "demo", name: "Demo", icon: "🧪", description: "demo engine",
@@ -16,6 +19,7 @@ class McpCatalogRegistryTest < ActiveSupport::TestCase
   def teardown
     ActsAsTenant.current_tenant = nil
     Engines::Registry.clear
+    @engines.each { |registration| Engines::Registry.register(registration) }
     # `McpCatalog.all`/`categories` memoize at the class level; clear so
     # registry changes between tests are picked up.
     McpCatalog.instance_variable_set(:@catalog, nil)

@@ -5,11 +5,15 @@ class McpServerLocalTest < ActiveSupport::TestCase
     @user = User.create!(email: "eng@example.com", password: "testpassword123")
     @account = Account.create!(name: "Eng Account", owner: @user)
     ActsAsTenant.current_tenant = @account
+    # Preserve boot-time registrations; restore in teardown so later tests
+    # (e.g. EnginesBootTest) still see the engines registered at boot.
+    @engines = Engines::Registry.all
   end
 
   def teardown
     ActsAsTenant.current_tenant = nil
     Engines::Registry.clear
+    @engines.each { |registration| Engines::Registry.register(registration) }
   end
 
   def stub_registration(health_check: ->(auth) { }, tool_classes: [])

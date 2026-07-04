@@ -3,11 +3,16 @@ require "test_helper"
 
 class Engines::RegistryTest < ActiveSupport::TestCase
   def setup
+    # Preserve the boot-time registrations across tests. The boot initializer's
+    # `to_prepare` runs once per process, so clearing here would leave the
+    # registry empty for any later test that relies on it (e.g. EnginesBootTest).
+    @engines = Engines::Registry.all
     Engines::Registry.clear
   end
 
   def teardown
     Engines::Registry.clear
+    @engines.each { |registration| Engines::Registry.register(registration) }
   end
 
   def registration(id = "open_alex")
