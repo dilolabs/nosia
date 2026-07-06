@@ -1,7 +1,13 @@
+require "base64"
+
 module Kdrive
   class Tool
     INLINEABLE_TYPES = %w[text/plain text/markdown text/csv application/json].freeze
     INLINE_CAP_BYTES = 1.megabyte
+    # Base64 in a prompt is ~4/3 the byte size, so cap downloads to keep the
+    # response from blowing the model's context. Callers should use `info` to
+    # check size before downloading large files.
+    DOWNLOAD_CAP_BYTES = 5.megabytes
 
     def self.search_files(query, auth:)
       build_client(auth).search(query)
@@ -15,6 +21,22 @@ module Kdrive
       client = build_client(auth)
       meta = client.file(file_id)
       { meta: meta, content: maybe_inline(client, meta) }
+    end
+
+    # Fetches metadata first so an oversized file is refused before downloading
+    # its body. Returns `{ meta:, base64: }` on success or `{ error: }` on
+    # failure (size cap, HTTP error, or raise).
+    def self.download_file(file_id, auth:)
+      client = build_client(auth)
+      meta = client.file(file_id)
+      size = meta["size"].to_i
+      if size > DOWNLOAD_CAP_BYTES
+        return { error: "file too large (#{size} bytes; cap is #{DOWNLOAD_CAP_BYTES} bytes)" }
+      end
+
+      { meta: meta, base64: Base64.strict_encode64(client.download(file_id)) }
+    rescue => e
+      { error: e.message }
     end
 
     class << self

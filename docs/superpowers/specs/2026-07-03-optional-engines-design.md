@@ -207,16 +207,20 @@ they never enter the prompt.
 
 `KdriveTools::SearchFilesTool.call(query:, server_context:)` uses `server_context[:token]` +
 `server_context[:drive_id]` to build `https://api.infomaniak.com/2/drive/{drive_id}/...` with
-`Authorization: Bearer {token}`. `KdriveTools::GetFileTool` fetches metadata and, for text-able
+`Authorization: Bearer {token}`. `KdriveTools::InfoTool` fetches metadata and, for text-able
 content types (matching the repo's existing doc-content_type pattern), downloads and inlines a
-bounded excerpt; binaries return metadata only with a size hint.
+bounded excerpt; binaries return metadata only with a size hint. `KdriveTools::DownloadFileTool`
+returns any file's content as base64, refusing files over `DOWNLOAD_CAP_BYTES` (it fetches
+metadata first to check size, so an oversized file is rejected before its body is downloaded).
 
 ### kDrive tool surface (read-only)
 
 - `kdrive_search_files` — search files/folders by query.
 - `kdrive_list_folder` — list contents of a folder (defaults to drive root).
-- `kdrive_get_file` — fetch file metadata; inline a bounded text excerpt for text-able types,
-  metadata-only otherwise.
+- `kdrive_info` — fetch file metadata; inline a bounded text excerpt for text-able types,
+  metadata-only otherwise. `file_id` is a number.
+- `kdrive_download_file` — download a file and return its content as a base64-encoded string
+  (use `kdrive_info` for the MIME type). Refuses files over the cap. `file_id` is a number.
 
 ## Error handling
 
@@ -251,8 +255,10 @@ engines; it degrades to "this tool returned an error," surfaced to the LLM so it
 **kDrive-specific edges:**
 - Token revoked mid-session → tool call returns 401 error text; the LLM tells the user to
   re-activate. Admin can re-run `test_connection!` from the MCP servers UI.
-- Large/binary downloads in `GetFileTool` → hard size cap (e.g. 1 MB) + content-type allowlist
+- Large/binary downloads in `InfoTool` → hard size cap (1 MB) + content-type allowlist
   for inlining; oversized/binary files return metadata + a "too large to inline" note.
+- `DownloadFileTool` → 5 MB `DOWNLOAD_CAP_BYTES`; metadata is fetched first so an oversized
+  file is refused before its body is downloaded, returning a "file too large" error text.
 - Wrong `drive_id` → 404 mapped to `"kDrive not found — check your drive id"`.
 
 **Isolation:** an exception that escapes the adapter's rescue (a bug, not an API error) is

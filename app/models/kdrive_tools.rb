@@ -1,5 +1,5 @@
 module KdriveTools
   def self.all
-    [ SearchFilesTool, ListFolderTool, GetFileTool ]
+    [ SearchFilesTool, ListFolderTool, InfoTool, DownloadFileTool ]
   end
 end

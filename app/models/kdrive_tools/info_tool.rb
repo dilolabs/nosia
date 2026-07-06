@@ -1,8 +1,8 @@
-class KdriveTools::GetFileTool < MCP::Tool
-  tool_name "kdrive_get_file"
-  title "Get kDrive file"
-  description "Fetch a file's metadata from Infomaniak kDrive, inlining a bounded text excerpt for text-able types"
-  input_schema(properties: { file_id: { type: "string" } }, required: [ "file_id" ])
+class KdriveTools::InfoTool < MCP::Tool
+  tool_name "kdrive_info"
+  title "kDrive file info"
+  description "Fetch a file's metadata from Infomaniak kDrive, inlining a bounded text excerpt for text-able types. Use this to learn a file's size and MIME type before downloading."
+  input_schema(properties: { file_id: { type: "number" } }, required: [ "file_id" ])
   annotations(read_only_hint: true, destructive_hint: false, idempotent_hint: true, open_world_hint: false)
 
   def self.call(file_id:, server_context:)

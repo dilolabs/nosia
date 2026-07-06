@@ -39,23 +39,43 @@ class KdriveToolsTest < ActiveSupport::TestCase
     assert_kind_of MCP::Tool::Response, response
   end
 
-  test "get_file inlines a text-able file's bounded content" do
+  test "info inlines a text-able file's bounded content" do
     stubs.get("/2/drive/12/files/77") do |env|
       [ 200, {}, '{"result":"success","data":{"id":"77","name":"note.txt","size":42,"content_type":"text/plain"}}' ]
     end
     stubs.get("/2/drive/12/files/77/download") do |env|
       [ 200, { "Content-Type" => "text/plain" }, "hello world" ]
     end
-    response = KdriveTools::GetFileTool.call(file_id: "77", server_context: auth)
+    response = KdriveTools::InfoTool.call(file_id: 77, server_context: auth)
     assert_kind_of MCP::Tool::Response, response
     assert_match(/hello world/, response.content.first[:text])
   end
 
-  test "get_file returns metadata-only for a binary file" do
+  test "info returns metadata-only for a binary file" do
     stubs.get("/2/drive/12/files/88") do |env|
       [ 200, {}, '{"result":"success","data":{"id":"88","name":"img.png","size":99999,"content_type":"image/png"}}' ]
     end
-    response = KdriveTools::GetFileTool.call(file_id: "88", server_context: auth)
+    response = KdriveTools::InfoTool.call(file_id: 88, server_context: auth)
     assert_match(/binary|too large|metadata/i, response.content.first[:text])
+  end
+
+  test "download_file returns base64-encoded content" do
+    stubs.get("/2/drive/12/files/77") do |env|
+      [ 200, {}, '{"result":"success","data":{"id":"77","name":"note.txt","size":11,"content_type":"text/plain"}}' ]
+    end
+    stubs.get("/2/drive/12/files/77/download") do |env|
+      [ 200, { "Content-Type" => "text/plain" }, "hello world" ]
+    end
+    response = KdriveTools::DownloadFileTool.call(file_id: 77, server_context: auth)
+    assert_kind_of MCP::Tool::Response, response
+    assert_equal Base64.strict_encode64("hello world"), response.content.first[:text]
+  end
+
+  test "download_file refuses files over the cap without downloading" do
+    stubs.get("/2/drive/12/files/88") do |env|
+      [ 200, {}, '{"result":"success","data":{"id":"88","name":"big.bin","size":999999999,"content_type":"application/octet-stream"}}' ]
+    end
+    response = KdriveTools::DownloadFileTool.call(file_id: 88, server_context: auth)
+    assert_match(/too large|cap|exceed/i, response.content.first[:text])
   end
 end
