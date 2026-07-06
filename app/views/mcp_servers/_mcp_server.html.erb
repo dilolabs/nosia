@@ -31,6 +31,14 @@
             <span class="sr-only">Connect server</span>
           <% end %>
         <% end %>
+
+        <%= button_to mcp_server_path(server), method: :delete,
+            data: { turbo_confirm: "Delete this MCP server? Chats using it will lose access." },
+            title: "Delete server",
+            class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+          <%= inline_svg_tag "svg/trash-bin.svg", title: "Delete", alt: "Delete", class: "mx-auto w-5 h-5" %>
+          <span class="sr-only">Delete server</span>
+        <% end %>
       </div>
     </div>
 
