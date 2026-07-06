@@ -5,6 +5,11 @@ module Kdrive
     # No global version prefix — kDrive versions each path (/2 for file metadata +
     # download, /3 for search/list). See "kDrive API findings (post-spike)" in the spec.
     BASE_URL = "https://api.infomaniak.com"
+    # kDrive's /download endpoint responds 302 to a pre-signed storage URL on a
+    # different host. Faraday does not follow redirects by default, so `download`
+    # follows the chain itself (see `follow_download_redirect`).
+    REDIRECT_STATUSES = [ 301, 302, 303, 307, 308 ].freeze
+    MAX_REDIRECTS = 5
 
     def initialize(auth, connection: nil)
       @token = auth[:token] || auth["token"]
@@ -24,16 +29,18 @@ module Kdrive
       get("/2/drive/#{@drive_id}/files/#{file_id}")
     end
 
-    # Raw bytes (may 302-redirect to storage; Faraday does not follow redirects
-    # unless the follow_redirects middleware is added, so a redirect surfaces as a
-    # non-2xx and the caller degrades to metadata-only). Supports ?as=pdf|text.
+    # Raw bytes for the file. kDrive responds 302 to a pre-signed storage URL;
+    # the redirect chain is followed on the same connection but WITHOUT the
+    # Bearer token (the storage URL is on a different host and is pre-signed, so
+    # the kDrive credential must not be sent to it). Supports ?as=pdf|text.
     def download(file_id)
       response = @connection.get("/2/drive/#{@drive_id}/files/#{file_id}/download") do |req|
         req.headers["Authorization"] = "Bearer #{@token}"
       end
-      raise "kDrive download failed (HTTP #{response.status})" unless response.status.between?(200, 299)
+      return response.body if response.status.between?(200, 299)
+      return follow_download_redirect(response.headers["location"]) if REDIRECT_STATUSES.include?(response.status)
 
-      response.body
+      raise "kDrive download failed (HTTP #{response.status})"
     end
 
     def ping
@@ -66,6 +73,23 @@ module Kdrive
       return body["data"] if body.is_a?(Hash) && body["result"] == "success"
 
       raise "kDrive error: #{body.is_a?(Hash) ? body["error"] : body}"
+    end
+
+    def follow_download_redirect(location)
+      raise "kDrive download redirected without a Location header" unless location.present?
+      raise "kDrive download redirect must be https" unless location.start_with?("https://")
+
+      current = location
+      MAX_REDIRECTS.times do
+        response = @connection.get(current)
+        return response.body if response.status.between?(200, 299)
+        break unless REDIRECT_STATUSES.include?(response.status)
+
+        current = response.headers["location"]
+        raise "kDrive download redirected without a Location header" unless current.present?
+        raise "kDrive download redirect must be https" unless current.start_with?("https://")
+      end
+      raise "kDrive download exceeded #{MAX_REDIRECTS} redirects"
     end
 
     def build_default_connection

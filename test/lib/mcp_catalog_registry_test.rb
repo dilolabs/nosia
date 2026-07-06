@@ -14,6 +14,11 @@ class McpCatalogRegistryTest < ActiveSupport::TestCase
       required_config: [ { name: "api_key", label: "Key", type: "secret", required: true } ],
       tool_classes: [], health_check: ->(auth) { }
     ))
+    # `McpCatalog.all`/`find` memoize at the class level; clear so the demo
+    # entry just registered is picked up (a prior test in the same worker may
+    # have cached the catalog with the boot-time engines only).
+    McpCatalog.instance_variable_set(:@catalog, nil)
+    McpCatalog.instance_variable_set(:@categories, nil)
   end
 
   def teardown
