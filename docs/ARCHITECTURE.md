@@ -291,15 +291,11 @@ User Upload → File Attachment → Validation → Job Enqueue
 
 **Document Parsing** (`Document::Parsable`):
 - PDF: Text extraction with pdf-reader gem
-- Advanced parsing: Docling serve integration (optional)
-  - NVIDIA GPU: `docker-compose-docling-serve-nvidia.yml`
-  - AMD GPU: `docker-compose-docling-serve-amd.yml`
-  - CPU-only: `docker-compose-docling-serve-cpu.yml`
 - Metadata extraction (title, author, page count)
 
 **Website Crawling** (`Website::Crawlable`):
 - HTTP fetch with Faraday
-- HTML parsing
+- In-process HTML to Markdown conversion (html-to-markdown gem)
 - Link extraction for multi-page crawling
 
 ### 3. Chunking Algorithm
@@ -845,7 +841,6 @@ end
 
 **Optional Variables**:
 - `AUGMENTED_CONTEXT`: Enhanced context flag
-- `DOCLING_SERVE_BASE_URL`: Advanced document parsing
 - `GUARD_MODEL`: Separate model for validation
 - Chunking parameters (MAX_TOKENS, MIN_TOKENS, etc.)
 - LLM parameters (TEMPERATURE, TOP_K, TOP_P, etc.)
