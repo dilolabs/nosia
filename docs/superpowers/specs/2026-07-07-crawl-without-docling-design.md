@@ -27,7 +27,7 @@ No tests exist for crawling.
 
 1. **Full replacement** of Docling — no env-var fallback. If Docling is configured, it is ignored; the in-process path always runs.
 2. **Whole-page conversion** — the entire fetched HTML body is converted to Markdown (no readability-style boilerplate extraction). Chunks will include nav/footer noise; accepted as a trade-off for simplicity and minimal dependencies.
-3. **Conversion gem:** `html-to-markdown` (RubyGems name; `require "html_to_markdown"`; module `HtmlToMarkdown`). API: `HtmlToMarkdown.convert(html)[:content]` returns the Markdown string. Ruby 3.2+. It is a **native Rust extension** (Magnus bindings), prebuilt for Linux and macOS x86_64/arm64, with **no Nokogiri dependency**. The Ruby binding exposes `exclude_selectors`, `strip_tags`, `preserve_tags`, and `max_depth` options, but no `base_url` for relative-URL resolution. We pass no options — the whole-page choice (Decision #2) is a deliberate simplicity trade-off independent of available options.
+3. **Conversion gem:** `html-to-markdown` (RubyGems name; `require "html_to_markdown"`; module `HtmlToMarkdown`). API: `HtmlToMarkdown.convert(html).content` returns the Markdown string. The method returns a `HtmlToMarkdownRs::ConversionResult` object (with `.content`, `.metadata`, `.warnings`, `.tables`, `.document` methods) — **not** a Hash. Ruby 3.2+. It is a **native Rust extension** (Magnus + rb-sys bindings) with **no Nokogiri dependency**. Note: the gem ships **source-only** (no prebuilt linux platform gems), so production Docker builds require a Rust toolchain and `libclang-dev` (for rb-sys bindgen) in the build stage. The Ruby binding exposes `exclude_selectors`, `strip_tags`, `preserve_tags`, and `max_depth` options, but no `base_url` for relative-URL resolution. We pass no options — the whole-page choice (Decision #2) is a deliberate simplicity trade-off independent of available options.
 4. **Failure handling:** raise on transient errors (network/timeout/5xx/conversion errors) so Solid Queue retries; log and return `nil` on terminal HTTP errors (3xx without redirect following, 4xx). Failed crawls are visible via `Rails.logger.warn`, not via persisted status.
 5. **Code organization:** logic stays in the `Website::Crawlable` concern as private methods ordered by invocation flow. No service objects, no new top-level classes. `crawl_url!` remains the public API the job calls.
 6. **Scope add-ons:** remove all `DOCLING_SERVE_BASE_URL` references from env/docs/compose/install files; fix the `CrawlWebsiteUrlsJob` typo; add Minitest coverage for crawling.
@@ -47,7 +47,7 @@ CrawlWebsiteUrlJob#perform(website_id)
         │     returns body String on 2xx
         │     logs + returns nil on 3xx/4xx (terminal)
         ├─ convert_to_markdown(html)
-        │     HtmlToMarkdown.convert(html)[:content]
+        │     HtmlToMarkdown.convert(html).content
         ├─ self.data = markdown
         ├─ self.save!
         └─ self.chunkify!   (unchanged — splits Markdown into chunks)

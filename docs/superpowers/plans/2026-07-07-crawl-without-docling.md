@@ -4,9 +4,9 @@
 
 **Goal:** Replace the Docling Serve dependency in `Website#crawl_url!` with an in-process fetch (Faraday) + HTML→Markdown conversion (`html-to-markdown` gem), and remove all Docling references from the repo.
 
-**Architecture:** `Website::Crawlable` is rewritten so `crawl_url!` fetches the page via Faraday, converts the body to Markdown with `HtmlToMarkdown.convert(html)[:content]`, saves to `data`, and calls the existing `chunkify!`. Transient failures (network/timeout/5xx) raise so `CrawlWebsiteUrlJob` retries via `retry_on`; terminal failures (3xx/4xx) log and return nil. Logic stays in the concern as private methods ordered by invocation flow — no service objects.
+**Architecture:** `Website::Crawlable` is rewritten so `crawl_url!` fetches the page via Faraday, converts the body to Markdown with `HtmlToMarkdown.convert(html).content` (the gem returns a `ConversionResult` object, not a Hash), saves to `data`, and calls the existing `chunkify!`. Transient failures (network/timeout/5xx) raise so `CrawlWebsiteUrlJob` retries via `retry_on`; terminal failures (3xx/4xx) log and return nil. Logic stays in the concern as private methods ordered by invocation flow — no service objects.
 
-**Tech Stack:** Ruby, Rails 8, Faraday, `html-to-markdown` (native Rust/Magnus gem), Minitest, Solid Queue.
+**Tech Stack:** Ruby, Rails 8, Faraday, `html-to-markdown` (native Rust/Magnus + rb-sys gem; source-only, needs Rust + libclang-dev at Docker build time), Minitest, Solid Queue.
 
 **Spec:** `docs/superpowers/specs/2026-07-07-crawl-without-docling-design.md`
 
@@ -55,26 +55,29 @@ Expected: gem installs. If it tries to compile a Rust extension and fails locall
 
 Run:
 ```bash
-bundle exec ruby -e 'require "html_to_markdown"; puts HtmlToMarkdown.convert("<h1>Title</h1><p>Body</p>")[:content]'
+bundle exec ruby -e 'require "html_to_markdown"; puts HtmlToMarkdown.convert("<h1>Title</h1><p>Body</p>").content'
 ```
-Expected: prints Markdown containing `# Title` and `Body`. This locks the `[:content]` API the implementation depends on.
+Expected: prints Markdown containing `# Title` and `Body`. This locks the `.content` API the implementation depends on. Note: the gem returns a `HtmlToMarkdownRs::ConversionResult` object (with `.content`, `.metadata`, `.warnings` methods), **not** a Hash — do not use `[:content]`.
 
 - [ ] **Step 4: Verify the production Docker image still builds (native-gem deployment check)**
 
-The `Dockerfile` build stage has `build-essential git pkg-config libffi-dev libyaml-dev` but **no Rust toolchain**. The native gem must ship prebuilt linux binaries or the image build will fail.
+The `html-to-markdown` gem is **source-only** on linux (no prebuilt platform gems), so the Docker build must compile its native extension. Compilation needs (a) a recent Rust toolchain and (b) `libclang` for rb-sys's bindgen. The `Dockerfile` build stage has `build-essential git pkg-config libffi-dev libyaml-dev` but neither.
 
-Run: `docker build -t nosia-crawl-check .`
-Expected: build succeeds. The prebuilt platform gem is fetched and no compilation is needed.
-
-If it FAILS on the native extension (error mentions `cargo` / `rustc` / Magnus build), add a Rust toolchain to the build stage in `Dockerfile`. Before the `RUN bundle install` line in the `build` stage, add `cargo` to the apt install:
+Update the `Dockerfile` build stage: add `libclang-dev` to the apt install, and add a rustup-installed Rust toolchain (Debian's `cargo` is rustc 1.85, too old — a transitive dep needs rustc 1.88+):
 
 ```dockerfile
+# Install packages need to build gems
 RUN apt-get update -qq && \
-    apt-get install -y build-essential git pkg-config libffi-dev libyaml-dev cargo && \
+    apt-get install -y build-essential git pkg-config libffi-dev libyaml-dev libclang-dev && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Install Rust toolchain (Debian cargo is too old for html-to-markdown's deps)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
 ```
 
-Re-run `docker build -t nosia-crawl-check .` until it succeeds.
+Run: `docker build -t nosia-crawl-check .` (free disk first with `docker system prune -af --volumes` if the builder is near full).
+Expected: build succeeds. Remove the test image afterwards (`docker rmi nosia-crawl-check`) to reclaim space.
 
 - [ ] **Step 5: Commit**
 
@@ -184,7 +187,7 @@ module Website::Crawlable
   end
 
   def convert_to_markdown(html)
-    HtmlToMarkdown.convert(html)[:content]
+    HtmlToMarkdown.convert(html).content
   end
 end
 ```
@@ -547,6 +550,6 @@ git commit -m "chore: verification fixes for crawl-without-docling"
 
 - **Test isolation:** tests stub `faraday_connection` per-instance via `define_singleton_method`, so no global Faraday stubbing or WebMock is needed. No network calls occur in the suite.
 - **`chunkify!` is untouched** — it already expects Markdown, which is what `convert_to_markdown` produces.
-- **The native gem is the main deployment risk.** Task 1 Step 4 is mandatory: the production Docker image must build. The prebuilt linux platform gem is the happy path; a Rust toolchain in the build stage is the fallback.
+- **The native gem is the main deployment risk.** Task 1 Step 4 is mandatory: the production Docker image must build. The gem is source-only on linux, so the Dockerfile build stage needs a Rust toolchain (rustup) AND `libclang-dev` (for rb-sys bindgen). Debian's `cargo` (rustc 1.85) is too old — use rustup.
 - **`retry_on` attempts:** 5 attempts with 30s wait is a starting point; tune if needed. After attempts are exhausted, ActiveJob re-raises (the job fails visibly in mission_control-jobs).
 - **Out of scope (per spec):** JS-rendered pages, robots.txt, persisted crawl status, readability-style main-content extraction, deleting nonexistent standalone Docling compose files.
