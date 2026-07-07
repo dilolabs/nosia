@@ -45,7 +45,7 @@ module Website::Crawlable
   end
 
   def convert_to_markdown(html)
-    HtmlToMarkdown.convert(html).content
+    HtmlToMarkdown.convert(html, skip_images: true).content
   rescue StandardError => error
     raise ConversionError, "html-to-markdown conversion failed: #{error.class}: #{error.message}"
   end

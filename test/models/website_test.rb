@@ -66,10 +66,26 @@ class WebsiteTest < ActiveSupport::TestCase
   test "crawl_url! wraps conversion failures in a retried ConversionError" do
     stub_connection(status: 200, body: "<html></html>")
     @website.define_singleton_method(:chunkify!) { nil }
+    original = HtmlToMarkdown.method(:convert)
     HtmlToMarkdown.define_singleton_method(:convert) { |*_args| raise "rust panic" }
 
     assert_raises(Website::Crawlable::ConversionError) { @website.crawl_url! }
   ensure
-    HtmlToMarkdown.singleton_class.send(:remove_method, :convert)
+    HtmlToMarkdown.define_singleton_method(:convert, original) if original
+  end
+
+  test "crawl_url! skips images including inline SVGs in the converted markdown" do
+    stub_connection(
+      status: 200,
+      body: "<h1>Title</h1><svg><circle/></svg><img src=\"https://x/y.svg\" alt=\"y\"/><p>Body</p>"
+    )
+    @website.define_singleton_method(:chunkify!) { nil }
+
+    @website.crawl_url!
+
+    assert_includes @website.data, "# Title"
+    assert_includes @website.data, "Body"
+    refute_includes @website.data, "data:image/svg+xml"
+    refute_includes @website.data, "y.svg"
   end
 end
