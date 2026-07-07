@@ -24,8 +24,12 @@ FROM base AS build
 
 # Install packages need to build gems
 RUN apt-get update -qq && \
-    apt-get install -y build-essential git pkg-config libffi-dev libyaml-dev  && \
+    apt-get install -y build-essential git pkg-config libffi-dev libyaml-dev libclang-dev && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Install Rust toolchain (Debian cargo is too old for html-to-markdown's deps)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install application gems
 COPY Gemfile Gemfile.lock vendor ./

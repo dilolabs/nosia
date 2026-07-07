@@ -76,6 +76,7 @@ gem "baran" # Text Splitter for Large Language Model datasets [https://github.co
 gem "blingfire" # High speed text tokenization [https://github.com/ankane/blingfire-ruby]
 gem "commonmarker" # CommonMark and GitHub Flavored Markdown compatible parser and renderer [https://github.com/gjtorikian/commonmarker]
 gem "faraday" # HTTP client library abstraction layer [https://github.com/lostisland/faraday]
+gem "html-to-markdown" # HTML to Markdown converter (native Rust/Magnus extension) [https://github.com/xberg-io/html-to-markdown]
 gem "inline_svg" # Embed SVG documents in views and style them with CSS [https://github.com/jamesmartin/inline_svg]
 gem "mcp" # The official Ruby SDK for the Model Context Protocol [https://github.com/modelcontextprotocol/ruby-sdk]
 gem "mission_control-jobs" # Dashboard and Active Job extensions to operate and troubleshoot background jobs [https://github.com/rails/mission_control-jobs]
