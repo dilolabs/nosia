@@ -1,6 +1,7 @@
 class Website < ApplicationRecord
   include Chunkable
   include Crawlable
+  include RobotsCheckable
 
   belongs_to :account
 

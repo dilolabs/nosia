@@ -5,6 +5,7 @@ module Website::Crawlable
 
   def crawl_url!
     return unless url.present?
+    return unless robots_allowed?
 
     html = fetch_html
     return unless html

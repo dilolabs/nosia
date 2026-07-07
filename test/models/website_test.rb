@@ -6,6 +6,9 @@ class WebsiteTest < ActiveSupport::TestCase
     @account = Account.create!(name: "WT Account", owner: @user)
     ActsAsTenant.current_tenant = @account
     @website = @account.websites.create!(url: "https://example.com/page")
+    # Robots checking is covered in RobotsCheckableTest; keep these tests
+    # focused on fetch/convert by allowing every URL.
+    @website.define_singleton_method(:robots_allowed?) { true }
   end
 
   def stub_connection(status:, body: "")
