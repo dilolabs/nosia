@@ -186,7 +186,6 @@ services:
       - CHUNK_OVERLAP=`${CHUNK_OVERLAP}
       - RETRIEVAL_FETCH_K=`${RETRIEVAL_FETCH_K}
       - GUARD_MODEL=`${GUARD_MODEL}
-      - DOCLING_SERVE_BASE_URL=`${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=`${AUGMENTED_CONTEXT}
     models:
       - llm
@@ -243,7 +242,6 @@ services:
       - CHUNK_OVERLAP=`${CHUNK_OVERLAP}
       - RETRIEVAL_FETCH_K=`${RETRIEVAL_FETCH_K}
       - GUARD_MODEL=`${GUARD_MODEL}
-      - DOCLING_SERVE_BASE_URL=`${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=`${AUGMENTED_CONTEXT}
     models:
       - llm
@@ -370,9 +368,7 @@ function Setup-Env {
     $POSTGRES_PORT = 5432
     $POSTGRES_DB = "nosia_production"
     $POSTGRES_USER = "nosia"
-    
-    # Docling configuration
-    $DOCLING_SERVE_BASE_URL = ""
+
     $AUGMENTED_CONTEXT = "true"
     
     $envContent = @"
@@ -421,9 +417,6 @@ POSTGRES_DB=${POSTGRES_DB}
 POSTGRES_USER=${POSTGRES_USER}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-
-# Optional: Docling Serve Configuration
-DOCLING_SERVE_BASE_URL=${DOCLING_SERVE_BASE_URL}
 
 # Optional: Augmented Context
 AUGMENTED_CONTEXT=${AUGMENTED_CONTEXT}
