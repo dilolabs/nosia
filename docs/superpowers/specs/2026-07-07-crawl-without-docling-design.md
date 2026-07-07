@@ -27,7 +27,7 @@ No tests exist for crawling.
 
 1. **Full replacement** of Docling — no env-var fallback. If Docling is configured, it is ignored; the in-process path always runs.
 2. **Whole-page conversion** — the entire fetched HTML body is converted to Markdown (no readability-style boilerplate extraction). Chunks will include nav/footer noise; accepted as a trade-off for simplicity and minimal dependencies.
-3. **Conversion gem:** `html-to-markdown` (RubyGems name; `require "html_to_markdown"`; module `HtmlToMarkdown`). API: `HtmlToMarkdown.convert(html)[:content]` returns the Markdown string. Ruby 3.2+. It is a **native Rust extension** (Magnus bindings), prebuilt for Linux and macOS x86_64/arm64, with **no Nokogiri dependency**. No `base_url`/`selector` option exists in the Ruby binding, which is consistent with the whole-page choice.
+3. **Conversion gem:** `html-to-markdown` (RubyGems name; `require "html_to_markdown"`; module `HtmlToMarkdown`). API: `HtmlToMarkdown.convert(html)[:content]` returns the Markdown string. Ruby 3.2+. It is a **native Rust extension** (Magnus bindings), prebuilt for Linux and macOS x86_64/arm64, with **no Nokogiri dependency**. The Ruby binding exposes `exclude_selectors`, `strip_tags`, `preserve_tags`, and `max_depth` options, but no `base_url` for relative-URL resolution. We pass no options — the whole-page choice (Decision #2) is a deliberate simplicity trade-off independent of available options.
 4. **Failure handling:** raise on transient errors (network/timeout/5xx/conversion errors) so Solid Queue retries; log and return `nil` on terminal HTTP errors (3xx without redirect following, 4xx). Failed crawls are visible via `Rails.logger.warn`, not via persisted status.
 5. **Code organization:** logic stays in the `Website::Crawlable` concern as private methods ordered by invocation flow. No service objects, no new top-level classes. `crawl_url!` remains the public API the job calls.
 6. **Scope add-ons:** remove all `DOCLING_SERVE_BASE_URL` references from env/docs/compose/install files; fix the `CrawlWebsiteUrlsJob` typo; add Minitest coverage for crawling.
@@ -66,7 +66,7 @@ Orchestrates fetch → convert → persist → chunk. Returns `self` on success,
 Faraday GET to `self.url`:
 - `headers["User-Agent"] = "Nosiabot/0.1"` (kept from current code)
 - Read timeout `10`s, open timeout `5`s so a hung host does not stall the worker
-- Faraday does not follow redirects by default. The design's default is **no redirect-following middleware**: treat 3xx as terminal-and-logged. If `faraday-follow_redirects` is already bundled in the lockfile it may be adopted during implementation; otherwise no new middleware is introduced.
+- Faraday does not follow redirects by default and the lockfile does not bundle `faraday-follow_redirects`, so **no redirect-following middleware is added**: 3xx responses are treated as terminal-and-logged.
 
 ### `convert_to_markdown(html)` (private)
 
@@ -104,7 +104,7 @@ Logging uses `Rails.logger.warn` with the URL and status, so failed crawls are v
 - `README.md` — remove the Docling URL example, the "Docling document processing service URL" line, and the docling-serve compose file references
 - `docs/ARCHITECTURE.md` — remove the "Advanced document parsing" config entry
 
-**Deliberately left in place:** the standalone `docker-compose-docling-serve-*.yml` files. They are optional, self-contained compose files and harmless once nothing references them. Deleting them is out of scope.
+**Note:** no standalone `docker-compose-docling-serve-*.yml` files exist in the repo (a `find` for `*docling*` filenames returns nothing); the README references to them are simply removed as part of the README cleanup above.
 
 ## Bug fix
 
@@ -128,4 +128,4 @@ Stubs target the private-method boundaries (`fetch_html`, `convert_to_markdown`)
 - `robots.txt` / crawl politeness / rate limiting
 - Persisted crawl status or failure UI
 - Main-content / boilerplate extraction (readability-style)
-- Deleting the standalone `docker-compose-docling-serve-*.yml` files
+- Deleting standalone Docling compose files (none exist in the repo)
