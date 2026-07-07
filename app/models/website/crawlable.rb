@@ -1,65 +1,48 @@
+require "html_to_markdown"
+
 module Website::Crawlable
   extend ActiveSupport::Concern
 
   def crawl_url!
-    return unless ENV["DOCLING_SERVE_BASE_URL"].present?
+    return unless url.present?
 
-    connection = Faraday.new(url: ENV["DOCLING_SERVE_BASE_URL"])
+    html = fetch_html
+    return unless html
 
-    request_body = {
-      options: {
-        from_formats: [ "html" ],
-        to_formats: [ "md" ],
-        image_export_mode: "placeholder",
-        table_mode: "accurate"
-      },
-      sources: [
-        {
-          kind: "http",
-          url: self.url
-        }
-      ]
-    }.to_json
-
-    response = connection.post do |request|
-      request.url "/v1/convert/source/async"
-      request.headers["Accept"] = "application/json"
-      request.headers["Content-Type"] = "application/json"
-      request.headers["User-Agent"] = "Nosiabot/0.1"
-      request.body = request_body
-    end
-
-    return unless response.success?
-
-    json = JSON.parse(response.body)
-    task_id = json.dig("task_id")
-    task_status = json.dig("task_status")
-
-    while !task_status.in?(%w[success failure])
-      response = connection.get do |request|
-        request.url "/v1/status/poll/#{task_id}"
-        request.headers["Accept"] = "application/json"
-        request.headers["User-Agent"] = "Nosiabot/0.1"
-      end
-
-      json = JSON.parse(response.body)
-      task_status = json.dig("task_status")
-
-      sleep 1
-    end
-
-    response = connection.get do |request|
-      request.url "/v1/result/#{task_id}"
-      request.headers["Accept"] = "application/json"
-      request.headers["User-Agent"] = "Nosiabot/0.1"
-    end
-
-    return unless response.success?
-
-    json = JSON.parse(response.body)
-    self.data = json.dig("document", "md_content")
-    self.save!
-    self.chunkify!
+    self.data = convert_to_markdown(html)
+    save!
+    chunkify!
     self
+  end
+
+  private
+
+  def fetch_html
+    response = faraday_connection.get(self.url) do |request|
+      request.headers["User-Agent"] = "Nosiabot/0.1"
+    end
+
+    return response.body if response.success?
+
+    if (500..599).cover?(response.status)
+      raise Faraday::ServerError, "upstream #{response.status} for #{self.url}"
+    end
+
+    Rails.logger.warn("crawl_url! terminal status=#{response.status} url=#{self.url}")
+    nil
+  rescue Faraday::TimeoutError, Faraday::ConnectionFailed => error
+    Rails.logger.warn("crawl_url! transient #{error.class} url=#{self.url}")
+    raise
+  end
+
+  def faraday_connection
+    Faraday.new do |builder|
+      builder.options.timeout = 10
+      builder.options.open_timeout = 5
+    end
+  end
+
+  def convert_to_markdown(html)
+    HtmlToMarkdown.convert(html).content
   end
 end
