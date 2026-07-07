@@ -16,7 +16,7 @@ module Api
 
         if completion_params[:messages].present?
           messages = completion_params[:messages]
-          last_message = messages.pop
+          last_message = messages.last
           prompt = last_message[:content]
 
           messages.each do |message_params|
