@@ -30,6 +30,8 @@
       <% end %>
 
       <%= button_to "Test connection", test_connection_mcp_server_path(@mcp_server), method: :post, data: { turbo: false }, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+
+      <%= link_to "Delete", mcp_server_path(@mcp_server), data: { turbo_method: :delete, turbo_confirm: "Delete this MCP server? Chats using it will lose access." }, class: "n-btn-danger" %>
     </div>
   </div>
 

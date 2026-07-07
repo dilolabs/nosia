@@ -20,6 +20,8 @@ class McpCatalog
       template = find(server_id)
       return nil unless template
 
+      return activate_registry(account, template, config_values) if template[:source] == :registry
+
       # Replace {{variable}} with values
       auth_config = build_auth_config(template, config_values)
       env_config = build_env_config(template, config_values)
@@ -63,16 +65,60 @@ class McpCatalog
 
     private
 
+    def activate_registry(account, template, config_values)
+      auth = build_registry_auth(template, config_values)
+      validate_required(template, auth)
+
+      account.mcp_servers.create!(
+        name: template[:name],
+        transport_type: "local",
+        endpoint: nil,
+        enabled: true,
+        tags: [ template[:category], "catalog" ].join(","),
+        notes: template[:description],
+        connection_config: {},
+        auth_config: auth,
+        metadata: {
+          catalog_id: template[:id],
+          engine: template[:id],
+          icon: template[:icon],
+          capabilities: template[:capabilities]
+        }
+      )
+    end
+
+    def build_registry_auth(template, config_values)
+      Array(template[:requires_config]).each_with_object({}) do |field, auth|
+        auth[field[:name].to_s] = config_values[field[:name].to_s].to_s
+      end
+    end
+
+    def validate_required(template, auth)
+      missing = Array(template[:requires_config]).select do |field|
+        field[:required] && auth[field[:name].to_s].blank?
+      end
+      return if missing.empty?
+
+      record = McpServer.new(name: template[:name])
+      record.errors.add(:base, "Missing required config: #{missing.map { |f| f[:name] }.join(", ")}")
+      raise ActiveRecord::RecordInvalid.new(record)
+    end
+
     def load_catalog
       catalog_path = Rails.root.join("config", "mcp_catalog.yml")
       yaml = YAML.load_file(catalog_path)
-      yaml["servers"].map(&:deep_symbolize_keys)
+      yaml_servers = yaml["servers"].map(&:deep_symbolize_keys).map { |s| s.merge(source: :yaml) }
+      yaml_servers + Engines::Registry.all.map(&:to_catalog_entry)
     end
 
     def load_categories
       catalog_path = Rails.root.join("config", "mcp_catalog.yml")
       yaml = YAML.load_file(catalog_path)
-      yaml["categories"].map(&:deep_symbolize_keys)
+      categories = yaml["categories"].map(&:deep_symbolize_keys)
+      categories << { id: "engines", name: "Built-in engines", icon: "🔧",
+                      description: "Native integrations bundled with Nosia." } \
+        unless categories.any? { |c| c[:id] == "engines" }
+      categories
     end
 
     def build_connection_config(template, values)

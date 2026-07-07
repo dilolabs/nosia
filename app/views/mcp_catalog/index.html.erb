@@ -46,7 +46,7 @@
           <% servers.each do |server| %>
             <% is_activated = @activated_ids.include?(server[:id]) %>
 
-            <div class="relative n-card <%= is_activated ? "border-green-500 dark:border-green-600" : "n-main-border" %>">
+            <div class="relative n-card !block <%= is_activated ? "border-green-500 dark:border-green-600" : "n-main-border" %>">
               <div class="m-6 space-y-4">
                 <% if is_activated %>
                   <div class="absolute top-4 right-4">
@@ -62,7 +62,7 @@
 
                   <div class="flex-1 min-w-0">
                     <h4 class="n-card-title text-wrap"><%= server[:name] %></h4>
-                    <p class="n-card-subtitle text-wrap line-clamp-3"><%= server[:description] %></p>
+                    <p class="n-card-subtitle text-wrap line-clamp-3 !whitespace-normal"><%= server[:description] %></p>
                   </div>
                 </div>
 

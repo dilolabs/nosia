@@ -27,40 +27,6 @@ servers:
     env:
       CALENDAR_TOKEN: "{{calendar_token}}"
 
-  # Infomaniak kDrive
-  - id: "kdrive"
-    name: "Infomaniak kDrive"
-    description: "Search in kDrive"
-    icon: "📝"
-    category: "productivity"
-    transport_type: stdio
-    command: docker
-    args:
-      - "run"
-      - "-i"
-      - "--rm"
-      - "-e"
-      - "KDRIVE_TOKEN"
-      - "-e"
-      - "KDRIVE_ID"
-      - "infomaniak/mcp-server-kdrive"
-    requires_config:
-      - name: kdrive_token
-        label: "kDrive Token"
-        type: secret
-        required: true
-        description: "Your kDrive token."
-        help_url: "https://github.com/Infomaniak/mcp-server-kdrive"
-      - name: kdrive_id
-        label: "kDrive ID"
-        type: string
-        required: true
-        description: "Your kDrive id fetch from the webapp URL. (eg. if your kDrive webapp url is https://ksuite.infomaniak.com/all/kdrive/app/drive/12 your drive id is 12)"
-        help_url: "https://github.com/Infomaniak/mcp-server-kdrive"
-    env:
-      KDRIVE_TOKEN: "{{kdrive_token}}"
-      KDRIVE_ID: "{{kdrive_id}}"
-
   # Infomaniak kChat
   - id: "kchat"
     name: "Infomaniak kChat"

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-@import "../stylesheets/dropzone.min.css" layer(utilities);
 @import "../stylesheets/nosia/button.css" layer(utilities);
 @import "../stylesheets/nosia/card.css" layer(utilities);
 @import "../stylesheets/nosia/form.css" layer(utilities);
