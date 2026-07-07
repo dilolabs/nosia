@@ -1,6 +1,8 @@
 module Website::Crawlable
   extend ActiveSupport::Concern
 
+  class ConversionError < StandardError; end
+
   def crawl_url!
     return unless url.present?
 
@@ -20,7 +22,9 @@ module Website::Crawlable
       request.headers["User-Agent"] = "Nosiabot/0.1"
     end
 
-    return response.body if response.success?
+    if response.success?
+      return response.body
+    end
 
     if (500..599).cover?(response.status)
       raise Faraday::ServerError, "upstream #{response.status} for #{self.url}"
@@ -42,5 +46,7 @@ module Website::Crawlable
 
   def convert_to_markdown(html)
     HtmlToMarkdown.convert(html).content
+  rescue StandardError => error
+    raise ConversionError, "html-to-markdown conversion failed: #{error.class}: #{error.message}"
   end
 end

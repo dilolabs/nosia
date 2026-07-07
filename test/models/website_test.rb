@@ -62,4 +62,14 @@ class WebsiteTest < ActiveSupport::TestCase
 
     assert_nil @website.crawl_url!
   end
+
+  test "crawl_url! wraps conversion failures in a retried ConversionError" do
+    stub_connection(status: 200, body: "<html></html>")
+    @website.define_singleton_method(:chunkify!) { nil }
+    HtmlToMarkdown.define_singleton_method(:convert) { |*_args| raise "rust panic" }
+
+    assert_raises(Website::Crawlable::ConversionError) { @website.crawl_url! }
+  ensure
+    HtmlToMarkdown.singleton_class.send(:remove_method, :convert)
+  end
 end
