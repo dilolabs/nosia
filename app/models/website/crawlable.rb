@@ -1,5 +1,3 @@
-require "html_to_markdown"
-
 module Website::Crawlable
   extend ActiveSupport::Concern
 

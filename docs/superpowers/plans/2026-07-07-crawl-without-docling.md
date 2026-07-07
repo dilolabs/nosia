@@ -92,6 +92,8 @@ git commit -m "feat: add html-to-markdown gem for in-process HTML conversion"
 
 This is the core change. Tests go through the public `crawl_url!` and stub the `faraday_connection` seam (no network, no WebMock dependency). One test → implement → pass → next test.
 
+**Important test constraint:** `chunkify!` → `chunks.create!` triggers a `before_save :generate_embedding` (real `RubyLLM.embed`), which is not testable in this environment (it stack-overflows via httpx/association-scope recursion). The existing `Chunk::VectorizableTest` deliberately avoids triggering it. So the success test **stubs `chunkify!`** and asserts it was called, rather than running it for real and asserting `chunks.count > 0`. The 4xx/5xx/timeout/blank tests never reach `chunkify!`, so they're unaffected.
+
 **Files:**
 - Create: `test/models/website_test.rb`
 - Rewrite: `app/models/website/crawlable.rb`
@@ -121,15 +123,17 @@ class WebsiteTest < ActiveSupport::TestCase
     response
   end
 
-  test "crawl_url! converts and persists a fetched page" do
+  test "crawl_url! converts and persists a fetched page, then chunkifies" do
     stub_connection(status: 200, body: "<h1>Title</h1><p>Body text</p>")
+    chunkified = []
+    @website.define_singleton_method(:chunkify!) { chunkified << true; nil }
 
     @website.crawl_url!
 
     assert_equal true, @website.reload.data.present?
     assert_includes @website.data, "# Title"
     assert_includes @website.data, "Body text"
-    assert_operator @website.chunks.count, :>, 0
+    assert_equal [ true ], chunkified
   end
 end
 ```
