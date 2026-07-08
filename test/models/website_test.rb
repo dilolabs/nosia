@@ -84,7 +84,9 @@ class WebsiteTest < ActiveSupport::TestCase
   end
 
   test "crawl_url! returns nil when url is blank and never fetches" do
-    @website.update!(url: nil)
+    # Bypass the url presence validation so we can reach crawl_url!'s
+    # blank-url guard (defense-in-depth for records predating the validation).
+    @website.update_columns(url: nil)
     sentinel = Object.new
     sentinel.define_singleton_method(:get) { |*_args| raise "should not be called" }
     @website.define_singleton_method(:faraday_connection) { sentinel }

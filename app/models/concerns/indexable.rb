@@ -10,6 +10,8 @@ module Indexable
   end
 
   def mark_indexing_failed!
-    update!(index_status: :failed)
+    # Bypass validation so a record can be marked failed even when it's
+    # otherwise invalid (e.g. a blank-url website hitting crawl_url!'s guard).
+    update_columns(index_status: :failed)
   end
 end
