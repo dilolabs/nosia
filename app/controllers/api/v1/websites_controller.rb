@@ -7,7 +7,7 @@ module Api
         website = @account.websites.new(website_params)
 
         if website.save
-          CrawlWebsiteUrlsJob.perform_later(website.id)
+          CrawlWebsiteUrlJob.perform_later(website.id)
 
           response = {
             id: website.id

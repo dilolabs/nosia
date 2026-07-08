@@ -77,7 +77,7 @@ This document tracks known technical debt in the Nosia codebase, including the n
 **Impact**:
 - Users need to convert documents to supported formats
 - Missing common formats (DOCX, XLSX, PPTX)
-- Docling integration is optional
+- No external parser fallback for unsupported formats
 
 **Location**:
 - `app/models/document/parsable.rb`
@@ -85,7 +85,6 @@ This document tracks known technical debt in the Nosia codebase, including the n
 
 **Resolution Plan**:
 - Add native support for DOCX, XLSX, PPTX
-- Improve Docling integration
 - Add fallback parsers for common formats
 - Implement better error handling for unsupported formats
 

@@ -208,29 +208,6 @@ By default, Nosia uses `ai/granite-embedding-multilingual` for generating docume
 
 ### Advanced Installation
 
-#### With Docling Document Processing
-
-[Docling](https://github.com/DS4SD/docling) provides enhanced document processing capabilities for complex PDFs and documents.
-
-**To enable Docling:**
-
-1. Start Nosia with the Docling serve compose file:
-   ```bash
-    # For NVIDIA GPUs
-   docker compose -f docker-compose-docling-serve-nvidia.yml up -d
-    # OR for AMD GPUs
-   docker compose -f docker-compose-docling-serve-amd.yml up -d
-    # OR for CPU only
-   docker compose -f docker-compose-docling-serve-cpu.yml up -d
-   ```
-
-2. Configure the Docling URL in your `.env` file:
-   ```env
-   DOCLING_SERVE_BASE_URL=http://localhost:5001
-   ```
-
-This starts a Docling serve instance on port 5001 that Nosia will use for advanced document parsing.
-
 #### With Augmented Context (RAG)
 
 Enable Retrieval Augmented Generation to enhance AI responses with relevant context from your documents.
@@ -279,7 +256,6 @@ Nosia validates required environment variables at startup to prevent runtime fai
 | `LLM_TOP_P` | Top P (nucleus) sampling | `0.9` | `0.0` - `1.0` |
 | `RETRIEVAL_FETCH_K` | Number of document chunks to retrieve for RAG | `3` | `1` - `10` |
 | `AUGMENTED_CONTEXT` | Enable RAG for chat completions | `false` | `true`, `false` |
-| `DOCLING_SERVE_BASE_URL` | Docling document processing service URL | empty | `http://localhost:5001` |
 
 See `.env.example` for a complete list of configuration options.
 

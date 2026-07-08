@@ -52,9 +52,9 @@ This document tracks quality metrics and improvement areas across different doma
 
 | Component | Score | Notes |
 |----------|-------|-------|
-| Document::Parsable | 4 | Handles PDF/text well, Docling integration is optional |
+| Document::Parsable | 4 | Handles PDF/text well via pdf-reader |
 | Document::Chunkable | 4 | Good chunking strategy, could use semantic chunking |
-| Website::Crawlable | 4 | Works with Docling, needs fallback parser |
+| Website::Crawlable | 4 | In-process Faraday + html-to-markdown, no external parser |
 | Text::Chunkable | 5 | Simple and effective |
 | Qna::Chunkable | 5 | Well-implemented |
 
@@ -67,7 +67,7 @@ This document tracks quality metrics and improvement areas across different doma
 | AddDocumentJob | 4 | Works well, could use progress reporting |
 | AddTextJob | 5 | Simple and reliable |
 | AddQnaJob | 5 | Simple and reliable |
-| CrawlWebsiteUrlJob | 4 | Works with Docling, needs error recovery |
+| CrawlWebsiteUrlJob | 4 | Retries transient fetch errors, in-process conversion |
 | ChatResponseJob | 4 | Good streaming, needs better error handling |
 
 **Overall**: 4/5 - Jobs are reliable, could use more monitoring
@@ -80,7 +80,7 @@ This document tracks quality metrics and improvement areas across different doma
 | API Authentication | 4 | Token-based, could use rate limiting |
 | API v1 Files | 4 | Document upload works well |
 | API v1 Texts | 5 | Simple and effective |
-| API v1 Websites | 4 | Works with Docling |
+| API v1 Websites | 4 | Enqueues crawl job, in-process conversion |
 | API v1 QnAs | 5 | Well-implemented |
 
 **Overall**: 4/5 - API is functional and compatible, needs more production features
