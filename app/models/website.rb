@@ -1,6 +1,7 @@
 class Website < ApplicationRecord
   include Chunkable
   include Crawlable
+  include RobotsCheckable
 
   belongs_to :account
 
@@ -23,6 +24,17 @@ class Website < ApplicationRecord
   end
 
   def to_html
-    Commonmarker.to_html(data)
+    Commonmarker.to_html(page_body)
+  end
+
+  private
+
+  def page_body
+    return "" if data.blank?
+    return data unless data.start_with?("---\n")
+
+    rest = data[4..]
+    close_index = rest.index("\n---\n")
+    close_index ? rest[(close_index + 5)..] : data
   end
 end

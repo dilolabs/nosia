@@ -2,18 +2,6 @@
 # Nosia Installation Script
 # Usage: curl -fsSL https://get.nosia.ai | sh
 
-# Detect architecture and return appropriate platform string
-get_platform() {
-  case "$(uname -m)" in
-    aarch64|arm64)
-      echo "linux/arm64" ;;
-    x86_64|amd64)
-      echo "linux/amd64" ;;
-    *)
-      echo "linux/amd64" ;;
-  esac
-}
-
 # Detect system resources and set exported variables
 detect_system_resources() {
   echo "Detecting system resources..."
@@ -139,9 +127,6 @@ select_embedding_model() {
 
 # Generate docker-compose.yml
 generate_docker_compose() {
-  platform="$1"
-  use_docling="$2"
-
   cat > docker-compose.yml <<EOF
 services:
   reverse-proxy:
@@ -193,7 +178,6 @@ services:
       - CHUNK_OVERLAP=\${CHUNK_OVERLAP}
       - RETRIEVAL_FETCH_K=\${RETRIEVAL_FETCH_K}
       - GUARD_MODEL=\${GUARD_MODEL}
-      - DOCLING_SERVE_BASE_URL=\${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=\${AUGMENTED_CONTEXT}
     models:
       - llm
@@ -250,7 +234,6 @@ services:
       - CHUNK_OVERLAP=\${CHUNK_OVERLAP}
       - RETRIEVAL_FETCH_K=\${RETRIEVAL_FETCH_K}
       - GUARD_MODEL=\${GUARD_MODEL}
-      - DOCLING_SERVE_BASE_URL=\${DOCLING_SERVE_BASE_URL}
       - AUGMENTED_CONTEXT=\${AUGMENTED_CONTEXT}
     models:
       - llm
@@ -264,25 +247,6 @@ services:
         condition: service_healthy
     restart: on-failure:5
 EOF
-
-  # Add docling-serve service if enabled
-  if [ "$use_docling" = "true" ]; then
-    cat >> docker-compose.yml <<EOF
-
-  docling-serve:
-    image: quay.io/docling-project/docling-serve:latest
-    platform: ${platform}
-    ports:
-      - "5001:5001"
-    environment:
-      - DOCLING_SERVE_ENABLE_UI=0
-      - DOCLING_SERVE_HOST=0.0.0.0
-      - DOCLING_SERVE_PORT=5001
-    volumes:
-      - docling-data:/app/data
-    restart: unless-stopped
-EOF
-  fi
 
   # Add volumes section
   cat >> docker-compose.yml <<EOF
@@ -299,18 +263,12 @@ volumes:
   postgres-db-data:
   rails-storage:
 EOF
-
-  # Add docling-data volume if enabled
-  if [ "$use_docling" = "true" ]; then
-    echo "  docling-data:" >> docker-compose.yml
-  fi
 }
 
 # Setup environment file
 setup_env() {
-  local use_docling="$1"
-  local system_ram="$2"
-  local gpu_vram="$3"
+  local system_ram="$1"
+  local gpu_vram="$2"
 
   if [ -f .env ]; then
     echo ".env file exists, checking for missing encryption keys..."
@@ -397,10 +355,6 @@ setup_env() {
   POSTGRES_USER=nosia
   DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
 
-  # Optional: Docling Serve Configuration
-  # For advanced documents understanding
-  DOCLING_SERVE_BASE_URL=
-
   # Optional: Augmented Context
   # Enable for enhanced chat completions with context augmentation
   AUGMENTED_CONTEXT=true
@@ -451,9 +405,6 @@ POSTGRES_DB=${POSTGRES_DB}
 POSTGRES_USER=${POSTGRES_USER}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 DATABASE_URL=${DATABASE_URL}
-
-# Optional: Docling Serve Configuration
-DOCLING_SERVE_BASE_URL=${DOCLING_SERVE_BASE_URL}
 
 # Optional: Augmented Context
 AUGMENTED_CONTEXT=${AUGMENTED_CONTEXT}
@@ -528,23 +479,14 @@ setup_windows() {
 
 # Main installation
 do_install() {
-  # Detect platform for docling-serve
-  PLATFORM=$(get_platform)
-
   # Detect system resources
   detect_system_resources
 
-  # Determine if docling should be enabled
-  USE_DOCLING="false"
-  if [ "$ADVANCED_DOCUMENTS_UNDERSTANDING" = "true" ]; then
-    USE_DOCLING="true"
-  fi
-
   # Generate docker-compose.yml
-  generate_docker_compose "$PLATFORM" "$USE_DOCLING"
+  generate_docker_compose
 
   # Setup environment
-  setup_env "$USE_DOCLING" "$DETECTED_SYSTEM_RAM_GB" "$DETECTED_GPU_VRAM_GB"
+  setup_env "$DETECTED_SYSTEM_RAM_GB" "$DETECTED_GPU_VRAM_GB"
 
   # Install prerequisites based on OS
   case "$OSTYPE" in
