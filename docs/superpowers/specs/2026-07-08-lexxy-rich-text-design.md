@@ -115,14 +115,16 @@ import "lexxy"
 
 **The interception endpoint is account-scoped, not chat-scoped.** This is the key to supporting the new-chat composer, where no `Chat` exists yet at paste time. Sources are account-scoped in the existing design (retrieval is account-wide similarity search; sources carry no `chat_id`), so creating a source before its chat exists is sound. The composer just needs the source id back to accumulate client-side.
 
+nosia does **not** use a `/:account_id/` URL path namespace — `Current.account` is derived from `Current.user.first_account` (`app/models/current.rb`), not the URL. So `chat_sources` is a top-level authenticated resource like `chats`, and the controller scopes via `Current.account` (the same way `ChatsController#create` already uses `Current.account`).
+
 ```ruby
-# config/routes.rb — account-scoped (under the existing /:account_id path namespace)
+# config/routes.rb — top-level, under the existing authenticated constraint (same as chats)
 resources :chat_sources, only: :create   # controller: ChatSourcesController
 ```
 
 ```
-POST /:account_id/chat_sources  { url: "..." }            # → Website
-POST /:account_id/chat_sources  { blob_signed_id: "..." } # → Document
+POST /chat_sources  { url: "..." }             # → Website
+POST /chat_sources  { blob_signed_id: "..." }  # → Document
 ```
 
 Returns JSON `{ id, title, url, index_status }` (Website) or `{ id, filename, index_status }` (Document). Thin controller — authorizes against `Current.account`, delegates to `Website.find_or_create_by_url!(Current.account, url)` / `Document.create_from_blob!(Current.account, signed_id)` model methods.
@@ -149,8 +151,8 @@ Returns JSON `{ id, title, url, index_status }` (Website) or `{ id, filename, in
 
 1. **Enter-to-send, Shift+Enter newline** (`handleKeys`): on plain Enter, prevent default and submit the form. Same feel as today.
 2. **`/skill` palette** (port of `skill_autocomplete_controller`): read the editor text around the caret via Lexxy's selection API (`editor.read(() => $getSelection())`) rather than `textarea.value`; on `/` at line start show the palette; on selection insert `/skill-name ` as a text node at the caret via `editor.update(...)`. Reuses the existing skills endpoint.
-3. **Link interception → Website** (`onInsertLink`): on `lexxy:insert-link`, POST the URL to `POST /:account_id/chat_sources { url }`. Endpoint find-or-creates the Website by `(account_id, url)` (reuse if exists; re-enqueue crawl if `index_status` stale/failed), enqueues `CrawlWebsiteUrlJob`, returns `{ id, title, url, index_status }`. Controller pushes `id` into the hidden `attached_website_ids` and **lets Lexxy's default anchor stand** (does not call `replaceLinkWith` with an attachment sgid). The `account_id` for the POST comes from the current URL path or a `data-account-id` attribute on the editor.
-4. **PDF interception → Document** (`onUploadEnd`): on `lexxy:upload-end` (success, no error), the blob already exists via Active Storage direct upload. POST the blob `signed_id` to `POST /:account_id/chat_sources { blob_signed_id }`. Endpoint builds a `Document` for `Current.account`, attaches the blob (`document.file.attach(signed_id)` — blob owned by the Document, not orphaned), calls `titlize!`, enqueues `AddDocumentJob`, returns `{ id, filename, index_status }`. Controller pushes `id` into `attached_document_ids`. The in-editor `action-text-attachment` preview node remains; it is handled at save (Section 5).
+3. **Link interception → Website** (`onInsertLink`): on `lexxy:insert-link`, POST the URL to `POST /chat_sources { url }` (top-level, same authenticated path as the rest of the app; the controller scopes via `Current.account`). Endpoint find-or-creates the Website by `(account_id, url)` (reuse if exists; re-enqueue crawl if `index_status` stale/failed), enqueues `CrawlWebsiteUrlJob`, returns `{ id, title, url, index_status }`. Controller pushes `id` into the hidden `attached_website_ids` and **lets Lexxy's default anchor stand** (does not call `replaceLinkWith` with an attachment sgid).
+4. **PDF interception → Document** (`onUploadEnd`): on `lexxy:upload-end` (success, no error), the blob already exists via Active Storage direct upload. POST the blob `signed_id` to `POST /chat_sources { blob_signed_id }`. Endpoint builds a `Document` for `Current.account`, attaches the blob (`document.file.attach(signed_id)` — blob owned by the Document, not orphaned), calls `titlize!`, enqueues `AddDocumentJob`, returns `{ id, filename, index_status }`. Controller pushes `id` into `attached_document_ids`. The in-editor `action-text-attachment` preview node remains; it is handled at save (Section 5).
 
 ### Section 3 — Completion flow: indexing gate in `ChatResponseJob`
 
@@ -270,3 +272,4 @@ The composer submits sanitized HTML for `content`. Store markdown, matching toda
 - Spike: confirm Active Storage direct-upload endpoint is enabled/authenticated for Lexxy PDF uploads (`global.authenticatedUploads`).
 - Decide backfill behavior for sources-without-chunks (`pending` vs. `failed`).
 - Decide whether `ChatResponseJob` reads markdown from `user_message.content` (drop the separate prompt arg) or the controller passes `@user_message.content`.
+- Carry over the existing `chats/_form.html.erb` bits the spec's abbreviated snippet omits: the MCP-server hidden-fields block (`#mcp-server-hidden-fields`) and the Stop-button branch for `chat.generating`. Don't silently drop them when adopting Lexxy.
