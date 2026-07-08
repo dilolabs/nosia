@@ -23,8 +23,36 @@ class Message < ApplicationRecord
 
   before_create :set_default_role
   before_create :set_response_number
+  before_save :normalize_content_to_markdown, if: -> { user? && content.to_s.match?(/<[a-z!]/i) }
   after_create_commit -> { broadcast_created }
   after_update_commit -> { broadcast_updated }
+
+  # Convert composer-submitted HTML to markdown for user messages.
+  # PDF action-text-attachment nodes become paperclip markers; URL anchors
+  # pass through as markdown links.
+  def self.html_to_markdown(html)
+    doc = Nokogiri::HTML::DocumentFragment.parse(html)
+    doc.css("action-text-attachment[content-type='application/pdf']").each do |node|
+      filename = filename_for_attachment(node)
+      node.replace(Nokogiri::HTML::DocumentFragment.parse("📎 #{filename}"))
+    end
+    HtmlToMarkdown.convert(doc.to_html, skip_images: true, autolinks: false).content
+  end
+
+  def self.filename_for_attachment(node)
+    sgid = node["sgid"]
+    return "attachment" unless sgid
+
+    attachable = ActionText::Attachable.from_attachable_sgid(sgid)
+    case attachable
+    when ActiveStorage::Blob then attachable.filename.to_s
+    when Document then attachable.file.filename.to_s
+    else
+      "attachment"
+    end
+  rescue
+    "attachment"
+  end
 
   # Helper to broadcast chunks during streaming
   def broadcast_append_chunk(chunk_content)
@@ -120,14 +148,6 @@ class Message < ApplicationRecord
     Commonmarker.to_html(doc.to_html)
   end
 
-  def set_default_role
-    self.role ||= "user"
-  end
-
-  def set_response_number
-    self.response_number = Message.where(chat_id: chat_id).count if response_number.blank?
-  end
-
   def similar_authors
     Author.where(id: similar_documents.pluck(:author_id))
   end
@@ -156,5 +176,19 @@ class Message < ApplicationRecord
   # Helper to get the original message for retry
   def retryable?
     false
+  end
+
+  private
+  def set_default_role
+    self.role ||= "user"
+  end
+
+  def set_response_number
+    self.response_number = Message.where(chat_id: chat_id).count if response_number.blank?
+  end
+
+  def normalize_content_to_markdown
+    return if content.blank?
+    self.content = self.class.html_to_markdown(content)
   end
 end
