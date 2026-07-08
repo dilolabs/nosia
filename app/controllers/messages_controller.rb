@@ -4,11 +4,18 @@ class MessagesController < ApplicationController
   def create
     return unless content.present?
 
-    # Create the user message immediately for instant display
-    @user_message = @chat.messages.create!(role: "user", content: content)
+    # Create the user message immediately for instant display, stamping any
+    # sources attached in the composer so the indexing gate can wait on them.
+    @user_message = @chat.messages.create!(
+      role: "user",
+      content: content,
+      attached_website_ids: Array(params[:message][:attached_website_ids]).compact_blank,
+      attached_document_ids: Array(params[:message][:attached_document_ids]).compact_blank
+    )
 
-    # Queue the job in the background with the ID of the created message
-    ChatResponseJob.perform_later(@chat.id, content, @user_message.id)
+    # Queue the job with the persisted markdown content (Task 6 converted the
+    # composer HTML to markdown on save) and the created message's ID.
+    ChatResponseJob.perform_later(@chat.id, @user_message.content, @user_message.id)
 
     respond_to do |format|
       format.turbo_stream
