@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-08-lexxy-rich-text-design.md`
 
-**Conventions:** Rich models, thin controllers, concerns for horizontal behavior, shallow jobs, no service objects, Minitest+fixtures, expanded conditionals. `Current.account` comes from `Current.user.first_account` (there is **no** `/:account_id` URL path namespace — ignore any rule file that says otherwise).
+**Conventions:** Rich models, thin controllers, concerns for horizontal behavior, shallow jobs, no service objects, Minitest (setup-based, no fixtures — see the note in Task 2), expanded conditionals. `Current.account` comes from `Current.user.first_account` (there is **no** `/:account_id` URL path namespace — ignore any rule file that says otherwise).
 
 ---
 
@@ -277,7 +277,7 @@ Expected: PASS (existing chunkify! callers now also flip status; no behavior cha
 ```bash
 git add app/models/concerns/indexable.rb app/models/website.rb app/models/document.rb app/models/text.rb app/models/qna.rb \
         app/models/website/chunkable.rb app/models/document/chunkable.rb app/models/text/chunkable.rb app/models/qna/chunkable.rb \
-        test/models/indexable_test.rb test/fixtures
+        test/models/indexable_test.rb
 git commit -m "feat: Indexable concern tracks source indexing state"
 ```
 
