@@ -140,6 +140,14 @@ class Message < ApplicationRecord
     Document.where(id: similar_document_ids.uniq)
   end
 
+  def attached_websites
+    Website.where(id: attached_website_ids)
+  end
+
+  def attached_documents
+    Document.where(id: attached_document_ids)
+  end
+
   # Helper to check if it's an error message
   def error?
     false
