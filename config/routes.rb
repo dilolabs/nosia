@@ -37,6 +37,7 @@ Rails.application.routes.draw do
       resources :messages, only: [ :create ]
       resources :mcp_sessions, only: [ :create, :destroy ], controller: "chat_mcp_sessions"
     end
+    resources :chat_sources, only: [ :create ]
     resources :chunks, only: [ :show ]
     resources :dashboards, only: [ :show ]
     resource :token_usage, only: [ :show ], controller: "token_usages"
