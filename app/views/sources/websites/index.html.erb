@@ -15,8 +15,8 @@
         <div class="flex items-center justify-between">
           <p class="n-card-subtitle"><%= website.account&.name %></p>
           <div class="flex items-center gap-4">
-            <%= link_to edit_sources_website_path(website), title:"Edit website", class: "n-btn-icon n-main-hover n-main-focus" do %>
-              <%= inline_svg "svg/edit.svg", title:"Edit", alt:"Pencil", class: "mx-auto w-6 h-6" %>
+            <%= link_to sources_website_path(website), title:"Show website", class: "n-btn-icon n-main-hover n-main-focus" do %>
+              <%= inline_svg "svg/eye.svg", title:"Show", alt:"Pencil", class: "mx-auto w-6 h-6" %>
               <span class="sr-only">Show website</span>
             <% end %>
             <%= link_to sources_website_path(website), title:"Delete website", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
