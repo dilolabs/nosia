@@ -110,7 +110,10 @@ import "lexxy"
 <%= form.lexxy_rich_text_area :prompt,
       class: "n-form-chat",
       permitted_attachment_types: "application/pdf",
-      data: { composer_target: "editor", /* same actions */ } %>
+      data: { composer_target: "editor",
+              action: "lexxy:insert-link->composer#onInsertLink
+                       lexxy:upload-end->composer#onUploadEnd
+                       keydown->composer#handleKeys" } %>
 ```
 
 **The interception endpoint is account-scoped, not chat-scoped.** This is the key to supporting the new-chat composer, where no `Chat` exists yet at paste time. Sources are account-scoped in the existing design (retrieval is account-wide similarity search; sources carry no `chat_id`), so creating a source before its chat exists is sound. The composer just needs the source id back to accumulate client-side.
@@ -251,7 +254,7 @@ The composer submits sanitized HTML for `content`. Store markdown, matching toda
 **Testing (Minitest + fixtures — behavior, not implementation):**
 
 - **Model:** `index_status` transitions (pending→indexed after `chunkify!`, →failed on terminal failure); `Website.find_or_create_by_url!` reuses existing and re-enqueues when stale/failed; `Document.create_from_blob!` attaches and owns the blob (no orphan); `Message` `before_save` HTML→markdown with attachment nodes → `📎 filename` and anchors passing through; `attached_*_ids` persistence; `Chat#wait_for_attached_sources!` no-op with no sources, waits-then-returns-ready, excludes failed/timed-out, respects the 120s cap.
-- **Controller:** `Chats::ChatSourcesControllerTest` URL and blob branches (create source + enqueue job + return id/title/status), unauthorized account rejected, duplicate URL reused; `MessagesControllerTest` / `ChatsControllerTest` persist `attached_*_ids` and still return the right turbo_stream (LLM call stubbed as in existing tests).
+- **Controller:** `ChatSourcesControllerTest` URL and blob branches (create source + enqueue job + return id/title/status), unauthorized account rejected, duplicate URL reused; `MessagesControllerTest` / `ChatsControllerTest` persist `attached_*_ids` and still return the right turbo_stream (LLM call stubbed as in existing tests).
 - **Job:** `ChatResponseJobTest` waits on `pending` sources then proceeds; proceeds without `failed` source and the prompt includes the warn note; with no attached sources behaves as today.
 - **System:** `ChatComposerSystemTest` paste URL → Website appears in account sources → submit → assistant streams and references indexed content. Dedicated system test for the `/skill` palette port.
 
