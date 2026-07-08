@@ -117,4 +117,31 @@ class WebsiteTest < ActiveSupport::TestCase
     refute_includes @website.data, "data:image/svg+xml"
     refute_includes @website.data, "y.svg"
   end
+
+  test "to_html renders the body and strips the head frontmatter" do
+    @website.update!(data: "---\ntitle: Real Title\nmeta-description: desc\n---\n\n# Heading\n\nParagraph.")
+
+    html = @website.to_html
+
+    assert_includes html, "<h1"
+    assert_includes html, "Heading"
+    assert_includes html, "Paragraph"
+    refute_includes html, "meta-description"
+    refute_includes html, "Real Title"
+  end
+
+  test "to_html renders body markdown when there is no frontmatter" do
+    @website.update!(data: "# Heading\n\nParagraph.")
+
+    html = @website.to_html
+
+    assert_includes html, "<h1"
+    assert_includes html, "Paragraph"
+  end
+
+  test "to_html returns an empty string when data is blank" do
+    @website.update!(data: nil)
+
+    assert_equal "", @website.to_html
+  end
 end

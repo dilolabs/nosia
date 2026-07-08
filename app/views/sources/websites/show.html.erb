@@ -19,4 +19,11 @@
   <h2 class="n-form-title">
     <%= @website.url %>
   </h2>
+  <% if @website.data.present? %>
+    <div class="n-form-content"><%= sanitize @website.to_html,
+          tags: %w[p h1 h2 h3 h4 h5 h6 ul ol li a strong em code pre blockquote table thead tbody tr th td br hr del ins sub sup mark dl dt dd kbd],
+          attributes: %w[href title class id aria-hidden colspan rowspan] %></div>
+  <% else %>
+    <p class="n-form-content">No content yet.</p>
+  <% end %>
 </div>
