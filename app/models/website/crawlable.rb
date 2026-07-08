@@ -3,6 +3,8 @@ module Website::Crawlable
 
   class ConversionError < StandardError; end
 
+  HEAD_FIELDS = %w[title meta-title meta-description meta-keywords].freeze
+
   def crawl_url!
     return unless url.present?
     return unless robots_allowed?
@@ -46,8 +48,25 @@ module Website::Crawlable
   end
 
   def convert_to_markdown(html)
-    HtmlToMarkdown.convert(html, skip_images: true).content
+    filter_head_frontmatter(HtmlToMarkdown.convert(html, skip_images: true).content)
   rescue StandardError => error
     raise ConversionError, "html-to-markdown conversion failed: #{error.class}: #{error.message}"
+  end
+
+  def filter_head_frontmatter(content)
+    return content unless content.start_with?("---\n")
+
+    body_after_open = content[4..]
+    close_index = body_after_open.index("\n---\n")
+    return content unless close_index
+
+    frontmatter = body_after_open[0...close_index]
+    body = body_after_open[(close_index + 5)..]
+    kept = frontmatter.each_line.select do |line|
+      HEAD_FIELDS.any? { |field| line.start_with?("#{field}:") }
+    end
+    return body if kept.empty?
+
+    "---\n#{kept.join.rstrip}\n---\n\n#{body}"
   end
 end

@@ -42,6 +42,32 @@ class WebsiteTest < ActiveSupport::TestCase
     assert_equal 0, @website.chunks.count
   end
 
+  test "crawl_url! keeps only title and key meta tags from the head" do
+    html = <<~HTML
+      <html><head>
+        <title>Real Title</title>
+        <meta name="title" content="Meta Title Name">
+        <meta name="description" content="desc here">
+        <meta name="keywords" content="kw1, kw2">
+        <meta name="robots" content="noindex">
+        <base href="https://example.com/">
+      </head><body><h1>Body</h1><p>text</p></body></html>
+    HTML
+    stub_connection(status: 200, body: html)
+    @website.define_singleton_method(:chunkify!) { nil }
+
+    @website.crawl_url!
+
+    data = @website.reload.data
+    assert_includes data, "title: Real Title"
+    assert_includes data, "meta-title: Meta Title Name"
+    assert_includes data, "meta-description: desc here"
+    assert_includes data, "meta-keywords: kw1, kw2"
+    refute_includes data, "meta-robots"
+    refute_includes data, "base:"
+    assert_includes data, "# Body"
+  end
+
   test "crawl_url! raises on 5xx so the job can retry" do
     stub_connection(status: 503, body: "")
 
