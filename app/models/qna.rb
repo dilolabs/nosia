@@ -1,5 +1,6 @@
 class Qna < ApplicationRecord
   include Chunkable
+  include Indexable
 
   belongs_to :account
 

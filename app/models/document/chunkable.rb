@@ -38,10 +38,14 @@ module Document::Chunkable
 
   def chunkify!
     new_chunks = build_chunks
-    return if new_chunks.empty?
+    if new_chunks.empty?
+      mark_indexing_failed!
+      return
+    end
 
     self.chunks.destroy_all
     self.chunks.create(new_chunks)
+    mark_indexed!
   end
 
   private

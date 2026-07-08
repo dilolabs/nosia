@@ -1,5 +1,6 @@
 class Document < ApplicationRecord
   include Chunkable
+  include Indexable
   include Parsable
 
   belongs_to :account, optional: true

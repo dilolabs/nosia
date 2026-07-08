@@ -33,10 +33,18 @@ module Website::Chunkable
 
     self.chunks.destroy_all
 
+    created = 0
     new_chunks.each do |new_chunk|
       content = new_chunk.dig(:text)
       next if content.blank?
       self.chunks.create!(account:, content:)
+      created += 1
+    end
+
+    if created.zero?
+      mark_indexing_failed!
+    else
+      mark_indexed!
     end
   end
 end
