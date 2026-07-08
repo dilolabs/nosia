@@ -87,9 +87,13 @@ pin "@rails/activestorage", to: "activestorage.esm.js"   # for PDF direct upload
 import "lexxy"
 ```
 
-**Composer form** (`messages/_form.html.erb`, `chats/_form.html.erb`) — explicit helper (no Action Text), hidden fields for accumulated source ids, PDF-only attachments:
+**Both composer forms** get Lexxy + hidden fields for accumulated source ids. They differ only in form object and field name:
+
+- `messages/_form.html.erb` (existing-chat composer) — form object is the new `Message`; Lexxy field is `:content`; submits under `params[:message]`.
+- `chats/_form.html.erb` (new-chat landing composer) — form object is a `Chat`; Lexxy field is `:prompt` (the existing field `ChatsController#create` reads); submits under `params[:chat]`. The `Chat` model has no `attached_*_ids` columns, so the hidden fields are plain `hidden_field_tag` carrying transient form params (not `form.hidden_field` against the model).
 
 ```erb
+<%# messages/_form.html.erb (form object = message) %>
 <%= form.hidden_field :attached_website_ids, multiple: true, data: { composer_target: "websiteIds" } %>
 <%= form.hidden_field :attached_document_ids, multiple: true, data: { composer_target: "documentIds" } %>
 <%= form.lexxy_rich_text_area :content,
@@ -99,25 +103,54 @@ import "lexxy"
               action: "lexxy:insert-link->composer#onInsertLink
                        lexxy:upload-end->composer#onUploadEnd
                        keydown->composer#handleKeys" } %>
+
+<%# chats/_form.html.erb (form object = chat; :prompt not :content) %>
+<%= hidden_field_tag "chat[attached_website_ids][]", nil, data: { composer_target: "websiteIds" } %>
+<%= hidden_field_tag "chat[attached_document_ids][]", nil, data: { composer_target: "documentIds" } %>
+<%= form.lexxy_rich_text_area :prompt,
+      class: "n-form-chat",
+      permitted_attachment_types: "application/pdf",
+      data: { composer_target: "editor", /* same actions */ } %>
+```
+
+**The interception endpoint is account-scoped, not chat-scoped.** This is the key to supporting the new-chat composer, where no `Chat` exists yet at paste time. Sources are account-scoped in the existing design (retrieval is account-wide similarity search; sources carry no `chat_id`), so creating a source before its chat exists is sound. The composer just needs the source id back to accumulate client-side.
+
+```ruby
+# config/routes.rb — account-scoped (under the existing /:account_id path namespace)
+resources :chat_sources, only: :create   # controller: ChatSourcesController
+```
+
+```
+POST /:account_id/chat_sources  { url: "..." }            # → Website
+POST /:account_id/chat_sources  { blob_signed_id: "..." } # → Document
+```
+
+Returns JSON `{ id, title, url, index_status }` (Website) or `{ id, filename, index_status }` (Document). Thin controller — authorizes against `Current.account`, delegates to `Website.find_or_create_by_url!(Current.account, url)` / `Document.create_from_blob!(Current.account, signed_id)` model methods.
+
+**Both controllers stamp the accumulated ids onto the user message they create**, so the gate (Section 3) works identically for both flows:
+
+```ruby
+# ChatsController#create (new-chat) — reads transient params[:chat][:attached_*]
+@user_message = @chat.messages.create!(
+  role: "user", content: prompt,
+  attached_website_ids:  Array(params[:chat][:attached_website_ids]).compact_blank,
+  attached_document_ids: Array(params[:chat][:attached_document_ids]).compact_blank
+)
+
+# MessagesController#create (existing-chat) — reads params[:message][:attached_*]
+@user_message = @chat.messages.create!(
+  role: "user", content: content,
+  attached_website_ids:  Array(params[:message][:attached_website_ids]).compact_blank,
+  attached_document_ids: Array(params[:message][:attached_document_ids]).compact_blank
+)
 ```
 
 **New `composer_controller.js`** (replaces `chat_input_controller` + `skill_autocomplete_controller` for the Lexxy editor):
 
 1. **Enter-to-send, Shift+Enter newline** (`handleKeys`): on plain Enter, prevent default and submit the form. Same feel as today.
 2. **`/skill` palette** (port of `skill_autocomplete_controller`): read the editor text around the caret via Lexxy's selection API (`editor.read(() => $getSelection())`) rather than `textarea.value`; on `/` at line start show the palette; on selection insert `/skill-name ` as a text node at the caret via `editor.update(...)`. Reuses the existing skills endpoint.
-3. **Link interception → Website** (`onInsertLink`): on `lexxy:insert-link`, POST the URL to `POST /:account_id/chats/:chat_id/chat_sources { url }`. Endpoint find-or-creates the Website by `(account_id, url)` (reuse if exists; re-enqueue crawl if `index_status` stale/failed), enqueues `CrawlWebsiteUrlJob`, returns `{ id, title, url, index_status }`. Controller pushes `id` into the hidden `attached_website_ids` and **lets Lexxy's default anchor stand** (does not call `replaceLinkWith` with an attachment sgid).
-4. **PDF interception → Document** (`onUploadEnd`): on `lexxy:upload-end` (success, no error), the blob already exists via Active Storage direct upload. POST the blob `signed_id` to `POST /:account_id/chats/:chat_id/chat_sources { blob_signed_id }`. Endpoint builds a `Document` for `Current.account`, attaches the blob (`document.file.attach(signed_id)` — blob owned by the Document, not orphaned), calls `titlize!`, enqueues `AddDocumentJob`, returns `{ id, filename, index_status }`. Controller pushes `id` into `attached_document_ids`. The in-editor `action-text-attachment` preview node remains; it is handled at save (Section 5).
-
-**New controller `Chats::ChatSourcesController`** (namespaced under chats; sources here are scoped to a chat's account and created only from the composer):
-
-```ruby
-# config/routes.rb
-resources :chats do
-  resources :chat_sources, only: :create, controller: "chats/chat_sources"
-end
-```
-
-Two branches in `create` (URL vs blob), each authorizing against `Current.account`, returning JSON. Thin controller — delegates to `Website.find_or_create_by_url!(account, url)` / `Document.create_from_blob!(account, signed_id)` model methods.
+3. **Link interception → Website** (`onInsertLink`): on `lexxy:insert-link`, POST the URL to `POST /:account_id/chat_sources { url }`. Endpoint find-or-creates the Website by `(account_id, url)` (reuse if exists; re-enqueue crawl if `index_status` stale/failed), enqueues `CrawlWebsiteUrlJob`, returns `{ id, title, url, index_status }`. Controller pushes `id` into the hidden `attached_website_ids` and **lets Lexxy's default anchor stand** (does not call `replaceLinkWith` with an attachment sgid). The `account_id` for the POST comes from the current URL path or a `data-account-id` attribute on the editor.
+4. **PDF interception → Document** (`onUploadEnd`): on `lexxy:upload-end` (success, no error), the blob already exists via Active Storage direct upload. POST the blob `signed_id` to `POST /:account_id/chat_sources { blob_signed_id }`. Endpoint builds a `Document` for `Current.account`, attaches the blob (`document.file.attach(signed_id)` — blob owned by the Document, not orphaned), calls `titlize!`, enqueues `AddDocumentJob`, returns `{ id, filename, index_status }`. Controller pushes `id` into `attached_document_ids`. The in-editor `action-text-attachment` preview node remains; it is handled at save (Section 5).
 
 ### Section 3 — Completion flow: indexing gate in `ChatResponseJob`
 
@@ -186,7 +219,7 @@ included do
 end
 ```
 
-Applied per-attribute (`data` for Text/Website, `answer` for Qna). Uses the existing `HtmlToMarkdown` service (already a crawler dependency); `reverse_markdown` is the fallback if `HtmlToMarkdown`'s input signature differs — the plan confirms which.
+Applied per-attribute (`data` for Text/Website, `answer` for Qna). Uses the existing `html-to-markdown` gem (v3.6.1 in `Gemfile.lock`, native Rust/Magnus extension), already a crawler dependency invoked as `HtmlToMarkdown.convert(html, skip_images: true).content`; `reverse_markdown` is the fallback if the gem's input signature doesn't fit the editor's sanitized HTML — the plan confirms which.
 
 **Source editors disable attachments** (`permitted_attachment_types: ""`) — text-formatting only, no blob lifecycle to manage, no orphaned Active Storage blobs. Image attachments in source content are out of scope (YAGNI).
 
@@ -198,12 +231,14 @@ The composer submits sanitized HTML for `content`. Store markdown, matching toda
 
 **Conversion pipeline (`before_save` on `Message`):**
 
-1. **Extract & strip attachment nodes first.** For each `<action-text-attachment content-type="application/pdf" sgid="...">` node, resolve the sgid to the `Document` (`ActionText::Attachable`), pull its filename, replace the node with a compact markdown marker: `📎 report.pdf`. The Document id is already in `attached_document_ids` (tracked at upload time), so the marker is purely visual.
+1. **Extract & strip attachment nodes first.** For each `<action-text-attachment content-type="application/pdf" sgid="...">` node, resolve the sgid via `ActionText::Attachable` — which for a direct-uploaded file returns the `ActiveStorage::Blob`, **not** the `Document` (the blob is the attachable Lexxy embeds). Pull the filename from `blob.filename` (or, equivalently, from the tracked Document in `attached_document_ids`). Replace the node with a compact markdown marker: `📎 report.pdf`. The Document id is already in `attached_document_ids` (tracked at upload time), so the marker is purely visual.
 2. **Leave anchors as-is.** URL pastes are plain `<a href="url">url</a>`; they pass straight through to markdown.
-3. **Convert remaining HTML → markdown.** `self.content = HtmlToMarkdown.convert(html_without_attachments).content`. `/skill-name` text from the palette is plain text in the editor and survives unchanged.
+3. **Convert remaining HTML → markdown.** `self.content = HtmlToMarkdown.convert(html_without_attachments, skip_images: true).content`. `/skill-name` text from the palette is plain text in the editor and survives unchanged.
 4. **Store markdown in `content`.** Downstream unchanged: `Message#response_content` (Commonmarker + sanitize), the LLM prompt (text), streaming.
 
-**Param handling:** `lexxy_rich_text_area :content` submits under `message[content]` as an HTML string (Lexxy uses `ElementInternals.setFormValue`, not a separate rich-text attribute). The `before_save` derives markdown `content` from the submitted HTML. No extra column, no Action Text table. The conversion needs the submitted HTML *before* overwrite, so `Message` exposes an `attr_accessor :content_html` if needed; final design uses the existing `content` accessor as the HTML input and overwrites with markdown in `before_save`.
+**`before_save` is safe:** `Message` has no content validation (only scopes), so no validation sees the pre-conversion HTML. `before_save` runs after validations; `content` is overwritten with markdown before insert/update. `lexxy_rich_text_area :content` submits the HTML string under `message[content]` (Lexxy uses `ElementInternals.setFormValue`, not a separate rich-text attribute), so the `before_save` reads the submitted HTML from `content` and overwrites it with markdown — no extra column, no Action Text table. For the new-chat form, the field is `:prompt` under `chat[prompt]`; `ChatsController#create` sets it as the message `content` and the same `before_save` converts it.
+
+**The LLM must receive markdown, not HTML.** `ChatResponseJob.perform_later(chat_id, prompt, user_message_id)` is called with the content as a separate arg and `complete_with_nosia` feeds it to the LLM. Today `prompt`/`content` is already markdown, so it works. After this change the controller receives **HTML** for that arg. Since `before_save` runs synchronously inside `messages.create!`, the persisted `@user_message.content` is already markdown by the time the job is enqueued. Both controllers therefore pass `@user_message.content` (markdown) to `ChatResponseJob` instead of the raw HTML param. (Equivalently, the job could read `user_message.content` and ignore the separate arg — the plan picks one.)
 
 **No edit round-trip:** chat messages have no edit action, so the markdown `content` is only rendered read-only via Commonmarker — simpler than sources.
 
@@ -228,8 +263,10 @@ The composer submits sanitized HTML for `content`. Store markdown, matching toda
 
 ## Open items for the implementation plan
 
-- Confirm `HtmlToMarkdown` input signature vs. `reverse_markdown` for the HTML→markdown step.
+- Confirm the `html-to-markdown` gem's input signature fits Lexxy's sanitized HTML; else fall back to `reverse_markdown`.
 - Confirm the Solid Queue "terminal failure → `failed` status" wiring (`discard_on` / `rescue_from` on exhausted retries).
-- Spike: Lexxy selection API for the `/skill` palette port.
-- Spike: explicit `lexxy_rich_text_area` helper renders `<lexxy-editor>` with the expected `name` on Rails 8.0.5 (no Action Text table created).
+- Spike: Lexxy selection API for the `/skill` palette port (highest-risk JS piece; fallback = hidden sync textarea).
+- Spike: explicit `lexxy_rich_text_area` helper renders `<lexxy-editor>` with the expected `name` on Rails 8.0.5 and does not create an Action Text table.
+- Spike: confirm Active Storage direct-upload endpoint is enabled/authenticated for Lexxy PDF uploads (`global.authenticatedUploads`).
 - Decide backfill behavior for sources-without-chunks (`pending` vs. `failed`).
+- Decide whether `ChatResponseJob` reads markdown from `user_message.content` (drop the separate prompt arg) or the controller passes `@user_message.content`.
