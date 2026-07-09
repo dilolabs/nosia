@@ -31,4 +31,17 @@ class HtmlToMarkdownFormattableTest < ActiveSupport::TestCase
     refute_includes website.data, "<p>"
     assert_includes website.data, "link"
   end
+
+  test "leaves plain markdown untouched (no HTML to convert)" do
+    text = @account.texts.new(data: "# Heading\n\nPlain **markdown** with no tags")
+    text.save!
+    assert_equal "# Heading\n\nPlain **markdown** with no tags", text.data
+  end
+
+  test "does not convert when the attribute is not part of the save" do
+    website = @account.websites.create!(url: "https://u.example", data: "# Just markdown\n\nBody")
+    original = website.data
+    website.update!(index_status: :indexed, indexed_at: Time.current)
+    assert_equal original, website.data
+  end
 end

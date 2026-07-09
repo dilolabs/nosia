@@ -6,6 +6,11 @@
 
   <div class="n-form-field">
     <%= form.label :data, "Data", class: "n-label" %>
+    <%# website.to_html renders the body only (page_body strips the crawl's
+        --- frontmatter --- block). Saving the edited body therefore writes
+        body-only markdown back to data, dropping the frontmatter. That's
+        intended: nothing reads the frontmatter (Website#title comes from the
+        H1, to_html strips it), and a re-crawl regenerates it. %>
     <%= form.lexxy_rich_text_area :data,
           value: website.to_html,
           class: "n-textarea",
