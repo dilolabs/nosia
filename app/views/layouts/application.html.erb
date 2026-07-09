@@ -13,6 +13,10 @@
     <link rel="icon" href="/icon.png" type="image/png">
     <link rel="apple-touch-icon" href="/icon.png">
     <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "lexxy", "data-turbo-track": "reload" %>
+    <%# Lexxy engine themed to the Nosia design system (light + dark). Loaded
+        after the engine stylesheet so equal-specificity :root overrides win. %>
+    <%= stylesheet_link_tag "nosia/lexxy", "data-turbo-track": "reload" %>
 
     <%= javascript_importmap_tags %>
     <%=  render "extra_head" %>

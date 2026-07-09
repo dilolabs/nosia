@@ -1,15 +1,25 @@
 <% is_generating = chat.persisted? && chat.generating %>
 
-<%= form_with(model: chat, url: chats_path, data: { controller: "chat-input" }, id: "chat-form", class: "w-full") do |form| %>
+<%# The composer Stimulus controller owns the editor (Enter-to-send, link/PDF
+    interception, /skill palette). The chat-input controller is gone — it broke
+    on the <lexxy-editor> (autogrow expects a textarea target). The id="chat-form"
+    is kept for the dashboard's MCP-copy-on-submit script (dashboards/show). %>
+<%= form_with(model: chat, url: chats_path, id: "chat-form", class: "w-full") do |form| %>
   <%= form.label :prompt, "Summarize the latest…", class: "sr-only" %>
 
   <%# Hidden fields for MCP server IDs - will be populated by JS %>
   <div id="mcp-server-hidden-fields"></div>
 
-  <div class="relative w-full" data-chat-input-target="wrapper" data-controller="skill-autocomplete" data-skill-autocomplete-skills-value="<%= agent_skill_autocomplete_data %>">
-    <%= form.text_area :prompt, rows: 2, autofocus: !is_generating, placeholder: is_generating ? "AI is generating..." : "Ask anything…", disabled: is_generating, data: { chat_input_target: "textarea", skill_autocomplete_target: "input", action: "input->skill-autocomplete#onInput input->chat-input#autogrow keydown->skill-autocomplete#keydown keydown->chat-input#handleKeys" }, class: "n-form-chat" %>
+  <div class="relative w-full" data-controller="composer" data-composer-skills-value="<%= agent_skill_autocomplete_data %>">
+    <%# :prompt is a transient form-only field (no Chat#prompt attribute); the
+        editor submits chat[prompt] which ChatsController reads. Omit value: so
+        the helper fetches it via respond_to? and renders empty for a new chat. %>
+    <%= form.lexxy_rich_text_area :prompt, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: !is_generating, placeholder: is_generating ? "AI is generating..." : "Ask anything…", disabled: is_generating, data: { composer_target: "editor" }, class: "n-form-chat" %>
 
-    <div class="n-skill-menu hidden" role="listbox" aria-label="Available skills" data-skill-autocomplete-target="menu"></div>
+    <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_target: "websiteIds" } %>
+    <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_target: "documentIds" } %>
+
+    <div class="n-skill-menu hidden" role="listbox" aria-label="Available skills" data-composer-target="menu"></div>
 
     <% if is_generating %>
       <%# Bouton Stop pendant la génération %>
@@ -21,7 +31,6 @@
     <% else %>
       <%# Bouton Send normal %>
       <%= form.button type: :submit,
-        data: { action: "chat-input#submit" },
         class: "n-btn-chat n-btn-chat-send" do %>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
             fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">

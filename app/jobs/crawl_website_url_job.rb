@@ -6,7 +6,9 @@ class CrawlWebsiteUrlJob < ApplicationJob
            Faraday::ServerError,
            Website::Crawlable::ConversionError,
            wait: 30.seconds,
-           attempts: 5
+           attempts: 5 do |job, error|
+    Website.find_by(id: job.arguments.first)&.mark_indexing_failed!
+  end
 
   discard_on ActiveRecord::RecordNotFound
 

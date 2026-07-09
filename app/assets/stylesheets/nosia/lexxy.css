@@ -1,0 +1,131 @@
+/* Nosia theme for the Lexxy rich-text editor.
+ *
+ * The Lexxy engine styles its chrome (toolbar, dropdowns, floating controls,
+ * skill/prompt menu, attachments, tables, code blocks, links, focus ring)
+ * from CSS custom properties declared on :root in lexxy-variables.css. Those
+ * defaults are a fixed light theme with a blue-purple accent and no dark mode
+ * (the lone @media (prefers-color-scheme: dark) hook doesn't fire under
+ * Nosia's class-based dark mode).
+ *
+ * This stylesheet re-declares those variables to map Lexxy onto the Nosia
+ * design system: neutral grays for canvas/borders, green-500 for the focus
+ * ring + selection accent (matching .n-main-focus), and blue links (matching
+ * .ai-response-content a). Light values live on :root, dark values on .dark
+ * (the class the dark-mode controller toggles on <html>).
+ *
+ * It must load AFTER the lexxy engine stylesheet so the equal-specificity
+ * :root rules win by source order -- see the stylesheet_link_tag in
+ * layouts/application.html.erb. Only theme variables are overridden here; the
+ * editor's outer border/background come from the .n-form-chat / .n-textarea
+ * utility classes already applied in the views. The dark floating-controls
+ * pill (var(--lexxy-color-ink) / --lexxy-color-ink-inverted) is intentionally
+ * left at Lexxy's defaults so selection toolbars stay a dark pill in both
+ * themes. */
+
+/* Compact composer sizing. The engine defaults the contenteditable min-height
+   to 8lh (--lexxy-editor-rows) and the toolbar buttons to 2lh; that's tall for
+   a chat prompt box. Shrink the rows to 3lh and the toolbar buttons to 1.75lh.
+   These are theme-independent, so they sit outside the light/dark blocks. */
+:where(lexxy-editor) {
+  --lexxy-editor-rows: 3lh;
+}
+
+:root {
+  --lexxy-toolbar-button-size: 1.75lh;
+
+  --lexxy-color-canvas: var(--color-white);
+  --lexxy-color-text: var(--color-neutral-900);
+  --lexxy-color-text-subtle: var(--color-neutral-600);
+
+  /* Borders + hover/header surfaces (ink-lighter / ink-lightest). */
+  --lexxy-color-ink-lighter: var(--color-neutral-300);
+  --lexxy-color-ink-lightest: var(--color-neutral-100);
+
+  /* Links follow the rest of the app (blue-600), not the green accent. */
+  --lexxy-color-link: var(--color-blue-600);
+
+  /* Selection + drag-over accent = Nosia green. */
+  --lexxy-color-selected: var(--color-green-100);
+  --lexxy-color-selected-hover: var(--color-green-200);
+  --lexxy-color-selected-dark: var(--color-green-500);
+  --lexxy-color-selected-50: color-mix(in oklch, var(--color-green-500) 50%, transparent);
+
+  /* Primary action button (link dropdown "link", attachment selected). */
+  --lexxy-color-accent-dark: var(--color-green-600);
+  --lexxy-color-accent-medium: var(--color-green-500);
+
+  /* Focus ring matches .n-main-focus (green-500). */
+  --lexxy-focus-ring-color: var(--color-green-500);
+
+  /* Code blocks: light surface, GitHub-light token colors from the engine. */
+  --lexxy-color-code-bg: var(--color-neutral-100);
+
+  /* Tables. */
+  --lexxy-color-table-header-bg: var(--color-neutral-100);
+  --lexxy-color-table-cell-border: var(--color-neutral-300);
+  --lexxy-color-table-cell-selected-bg: var(--color-green-100);
+  --lexxy-color-table-cell-selected-border: var(--color-green-500);
+  --lexxy-color-table-cell-add: var(--lexxy-color-selected-50);
+  --lexxy-color-table-cell-toggle: var(--color-green-100);
+}
+
+.dark {
+  --lexxy-color-canvas: var(--color-neutral-800);
+  --lexxy-color-text: var(--color-neutral-100);
+  --lexxy-color-text-subtle: var(--color-neutral-400);
+
+  --lexxy-color-ink-lighter: var(--color-neutral-600);
+  --lexxy-color-ink-lightest: var(--color-neutral-700);
+
+  --lexxy-color-link: var(--color-blue-400);
+
+  --lexxy-color-selected: var(--color-green-900);
+  --lexxy-color-selected-hover: var(--color-green-800);
+  --lexxy-color-selected-dark: var(--color-green-500);
+  --lexxy-color-selected-50: color-mix(in oklch, var(--color-green-500) 50%, transparent);
+
+  --lexxy-color-accent-dark: var(--color-green-500);
+  --lexxy-color-accent-medium: var(--color-green-400);
+
+  --lexxy-focus-ring-color: var(--color-green-500);
+
+  /* Dark code surface with a readable token palette (engine ships light-only
+     tokens, so re-declare them here). */
+  --lexxy-color-code-bg: var(--color-neutral-900);
+  --lexxy-color-code-token-att: #79c0ff;
+  --lexxy-color-code-token-comment: #8b949e;
+  --lexxy-color-code-token-function: #d2a8ff;
+  --lexxy-color-code-token-operator: #ff7b72;
+  --lexxy-color-code-token-property: #79c0ff;
+  --lexxy-color-code-token-punctuation: #c9d1d9;
+  --lexxy-color-code-token-selector: #7ee787;
+  --lexxy-color-code-token-variable: #ffa657;
+
+  --lexxy-color-table-header-bg: var(--color-neutral-700);
+  --lexxy-color-table-cell-border: var(--color-neutral-600);
+  --lexxy-color-table-cell-selected-bg: var(--color-green-900);
+  --lexxy-color-table-cell-selected-border: var(--color-green-500);
+  --lexxy-color-table-cell-add: var(--lexxy-color-selected-50);
+  --lexxy-color-table-cell-toggle: var(--color-green-900);
+}
+
+/* The code-language-picker arrow is a black inline SVG that the engine only
+   flips via prefers-color-scheme; under class dark mode it vanishes on the
+   dark canvas. Repoint it to a light arrow in dark mode. */
+.dark :where(lexxy-code-language-picker) select {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m12 19.5c-.7 0-1.3-.3-1.7-.8l-9.8-11.1c-.7-.8-.6-1.9.2-2.6.8-.6 1.9-.6 2.5.2l8.6 9.8c0 .1.2.1.4 0l8.6-9.8c.7-.8 1.8-.9 2.6-.2s.9 1.8.2 2.6l-9.8 11.1c-.4.5-1.1.8-1.7.8z' fill='%23ffffff'/%3E%3C/svg%3E");
+}
+
+/* Content text color. lexxy-content.css sets `:where(.lexxy-content) { color:
+   var(--lexxy-color-ink) }` -- --lexxy-color-ink is the near-black floating-
+   controls pill color we deliberately leave at the engine default. Override
+   the content color to the theme text token so it doesn't render dark text on
+   the dark editor. (The composer controller adds .lexxy-content to the
+   editor's content div to bring in the engine's content typography.) */
+:where(.lexxy-content) {
+  color: var(--color-neutral-900);
+}
+
+.dark :where(.lexxy-content) {
+  color: var(--color-neutral-100);
+}

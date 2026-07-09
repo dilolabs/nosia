@@ -6,11 +6,20 @@ module Website::Crawlable
   HEAD_FIELDS = %w[title meta-title meta-description meta-keywords].freeze
 
   def crawl_url!
-    return unless url.present?
-    return unless robots_allowed?
+    if url.blank?
+      mark_indexing_failed!
+      return
+    end
+    unless robots_allowed?
+      mark_indexing_failed!
+      return
+    end
 
     html = fetch_html
-    return unless html
+    unless html
+      mark_indexing_failed!
+      return
+    end
 
     self.data = convert_to_markdown(html)
     save!

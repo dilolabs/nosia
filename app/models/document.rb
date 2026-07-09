@@ -1,5 +1,6 @@
 class Document < ApplicationRecord
   include Chunkable
+  include Indexable
   include Parsable
 
   belongs_to :account, optional: true
@@ -7,6 +8,26 @@ class Document < ApplicationRecord
   has_one_attached :file
 
   validates :file, presence: true
+
+  def self.create_from_blob!(account, signed_id)
+    document = account.documents.new
+    document.file.attach(signed_id)
+    document.save!
+    AddDocumentJob.perform_later(document.id)
+    document
+  end
+
+  # Lexxy uploads a PDF via Active Storage direct upload, then embeds an
+  # <action-text-attachment sgid="..."> node carrying the blob's attachable
+  # sgid — which is NOT the blob's signed_id (attach(sgid) raises
+  # InvalidSignature). Resolve the blob the way Action Text does, then delegate
+  # to create_from_blob! with the real signed_id.
+  def self.create_from_attachable_sgid!(account, sgid)
+    blob = ActionText::Attachable.from_attachable_sgid(sgid)
+    raise ActiveRecord::RecordNotFound, "invalid attachable sgid" if blob.nil?
+
+    create_from_blob!(account, blob.signed_id)
+  end
 
   def context
     content

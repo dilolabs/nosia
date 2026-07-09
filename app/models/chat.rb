@@ -36,6 +36,30 @@ class Chat < ApplicationRecord
     end
   end
 
+  # Bounded poll over a user message's attached sources (websites, documents)
+  # until every one reaches a terminal index_status (indexed or failed), or the
+  # timeout elapses. Returns { ready:, failed:, timed_out: }. No-op when the
+  # message has no attached sources.
+  def wait_for_attached_sources!(user_message, timeout: ENV.fetch("CHAT_INDEXING_TIMEOUT", 120).to_i.seconds, step: 1.second)
+    sources = user_message.attached_websites + user_message.attached_documents
+    return { ready: [], failed: [], timed_out: [] } if sources.empty?
+
+    deadline = Time.current + timeout
+
+    loop do
+      pending = sources.reject { |source| source.indexed? || source.failed? }
+      break if pending.empty? || Time.current >= deadline
+      sleep step
+      sources = sources.map(&:reload)
+    end
+
+    {
+      ready:     sources.select { |source| source.indexed? },
+      failed:    sources.select { |source| source.failed? },
+      timed_out: sources.reject { |source| source.indexed? || source.failed? }
+    }
+  end
+
   # Record a TokenUsage for an assistant message produced by a completion,
   # de-duped via the polymorphic source link (idempotent: re-running a
   # completion for the same message does not create a duplicate). Called from

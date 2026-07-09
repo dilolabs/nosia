@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_08_121413) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -194,6 +194,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
     t.string "keywords"
     t.string "url"
     t.jsonb "metadata", default: {}
+    t.integer "index_status", default: 0, null: false
+    t.datetime "indexed_at"
     t.index ["account_id"], name: "index_documents_on_account_id"
     t.index ["author_id"], name: "index_documents_on_author_id"
   end
@@ -243,6 +245,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
     t.text "thinking_text"
     t.text "thinking_signature"
     t.integer "thinking_tokens"
+    t.string "attached_website_ids", default: [], array: true
+    t.string "attached_document_ids", default: [], array: true
     t.index ["chat_id"], name: "index_messages_on_chat_id"
     t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["model_id"], name: "index_messages_on_model_id"
@@ -305,6 +309,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
     t.string "keywords"
     t.string "title"
     t.string "url"
+    t.integer "index_status", default: 0, null: false
+    t.datetime "indexed_at"
     t.index ["account_id"], name: "index_qnas_on_account_id"
   end
 
@@ -446,6 +452,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
     t.string "keywords"
     t.string "title"
     t.string "url"
+    t.integer "index_status", default: 0, null: false
+    t.datetime "indexed_at"
     t.index ["account_id"], name: "index_texts_on_account_id"
   end
 
@@ -501,6 +509,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_03_113934) do
     t.datetime "updated_at", null: false
     t.string "keywords"
     t.string "title"
+    t.integer "index_status", default: 0, null: false
+    t.datetime "indexed_at"
+    t.index ["account_id", "url"], name: "index_websites_on_account_id_and_url", unique: true
     t.index ["account_id"], name: "index_websites_on_account_id"
   end
 

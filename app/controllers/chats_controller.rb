@@ -24,11 +24,24 @@ class ChatsController < ApplicationController
       end
     end
 
-    # Create the user message immediately for instant display
-    @user_message = @chat.messages.create!(role: "user", content: prompt)
+    # Create the user message immediately for instant display, stamping any
+    # sources attached in the composer so the indexing gate can wait on them.
+    @user_message = @chat.messages.create!(
+      role: "user",
+      content: prompt,
+      attached_website_ids: Array(params[:chat][:attached_website_ids]).compact_blank,
+      attached_document_ids: Array(params[:chat][:attached_document_ids]).compact_blank
+    )
 
-    # Launch the background job with the ID of the created message
-    ChatResponseJob.perform_later(@chat.id, prompt, @user_message.id)
+    # Lexxy emits lexxy:insert-link only on paste, so a typed URL never reaches
+    # /chat_sources. Extract http(s) URLs from the saved content and attach them
+    # as Website sources before completion runs — the indexing gate waits on them.
+    @user_message.attach_website_sources_from_content!(Current.account)
+
+    # Launch the background job with the persisted markdown content (the
+    # before_save from Task 6 has converted the composer HTML to markdown) and
+    # the ID of the created message.
+    ChatResponseJob.perform_later(@chat.id, @user_message.content, @user_message.id)
 
     redirect_to @chat
   end
