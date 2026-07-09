@@ -78,6 +78,7 @@ gem "commonmarker" # CommonMark and GitHub Flavored Markdown compatible parser a
 gem "faraday" # HTTP client library abstraction layer [https://github.com/lostisland/faraday]
 gem "html-to-markdown", require: "html_to_markdown" # HTML to Markdown converter (native Rust/Magnus extension) [https://github.com/xberg-io/html-to-markdown]
 gem "inline_svg" # Embed SVG documents in views and style them with CSS [https://github.com/jamesmartin/inline_svg]
+gem "lexxy", "~> 0.9.23" # Rich text editor (Importmap, no Action Text) [https://github.com/excid3/lexxy]
 gem "mcp" # The official Ruby SDK for the Model Context Protocol [https://github.com/modelcontextprotocol/ruby-sdk]
 gem "mission_control-jobs" # Dashboard and Active Job extensions to operate and troubleshoot background jobs [https://github.com/rails/mission_control-jobs]
 gem "neighbor" # Nearest neighbor search [https://github.com/ankane/neighbor]
