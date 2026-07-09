@@ -27,7 +27,7 @@ class ChatWaitForAttachedSourcesTest < ActiveSupport::TestCase
 
   test "waits for a pending source to become indexed, then returns it ready" do
     w = @account.websites.create!(url: "https://w.example", index_status: :pending)
-    message = message_with(websites: [w.id])
+    message = message_with(websites: [ w.id ])
     Thread.new { sleep 0.1; w.reload.update!(index_status: :indexed, indexed_at: Time.current) }
     result = @chat.wait_for_attached_sources!(message, timeout: 5.seconds, step: 0.05)
     assert_includes result[:ready].map(&:id), w.id
@@ -36,7 +36,7 @@ class ChatWaitForAttachedSourcesTest < ActiveSupport::TestCase
 
   test "a failed source is excluded and reported as failed without waiting" do
     w = @account.websites.create!(url: "https://f.example", index_status: :failed)
-    message = message_with(websites: [w.id])
+    message = message_with(websites: [ w.id ])
     result = @chat.wait_for_attached_sources!(message, timeout: 1.second, step: 0.05)
     assert_includes result[:failed].map(&:id), w.id
     assert_equal [], result[:ready]
@@ -44,7 +44,7 @@ class ChatWaitForAttachedSourcesTest < ActiveSupport::TestCase
 
   test "a source still pending at the timeout is reported as timed_out" do
     w = @account.websites.create!(url: "https://t.example", index_status: :pending)
-    message = message_with(websites: [w.id])
+    message = message_with(websites: [ w.id ])
     result = @chat.wait_for_attached_sources!(message, timeout: 0.2.seconds, step: 0.05)
     assert_includes result[:timed_out].map(&:id), w.id
   end

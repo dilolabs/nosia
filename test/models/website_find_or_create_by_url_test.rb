@@ -62,7 +62,7 @@ class WebsiteFindOrCreateByUrlTest < ActiveSupport::TestCase
 
   test "the (account_id, url) unique index exists in the schema" do
     indexes = ActiveRecord::Base.connection.indexes(:websites)
-    unique = indexes.find { |i| i.columns == ["account_id", "url"] }
+    unique = indexes.find { |i| i.columns == [ "account_id", "url" ] }
     assert unique, "expected a unique index on (account_id, url)"
     assert unique.unique
   end
@@ -84,7 +84,7 @@ class WebsiteFindOrCreateByUrlTest < ActiveSupport::TestCase
     Chunk.define_method(:generate_embedding) { }
 
     conn = ActiveRecord::Base.connection
-    conn.remove_index :websites, column: [:account_id, :url]
+    conn.remove_index :websites, column: [ :account_id, :url ]
     begin
       # Winner is the newer row (created now) and is the keeper per the
       # migration's ORDER BY created_at DESC, id DESC.
@@ -122,7 +122,7 @@ class WebsiteFindOrCreateByUrlTest < ActiveSupport::TestCase
       assert_equal winner.id, @account.websites.find_by(url: "https://dedup.example").id
       assert_equal 0, Chunk.where(chunkable_type: "Website", chunkable_id: loser.id).count
     ensure
-      conn.add_index :websites, [:account_id, :url], unique: true
+      conn.add_index :websites, [ :account_id, :url ], unique: true
       Chunk.remove_method(:generate_embedding) if Chunk.instance_methods(false).include?(:generate_embedding)
     end
   end

@@ -22,10 +22,10 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
   test "create stamps attached source ids on the user message" do
     w = @account.websites.create!(url: "https://c.example", index_status: :indexed)
     assert_enqueued_with(job: ChatResponseJob) do
-      post chats_url, params: { chat: { prompt: "<p>hello</p>", model: "test-model", attached_website_ids: [w.id] } }
+      post chats_url, params: { chat: { prompt: "<p>hello</p>", model: "test-model", attached_website_ids: [ w.id ] } }
     end
     message = Chat.last.messages.where(role: :user).last
-    assert_equal [w.id.to_s], message.attached_website_ids
+    assert_equal [ w.id.to_s ], message.attached_website_ids
     assert_equal "hello", message.content.strip # HTML converted to markdown
   end
 end

@@ -19,10 +19,10 @@ class MessageTest < ActiveSupport::TestCase
     d.save!
 
     message = @chat.messages.create!(role: "user", content: "hi",
-      attached_website_ids: [w.id], attached_document_ids: [d.id])
+      attached_website_ids: [ w.id ], attached_document_ids: [ d.id ])
 
-    assert_equal [w], message.attached_websites
-    assert_equal [d], message.attached_documents
+    assert_equal [ w ], message.attached_websites
+    assert_equal [ d ], message.attached_documents
   end
 
   test "attached ids default to empty arrays" do

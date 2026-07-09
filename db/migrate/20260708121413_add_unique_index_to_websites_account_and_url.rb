@@ -23,10 +23,10 @@ class AddUniqueIndexToWebsitesAccountAndUrl < ActiveRecord::Migration[8.0]
       )
       DELETE FROM websites WHERE id IN (SELECT id FROM dups)
     SQL
-    add_index :websites, [:account_id, :url], unique: true
+    add_index :websites, [ :account_id, :url ], unique: true
   end
 
   def down
-    remove_index :websites, column: [:account_id, :url]
+    remove_index :websites, column: [ :account_id, :url ]
   end
 end

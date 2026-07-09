@@ -44,7 +44,7 @@ class ChatResponseJobTest < ActiveSupport::TestCase
   test "waits for an attached website to index, then completes" do
     w = @account.websites.create!(url: "https://j.example", index_status: :pending)
     user_message = @chat.messages.create!(role: "user", content: "ask",
-      attached_website_ids: [w.id])
+      attached_website_ids: [ w.id ])
 
     t = Thread.new { sleep 0.1; w.reload.update!(index_status: :indexed, indexed_at: Time.current) }
 
@@ -58,7 +58,7 @@ class ChatResponseJobTest < ActiveSupport::TestCase
   test "a failed attached source is excluded and the prompt includes a warn note" do
     w = @account.websites.create!(url: "https://f.example", index_status: :failed, data: "# Failed Title")
     user_message = @chat.messages.create!(role: "user", content: "ask",
-      attached_website_ids: [w.id])
+      attached_website_ids: [ w.id ])
 
     stub_completion(capture: true)
     ChatResponseJob.perform_now(@chat.id, user_message.content, user_message.id)

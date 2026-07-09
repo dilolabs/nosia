@@ -25,10 +25,10 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     d.file.attach(io: StringIO.new("x"), filename: "d.pdf", content_type: "application/pdf")
     d.save!
     assert_enqueued_with(job: ChatResponseJob) do
-      post chat_messages_url(chat), params: { message: { content: "<p>hi <em>there</em></p>", attached_document_ids: [d.id] } }
+      post chat_messages_url(chat), params: { message: { content: "<p>hi <em>there</em></p>", attached_document_ids: [ d.id ] } }
     end
     message = chat.messages.where(role: :user).last
-    assert_equal [d.id.to_s], message.attached_document_ids
+    assert_equal [ d.id.to_s ], message.attached_document_ids
     assert_equal "hi *there*", message.content.strip
   end
 end
