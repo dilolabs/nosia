@@ -26,7 +26,7 @@ Both goals are served by a single change: accumulate streamed deltas in an in-me
 | Broadcast action | **`broadcast_replace_to`** of the content div (full re-render semantics). Not `update`/morph — the per-flush `table-wrapper` Stimulus reconnect is trivial and morph tuning is YAGNI. |
 | Buffer home | **`Message::StreamBuffer`** — a small focused value object under `Message::`, not concern methods on `Message`. Owns accumulation + flush-timing only; no broadcasting. Time source injectable for tests. |
 | Interrupted stream | The loop raises into `ChatResponseJob`'s `rescue`; the final flush line is not reached. The user retains the last periodic flush (≤150ms old). `ruby_llm`'s `cleanup_failed_messages` later removes the blank partial bubble. No extra error-time flush. |
-| System test | Included (the first `test/system/` test, brings Capybara/Selenium config along). |
+| System test | Included, under the existing `test/application_system_test_case.rb` harness (headless Chrome, or remote Selenium when `CAPYBARA_SERVER_PORT` is set). `test/system/` already exists. |
 
 ## Context (current state)
 
@@ -36,7 +36,7 @@ Both goals are served by a single change: accumulate streamed deltas in an in-me
 - **Target DOM:** `dom_id(message, :content)` — a `div.prose.prose-sm.dark:prose-invert.max-w-none.ai-response-content[data-controller="table-wrapper"]`. Identical in `app/views/messages/_assistant.html.erb` and `_message.html.erb`; the broadcast path renders `_assistant.html.erb` (ruby_llm's `to_partial_path` resolves assistant role to `messages/assistant`).
 - **Markdown rendering already exists:** `Commonmarker.to_html`, used by `Message#response_content` (`app/models/message.rb:143-149`). The container already has `prose` classes. The gap is rendering during streaming, not rendering itself.
 - **Stimulus:** `scroll_controller` (MutationObserver → auto-scroll on DOM change), `table_wrapper_controller` (wraps rendered `<table>` in a scrollable wrapper; comment notes "dynamically added tables (streaming)"), `message-ordering_controller` (orders nodes by `data-created-at`). All already handle streamed DOM changes.
-- **Tests:** The streaming path is currently untested — `test/jobs/chat_response_job_test.rb` stubs `complete_with_nosia`; `test/models/chat/completionable_test.rb` only covers `record_completion_usage!`; `test/system/` does not exist.
+- **Tests:** The streaming path is currently untested — `test/jobs/chat_response_job_test.rb` stubs `complete_with_nosia`; `test/models/chat/completionable_test.rb` only covers `record_completion_usage!`. The system-test harness already exists (`test/application_system_test_case.rb` + `test/system/.keep`), but no streaming system test exists yet.
 
 ## Design
 
@@ -216,7 +216,7 @@ Focused Minitest tests, behavior over implementation, injected dependencies for 
 
   Determinism: `complete_with_nosia` takes an optional `stream_buffer:` kwarg defaulting to `Message::StreamBuffer.new` — dependency injection for testability, no change to existing call sites (`ChatResponseJob`, `agent_skillable`, the API controller all still call without it).
 
-**4. System test** (integration guard — the first `test/system/` test, so it brings the Capybara/Selenium config along):
+**4. System test** (integration guard, under the existing `test/application_system_test_case.rb` harness):
 - Stub `Chat#complete` to yield a known markdown string in chunks (e.g. `## Heading\n\n**bold**\n\n\`\`\`\ncode\n\`\`\``); submit a chat; assert the assistant bubble shows **rendered** HTML (a real `<h2>`, `<strong>`, `<pre>`) rather than literal `##`/`**`/```` ``` ```` text, and that it converges to the final formatted render.
 
 ## Files touched
@@ -232,10 +232,10 @@ Focused Minitest tests, behavior over implementation, injected dependencies for 
 | `test/models/message/stream_buffer_test.rb` | New — buffer unit tests. |
 | `test/models/message_test.rb` | Add `render_markdown_content` / `response_content` regression tests. |
 | `test/models/chat/completionable_test.rb` | Add streaming-wiring tests (coalescing, action/target, block path). |
-| `test/system/...` | New — first system test for rendered streaming output. |
+| `test/system/...` | New system test for rendered streaming output (under the existing harness). |
 
 ## Open items for the implementation plan
 
 - Confirm `Process::CLOCK_MONOTONIC` is available on the production runtime (MRI Linux — yes).
-- Confirm the Capybara/Selenium system-test harness (`application_system_test_case.rb`, driven browser) boots cleanly as the first system test, or defer #4 if setup is heavy.
+- Confirm the existing `application_system_test_case.rb` harness boots cleanly under the chosen driver when running the new streaming system test.
 - Confirm `broadcast_replace_to` with a `partial:` + `locals:` renders the partial's root element id matching the `target:` (turbo-rails semantics) during the implementation spike.
