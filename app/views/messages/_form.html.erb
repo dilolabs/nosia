@@ -3,7 +3,7 @@
     <%= form.label :content, "Ask anything…", class: "sr-only" %>
 
     <div class="relative w-full" data-controller="composer" data-composer-skills-value="<%= agent_skill_autocomplete_data %>">
-      <%= form.lexxy_rich_text_area :content, permitted_attachment_types: "application/pdf", autofocus: true, placeholder: "Ask anything...", data: { composer_target: "editor" }, class: "n-form-chat" %>
+      <%= form.lexxy_rich_text_area :content, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: true, placeholder: "Ask anything...", data: { composer_target: "editor" }, class: "n-form-chat" %>
 
       <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_target: "websiteIds" } %>
       <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_target: "documentIds" } %>

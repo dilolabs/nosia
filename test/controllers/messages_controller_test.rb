@@ -31,4 +31,21 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ d.id.to_s ], message.attached_document_ids
     assert_equal "hi *there*", message.content.strip
   end
+
+  # A TYPED url (Lexxy emits lexxy:insert-link only on paste) still becomes a
+  # crawled Website source: the server extracts it from the message content.
+  test "create turns a typed url in the content into a crawled Website source" do
+    chat = @account.chats.create!(user: @user, model: "test-model", provider: :openai, assume_model_exists: true)
+
+    assert_enqueued_with(job: CrawlWebsiteUrlJob) do
+      assert_enqueued_with(job: ChatResponseJob) do
+        post chat_messages_url(chat), params: { message: { content: "<p>https://typed.example/page</p>" } }
+      end
+    end
+
+    website = @account.websites.find_by!(url: "https://typed.example/page")
+    assert website.pending?
+    message = chat.messages.where(role: :user).last
+    assert_includes message.attached_website_ids, website.id.to_s
+  end
 end

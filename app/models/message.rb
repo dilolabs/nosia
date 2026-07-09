@@ -168,6 +168,29 @@ class Message < ApplicationRecord
     Document.where(id: attached_document_ids)
   end
 
+  # Lexxy emits lexxy:insert-link only when a URL is *pasted*, so a typed URL
+  # (or a URL embedded in pasted text) never reaches /chat_sources and would
+  # silently stay plain message text — never crawled, never used. Extract
+  # http(s) URLs from this user message's content, find-or-create a Website
+  # source for each (enqueueing the crawl), and merge their ids into
+  # attached_website_ids so Chat#wait_for_attached_sources! waits on them.
+  # Idempotent: an already-attached url (e.g. from the paste path) is neither
+  # duplicated nor re-crawled. Called explicitly from the chat composer
+  # controllers, not a callback — enqueuing a crawl is an external call.
+  def attach_website_sources_from_content!(account)
+    urls = extract_urls_from_content
+    return if urls.empty?
+
+    ids = (attached_website_ids || []).dup
+    urls.each do |url|
+      website = Website.find_or_create_by_url!(account, url)
+      ids << website.id.to_s unless ids.include?(website.id.to_s)
+    end
+
+    ids.uniq!
+    update!(attached_website_ids: ids) if ids != attached_website_ids
+  end
+
   # Helper to check if it's an error message
   def error?
     false
@@ -190,5 +213,17 @@ class Message < ApplicationRecord
   def normalize_content_to_markdown
     return if content.blank?
     self.content = self.class.html_to_markdown(content)
+  end
+
+  # content is markdown by the time this runs (normalize_content_to_markdown
+  # fires before_save for user messages). Catch both bare typed URLs and the
+  # href of markdown links: excluding ) and ] from the char class keeps the
+  # surrounding link syntax out of the captured URL.
+  def extract_urls_from_content
+    return [] unless content.present?
+
+    content.scan(%r{https?://[^\s<>)\]\}]+})
+      .map { |url| url.gsub(/[.,;:!?]+$/, "") }
+      .uniq
   end
 end

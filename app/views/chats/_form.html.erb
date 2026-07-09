@@ -14,7 +14,7 @@
     <%# :prompt is a transient form-only field (no Chat#prompt attribute); the
         editor submits chat[prompt] which ChatsController reads. Omit value: so
         the helper fetches it via respond_to? and renders empty for a new chat. %>
-    <%= form.lexxy_rich_text_area :prompt, permitted_attachment_types: "application/pdf", autofocus: !is_generating, placeholder: is_generating ? "AI is generating..." : "Ask anything…", disabled: is_generating, data: { composer_target: "editor" }, class: "n-form-chat" %>
+    <%= form.lexxy_rich_text_area :prompt, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: !is_generating, placeholder: is_generating ? "AI is generating..." : "Ask anything…", disabled: is_generating, data: { composer_target: "editor" }, class: "n-form-chat" %>
 
     <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_target: "websiteIds" } %>
     <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_target: "documentIds" } %>

@@ -28,4 +28,19 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ w.id.to_s ], message.attached_website_ids
     assert_equal "hello", message.content.strip # HTML converted to markdown
   end
+
+  # A TYPED url (Lexxy emits lexxy:insert-link only on paste) still becomes a
+  # crawled Website source: the server extracts it from the message content.
+  test "create turns a typed url in the prompt into a crawled Website source" do
+    assert_enqueued_with(job: CrawlWebsiteUrlJob) do
+      assert_enqueued_with(job: ChatResponseJob) do
+        post chats_url, params: { chat: { prompt: "<p>https://typed.example/page</p>", model: "test-model" } }
+      end
+    end
+
+    website = @account.websites.find_by!(url: "https://typed.example/page")
+    assert website.pending?
+    message = Chat.last.messages.where(role: :user).last
+    assert_includes message.attached_website_ids, website.id.to_s
+  end
 end

@@ -33,6 +33,11 @@ class ChatsController < ApplicationController
       attached_document_ids: Array(params[:chat][:attached_document_ids]).compact_blank
     )
 
+    # Lexxy emits lexxy:insert-link only on paste, so a typed URL never reaches
+    # /chat_sources. Extract http(s) URLs from the saved content and attach them
+    # as Website sources before completion runs — the indexing gate waits on them.
+    @user_message.attach_website_sources_from_content!(Current.account)
+
     # Launch the background job with the persisted markdown content (the
     # before_save from Task 6 has converted the composer HTML to markdown) and
     # the ID of the created message.

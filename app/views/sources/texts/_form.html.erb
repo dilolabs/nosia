@@ -1,10 +1,12 @@
 <%= form_with(model: [:sources, text]) do |form| %>
   <div class="n-form-field">
     <%= form.label :data, "Text", class: "n-label" %>
+    <%# attachments: "false" hides both toolbar upload buttons (image + file)
+        and disables uploads -- source editors are text-only. %>
     <%= form.lexxy_rich_text_area :data,
-          value: Commonmarker.to_html(text.data.to_s),
+          value: Commonmarker.to_html(text.data.to_s.encode("UTF-8")),
           class: "n-textarea",
-          permitted_attachment_types: "" %>
+          attachments: "false" %>
   </div>
 
   <div class="n-form-field">

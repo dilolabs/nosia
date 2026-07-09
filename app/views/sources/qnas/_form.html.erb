@@ -6,10 +6,12 @@
 
   <div class="n-form-field">
     <%= form.label :answer, "Answer", class: "n-label" %>
+    <%# attachments: "false" hides both toolbar upload buttons (image + file)
+        and disables uploads -- source editors are text-only. %>
     <%= form.lexxy_rich_text_area :answer,
-          value: Commonmarker.to_html(qna.answer.to_s),
+          value: Commonmarker.to_html(qna.answer.to_s.encode("UTF-8")),
           class: "n-textarea",
-          permitted_attachment_types: "" %>
+          attachments: "false" %>
   </div>
 
   <div class="n-form-field">

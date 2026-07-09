@@ -30,7 +30,9 @@ export default class extends Controller {
     this.paletteOpen = false
     this.activeIndex = -1
     this.items = []
+    this.contentStyled = false
 
+    this.styleContent()
     this.editorTarget.addEventListener("lexxy:insert-link", this.boundInsertLink)
     this.editorTarget.addEventListener("lexxy:upload-end", this.boundUploadEnd)
     this.editorTarget.addEventListener("lexxy:change", this.boundChange)
@@ -44,6 +46,24 @@ export default class extends Controller {
     this.editorTarget.removeEventListener("lexxy:upload-end", this.boundUploadEnd)
     this.editorTarget.removeEventListener("lexxy:change", this.boundChange)
     this.editorTarget.removeEventListener("keydown", this.boundHandleKeys)
+  }
+
+  // Lexxy builds the contenteditable as <div class="lexxy-editor__content"> and
+  // scopes ALL content typography (heading sizes, list markers, blockquote,
+  // table borders, s/u/mark, code, links) to :where(.lexxy-content) in
+  // lexxy-content.css. That class is meant for *rendered* output, so the editor
+  // never gets it -- and with Tailwind Preflight stripping UA defaults (plus
+  // the app's swapped ul/ol rules), the editable area is left unstyled. Add the
+  // class once the content div exists so the engine's own content styles apply.
+  // Idempotent: runs from connect() and onChange() (the latter covers the case
+  // where the <lexxy-editor> custom element upgrades after Stimulus connects).
+  styleContent() {
+    if (this.contentStyled) return
+    const content = this.editorTarget.querySelector(".lexxy-editor__content")
+    if (content) {
+      content.classList.add("lexxy-content")
+      this.contentStyled = true
+    }
   }
 
   // Enter sends; Shift/Meta/Ctrl+Enter fall through. When the /skill palette is
@@ -108,11 +128,8 @@ export default class extends Controller {
     return new Promise(resolve => {
       let attempts = 0
       const check = () => {
-        const nodes = this.editorTarget.querySelectorAll("action-text-attachment")
-        for (const node of nodes) {
-          const sgid = node.getAttribute("sgid")
-          if (sgid && !this.sentSgids.has(sgid)) return resolve(sgid)
-        }
+        const sgid = this.unsentSgidFromEditorValue()
+        if (sgid) return resolve(sgid)
         if (++attempts > 20) {
           console.warn("[composer] lexxy:upload-end fired but no action-text-attachment sgid appeared in time; PDF not registered.")
           return resolve(null)
@@ -121,6 +138,25 @@ export default class extends Controller {
       }
       check()
     })
+  }
+
+  // Lexxy renders the LIVE <action-text-attachment> figure via createDOM(), which
+  // sets only content-type / data-lexxy-decorator / draggable / data-lexical-node-key
+  // — the blob's attachable sgid is NOT an attribute on the live DOM node. It lives on
+  // the Lexical node and is emitted only through exportDOM() (the editor's serialized
+  // value). So the sgid must be read from `editorTarget.value` (the same serialized
+  // HTML Message#html_to_markdown parses), not from querySelectorAll on the live DOM.
+  // The value cache is cleared on every editor update, so after $showUploadedAttachment
+  // commits the node the next `.value` read re-exports fresh HTML carrying the sgid.
+  unsentSgidFromEditorValue() {
+    const html = this.editorTarget.value || ""
+    const tmp = document.createElement("div")
+    tmp.innerHTML = html
+    for (const node of tmp.querySelectorAll("action-text-attachment")) {
+      const sgid = node.getAttribute("sgid")
+      if (sgid && !this.sentSgids.has(sgid)) return sgid
+    }
+    return null
   }
 
   // Clone the target hidden input's name so ids submit in the right params
@@ -143,6 +179,7 @@ export default class extends Controller {
   // the trigger AgentSkill::Detector recognises server-side. Selecting an item
   // replaces the content with "/skill-name " and closes the menu.
   onChange() {
+    this.styleContent()
     const token = this.currentToken()
     if (token === null) return this.closePalette()
 
