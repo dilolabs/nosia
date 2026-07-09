@@ -7,10 +7,20 @@ class ChatResponseJob < ApplicationJob
     user_message = user_message_id ? Message.find(user_message_id) : nil
     Rails.logger.info "User message: #{user_message&.id} - Content: #{content[0..100]}..."
 
-    if Rails.application.config.agent_skills.enabled
-      result = chat.complete_with_agent_skills(content, user_message: user_message)
+    # Wait for any sources attached to the user message to finish indexing so
+    # retrieval can find them; collect the ones that failed or timed out so the
+    # model can be warned instead of hallucinating over them.
+    excluded = if user_message
+      wait_result = chat.wait_for_attached_sources!(user_message)
+      wait_result[:failed] + wait_result[:timed_out]
     else
-      result = chat.complete_with_nosia(content, user_message: user_message)
+      []
+    end
+
+    if Rails.application.config.agent_skills.enabled
+      result = chat.complete_with_agent_skills(content, user_message: user_message, excluded_sources: excluded)
+    else
+      result = chat.complete_with_nosia(content, user_message: user_message, excluded_sources: excluded)
     end
 
     Rails.logger.info "=== ChatResponseJob completed. Result: #{result&.id} ==="

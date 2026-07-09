@@ -1,7 +1,8 @@
 module Chat::Completionable
   extend ActiveSupport::Concern
 
-  def complete_with_nosia(question, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, user_message: nil, &block)
+  def complete_with_nosia(question, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, user_message: nil, excluded_sources: nil, &block)
+    excluded_sources ||= []
     options = default_options.merge(
       {
         model:,
@@ -45,6 +46,15 @@ module Chat::Completionable
       self.with_instructions(augmented_system_prompt, replace: true)
     else
       self.with_instructions(system_prompt, replace: true)
+    end
+
+    # Warn the model about attachments that couldn't be retrieved so it doesn't
+    # hallucinate over them. Appended (not replace:) so the system prompt stays.
+    if excluded_sources.present?
+      titles = excluded_sources.filter_map { |source| source.title if source.respond_to?(:title) }
+      names = titles.any? ? titles : excluded_sources.map { |source| source.class.name.downcase }
+      note = "Note: the following attachments could not be retrieved and were excluded: #{names.join(", ")}."
+      self.with_instructions(note, append: true)
     end
 
     # Phase 2: Generating the response
