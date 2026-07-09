@@ -8,15 +8,15 @@ class ChatSourcesController < ApplicationController
         url: website.url,
         index_status: website.index_status
       }
-    elsif blob_signed_id.present?
-      document = Document.create_from_blob!(Current.account, blob_signed_id)
+    elsif attachable_sgid.present?
+      document = Document.create_from_attachable_sgid!(Current.account, attachable_sgid)
       render json: {
         id: document.id,
         filename: document.file.filename.to_s,
         index_status: document.index_status
       }
     else
-      render json: { error: "url or blob_signed_id is required" }, status: :bad_request
+      render json: { error: "url or attachable_sgid is required" }, status: :bad_request
     end
   end
 
@@ -26,7 +26,7 @@ class ChatSourcesController < ApplicationController
     params[:url]
   end
 
-  def blob_signed_id
-    params[:blob_signed_id]
+  def attachable_sgid
+    params[:attachable_sgid]
   end
 end

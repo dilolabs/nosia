@@ -17,6 +17,16 @@ class Document < ApplicationRecord
     document
   end
 
+  # Lexxy uploads a PDF via Active Storage direct upload, then embeds an
+  # <action-text-attachment sgid="..."> node carrying the blob's attachable
+  # sgid — which is NOT the blob's signed_id (attach(sgid) raises
+  # InvalidSignature). Resolve the blob the way Action Text does, then delegate
+  # to create_from_blob! with the real signed_id.
+  def self.create_from_attachable_sgid!(account, sgid)
+    blob = ActionText::Attachable.from_attachable_sgid(sgid)
+    create_from_blob!(account, blob.signed_id)
+  end
+
   def context
     content
   end

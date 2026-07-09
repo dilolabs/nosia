@@ -31,4 +31,18 @@ class DocumentCreateFromBlobTest < ActiveSupport::TestCase
     assert_equal blob, @document.file.blob
     assert @document.pending?
   end
+
+  test "create_from_attachable_sgid! resolves the blob and delegates to create_from_blob!" do
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("%PDF-1.4 fake"),
+      filename: "report.pdf",
+      content_type: "application/pdf"
+    )
+    assert_enqueued_with(job: AddDocumentJob) do
+      @document = Document.create_from_attachable_sgid!(@account, blob.attachable_sgid)
+    end
+    assert @document.persisted?
+    assert_equal blob, @document.file.blob
+    assert @document.pending?
+  end
 end

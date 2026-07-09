@@ -31,12 +31,12 @@ class ChatSourcesControllerTest < ActionDispatch::IntegrationTest
     assert @account.websites.exists?(id: json["id"])
   end
 
-  test "blob branch creates a document and returns its id/filename/status as JSON" do
+  test "attachable_sgid branch creates a document and returns its id/filename/status as JSON" do
     blob = ActiveStorage::Blob.create_and_upload!(
       io: StringIO.new("%PDF-1.4"), filename: "report.pdf", content_type: "application/pdf"
     )
     assert_enqueued_with(job: AddDocumentJob) do
-      post chat_sources_url, params: { blob_signed_id: blob.signed_id }, as: :json
+      post chat_sources_url, params: { attachable_sgid: blob.attachable_sgid }, as: :json
     end
     assert_response :success
     json = JSON.parse(response.body)
@@ -52,7 +52,7 @@ class ChatSourcesControllerTest < ActionDispatch::IntegrationTest
     assert_equal existing.id, JSON.parse(response.body)["id"]
   end
 
-  test "rejects when neither url nor blob_signed_id is provided" do
+  test "rejects when neither url nor attachable_sgid is provided" do
     post chat_sources_url, params: {}, as: :json
     assert_response :bad_request
   end
