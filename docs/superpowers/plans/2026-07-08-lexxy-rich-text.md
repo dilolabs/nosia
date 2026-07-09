@@ -1966,3 +1966,51 @@ git commit -m "test: end-to-end chat composer paste-to-index and CI green"
 ## Out of scope (YAGNI — do not build)
 
 Image attachments in source editors · clickable citation links in rendered messages · scheduled re-indexing of stale sources · interception in non-chat editors · a separate `ChatCompletionGateJob` (Approach B).
+## Task 16 — Execution outcome (2026-07-09)
+
+Deterministic gates (all green on `feat/lexxy`):
+
+- **Ruby test suite:** 176 runs, 512 assertions, 0 failures, 0 errors, 0 skips.
+  Includes `test/integration/composer_partials_render_test.rb`, which renders the
+  composer partials in a real HTTP request and asserts the `<lexxy-editor>` mount,
+  the `composer` controller wiring, and the `[]`-suffixed hidden `attached_*_ids`
+  seed names — covering the view/wiring layer a browser test would partly cover.
+- **Rubocop:** autocorrected the real `Layout/SpaceInsideArrayLiteralBrackets`
+  + one missing trailing newline this branch introduced in its migrations and
+  test files (commit `c3acaf2`). Pre-existing repo tooling issues remain out of
+  scope: the project's `.rubocop.yml` (omakase) sets no `TargetRubyVersion`, so
+  rubocop parses with a Ruby 2.7 parser that flags Ruby 4.0 syntax across
+  pre-existing files; `db/schema.rb` generated style; and there is no `bin/ci`
+  script despite `CLAUDE.md` referencing one.
+- **Brakeman:** 9 warnings, all pre-existing (mass-assignment `:account_id` in the
+  sources controllers, inline-render XSS in `sources/texts` new/edit views).
+  Zero warnings originate from files this branch changed.
+
+Browser/system verification — **environment-blocked**, deferred per the plan's
+"pending for the palette test if the spike blocked it" allowance:
+
+- The repo has no existing system tests and `test/system/` was empty.
+  `ApplicationSystemTestCase` drives `:headless_chrome` via Selenium 4.43, which
+  unconditionally runs its bundled `selenium-manager` binary to locate
+  chromedriver. That binary is the wrong arch for this ARM host and fails with
+  `Syntax error: "(" unexpected`; passing an explicit `driver_path`/browser
+  binary does not bypass it. So no Chrome session can be started here.
+- Consequently the browser-only items could NOT be verified in this environment
+  and remain to confirm in a browser:
+  1. Interactive `/skill` command palette (Task 13 CAVEAT): typing `/` opens the
+     menu, arrow/Enter selects, and the editor content becomes `/skill-name `
+     (the `value=` replace + `lexxy:change` re-evaluation path).
+  2. `lexxy:insert-link` end-to-end: the composer controller's `onInsertLink`
+     POSTs to `/chat_sources` and appends a `chat[attached_website_ids][]`
+     hidden input in a real browser.
+  3. `lexxy:upload-end` PDF → Document interception (`nextUnsentAttachmentSgid`
+     polling + the `/chat_sources` `attachable_sgid` POST).
+  4. Source editors: `permitted_attachment_types: ""` actually disabling uploads,
+     and the markdown→HTML→markdown round-trip in a real browser.
+- The non-browser pieces of these flows are covered: `/chat_sources` (url and
+  `attachable_sgid` branches, incl. invalid-sgid → 400) by
+  `chat_sources_controller_test.rb`; `Document.create_from_attachable_sgid!` by
+  `document_create_from_blob_test.rb`; the indexing gate by
+  `chat_response_job_test.rb`; attached-id stamping + HTML→markdown by
+  `chats_controller_test.rb` / `messages_controller_test.rb`; the source
+  HTML↔markdown round-trip by `html_to_markdown_formattable_test.rb`.
