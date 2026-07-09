@@ -13,3 +13,4 @@ pin "flowbite-datepicker" # @1.3.2
 pin "@tailwindplus/elements", to: "@tailwindplus--elements.js" # @1.0.13
 pin "lexxy", to: "lexxy.js" # Rich text editor [https://github.com/excid3/lexxy]
 pin "@rails/activestorage", to: "activestorage.esm.js" # for PDF direct uploads
+pin "@rails/request.js", to: "@rails--request.js.js" # @0.0.13
