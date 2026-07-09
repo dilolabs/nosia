@@ -6,7 +6,10 @@
 
   <div class="n-form-field">
     <%= form.label :answer, "Answer", class: "n-label" %>
-    <%= form.text_area :answer, rows: 18, class: "n-textarea" %>
+    <%= form.lexxy_rich_text_area :answer,
+          value: Commonmarker.to_html(qna.answer.to_s),
+          class: "n-textarea",
+          permitted_attachment_types: "" %>
   </div>
 
   <div class="n-form-field">

@@ -1,7 +1,10 @@
 <%= form_with(model: [:sources, text]) do |form| %>
   <div class="n-form-field">
     <%= form.label :data, "Text", class: "n-label" %>
-    <%= form.text_area :data, rows: 18, class: "n-textarea" %>
+    <%= form.lexxy_rich_text_area :data,
+          value: Commonmarker.to_html(text.data.to_s),
+          class: "n-textarea",
+          permitted_attachment_types: "" %>
   </div>
 
   <div class="n-form-field">

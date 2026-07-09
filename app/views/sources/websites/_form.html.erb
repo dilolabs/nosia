@@ -6,7 +6,10 @@
 
   <div class="n-form-field">
     <%= form.label :data, "Data", class: "n-label" %>
-    <%= form.text_area :data, rows: 18, class: "n-textarea" %>
+    <%= form.lexxy_rich_text_area :data,
+          value: website.to_html,
+          class: "n-textarea",
+          permitted_attachment_types: "" %>
   </div>
 
   <div class="n-form-field">

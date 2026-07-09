@@ -3,6 +3,9 @@ class Website < ApplicationRecord
   include Crawlable
   include Indexable
   include RobotsCheckable
+  include HtmlToMarkdownFormattable
+
+  html_to_markdown_attribute :data
 
   belongs_to :account
 
