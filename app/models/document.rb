@@ -24,6 +24,8 @@ class Document < ApplicationRecord
   # to create_from_blob! with the real signed_id.
   def self.create_from_attachable_sgid!(account, sgid)
     blob = ActionText::Attachable.from_attachable_sgid(sgid)
+    raise ActiveRecord::RecordNotFound, "invalid attachable sgid" if blob.nil?
+
     create_from_blob!(account, blob.signed_id)
   end
 

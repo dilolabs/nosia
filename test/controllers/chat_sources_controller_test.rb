@@ -56,4 +56,10 @@ class ChatSourcesControllerTest < ActionDispatch::IntegrationTest
     post chat_sources_url, params: {}, as: :json
     assert_response :bad_request
   end
+
+  test "an invalid attachable sgid is rejected as bad_request, not a 500" do
+    post chat_sources_url, params: { attachable_sgid: "not-a-real-sgid" }, as: :json
+    assert_response :bad_request
+    assert_equal "invalid attachable sgid", JSON.parse(response.body)["error"]
+  end
 end

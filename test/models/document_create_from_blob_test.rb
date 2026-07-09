@@ -32,7 +32,7 @@ class DocumentCreateFromBlobTest < ActiveSupport::TestCase
     assert @document.pending?
   end
 
-  test "create_from_attachable_sgid! resolves the blob and delegates to create_from_blob!" do
+  test "create_from_attachable_sgid! resolves an attachable sgid to a blob and creates the document" do
     blob = ActiveStorage::Blob.create_and_upload!(
       io: StringIO.new("%PDF-1.4 fake"),
       filename: "report.pdf",
