@@ -1,6 +1,10 @@
 require "test_helper"
+require "turbo/broadcastable/test_helper"
 
 class ChatResponseJobTest < ActiveSupport::TestCase
+  include Turbo::Broadcastable::TestHelper  # ActionCable::TestHelper + Turbo stream helpers
+  include ActionView::RecordIdentifier      # for dom_id in the target assertion
+
   def setup
     @user = User.create!(email: "cr@example.com", password: "testpassword123")
     @account = Account.create!(name: "CR Account", owner: @user)
@@ -17,6 +21,7 @@ class ChatResponseJobTest < ActiveSupport::TestCase
     ActsAsTenant.current_tenant = nil
     ENV["CHAT_INDEXING_TIMEOUT"] = @original_timeout
     remove_completion_stub
+    Chat.singleton_class.remove_method(:find) if Chat.singleton_class.instance_methods(false).include?(:find)
   end
 
   # Stub both completion entry points so no real LLM/HTTP call fires, regardless
@@ -72,5 +77,56 @@ class ChatResponseJobTest < ActiveSupport::TestCase
     user_message = @chat.messages.create!(role: "user", content: "ask")
     stub_completion
     assert_nothing_raised { ChatResponseJob.perform_now(@chat.id, user_message.content, user_message.id) }
+  end
+
+  test "the job streams rendered markdown (not raw text) through coalesced broadcasts" do
+    # A user message with no attached sources -> wait_for_attached_sources! is a no-op.
+    user_msg = @chat.messages.create!(role: "user", content: "draw me a heading and code")
+    assistant = @chat.messages.create!(role: :assistant, content: "")
+    # Stop the post-loop message.update (similar_chunk_ids) from firing broadcast_updated
+    # so broadcast counts reflect only the streaming flushes. complete_with_nosia's tail
+    # re-fetches via `self.messages.last`, so stub the association's `last` to return THIS
+    # instance whose `update` is a no-op.
+    assistant.define_singleton_method(:update) { |*| true }
+    @chat.messages.define_singleton_method(:last) { assistant }
+
+    markdown = "## Heading\n\n**bold** and *italic*\n\n```\ncode\n```\n"
+    chunks = markdown.chars.each_slice(6).map { |s| StreamChunk.new(s.join) }
+    stub_chat_for_streaming(@chat, chunks: chunks)
+    # Force the streaming path regardless of agent_skills config / matched skills:
+    # complete_with_agent_skills otherwise calls AgentSkill::Detector.detect, which
+    # may branch away from complete_with_nosia. Delegate so the real coalescing loop runs.
+    @chat.define_singleton_method(:complete_with_agent_skills) do |question, **opts, &blk|
+      complete_with_nosia(question, **opts, &blk)
+    end
+    # The job re-fetches the chat via Chat.find(chat_id), which returns a fresh
+    # instance that lacks the singleton stubs above. Route Chat.find to the
+    # stubbed @chat so the job runs the real coalescing loop against it.
+    chat_ref = @chat
+    original_find = Chat.method(:find)
+    Chat.define_singleton_method(:find) { |*args| args.first == chat_ref.id ? chat_ref : original_find.call(*args) }
+
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      ChatResponseJob.perform_now(@chat.id, user_msg.content, user_msg.id)
+    end
+
+    # Coalesced: fewer broadcasts than chunks. Under perform_now the monotonic
+    # clock barely advances, so typically only the guaranteed final flush fires
+    # (1 broadcast for 8 chunks). The bound is deliberately loose (< chunks.size)
+    # so a stray mid-stream flush on a slow box still passes -- what matters is
+    # that broadcasts were coalesced, not emitted one-per-chunk.
+    assert streams.size < chunks.size, "expected coalesced broadcasts (fewer than #{chunks.size} chunks), got #{streams.size}"
+
+    # Every broadcast is a replace of the content div (not a raw append).
+    assert streams.all? { |s| s["action"] == "replace" }, "expected only replace broadcasts"
+    last = streams.last
+    assert_equal dom_id(assistant, :content), last["target"]
+
+    # The final flush carries the fully rendered markdown — real tags, not literal #/**/``` .
+    html = last.inner_html
+    assert_includes html, "<h2"
+    assert_includes html, "<strong>"
+    assert_includes html, "<pre"
+    assert_not_includes html, "## Heading"
   end
 end
