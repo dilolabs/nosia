@@ -97,4 +97,43 @@ class MessageTest < ActiveSupport::TestCase
     assert_empty message.reload.attached_website_ids
     assert_equal 0, @account.websites.count
   end
+
+  test "render_markdown_content renders markdown to HTML" do
+    html = Message.render_markdown_content("# Title\n\n**bold**")
+    assert_includes html, "<h1"
+    assert_includes html, "<strong>"
+  end
+
+  test "render_markdown_content strips think tags" do
+    # Build the think tag in pieces so the literal survives in this plan file
+    # uncorrupted. Without Nokogiri's think-tag removal, Commonmarker keeps
+    # "secret" as text (raw-HTML-omitted comments around it), so the
+    # assert_not_includes "secret" genuinely tests the removal path -- not
+    # Commonmarker's raw-HTML omission.
+    think = "<th" + "ink>secret</th" + "ink>"   # => a think element wrapping "secret"
+    html = Message.render_markdown_content("#{think} visible **text**")
+    assert_not_includes html, "secret"
+    assert_includes html, "visible"
+    assert_includes html, "<strong>"
+  end
+
+  test "render_markdown_content returns nil for blank input" do
+    assert_nil Message.render_markdown_content(nil)
+    assert_nil Message.render_markdown_content("")
+    assert_nil Message.render_markdown_content("   ")
+  end
+
+  test "render_markdown_content does not raise on incomplete markdown" do
+    assert_nothing_raised do
+      Message.render_markdown_content("``` unfinished code fence")
+      Message.render_markdown_content("**unclosed bold")
+      Message.render_markdown_content("| a | b |\n| --- |")
+    end
+  end
+
+  test "response_content delegates to render_markdown_content" do
+    message = @chat.messages.create!(role: "assistant", content: "# Hi\n\n**x**")
+    assert_includes message.response_content, "<h1"
+    assert_includes message.response_content, "<strong>"
+  end
 end

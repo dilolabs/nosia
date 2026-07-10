@@ -140,12 +140,21 @@ class Message < ApplicationRecord
     Commonmarker.to_html(doc.at("think").to_html)
   end
 
-  def response_content
-    return unless content.present?
-    doc = Nokogiri::HTML::DocumentFragment.parse(content)
+  # Shared markdown→HTML render used by both the streaming flush (which feeds
+  # the in-memory buffer) and response_content (which reads persisted content).
+  # Strips reasoning (think) tags so streaming output converges exactly to the
+  # final render. Lenient on incomplete markdown — does not raise on an open
+  # code fence or unclosed emphasis.
+  def self.render_markdown_content(text)
+    return if text.blank?
+    doc = Nokogiri::HTML::DocumentFragment.parse(text)
     return unless doc.present?
     doc.at("think")&.remove
     Commonmarker.to_html(doc.to_html)
+  end
+
+  def response_content
+    self.class.render_markdown_content(content)
   end
 
   def similar_authors
