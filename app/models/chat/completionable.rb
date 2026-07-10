@@ -24,8 +24,9 @@ module Chat::Completionable
       self.with_tools(*mcp_tools_list)
     end
 
-    # Phase 1: Searching for context
-    broadcast_thinking_phase("searching", "Searching through your documents...")
+    # Phase 1: Searching for context (phase broadcast now lives in similarity_search,
+    # so both the chat path and the agent-skills path get the Searching -> Retrieving
+    # sequence consistently).
     chunks = self.similarity_search(question)
 
     # Prepare the augmented question with context
