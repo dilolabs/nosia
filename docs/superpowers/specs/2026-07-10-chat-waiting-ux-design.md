@@ -352,3 +352,10 @@ on chat create, so its generating UI is vestigial; the Stop button there is out 
 - Decide the branch base: off `feat/live-stream-markdown` (which the placeholder's
   `broadcast_streamed_content` / `_streaming_content` depend on) or off `main` after that
   branch merges.
+- Confirm `chunks.pluck(:id)` at `completionable.rb:88` still works after the
+  `similarity_search` change. Today `select` with a block already returns an Array, so the
+  added `.to_a` does not change the return type — but the implementer should glance at this
+  line (Array vs Relation `pluck`) since it sits directly downstream of the change.
+- Visually confirm the `thinking_animation` partial renders cleanly inside the
+  `prose prose-sm` content div when used as the placeholder — the `prose` typography
+  classes may affect the spinner/label styling.
