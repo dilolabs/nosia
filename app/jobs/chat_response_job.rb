@@ -7,6 +7,12 @@ class ChatResponseJob < ApplicationJob
     user_message = user_message_id ? Message.find(user_message_id) : nil
     Rails.logger.info "User message: #{user_message&.id} - Content: #{content[0..100]}..."
 
+    # Drop any blank assistant message left by a previous failed/empty generation.
+    # ruby_llm would serialize it into this request's history and the provider
+    # rejects nil content ("invalid message content type: <nil>"), which would
+    # otherwise block every further response in this chat.
+    chat.purge_blank_assistant_messages!
+
     # Wait for any sources attached to the user message to finish indexing so
     # retrieval can find them; collect the ones that failed or timed out so the
     # model can be warned instead of hallucinating over them.

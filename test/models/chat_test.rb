@@ -72,6 +72,37 @@ class ChatTest < ActiveSupport::TestCase
            "finish_generation! should remove a stuck thinking_animation (error-before-bubble cleanup)"
   end
 
+  # A blank/nil-content assistant message (left by a failed or empty generation)
+  # is serialized into the next LLM request by ruby_llm, and the provider rejects
+  # the whole request ("invalid message content type: <nil>"), permanently
+  # blocking every further response in the chat. Purging them keeps the
+  # conversation valid so subsequent turns work.
+  test "purge_blank_assistant_messages! removes nil/empty assistant messages that poison the request" do
+    @chat.messages.create!(role: :user, content: "Q1")
+    @chat.messages.create!(role: :assistant, content: "A1")
+    @chat.messages.create!(role: :user, content: "Q2")
+    empty = @chat.messages.create!(role: :assistant, content: "")
+    nilm  = @chat.messages.create!(role: :assistant, content: nil)
+
+    @chat.purge_blank_assistant_messages!
+
+    assert_not Message.exists?(empty.id), "empty-content assistant message should be purged"
+    assert_not Message.exists?(nilm.id), "nil-content assistant message should be purged"
+    assert @chat.reload.to_llm.messages.none? { |m| m.content.nil? },
+      "no nil-content message should reach the LLM after purging"
+  end
+
+  # A blank assistant message that carries tool_calls is a legitimate intermediate
+  # step (content lives in the tool calls), not a failed generation — keep it.
+  test "purge_blank_assistant_messages! keeps blank assistant messages with tool_calls" do
+    keep = @chat.messages.create!(role: :assistant, content: "")
+    keep.tool_calls.create!(tool_call_id: "call_1", name: "search", arguments: {})
+
+    @chat.purge_blank_assistant_messages!
+
+    assert Message.exists?(keep.id), "blank assistant with tool_calls must be preserved"
+  end
+
   # finish_generation! runs inside ChatResponseJob, which has no Current.session
   # (and thus no Current.account). The composer-unlock broadcast renders
   # messages/_form, so that form must not depend on request-scoped Current or the

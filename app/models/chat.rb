@@ -85,6 +85,17 @@ class Chat < ApplicationRecord
     )
   end
 
+  # Remove blank assistant messages left behind by a failed or empty generation.
+  # ruby_llm serializes every persisted message into the next request's history, and
+  # an assistant message with nil/empty content makes the provider reject the whole
+  # request ("invalid message content type: <nil>"), which permanently blocks every
+  # further turn in the chat. A blank assistant that carries tool_calls is a
+  # legitimate intermediate step, so it is preserved. Called before each completion
+  # so a prior failed turn cannot poison the conversation.
+  def purge_blank_assistant_messages!
+    messages.assistant.where(content: [ nil, "" ]).where.missing(:tool_calls).destroy_all
+  end
+
   def first_question
     messages.where(role: "user").order(:created_at).first&.question
   end
