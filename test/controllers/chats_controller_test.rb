@@ -43,4 +43,11 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     message = Chat.last.messages.where(role: :user).last
     assert_includes message.attached_website_ids, website.id.to_s
   end
+
+  test "create sets generating before enqueuing the job" do
+    assert_enqueued_with(job: ChatResponseJob) do
+      post chats_url, params: { chat: { prompt: "<p>hello</p>", model: "test-model" } }
+    end
+    assert Chat.last.reload.generating, "create should set generating before enqueuing"
+  end
 end
