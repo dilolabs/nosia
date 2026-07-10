@@ -71,4 +71,22 @@ class ChatTest < ActiveSupport::TestCase
     assert streams.any? { |s| s["action"] == "remove" && s["target"] == "thinking_animation" },
            "finish_generation! should remove a stuck thinking_animation (error-before-bubble cleanup)"
   end
+
+  # finish_generation! runs inside ChatResponseJob, which has no Current.session
+  # (and thus no Current.account). The composer-unlock broadcast renders
+  # messages/_form, so that form must not depend on request-scoped Current or the
+  # render raises, the form is never replaced, and the submit button stays locked
+  # after the response completes.
+  test "finish_generation! broadcasts the unlocked form even without Current (job context)" do
+    Current.session = nil
+
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      @chat.finish_generation!
+    end
+
+    form = streams.find { |s| s["action"] == "replace" && s["target"] == "#{dom_id(@chat)}_message_form" }
+    assert form, "finish_generation! must broadcast the composer form replace in the job context"
+    assert_not_includes form.inner_html, "disabled",
+      "the broadcast form must be unlocked so the submit button is usable again"
+  end
 end

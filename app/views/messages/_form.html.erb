@@ -3,7 +3,7 @@
     <%= form.label :content, "Ask anything…", class: "sr-only" %>
 
     <% is_generating = chat.generating %>
-    <div class="relative w-full" data-controller="composer" data-composer-skills-value="<%= agent_skill_autocomplete_data %>">
+    <div class="relative w-full" data-controller="composer" data-composer-skills-value="<%= agent_skill_autocomplete_data(chat.account) %>">
       <%= form.lexxy_rich_text_area :content, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: !is_generating, placeholder: is_generating ? "Generating…" : "Ask anything...", disabled: is_generating, data: { composer_target: "editor" }, class: "n-form-chat" %>
 
       <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_target: "websiteIds" } %>
@@ -30,7 +30,7 @@
     </div>
 
     <div class="mt-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-      <span>Enter to send · Shift+Enter for a line break<%= " · Type / for skills" if Current.account.agent_skills.explicitly_invocable.exists? %><br>Nosia can make mistakes. Verify in case of doubt.</span>
+      <span>Enter to send · Shift+Enter for a line break<%= " · Type / for skills" if chat.account.agent_skills.explicitly_invocable.exists? %><br>Nosia can make mistakes. Verify in case of doubt.</span>
       <button type="button" onclick="document.getElementById('mcp-selector-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>

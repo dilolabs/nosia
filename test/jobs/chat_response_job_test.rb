@@ -110,16 +110,21 @@ class ChatResponseJobTest < ActiveSupport::TestCase
       ChatResponseJob.perform_now(@chat.id, user_msg.content, user_msg.id)
     end
 
+    # Isolate the streaming flushes: finish_generation! (in the job's ensure) also
+    # broadcasts on this stream (the composer-unlock form replace + a thinking
+    # animation remove), so scope to the assistant content-div target.
+    content_streams = streams.select { |s| s["target"] == dom_id(assistant, :content) }
+
     # Coalesced: fewer broadcasts than chunks. Under perform_now the monotonic
     # clock barely advances, so typically only the guaranteed final flush fires
     # (1 broadcast for 8 chunks). The bound is deliberately loose (< chunks.size)
     # so a stray mid-stream flush on a slow box still passes -- what matters is
     # that broadcasts were coalesced, not emitted one-per-chunk.
-    assert streams.size < chunks.size, "expected coalesced broadcasts (fewer than #{chunks.size} chunks), got #{streams.size}"
+    assert content_streams.size < chunks.size, "expected coalesced broadcasts (fewer than #{chunks.size} chunks), got #{content_streams.size}"
 
-    # Every broadcast is a replace of the content div (not a raw append).
-    assert streams.all? { |s| s["action"] == "replace" }, "expected only replace broadcasts"
-    last = streams.last
+    # Every streaming broadcast is a replace of the content div (not a raw append).
+    assert content_streams.all? { |s| s["action"] == "replace" }, "expected only replace broadcasts"
+    last = content_streams.last
     assert_equal dom_id(assistant, :content), last["target"]
 
     # The final flush carries the fully rendered markdown — real tags, not literal #/**/``` .
