@@ -44,6 +44,8 @@ class Chat < ApplicationRecord
     sources = user_message.attached_websites + user_message.attached_documents
     return { ready: [], failed: [], timed_out: [] } if sources.empty?
 
+    broadcast_thinking_phase("indexing", "Indexing your attachments...")
+
     deadline = Time.current + timeout
 
     loop do
