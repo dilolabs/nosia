@@ -3,6 +3,7 @@ require "active_job/test_helper"
 
 class ChatsControllerTest < ActionDispatch::IntegrationTest
   include ActiveJob::TestHelper
+  include ActionView::RecordIdentifier
 
   def setup
     @user = User.create!(email: "cc@example.com", password: "testpassword123")
@@ -49,5 +50,49 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
       post chats_url, params: { chat: { prompt: "<p>hello</p>", model: "test-model" } }
     end
     assert Chat.last.reload.generating, "create should set generating before enqueuing"
+  end
+
+  # A mid-stream refresh must not lose the response. ruby_llm persists the
+  # assistant message blank (content: "") for the whole stream, so it is excluded
+  # from `for_user` and never re-rendered — leaving streamed deltas and the final
+  # broadcast_updated aiming at DOM nodes that don't exist. Reconstruct the bubble
+  # from the `generating` flag so those broadcasts have live targets.
+  test "show renders the in-progress assistant bubble while generating" do
+    chat = @account.chats.create!(user: @user, model: "test-model", provider: :openai, assume_model_exists: true)
+    chat.messages.create!(role: :user, content: "hi")
+    assistant = chat.messages.create!(role: :assistant, content: "")
+    chat.update_column(:generating, true)
+
+    get chat_url(chat)
+    assert_response :success
+
+    assert_select "##{dom_id(assistant, :content)}", { count: 1 },
+      "streamed deltas target dom_id(message, :content); it must exist on a mid-stream reload"
+    assert_select "##{dom_id(assistant, :messages)}", { count: 1 },
+      "the final broadcast_updated targets the bubble; it must exist on a mid-stream reload"
+    assert_select "#thinking_animation", { count: 0 },
+      "no standalone thinking animation once the assistant bubble exists (broadcast_created already removed it)"
+  end
+
+  # Before the assistant message exists (retrieval phases), the standalone thinking
+  # animation must render so phase updates land and broadcast_created can remove it.
+  test "show renders standalone thinking animation while generating before the assistant bubble exists" do
+    chat = @account.chats.create!(user: @user, model: "test-model", provider: :openai, assume_model_exists: true)
+    chat.messages.create!(role: :user, content: "hi")
+    chat.update_column(:generating, true)
+
+    get chat_url(chat)
+    assert_response :success
+    assert_select "#thinking_animation", count: 1
+  end
+
+  # A finished (or errored) chat clears `generating`, so no spinner should linger.
+  test "show does not render a thinking animation when not generating" do
+    chat = @account.chats.create!(user: @user, model: "test-model", provider: :openai, assume_model_exists: true)
+    chat.messages.create!(role: :user, content: "hi")
+
+    get chat_url(chat)
+    assert_response :success
+    assert_select "#thinking_animation", count: 0
   end
 end

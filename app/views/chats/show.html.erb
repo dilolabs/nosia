@@ -7,11 +7,26 @@
           <%= render message, message: %>
         <% end %>
 
-        <%# Display animation if last message is from user (waiting for response) %>
-        <% if @chat.messages.for_user.last&.user? %>
-          <div id="thinking_animation">
-            <%= render "messages/thinking" %>
-          </div>
+        <%# Reconstruct in-progress generation from the reliable `generating` DB flag
+            so a mid-stream page refresh isn't lost. ruby_llm persists the assistant
+            message blank (content: "") until the stream ends, so it's excluded from
+            `for_user` and never re-rendered — leaving streamed deltas (target
+            dom_id(message, :content)) and the final broadcast_updated (target
+            dom_id(message, :messages)) aiming at DOM nodes that don't exist. %>
+        <% if @chat.generating? %>
+          <% in_progress = @chat.messages.assistant.where(content: [ nil, "" ]).where.missing(:tool_calls).order(:created_at).last %>
+          <% if in_progress %>
+            <%# Streaming already started: render the bubble (shows the Generating
+                placeholder) so live broadcasts have targets. broadcast_created
+                already fired for this message, so no standalone animation here. %>
+            <%= render "messages/message", message: in_progress, chat: @chat %>
+          <% else %>
+            <%# Still in the retrieval phases (no assistant bubble yet): the standalone
+                animation receives phase updates and broadcast_created removes it. %>
+            <div id="thinking_animation">
+              <%= render "messages/thinking" %>
+            </div>
+          <% end %>
         <% end %>
       <% end %>
       <%= turbo_stream_from @chat, :messages %>
