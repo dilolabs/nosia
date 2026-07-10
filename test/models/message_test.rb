@@ -155,8 +155,51 @@ class MessageTest < ActiveSupport::TestCase
 
   test "broadcast_streamed_content is a no-op for non-assistant messages" do
     message = @chat.messages.create!(role: "user", content: "hi")
-    assert_no_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    # Creating the user message legitimately broadcasts the bubble + thinking
+    # animation, so assert specifically that broadcast_streamed_content emits no
+    # content-div replace (its only possible broadcast) for a non-assistant message.
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
       message.broadcast_streamed_content("anything")
     end
+    assert streams.none? { |s| s["target"] == dom_id(message, :content) },
+      "broadcast_streamed_content must not emit a content replace for a user message"
+  end
+
+  # A prompt sent from one tab must reach every tab open on the same chat. The
+  # user bubble is appended to the submitting tab via the create.turbo_stream
+  # response, but other tabs only receive it through the [chat, "messages"]
+  # broadcast — so creating a user message must broadcast-append it.
+  test "creating a user message broadcasts it to the chat stream for other tabs" do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      @chat.messages.create!(role: "user", content: "hello from tab A")
+    end
+
+    append = streams.find { |s| s["action"] == "append" && s["target"] == dom_id(@chat, :messages) }
+    assert append, "user message should be broadcast-appended so other tabs receive it"
+    assert_includes append.inner_html, "hello from tab A"
+  end
+
+  # Other tabs also need the waiting animation so the phase updates (which target
+  # thinking_animation_content) have somewhere to land.
+  test "creating a user message broadcasts the thinking animation to all tabs" do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      @chat.messages.create!(role: "user", content: "hi")
+    end
+
+    assert streams.any? { |s| s["action"] == "append" && s.inner_html.include?("thinking_animation") },
+      "the waiting animation should be broadcast to every subscribed tab"
+  end
+
+  # Guards the double-submit / retry dedup: a consecutive duplicate user message
+  # (no assistant reply in between) must not be broadcast again.
+  test "a consecutive duplicate user message is not broadcast" do
+    @chat.messages.create!(role: "user", content: "same question")
+
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      @chat.messages.create!(role: "user", content: "same question")
+    end
+
+    assert streams.none? { |s| s["action"] == "append" && s.inner_html.include?("same question") },
+      "a consecutive duplicate user message should not be re-broadcast"
   end
 end

@@ -69,7 +69,7 @@ class Message < ApplicationRecord
 
   def broadcast_created
     # Do not broadcast system and tool messages (internal)
-    return unless assistant?
+    return if system? || tool?
 
     # EN: If it's an assistant message with tool_calls, DO NOT broadcast
     # They are intermediate messages not meant for the user
@@ -106,6 +106,14 @@ class Message < ApplicationRecord
     end
 
     broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
+
+    # After a user prompt, broadcast the waiting animation so EVERY tab open on
+    # this chat shows it (and phase updates, which target thinking_animation_content,
+    # have somewhere to land). The submitting tab receives the same broadcast, so
+    # create.turbo_stream must not also append it (that would duplicate it here).
+    if user?
+      broadcast_append_to chat, :messages, target: dom_id(chat, :messages), partial: "messages/thinking"
+    end
   end
 
   def broadcast_updated

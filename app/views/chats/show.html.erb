@@ -22,10 +22,9 @@
             <%= render "messages/message", message: in_progress, chat: @chat %>
           <% else %>
             <%# Still in the retrieval phases (no assistant bubble yet): the standalone
-                animation receives phase updates and broadcast_created removes it. %>
-            <div id="thinking_animation">
-              <%= render "messages/thinking" %>
-            </div>
+                animation receives phase updates and broadcast_created removes it.
+                Its root carries id="thinking_animation" (see messages/_thinking). %>
+            <%= render "messages/thinking" %>
           <% end %>
         <% end %>
       <% end %>
