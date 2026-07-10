@@ -26,6 +26,7 @@ export default class extends Controller {
     this.boundUploadEnd = this.onUploadEnd.bind(this)
     this.boundHandleKeys = this.handleKeys.bind(this)
     this.boundChange = this.onChange.bind(this)
+    this.boundSubmitStart = this.submitStart.bind(this)
     this.sentSgids = new Set()
     this.paletteOpen = false
     this.activeIndex = -1
@@ -37,6 +38,8 @@ export default class extends Controller {
     this.editorTarget.addEventListener("lexxy:upload-end", this.boundUploadEnd)
     this.editorTarget.addEventListener("lexxy:change", this.boundChange)
     this.editorTarget.addEventListener("keydown", this.boundHandleKeys)
+    this.form = this.element.tagName === "FORM" ? this.element : this.element.closest("form")
+    if (this.form) this.form.addEventListener("turbo:submit-start", this.boundSubmitStart)
     this.closePalette()
   }
 
@@ -46,6 +49,7 @@ export default class extends Controller {
     this.editorTarget.removeEventListener("lexxy:upload-end", this.boundUploadEnd)
     this.editorTarget.removeEventListener("lexxy:change", this.boundChange)
     this.editorTarget.removeEventListener("keydown", this.boundHandleKeys)
+    if (this.form) this.form.removeEventListener("turbo:submit-start", this.boundSubmitStart)
   }
 
   // Lexxy builds the contenteditable as <div class="lexxy-editor__content"> and
@@ -64,6 +68,16 @@ export default class extends Controller {
       content.classList.add("lexxy-content")
       this.contentStyled = true
     }
+  }
+
+  // turbo:submit-start fires on the <form> the instant the user submits. Lock the
+  // composer in the same frame — before the server's Turbo Stream response arrives —
+  // so the user sees immediate feedback that the send registered. The server then
+  // re-renders the form with generating=true (busy), and finish_generation! clears it.
+  submitStart() {
+    if (this.editorTarget) this.editorTarget.disabled = true
+    const btn = this.element.querySelector("button[type='submit']")
+    if (btn) btn.disabled = true
   }
 
   // Enter sends; Shift/Meta/Ctrl+Enter fall through. When the /skill palette is

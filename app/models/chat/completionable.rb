@@ -1,7 +1,7 @@
 module Chat::Completionable
   extend ActiveSupport::Concern
 
-  def complete_with_nosia(question, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, user_message: nil, excluded_sources: nil, &block)
+  def complete_with_nosia(question, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, user_message: nil, excluded_sources: nil, stream_buffer: Message::StreamBuffer.new, &block)
     excluded_sources ||= []
     options = default_options.merge(
       {
@@ -24,8 +24,9 @@ module Chat::Completionable
       self.with_tools(*mcp_tools_list)
     end
 
-    # Phase 1: Searching for context
-    broadcast_thinking_phase("searching", "Searching through your documents...")
+    # Phase 1: Searching for context (phase broadcast now lives in similarity_search,
+    # so both the chat path and the agent-skills path get the Searching -> Retrieving
+    # sequence consistently).
     chunks = self.similarity_search(question)
 
     # Prepare the augmented question with context
@@ -61,15 +62,20 @@ module Chat::Completionable
     broadcast_thinking_phase("generating", "Generating response...")
 
     # Process the latest user message
-    self.complete do |chunk|
-      # Get the assistant message record (created before streaming starts)
-      message = self.messages.last
-      if block_given?
-        yield chunk
-      elsif chunk.content && message
-        # Append the chunk content to the message's target div
-        message.broadcast_append_chunk(chunk.content)
+    if block_given?
+      # API/SSE path: yield raw chunks to the caller, no turbo broadcasts.
+      self.complete { |chunk| yield chunk }
+    else
+      # Chat UI path: coalesce deltas and re-render the full buffer as markdown.
+      message = nil
+      self.complete do |chunk|
+        message ||= self.messages.last
+        if chunk.content && message
+          stream_buffer << chunk.content
+          message.broadcast_streamed_content(stream_buffer.text) if stream_buffer.flush?
+        end
       end
+      message&.broadcast_streamed_content(stream_buffer.text) if stream_buffer.any? # final flush
     end
 
     # Final assistant message is now fully persisted

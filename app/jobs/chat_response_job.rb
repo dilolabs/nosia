@@ -7,6 +7,12 @@ class ChatResponseJob < ApplicationJob
     user_message = user_message_id ? Message.find(user_message_id) : nil
     Rails.logger.info "User message: #{user_message&.id} - Content: #{content[0..100]}..."
 
+    # Drop any blank assistant message left by a previous failed/empty generation.
+    # ruby_llm would serialize it into this request's history and the provider
+    # rejects nil content ("invalid message content type: <nil>"), which would
+    # otherwise block every further response in this chat.
+    chat.purge_blank_assistant_messages!
+
     # Wait for any sources attached to the user message to finish indexing so
     # retrieval can find them; collect the ones that failed or timed out so the
     # model can be warned instead of hallucinating over them.
@@ -17,13 +23,18 @@ class ChatResponseJob < ApplicationJob
       []
     end
 
-    if Rails.application.config.agent_skills.enabled
-      result = chat.complete_with_agent_skills(content, user_message: user_message, excluded_sources: excluded)
-    else
-      result = chat.complete_with_nosia(content, user_message: user_message, excluded_sources: excluded)
+    begin
+      if Rails.application.config.agent_skills.enabled
+        result = chat.complete_with_agent_skills(content, user_message: user_message, excluded_sources: excluded)
+      else
+        result = chat.complete_with_nosia(content, user_message: user_message, excluded_sources: excluded)
+      end
+      Rails.logger.info "=== ChatResponseJob completed. Result: #{result&.id} ==="
+    ensure
+      # Unlock the composer and clear any stuck thinking animation, whether the
+      # completion succeeded or raised. The controller set generating=true on submit.
+      chat.finish_generation!
     end
-
-    Rails.logger.info "=== ChatResponseJob completed. Result: #{result&.id} ==="
   rescue Faraday::TimeoutError => e
     Rails.logger.error "=== ChatResponseJob ERROR: Timeout ==="
     Rails.logger.error e.message

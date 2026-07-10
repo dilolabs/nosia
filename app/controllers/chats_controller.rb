@@ -38,9 +38,11 @@ class ChatsController < ApplicationController
     # as Website sources before completion runs — the indexing gate waits on them.
     @user_message.attach_website_sources_from_content!(Current.account)
 
-    # Launch the background job with the persisted markdown content (the
-    # before_save from Task 6 has converted the composer HTML to markdown) and
-    # the ID of the created message.
+    # Lock the composer for the duration of this generation. The redirect lands on the
+    # show page with generating already persisted, so the composer renders busy; the
+    # job's ensure clears it.
+    @chat.start_generation!
+
     ChatResponseJob.perform_later(@chat.id, @user_message.content, @user_message.id)
 
     redirect_to @chat

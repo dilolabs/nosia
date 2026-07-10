@@ -1,4 +1,5 @@
 class Chat < ApplicationRecord
+  include ActionView::RecordIdentifier
   include AnswerRelevance
   include AugmentedPrompt
   include Completionable
@@ -44,6 +45,8 @@ class Chat < ApplicationRecord
     sources = user_message.attached_websites + user_message.attached_documents
     return { ready: [], failed: [], timed_out: [] } if sources.empty?
 
+    broadcast_thinking_phase("indexing", "Indexing your attachments...")
+
     deadline = Time.current + timeout
 
     loop do
@@ -82,6 +85,17 @@ class Chat < ApplicationRecord
     )
   end
 
+  # Remove blank assistant messages left behind by a failed or empty generation.
+  # ruby_llm serializes every persisted message into the next request's history, and
+  # an assistant message with nil/empty content makes the provider reject the whole
+  # request ("invalid message content type: <nil>"), which permanently blocks every
+  # further turn in the chat. A blank assistant that carries tool_calls is a
+  # legitimate intermediate step, so it is preserved. Called before each completion
+  # so a prior failed turn cannot poison the conversation.
+  def purge_blank_assistant_messages!
+    messages.assistant.where(content: [ nil, "" ]).where.missing(:tool_calls).destroy_all
+  end
+
   def first_question
     messages.where(role: "user").order(:created_at).first&.question
   end
@@ -92,5 +106,33 @@ class Chat < ApplicationRecord
 
   def title
     first_question
+  end
+
+  # Mark the chat as actively generating so the composer renders busy. No broadcast —
+  # the create response renders the busy form, and a fresh page load mid-generation
+  # reads `generating` from the DB (reconnect-safe). Uses update_column to skip this
+  # model's broadcasts_to after_update_commit auto-replace (a spurious chat-partial
+  # BroadcastJob that is a no-op on the show page, which has no #chat_<id> target).
+  def start_generation!
+    update_column(:generating, true)
+  end
+
+  # Mark generation done and broadcast the composer unlock + a thinking_animation
+  # remove (no-op on success where broadcast_created already removed it; cleans up the
+  # error-before-bubble case). update_column skips the broadcasts_to auto-replace; the
+  # two explicit broadcasts are synchronous so the unlock is immediate.
+  def finish_generation!
+    update_column(:generating, false)
+    broadcast_replace_to [ self, "messages" ],
+      target: "#{dom_id(self)}_message_form",
+      partial: "messages/form",
+      locals: { chat: self }
+    broadcast_remove_to self, :messages, target: "thinking_animation"
+
+    # Safety net for missed live broadcasts: at completion the DB holds the final
+    # state, so a morph refresh re-renders every subscribed tab from it. A tab that
+    # dropped its subscription mid-stream (and would otherwise sit stuck on
+    # "Preparing" / the streaming placeholder) recovers here without a manual reload.
+    broadcast_refresh_to self, :messages
   end
 end

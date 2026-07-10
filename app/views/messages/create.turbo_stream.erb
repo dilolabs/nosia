@@ -1,16 +1,7 @@
-<%# Add the user message %>
-<%= turbo_stream.append "#{dom_id(@chat, :messages)}" do %>
-  <%= render partial: "messages/message", locals: { message: @user_message, chat: @chat } %>
-<% end %>
-
-<%# Add the thinking animation %>
-<%= turbo_stream.append "#{dom_id(@chat, :messages)}" do %>
-  <div id="thinking_animation">
-    <%= render "messages/thinking" %>
-  </div>
-<% end %>
-
-<%# Reset the form %>
+<%# The user message and thinking animation are delivered via the
+    [chat, "messages"] broadcast (Message#broadcast_created), so every tab open
+    on this chat — including this one — receives them exactly once. Here we only
+    reset the composer (rendered busy from the generating flag). %>
 <%= turbo_stream.replace "#{dom_id(@chat)}_message_form" do %>
   <%= render "form", chat: @chat %>
 <% end %>

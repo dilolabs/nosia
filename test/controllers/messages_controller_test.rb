@@ -48,4 +48,24 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     message = chat.messages.where(role: :user).last
     assert_includes message.attached_website_ids, website.id.to_s
   end
+
+  test "create sets generating before enqueuing the job" do
+    chat = @account.chats.create!(user: @user, model: "test-model", provider: :openai, assume_model_exists: true)
+    assert_enqueued_with(job: ChatResponseJob) do
+      post chat_messages_url(chat), params: { message: { content: "<p>hi</p>" } }
+    end
+    assert chat.reload.generating, "create should set generating before enqueuing"
+  end
+
+  test "create turbo_stream response renders the composer busy when generating" do
+    chat = @account.chats.create!(user: @user, model: "test-model", provider: :openai, assume_model_exists: true)
+    post chat_messages_url(chat),
+         params: { message: { content: "<p>hi</p>" } },
+         headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    assert chat.reload.generating
+    body = response.body
+    assert_includes body, "Generating", "busy composer should show the Generating state"
+    assert_includes body, "disabled", "busy composer should disable the editor"
+  end
 end

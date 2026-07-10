@@ -1,2 +1,5 @@
-<%== message.response_content %>
-<% if defined?(delta) %><%= delta %><% end %>
+<% if message.response_content.present? %>
+  <%== message.response_content %>
+<% else %>
+  <%= render "messages/thinking_animation", phase: "generating", message: "Generating response…" %>
+<% end %>

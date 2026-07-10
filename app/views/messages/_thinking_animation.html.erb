@@ -1,7 +1,10 @@
 <%
   # Define icons and messages based on phase
   phase_config = {
+    "preparing" => { icon: "💭", title: "Preparing", subtitle: "Starting up..." },
+    "indexing" => { icon: "📥", title: "Indexing", subtitle: "Indexing your attachments..." },
     "searching" => { icon: "🔍", title: "Searching", subtitle: "Looking through your documents..." },
+    "retrieving" => { icon: "📚", title: "Retrieving", subtitle: "Retrieving relevant context..." },
     "generating" => { icon: "✨", title: "Generating", subtitle: "Crafting the response..." },
     "using_tool" => { icon: "🔧", title: "Using tool", subtitle: "Executing action..." }
   }

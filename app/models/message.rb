@@ -54,18 +54,22 @@ class Message < ApplicationRecord
     "attachment"
   end
 
-  # Helper to broadcast chunks during streaming
-  def broadcast_append_chunk(chunk_content)
+  # Re-render the full accumulated buffer to HTML and replace the content div.
+  # One broadcast per flush (coalesced), formatted markdown instead of raw text.
+  def broadcast_streamed_content(text)
     return unless assistant?
+    html = self.class.render_markdown_content(text)
+    return unless html
 
-    broadcast_append_to [ chat, "messages" ], # Target the stream
-      target: dom_id(self, "content"), # Target the content div inside the message frame
-      html: chunk_content # Append the raw chunk
+    broadcast_replace_to [ chat, "messages" ],
+      target: dom_id(self, :content),
+      partial: "messages/streaming_content",
+      locals: { message: self, content_html: html }
   end
 
   def broadcast_created
     # Do not broadcast system and tool messages (internal)
-    return unless assistant?
+    return if system? || tool?
 
     # EN: If it's an assistant message with tool_calls, DO NOT broadcast
     # They are intermediate messages not meant for the user
@@ -102,6 +106,14 @@ class Message < ApplicationRecord
     end
 
     broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
+
+    # After a user prompt, broadcast the waiting animation so EVERY tab open on
+    # this chat shows it (and phase updates, which target thinking_animation_content,
+    # have somewhere to land). The submitting tab receives the same broadcast, so
+    # create.turbo_stream must not also append it (that would duplicate it here).
+    if user?
+      broadcast_append_to chat, :messages, target: dom_id(chat, :messages), partial: "messages/thinking"
+    end
   end
 
   def broadcast_updated
@@ -140,12 +152,21 @@ class Message < ApplicationRecord
     Commonmarker.to_html(doc.at("think").to_html)
   end
 
-  def response_content
-    return unless content.present?
-    doc = Nokogiri::HTML::DocumentFragment.parse(content)
+  # Shared markdown→HTML render used by both the streaming flush (which feeds
+  # the in-memory buffer) and response_content (which reads persisted content).
+  # Strips reasoning (think) tags so streaming output converges exactly to the
+  # final render. Lenient on incomplete markdown — does not raise on an open
+  # code fence or unclosed emphasis.
+  def self.render_markdown_content(text)
+    return if text.blank?
+    doc = Nokogiri::HTML::DocumentFragment.parse(text)
     return unless doc.present?
     doc.at("think")&.remove
     Commonmarker.to_html(doc.to_html)
+  end
+
+  def response_content
+    self.class.render_markdown_content(content)
   end
 
   def similar_authors

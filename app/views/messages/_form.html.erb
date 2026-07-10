@@ -2,8 +2,9 @@
   <%= form_with(model: Message.new, url: [chat, chat.messages.new], class: "w-full") do |form| %>
     <%= form.label :content, "Ask anything…", class: "sr-only" %>
 
-    <div class="relative w-full" data-controller="composer" data-composer-skills-value="<%= agent_skill_autocomplete_data %>">
-      <%= form.lexxy_rich_text_area :content, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: true, placeholder: "Ask anything...", data: { composer_target: "editor" }, class: "n-form-chat" %>
+    <% is_generating = chat.generating %>
+    <div class="relative w-full" data-controller="composer" data-composer-skills-value="<%= agent_skill_autocomplete_data(chat.account) %>">
+      <%= form.lexxy_rich_text_area :content, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: !is_generating, placeholder: is_generating ? "Generating…" : "Ask anything...", disabled: is_generating, data: { composer_target: "editor" }, class: "n-form-chat" %>
 
       <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_target: "websiteIds" } %>
       <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_target: "documentIds" } %>
@@ -11,17 +12,25 @@
       <div class="n-skill-menu hidden" role="listbox" aria-label="Available skills" data-composer-target="menu"></div>
 
       <%= form.button type: :submit,
-        class: "n-btn-chat n-btn-chat-send" do %>
+        class: "n-btn-chat n-btn-chat-send",
+        disabled: is_generating do %>
+      <% if is_generating %>
+        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      <% else %>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
             fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
           <path stroke-linecap="round" stroke-linejoin="round"
                 d="M6 12 3.269 3.125A59.77 59.77 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.875L6 12Zm0 0h7.5"/>
         </svg>
       <% end %>
+    <% end %>
     </div>
 
     <div class="mt-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-      <span>Enter to send · Shift+Enter for a line break<%= " · Type / for skills" if Current.account.agent_skills.explicitly_invocable.exists? %><br>Nosia can make mistakes. Verify in case of doubt.</span>
+      <span>Enter to send · Shift+Enter for a line break<%= " · Type / for skills" if chat.account.agent_skills.explicitly_invocable.exists? %><br>Nosia can make mistakes. Verify in case of doubt.</span>
       <button type="button" onclick="document.getElementById('mcp-selector-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>

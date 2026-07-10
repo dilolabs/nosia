@@ -7,6 +7,13 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
+    <%# Turbo 8 page refreshes (finish_generation! broadcast + the chat-reconnect
+        staleness poll) morph the DOM instead of replacing it, so recovering a
+        missed live broadcast is smooth: the live stream is preserved and scroll
+        position is kept. %>
+    <meta name="turbo-refresh-method" content="morph">
+    <meta name="turbo-refresh-scroll" content="preserve">
+
     <%= yield :head %>
 
     <link rel="manifest" href="/manifest.json">

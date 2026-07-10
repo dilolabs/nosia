@@ -18,8 +18,10 @@ class MessagesController < ApplicationController
     # as Website sources before completion runs — the indexing gate waits on them.
     @user_message.attach_website_sources_from_content!(Current.account)
 
-    # Queue the job with the persisted markdown content (Task 6 converted the
-    # composer HTML to markdown on save) and the created message's ID.
+    # Lock the composer for the duration of this generation. The create turbo_stream
+    # response renders the form busy from this flag; the job's ensure clears it.
+    @chat.start_generation!
+
     ChatResponseJob.perform_later(@chat.id, @user_message.content, @user_message.id)
 
     respond_to do |format|
