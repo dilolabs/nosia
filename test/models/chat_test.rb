@@ -8,8 +8,16 @@ class ChatTest < ActiveSupport::TestCase
   def setup
     @user = User.create!(email: "ct@example.com", password: "testpassword123")
     @account = Account.create!(name: "CT Account", owner: @user)
+    @account.account_users.grant_to(@user)
     ActsAsTenant.current_tenant = @account
+    @session = Session.create!(user: @user)
+    Current.session = @session
     @chat = @account.chats.create!(user: @user, model: "test-model", provider: :openai, assume_model_exists: true)
+  end
+
+  def teardown
+    ActsAsTenant.current_tenant = nil
+    Current.session = nil
   end
 
   test "recount! repairs drifted counters" do
@@ -47,5 +55,20 @@ class ChatTest < ActiveSupport::TestCase
     t.value
     assert_includes streams2.map { |s| s.inner_html }.join, "Indexing",
                     "expected an indexing phase when an attachment is pending"
+  end
+
+  test "start_generation! sets generating; finish_generation! clears it and broadcasts unlock + cleanup" do
+    @chat.start_generation!
+    assert @chat.reload.generating, "start_generation! should set generating"
+
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      @chat.finish_generation!
+    end
+    assert_not @chat.reload.generating, "finish_generation! should clear generating"
+
+    assert streams.any? { |s| s["action"] == "replace" && s["target"] == "#{dom_id(@chat)}_message_form" },
+           "finish_generation! should replace the form frame to unlock the composer"
+    assert streams.any? { |s| s["action"] == "remove" && s["target"] == "thinking_animation" },
+           "finish_generation! should remove a stuck thinking_animation (error-before-bubble cleanup)"
   end
 end

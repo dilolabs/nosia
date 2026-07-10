@@ -1,4 +1,5 @@
 class Chat < ApplicationRecord
+  include ActionView::RecordIdentifier
   include AnswerRelevance
   include AugmentedPrompt
   include Completionable
@@ -94,5 +95,27 @@ class Chat < ApplicationRecord
 
   def title
     first_question
+  end
+
+  # Mark the chat as actively generating so the composer renders busy. No broadcast —
+  # the create response renders the busy form, and a fresh page load mid-generation
+  # reads `generating` from the DB (reconnect-safe). Uses update_column to skip this
+  # model's broadcasts_to after_update_commit auto-replace (a spurious chat-partial
+  # BroadcastJob that is a no-op on the show page, which has no #chat_<id> target).
+  def start_generation!
+    update_column(:generating, true)
+  end
+
+  # Mark generation done and broadcast the composer unlock + a thinking_animation
+  # remove (no-op on success where broadcast_created already removed it; cleans up the
+  # error-before-bubble case). update_column skips the broadcasts_to auto-replace; the
+  # two explicit broadcasts are synchronous so the unlock is immediate.
+  def finish_generation!
+    update_column(:generating, false)
+    broadcast_replace_to [ self, "messages" ],
+      target: "#{dom_id(self)}_message_form",
+      partial: "messages/form",
+      locals: { chat: self }
+    broadcast_remove_to self, :messages, target: "thinking_animation"
   end
 end
