@@ -179,7 +179,13 @@ test "render_markdown_content renders markdown to HTML" do
 end
 
 test "render_markdown_content strips think tags" do
-  html = Message.render_markdown_content("ilh<think>secret</think>visible **text**")
+  # Build the think tag in pieces so the literal survives in this plan file
+  # uncorrupted. Without Nokogiri's think-tag removal, Commonmarker keeps
+  # "secret" as text (raw-HTML-omitted comments around it), so the
+  # assert_not_includes "secret" genuinely tests the removal path -- not
+  # Commonmarker's raw-HTML omission.
+  think = "<th" + "ink>secret</th" + "ink>"   # => a think element wrapping "secret"
+  html = Message.render_markdown_content("#{think} visible **text**")
   assert_not_includes html, "secret"
   assert_includes html, "visible"
   assert_includes html, "<strong>"
@@ -226,7 +232,7 @@ And add the class method (place it just above `def response_content`, near `html
 ```ruby
   # Shared markdown→HTML render used by both the streaming flush (which feeds
   # the in-memory buffer) and response_content (which reads persisted content).
-  # Strips <think> (reasoning) so streaming output converges exactly to the
+  # Strips reasoning (think) tags so streaming output converges exactly to the
   # final render. Lenient on incomplete markdown — does not raise on an open
   # code fence or unclosed emphasis.
   def self.render_markdown_content(text)
@@ -264,33 +270,31 @@ git commit -m "refactor: extract Message.render_markdown_content for streaming +
 Add to the top of `test/models/message_test.rb` (alongside the existing `include ActiveJob::TestHelper`):
 
 ```ruby
-  include ActionCable::TestHelper
-  include ActionView::RecordIdentifier
+  include Turbo::Broadcastable::TestHelper  # pulls in ActionCable::TestHelper + Turbo::Streams::StreamName
+  include ActionView::RecordIdentifier      # for dom_id in the target assertion
 ```
+
+`Turbo::Broadcastable::TestHelper` (turbo-rails 2.0.23, `lib/turbo/broadcastable/test_helper.rb`) provides `assert_turbo_stream_broadcasts`, `assert_no_turbo_stream_broadcasts`, and `capture_turbo_stream_broadcasts`, which accept the stream objects directly (`[ @chat, "messages" ]`) and return parsed `<turbo-stream>` elements with `["action"]`, `["target"]`, and `inner_html` — no manual stream-name computation.
 
 Append these tests inside `MessageTest`:
 
 ```ruby
-  def messages_stream
-    Turbo::StreamsChannel.send(:stream_name_from, [ @chat, "messages" ])
-  end
-
   test "broadcast_streamed_content broadcasts a replace of the content div with rendered HTML" do
     message = @chat.messages.create!(role: "assistant", content: "")
-    clear_messages(messages_stream)
-    message.broadcast_streamed_content("# Title\n\n**bold**")
-
-    payloads = broadcasts(messages_stream).map { |m| ActiveSupport::JSON.decode(m) }
-    assert_equal 1, payloads.size
-    payload = payloads.first
-    assert_includes payload, %(action="replace")
-    assert_includes payload, %(target="#{dom_id(message, :content)}")
-    assert_includes payload, "<strong>"
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      message.broadcast_streamed_content("# Title\n\n**bold**")
+    end
+    assert_equal 1, streams.size
+    replace = streams.first
+    assert_equal "replace", replace["action"]
+    assert_equal dom_id(message, :content), replace["target"]
+    assert_includes replace.inner_html, "<h1"
+    assert_includes replace.inner_html, "<strong>"
   end
 
   test "broadcast_streamed_content is a no-op for non-assistant messages" do
     message = @chat.messages.create!(role: "user", content: "hi")
-    assert_no_broadcasts(messages_stream) do
+    assert_no_turbo_stream_broadcasts([ @chat, "messages" ]) do
       message.broadcast_streamed_content("anything")
     end
   end
@@ -337,7 +341,7 @@ In `app/models/message.rb`, replace the `broadcast_append_chunk` method (lines 5
 Run: `bin/rails test test/models/message_test.rb`
 Expected: PASS.
 
-> **Fallback note:** If rendering a partial from a model test context raises (turbo renderer unavailable outside a controller), fall back to asserting count + render-correctness separately: keep `assert_no_broadcasts` for the user case and, for the assistant case, assert `broadcasts(messages_stream).size == 1` plus `assert_includes Message.render_markdown_content("# Title\n\n**bold**"), "<strong>"`. The job-level integration test (Task 6) re-confirms the payload in a full-app context.
+> **Fallback note:** If rendering a partial from a model test context raises (turbo renderer unavailable outside a controller), fall back to asserting count + render-correctness separately: keep `assert_no_turbo_stream_broadcasts` for the user case and, for the assistant case, assert `capture_turbo_stream_broadcasts([ @chat, "messages" ]) { message.broadcast_streamed_content("# Title\n\n**bold**") }.size == 1` plus `assert_includes Message.render_markdown_content("# Title\n\n**bold**"), "<strong>"`. The job-level integration test (Task 6) re-confirms the payload in a full-app context.
 
 - [ ] **Step 6: Commit**
 
@@ -384,24 +388,21 @@ In `test/test_helper.rb`, inside the `class ActiveSupport::TestCase` block (afte
 
 - [ ] **Step 2: Write the failing tests**
 
-Add to the top of `test/models/chat/completionable_test.rb`:
+Add to the top of `test/models/chat/completionable_test.rb` (alongside any existing includes):
 
 ```ruby
-  include ActionCable::TestHelper
-  include ActionView::RecordIdentifier
+  include Turbo::Broadcastable::TestHelper  # pulls in ActionCable::TestHelper + Turbo::Streams::StreamName
 ```
+
+`Turbo::Broadcastable::TestHelper` (turbo-rails 2.0.23) provides `assert_turbo_stream_broadcasts(stream, count: N)`, `assert_no_turbo_stream_broadcasts(stream) { }`, and `capture_turbo_stream_broadcasts(stream) { }`, which accept the stream objects directly (`[ @chat, "messages" ]`) — no manual stream-name computation, no `ActionView::RecordIdentifier` needed (these tests assert counts only; the action/target payload is covered by Task 3 and Task 6).
 
 Append these tests inside `Chat::CompletionableTest`:
 
 ```ruby
-  def messages_stream
-    Turbo::StreamsChannel.send(:stream_name_from, [ @chat, "messages" ])
-  end
-
   def assistant_with_stubbed_update
     msg = @chat.messages.create!(role: :assistant, content: "")
-    # Stop the post-loop message.update from firing broadcast_updated so
-    # broadcast counts reflect only the streaming flushes.
+    # Stop the post-loop message.update (similar_chunk_ids) from firing
+    # broadcast_updated so broadcast counts reflect only the streaming flushes.
     msg.define_singleton_method(:update) { |*| true }
     msg
   end
@@ -412,7 +413,7 @@ Append these tests inside `Chat::CompletionableTest`:
     stub_chat_for_streaming(@chat, chunks: chunks)
     buffer = Message::StreamBuffer.new(interval: 1000) # never time-flush mid-stream
 
-    assert_broadcasts(messages_stream, 1) do
+    assert_turbo_stream_broadcasts([ @chat, "messages" ], count: 1) do
       @chat.complete_with_nosia("hi", stream_buffer: buffer)
     end
   end
@@ -423,7 +424,7 @@ Append these tests inside `Chat::CompletionableTest`:
     stub_chat_for_streaming(@chat, chunks: chunks)
     buffer = Message::StreamBuffer.new(interval: 0)
 
-    assert_broadcasts(messages_stream, 4) do # 3 mid + 1 final
+    assert_turbo_stream_broadcasts([ @chat, "messages" ], count: 4) do # 3 mid + 1 final
       @chat.complete_with_nosia("hi", stream_buffer: buffer)
     end
   end
@@ -433,7 +434,7 @@ Append these tests inside `Chat::CompletionableTest`:
     stub_chat_for_streaming(@chat, chunks: [ StreamChunk.new(nil), StreamChunk.new("") ])
     buffer = Message::StreamBuffer.new(interval: 0)
 
-    assert_no_broadcasts(messages_stream) do
+    assert_no_turbo_stream_broadcasts([ @chat, "messages" ]) do
       @chat.complete_with_nosia("hi", stream_buffer: buffer)
     end
   end
@@ -444,7 +445,7 @@ Append these tests inside `Chat::CompletionableTest`:
     stub_chat_for_streaming(@chat, chunks: chunks)
     received = []
 
-    assert_no_broadcasts(messages_stream) do
+    assert_no_turbo_stream_broadcasts([ @chat, "messages" ]) do
       @chat.complete_with_nosia("hi") { |chunk| received << chunk.content }
     end
     assert_equal %w[a b c], received
@@ -560,20 +561,20 @@ This replaces the spec's browser system test (see the refinement note in the pla
 - [ ] **Step 1: Inspect the existing job test setup**
 
 Run: `sed -n '1,40p' test/jobs/chat_response_job_test.rb`
-Note its `setup` (creates user/account/chat, sets `ActsAsTenant.current_tenant`, `ActiveJob::Base.queue_adapter = :test`) and that it currently stubs `complete_with_nosia`. The new test must NOT stub `complete_with_nosia`.
+Note its `setup` (creates user/account/chat, sets `ActsAsTenant.current_tenant`, bounds `CHAT_INDEXING_TIMEOUT`) — it does **not** change the job adapter: the app runs `:solid_queue`, and existing tests call `ChatResponseJob.perform_now`, so `ActiveJob::TestHelper` is **not** available (no `perform_enqueued_jobs` / `clear_messages` / `broadcasts(stream)`). The `teardown` calls `remove_completion_stub`, a no-op when nothing was stubbed. The new test must **not** call `stub_completion` — it runs the real `complete_with_nosia` coalescing loop, with only `Chat#complete` and the ruby_llm pre-amble stubbed via `stub_chat_for_streaming`.
 
 - [ ] **Step 2: Write the failing test**
 
-Append inside `ChatResponseJobTest` (reuse `stub_chat_for_streaming` from `test_helper.rb`):
+Add to the top of `ChatResponseJobTest`:
 
 ```ruby
-  include ActionCable::TestHelper
-  include ActionView::RecordIdentifier
+  include Turbo::Broadcastable::TestHelper  # ActionCable::TestHelper + Turbo stream helpers
+  include ActionView::RecordIdentifier      # for dom_id in the target assertion
+```
 
-  def messages_stream
-    Turbo::StreamsChannel.send(:stream_name_from, [ @chat, "messages" ])
-  end
+Append inside `ChatResponseJobTest` (reuse `stub_chat_for_streaming` + `StreamChunk` from `test_helper.rb`):
 
+```ruby
   test "the job streams rendered markdown (not raw text) through coalesced broadcasts" do
     # A user message with no attached sources -> wait_for_attached_sources! is a no-op.
     user_msg = @chat.messages.create!(role: "user", content: "draw me a heading and code")
@@ -581,34 +582,49 @@ Append inside `ChatResponseJobTest` (reuse `stub_chat_for_streaming` from `test_
     assistant.define_singleton_method(:update) { |*| true } # suppress post-loop broadcast_updated
 
     markdown = "## Heading\n\n**bold** and *italic*\n\n```\ncode\n```\n"
-    stub_chat_for_streaming(@chat, chunks: markdown.chars.each_slice(6).map(&:join))
-
-    stream = messages_stream
-    clear_messages(stream)
-    perform_enqueued_jobs(only: ChatResponseJob) do
-      ChatResponseJob.perform_later(@chat.id, user_msg.content, user_msg.id)
+    chunks = markdown.chars.each_slice(6).map { |s| StreamChunk.new(s) }
+    stub_chat_for_streaming(@chat, chunks: chunks)
+    # Force the streaming path regardless of agent_skills config / matched skills:
+    # complete_with_agent_skills otherwise calls AgentSkill::Detector.detect, which
+    # may branch away from complete_with_nosia. Delegate so the real coalescing loop runs.
+    @chat.define_singleton_method(:complete_with_agent_skills) do |question, **opts, &blk|
+      complete_with_nosia(question, **opts, &blk)
     end
 
-    payloads = broadcasts(stream).map { |m| ActiveSupport::JSON.decode(m) }
-    # Coalesced: far fewer broadcasts than chunk count (~markdown.chars.size/6 ≈ 12 chunks).
-    assert payloads.size < markdown.chars.size / 3, "expected coalesced broadcasts, got #{payloads.size}"
-    # The final/last payload carries the fully rendered markdown (replace action, real tags).
-    assert payloads.any? { |p| p.include?(%(action="replace")) && p.include?("<h2") && p.include?("<strong>") && p.include?("<pre") },
-           "expected a replace broadcast with rendered <h2>/<strong>/<pre>; got:\n#{payloads.join("\n")}"
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      ChatResponseJob.perform_now(@chat.id, user_msg.content, user_msg.id)
+    end
+
+    # Coalesced: far fewer broadcasts than the chunk count (~12 chunks). Under
+    # perform_now the monotonic clock barely advances, so typically only the
+    # guaranteed final flush fires — well under chunks.size / 3.
+    assert streams.size < chunks.size / 3, "expected coalesced broadcasts, got #{streams.size}"
+
+    # Every broadcast is a replace of the content div (not a raw append).
+    assert streams.all? { |s| s["action"] == "replace" }, "expected only replace broadcasts"
+    last = streams.last
+    assert_equal dom_id(assistant, :content), last["target"]
+
+    # The final flush carries the fully rendered markdown — real tags, not literal #/**/``` .
+    html = last.inner_html
+    assert_includes html, "<h2"
+    assert_includes html, "<strong>"
+    assert_includes html, "<pre"
+    assert_not_includes html, "## Heading"
   end
 ```
 
 - [ ] **Step 3: Run the test to verify it fails**
 
 Run: `bin/rails test test/jobs/chat_response_job_test.rb`
-Expected: FAIL — the existing tests stub `complete_with_nosia`; this one doesn't, so before Task 4 it would call the old per-token `broadcast_append_chunk` (raw `append`, no `<h2>`). After Task 4 it should pass; run it now to confirm it passes with the coalesced loop.
+Expected: FAIL before Task 4 — the loop still calls the old per-token `broadcast_append_chunk` (raw `append`, no `<h2>`), so the `<h2`/`<strong>`/`<pre>` assertions fail. After Task 4 it passes; run it now to confirm it passes with the coalesced loop.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `bin/rails test test/jobs/chat_response_job_test.rb`
-Expected: PASS — coalesced count and rendered `<h2>`/`<strong>`/`<pre>` present in a `replace` broadcast.
+Expected: PASS — coalesced count and rendered `<h2>`/`<strong>`/`<pre>` present in a `replace` broadcast on `dom_id(assistant, :content)`.
 
-> **Note:** If `Rails.application.config.agent_skills.enabled` is true and `AgentSkill::Detector` matches the canned prompt, `complete_with_agent_skills` may branch away from `complete_with_nosia`. If so, also stub `@chat.define_singleton_method(:complete_with_agent_skills) { |*args, &blk| complete_with_nosia(*args, &blk) }` in the test (or stub `AgentSkill::Detector` to return `[]`) so the streaming path runs. Add only if the test fails on the skill branch.
+> **Note:** `@chat.define_singleton_method(:complete_with_agent_skills)` is included up front (not gated on a failure) so the test is deterministic regardless of `Rails.application.config.agent_skills.enabled` and any `AgentSkill::Detector` match. It delegates to the real `complete_with_nosia`, so the coalescing loop still runs end-to-end.
 
 - [ ] **Step 5: Commit**
 
@@ -649,6 +665,6 @@ Submit a chat that triggers a long assistant response. Observe: markdown formatt
 ## Open items resolved during implementation
 
 - `Process::CLOCK_MONOTONIC` available on MRI Linux — yes (default clock).
-- `broadcast_replace_to` with `partial:` + `locals:` renders synchronously and broadcasts directly via `ActionCable.server.broadcast` (no job) — confirmed in turbo-rails 2.0.23, so `assert_broadcasts` works under any job adapter.
-- Stream name for tests: `Turbo::StreamsChannel.send(:stream_name_from, [chat, "messages"])`.
+- `broadcast_replace_to` with `partial:` + `locals:` renders synchronously and broadcasts directly via `ActionCable.server.broadcast` (no job) — confirmed in turbo-rails 2.0.23, so broadcasts are observable synchronously inside the test block.
+- Stream assertions use `Turbo::Broadcastable::TestHelper` (`assert_turbo_stream_broadcasts`, `assert_no_turbo_stream_broadcasts`, `capture_turbo_stream_broadcasts`), which accept the stream objects directly (`[ chat, "messages" ]`) and return parsed `<turbo-stream>` elements with `["action"]`, `["target"]`, and `inner_html`. No manual `Turbo::StreamsChannel.send(:stream_name_from, ...)` or `ActiveJob::TestHelper` needed — works under the app's `:solid_queue` adapter and `perform_now`.
 ```
