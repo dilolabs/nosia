@@ -208,17 +208,23 @@ broadcasts.
 
 **Two model methods on `Chat` (logic in the model, job stays shallow):**
 
-- `Chat#start_generation!` → `update!(generating: true)`. No broadcast — the create
+- `Chat#start_generation!` → `update_column(:generating, true)`. No broadcast — the create
   response renders it (below); a fresh page load mid-generation reads `generating` from
-  the DB and renders busy, so it is reconnect-safe for free.
-- `Chat#finish_generation!` → `update!(generating: false)` **and**
+  the DB and renders busy, so it is reconnect-safe for free. Uses `update_column` (not
+  `update!`) to skip `Chat`'s `broadcasts_to` `after_update_commit` auto-replace, which
+  would otherwise enqueue a spurious chat-partial BroadcastJob on every `generating`
+  change (a no-op on the show page, which has no `#chat_<id>` target, but wasteful and
+  contrary to the "no broadcast on start" intent).
+- `Chat#finish_generation!` → `update_column(:generating, false)` **and**
   `broadcast_replace_to [self, "messages"], target: "#{dom_id(self)}_message_form",
   partial: "messages/form", locals: { chat: self }` **and**
   `broadcast_remove_to [self, :messages], target: "thinking_animation"`.
   The form-frame replace re-renders the show-page form with `generating=false` → enabled
   → the composer's busy state exits. The `thinking_animation` remove is a no-op on success
   (already removed by `broadcast_created`) and cleans up the error-before-bubble case
-  (see Section 4).
+  (see Section 4). `update_column` skips the `broadcasts_to` auto-replace for the same
+  reason as `start_generation!`; the two explicit broadcasts are synchronous (not `_later`)
+  so the unlock is immediate.
 
 **Entry — controllers.** `MessagesController#create` and `ChatsController#create` call
 `@chat.start_generation!` **before** `ChatResponseJob.perform_later`. For the show-page
