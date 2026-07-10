@@ -129,4 +129,30 @@ class ChatResponseJobTest < ActiveSupport::TestCase
     assert_includes html, "<pre"
     assert_not_includes html, "## Heading"
   end
+
+  test "finish_generation! runs even when completion raises, clearing generating" do
+    user_msg = @chat.messages.create!(role: :user, content: "ask")
+    @chat.start_generation!
+    assert @chat.reload.generating
+
+    raising = -> { raise Faraday::TimeoutError, "boom" }
+    Chat.define_method(:complete_with_nosia) { |*| raising.call }
+    Chat.define_method(:complete_with_agent_skills) { |*| raising.call }
+
+    begin
+      assert_nothing_raised { ChatResponseJob.perform_now(@chat.id, user_msg.content, user_msg.id) }
+      assert_not @chat.reload.generating, "generating must be cleared by the ensure even on error"
+    ensure
+      Chat.remove_method(:complete_with_nosia) if Chat.instance_methods(false).include?(:complete_with_nosia)
+      Chat.remove_method(:complete_with_agent_skills) if Chat.instance_methods(false).include?(:complete_with_agent_skills)
+    end
+  end
+
+  test "finish_generation! clears generating on successful completion" do
+    user_msg = @chat.messages.create!(role: :user, content: "ask")
+    @chat.start_generation!
+    stub_completion
+    ChatResponseJob.perform_now(@chat.id, user_msg.content, user_msg.id)
+    assert_not @chat.reload.generating, "generating must be cleared after a successful completion"
+  end
 end

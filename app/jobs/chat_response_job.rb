@@ -17,13 +17,18 @@ class ChatResponseJob < ApplicationJob
       []
     end
 
-    if Rails.application.config.agent_skills.enabled
-      result = chat.complete_with_agent_skills(content, user_message: user_message, excluded_sources: excluded)
-    else
-      result = chat.complete_with_nosia(content, user_message: user_message, excluded_sources: excluded)
+    begin
+      if Rails.application.config.agent_skills.enabled
+        result = chat.complete_with_agent_skills(content, user_message: user_message, excluded_sources: excluded)
+      else
+        result = chat.complete_with_nosia(content, user_message: user_message, excluded_sources: excluded)
+      end
+      Rails.logger.info "=== ChatResponseJob completed. Result: #{result&.id} ==="
+    ensure
+      # Unlock the composer and clear any stuck thinking animation, whether the
+      # completion succeeded or raised. The controller set generating=true on submit.
+      chat.finish_generation!
     end
-
-    Rails.logger.info "=== ChatResponseJob completed. Result: #{result&.id} ==="
   rescue Faraday::TimeoutError => e
     Rails.logger.error "=== ChatResponseJob ERROR: Timeout ==="
     Rails.logger.error e.message
