@@ -128,5 +128,11 @@ class Chat < ApplicationRecord
       partial: "messages/form",
       locals: { chat: self }
     broadcast_remove_to self, :messages, target: "thinking_animation"
+
+    # Safety net for missed live broadcasts: at completion the DB holds the final
+    # state, so a morph refresh re-renders every subscribed tab from it. A tab that
+    # dropped its subscription mid-stream (and would otherwise sit stuck on
+    # "Preparing" / the streaming placeholder) recovers here without a manual reload.
+    broadcast_refresh_to self, :messages
   end
 end

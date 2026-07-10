@@ -1,4 +1,6 @@
-<div class="h-[calc(100vh-10.5rem)] lg:h-full flex flex-col justify-between">
+<div class="h-[calc(100vh-10.5rem)] lg:h-full flex flex-col justify-between"
+     data-controller="chat-reconnect"
+     data-chat-reconnect-generating-value="<%= @chat.generating? %>">
   <section data-controller="scroll" class="w-full overflow-y-auto">
     <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col max-w-4xl mx-auto">
       <%= tag.div id: dom_id(@chat, :messages), data: { controller: "message-ordering" } do %>

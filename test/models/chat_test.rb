@@ -70,6 +70,8 @@ class ChatTest < ActiveSupport::TestCase
            "finish_generation! should replace the form frame to unlock the composer"
     assert streams.any? { |s| s["action"] == "remove" && s["target"] == "thinking_animation" },
            "finish_generation! should remove a stuck thinking_animation (error-before-bubble cleanup)"
+    assert streams.any? { |s| s["action"] == "refresh" },
+           "finish_generation! should broadcast a morph refresh so tabs that missed live broadcasts self-heal"
   end
 
   # A blank/nil-content assistant message (left by a failed or empty generation)
