@@ -1,8 +1,11 @@
 require "test_helper"
 require "active_job/test_helper"
+require "turbo/broadcastable/test_helper"
 
 class MessageTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
+  include Turbo::Broadcastable::TestHelper  # pulls in ActionCable::TestHelper + Turbo::Streams::StreamName
+  include ActionView::RecordIdentifier      # for dom_id in the target assertion
 
   def setup
     @user = User.create!(email: "mt@example.com", password: "testpassword123")
@@ -135,5 +138,25 @@ class MessageTest < ActiveSupport::TestCase
     message = @chat.messages.create!(role: "assistant", content: "# Hi\n\n**x**")
     assert_includes message.response_content, "<h1"
     assert_includes message.response_content, "<strong>"
+  end
+
+  test "broadcast_streamed_content broadcasts a replace of the content div with rendered HTML" do
+    message = @chat.messages.create!(role: "assistant", content: "")
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      message.broadcast_streamed_content("# Title\n\n**bold**")
+    end
+    assert_equal 1, streams.size
+    replace = streams.first
+    assert_equal "replace", replace["action"]
+    assert_equal dom_id(message, :content), replace["target"]
+    assert_includes replace.inner_html, "<h1"
+    assert_includes replace.inner_html, "<strong>"
+  end
+
+  test "broadcast_streamed_content is a no-op for non-assistant messages" do
+    message = @chat.messages.create!(role: "user", content: "hi")
+    assert_no_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      message.broadcast_streamed_content("anything")
+    end
   end
 end

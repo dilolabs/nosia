@@ -54,13 +54,17 @@ class Message < ApplicationRecord
     "attachment"
   end
 
-  # Helper to broadcast chunks during streaming
-  def broadcast_append_chunk(chunk_content)
+  # Re-render the full accumulated buffer to HTML and replace the content div.
+  # One broadcast per flush (coalesced), formatted markdown instead of raw text.
+  def broadcast_streamed_content(text)
     return unless assistant?
+    html = self.class.render_markdown_content(text)
+    return unless html
 
-    broadcast_append_to [ chat, "messages" ], # Target the stream
-      target: dom_id(self, "content"), # Target the content div inside the message frame
-      html: chunk_content # Append the raw chunk
+    broadcast_replace_to [ chat, "messages" ],
+      target: dom_id(self, :content),
+      partial: "messages/streaming_content",
+      locals: { message: self, content_html: html }
   end
 
   def broadcast_created

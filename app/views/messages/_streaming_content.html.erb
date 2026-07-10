@@ -1,0 +1,5 @@
+<%= tag.div id: dom_id(message, :content),
+            class: "prose prose-sm dark:prose-invert max-w-none ai-response-content",
+            data: { controller: "table-wrapper" } do %>
+  <%== content_html %>
+<% end %>
