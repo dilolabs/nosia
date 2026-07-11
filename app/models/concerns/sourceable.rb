@@ -5,6 +5,11 @@
 module Sourceable
   extend ActiveSupport::Concern
 
+  included do
+    after_update_commit :broadcast_source_status_change, if: :saved_change_to_index_status?
+    after_destroy_commit :broadcast_source_removed
+  end
+
   # Human label + url-safe key, derived from the class name by default and
   # overridable per model (Qna -> "Q&A").
   def source_type_label
@@ -30,5 +35,35 @@ module Sourceable
   # A short human reason a source failed, or nil. Overridable per model.
   def failure_reason
     nil
+  end
+
+  # Indexable#mark_indexing_failed! uses update_columns, which skips the
+  # after_update_commit callback above -- so broadcast the change explicitly.
+  def mark_indexing_failed!
+    super
+    broadcast_source_status_change
+  end
+
+  def broadcast_source_status_change
+    broadcast_replace_to [ account, "sources" ],
+      target: ActionView::RecordIdentifier.dom_id(self, :source_row),
+      partial: "sources/source",
+      locals: { row: SourceRow.new(self, chunks_count: chunks.count) }
+    broadcast_source_counts
+  end
+
+  def broadcast_source_removed
+    broadcast_remove_to [ account, "sources" ],
+      target: ActionView::RecordIdentifier.dom_id(self, :source_row)
+    broadcast_source_counts
+  end
+
+  private
+
+  def broadcast_source_counts
+    broadcast_replace_to [ account, "sources" ],
+      target: "sources_counts",
+      partial: "sources/counts",
+      locals: { counts: SourceRow.counts_for(account) }
   end
 end
