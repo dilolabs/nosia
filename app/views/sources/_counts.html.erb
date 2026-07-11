@@ -1,0 +1,9 @@
+<%# locals: counts %>
+<span id="sources_counts" class="contents">
+  <span data-count="all"><%= counts[:total] %></span>
+  <% SourceRow::TYPES.each do |t| %>
+    <span data-count="type-<%= t %>"><%= counts[:by_type][t] %></span>
+  <% end %>
+  <span data-count="status-failed"><%= counts[:by_status]["failed"] %></span>
+  <span data-count="status-pending"><%= counts[:by_status]["pending"] %></span>
+</span>

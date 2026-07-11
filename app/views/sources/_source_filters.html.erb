@@ -1,0 +1,29 @@
+<%# locals: type, status, counts %>
+<nav class="w-full md:w-44 shrink-0 md:border-r n-main-border md:pr-3 text-sm" aria-label="Source filters">
+  <%= render "sources/counts", counts: counts %>
+  <%= link_to sources_path, class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if type == 'all' && status == 'all'}" do %>
+    <span>All</span><span class="text-neutral-400"><%= counts[:total] %></span>
+  <% end %>
+
+  <p class="text-[11px] uppercase tracking-wide text-neutral-400 mt-3 mb-1 px-2">By type</p>
+  <% SourceRow::TYPES.each do |t| %>
+    <%= link_to sources_path(type: t), class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if type == t && status == 'all'}" do %>
+      <span><%= source_type_icon(t) %> <%= t == "qna" ? "Q&As" : t.pluralize.capitalize %></span>
+      <span class="text-neutral-400"><%= counts[:by_type][t] %></span>
+    <% end %>
+  <% end %>
+
+  <% if counts[:by_status]["failed"].positive? || counts[:by_status]["pending"].positive? %>
+    <p class="text-[11px] uppercase tracking-wide text-neutral-400 mt-3 mb-1 px-2">Needs attention</p>
+    <% if counts[:by_status]["failed"].positive? %>
+      <%= link_to sources_path(status: "failed"), class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if status == 'failed'}" do %>
+        <span>⚠️ Failed</span><span class="text-neutral-400"><%= counts[:by_status]["failed"] %></span>
+      <% end %>
+    <% end %>
+    <% if counts[:by_status]["pending"].positive? %>
+      <%= link_to sources_path(status: "pending"), class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if status == 'pending'}" do %>
+        <span>⏳ Processing</span><span class="text-neutral-400"><%= counts[:by_status]["pending"] %></span>
+      <% end %>
+    <% end %>
+  <% end %>
+</nav>

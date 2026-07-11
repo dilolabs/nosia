@@ -1,0 +1,20 @@
+<%# locals: type, status, query %>
+<% if query.present? %>
+  <div class="py-16 text-center text-neutral-500">No sources match "<%= query %>".</div>
+<% elsif status == "failed" %>
+  <div class="py-16 text-center text-neutral-500">Nothing failed — all good ✅</div>
+<% elsif status == "pending" %>
+  <div class="py-16 text-center text-neutral-500">Nothing is processing right now.</div>
+<% elsif type == "all" %>
+  <div class="py-16 text-center space-y-3">
+    <div class="text-3xl">🗂️</div>
+    <h3 class="n-card-title">Add your first source</h3>
+    <p class="text-neutral-500">Drop files anywhere here, or use "Add source".</p>
+  </div>
+<% else %>
+  <div class="py-16 text-center space-y-3">
+    <div class="text-3xl"><%= source_type_icon(type) %></div>
+    <h3 class="n-card-title">No <%= type == "qna" ? "Q&As" : type.pluralize %> yet</h3>
+    <%= link_to "Add #{type == 'qna' ? 'Q&A' : type}", new_polymorphic_path([:sources, type.to_sym]), class: "n-btn-primary inline-block" %>
+  </div>
+<% end %>

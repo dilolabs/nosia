@@ -1,0 +1,33 @@
+<%# locals: row (SourceRow) %>
+<div id="<%= dom_id(row.to_model, :source_row) %>"
+     data-source-id="<%= row.id %>"
+     class="grid grid-cols-[24px_1fr_auto] md:grid-cols-[24px_1fr_110px_120px_70px_110px_90px] gap-3 items-center px-2 py-3 border-b n-main-border">
+  <span class="text-xl leading-none"><%= source_type_icon(row.source_type_key) %></span>
+
+  <div class="min-w-0">
+    <%= link_to source_show_path(row.to_model), class: "font-medium truncate block n-main-hover" do %>
+      <%= row.display_title %>
+    <% end %>
+    <p class="text-xs text-neutral-500 dark:text-neutral-400 truncate"><%= row.source_subtitle %></p>
+  </div>
+
+  <span class="hidden md:inline text-xs px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-center"><%= row.source_type_label %></span>
+
+  <span class="hidden md:block"><%= render "sources/status", row: row %></span>
+
+  <span class="hidden md:block text-sm text-neutral-600 dark:text-neutral-300"><%= row.chunks_count.zero? ? "—" : row.chunks_count %></span>
+
+  <span class="hidden md:block text-xs text-neutral-400"><%= time_ago_in_words(row.created_at) %> ago</span>
+
+  <div class="flex gap-3 justify-end text-neutral-500">
+    <% if row.to_model.failed? %>
+      <%= button_to source_retry_path(row.to_model), method: :post, class: "text-amber-600 font-medium text-sm", form: { data: { turbo_confirm: false } } do %>↻<% end %>
+    <% end %>
+    <%= link_to source_show_path(row.to_model), title: "Show", class: "n-btn-icon n-main-hover" do %>
+      <%= inline_svg "svg/eye.svg", class: "w-5 h-5" %>
+    <% end %>
+    <%= link_to source_show_path(row.to_model), title: "Delete", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" }, class: "n-btn-icon n-main-hover-danger text-red-600 dark:text-red-300" do %>
+      <%= inline_svg "svg/trash-bin.svg", class: "w-5 h-5" %>
+    <% end %>
+  </div>
+</div>

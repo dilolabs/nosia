@@ -1,0 +1,9 @@
+<details class="relative">
+  <summary class="n-btn-primary cursor-pointer list-none">+ Add source</summary>
+  <div class="absolute right-0 z-20 mt-1 w-64 rounded-lg border n-main-border n-main-bg shadow-lg">
+    <%= link_to new_sources_document_path, class: "flex gap-2 px-3 py-2 n-main-hover" do %>📄 Upload documents<% end %>
+    <%= link_to new_sources_website_path,  class: "flex gap-2 px-3 py-2 n-main-hover" do %>🌐 Add website<% end %>
+    <%= link_to new_sources_text_path,     class: "flex gap-2 px-3 py-2 n-main-hover" do %>📝 Paste text<% end %>
+    <%= link_to new_sources_qna_path,      class: "flex gap-2 px-3 py-2 n-main-hover" do %>❓ Add Q&A<% end %>
+  </div>
+</details>
