@@ -101,7 +101,9 @@ All four already include `Indexable` (status enum + `mark_indexed!` / `mark_inde
 ### 6.2 Routing & controllers
 - `SourcesController#index` becomes the unified list, reading params: `type` (all|document|text|qna|website), `status` (all|indexed|pending|failed), `q`, `sort`, `page`. Sidebar links set these params.
 - `Sources::{Documents,Texts,Qnas,Websites}Controller` keep `new/create/show/edit/update/destroy`. Their standalone `index` list markup is removed; those index routes redirect to `sources_path(type: …)`.
-- **Retry:** add `member { post :retry }` to each of the four resources. The action re-enqueues the type's indexing/crawl job and re-broadcasts the row. (Website retry reuses the existing failed-recrawl path.)
+- **Retry:** add `member { post :retry }` to each of the four resources. The action re-enqueues the type's indexing/crawl job (`AddDocumentJob`, `AddTextJob`, `AddQnaJob`, `CrawlWebsiteUrlJob`) and re-broadcasts the row. (Website retry reuses the existing failed-recrawl path.)
+
+> **Note — enqueue location:** `Text` and `Qna` currently enqueue their indexing jobs from their controllers, whereas `Document` and `Website` enqueue from the model. The plan should pick one consistent home: have `retry` call the job directly and let `Indexable` own the status broadcast, so real-time updates fire regardless of where the initial enqueue happens.
 
 ### 6.3 Listing strategy (KISS, bounded to hundreds)
 - **Single-type view (common case):** a plain scoped query on one model — `Model.where(account:).search(q).with_status(s).order(sort)` with limit/offset. Fast and index-friendly.
@@ -118,6 +120,8 @@ A `search` scope per model over its natural text column(s), using Postgres `ILIK
 - Website → `url`, `title`, `data`
 
 Applied to the current selection only.
+
+> **Note:** `Website#title` is a *computed* method (it parses the first `<h1>` from `data`) that overrides the `title` DB column, and that column may be blank/stale. Searching the `title` column will not necessarily match the displayed title — but searching `data` covers the same content, so results remain correct. Do not assume column-title search mirrors what the row shows.
 
 ### 6.5 Pagination / lazy-load
 No pagination gem is present, and none is added. Use **"Load more" via a Turbo Frame append** (limit/offset, ~25–50 per page), consistent with the project's lazy-loading convention.
