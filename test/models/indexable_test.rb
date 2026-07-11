@@ -53,4 +53,15 @@ class IndexableTest < ActiveSupport::TestCase
   ensure
     Chunk.remove_method(:generate_embedding) if Chunk.instance_methods(false).include?(:generate_embedding)
   end
+
+  test "mark_pending! resets status to pending and clears indexed_at" do
+    text = @account.texts.create!(data: "# Hi")
+    text.mark_indexed!
+    assert text.indexed?
+
+    text.mark_pending!
+
+    assert text.pending?
+    assert_nil text.indexed_at
+  end
 end
