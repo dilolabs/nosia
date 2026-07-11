@@ -5,11 +5,22 @@
 <div class="flex flex-col md:flex-row gap-4 mt-2">
   <%= render "sources/source_filters", type: @type, status: @status, counts: @counts %>
 
-  <div class="flex-1 min-w-0">
+  <div class="flex-1 min-w-0"
+       data-controller="dropzone"
+       data-dropzone-url-value="<%= sources_documents_path %>"
+       data-dropzone-max-file-size-value="50"
+       data-dropzone-click-to-browse-value="false"
+       data-dropzone-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">
     <%= render "sources/toolbar", type: @type, status: @status, sort: @sort, query: @query %>
-    <div id="sources_list" class="rounded-lg border n-main-border">
-      <%= render "sources/rows", rows: @rows, has_more: @has_more, page: @page,
-            type: @type, status: @status, sort: @sort, query: @query %>
+
+    <div data-dropzone-target="container" class="relative rounded-lg border-2 border-dashed n-main-border transition data-[active=true]:border-blue-500">
+      <input type="file" multiple class="hidden" data-dropzone-target="input"
+             accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">
+      <div id="sources_list">
+        <%= render "sources/rows", rows: @rows, has_more: @has_more, page: @page,
+              type: @type, status: @status, sort: @sort, query: @query %>
+      </div>
     </div>
+    <ul data-dropzone-target="list" class="mt-3 space-y-1 hidden"></ul>
   </div>
 </div>
