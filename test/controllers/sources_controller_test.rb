@@ -49,4 +49,12 @@ class SourcesControllerTest < ActionDispatch::IntegrationTest
     get sources_qnas_url
     assert_redirected_to sources_url(type: "qna")
   end
+
+  test "load more appends the next page via turbo_stream" do
+    60.times { |i| @account.texts.create!(data: "bulk #{i}") }
+    get sources_url(type: "text", page: 2, format: :turbo_stream)
+    assert_response :success
+    assert_match "turbo-stream", @response.body
+    assert_match "sources_list", @response.body
+  end
 end
