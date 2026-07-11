@@ -50,6 +50,14 @@ module Sources
       end
     end
 
+    # POST /websites/1/retry
+    def retry
+      website = Current.account.websites.find(params[:id])
+      website.mark_pending!
+      CrawlWebsiteUrlJob.perform_later(website.id)
+      redirect_to sources_path(type: "website"), notice: "Re-crawling website."
+    end
+
     # DELETE /websites/1 or /websites/1.json
     def destroy
       @website.destroy!

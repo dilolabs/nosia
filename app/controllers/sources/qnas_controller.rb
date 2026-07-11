@@ -50,6 +50,14 @@ module Sources
       end
     end
 
+    # POST /qnas/1/retry
+    def retry
+      qna = Current.account.qnas.find(params[:id])
+      qna.mark_pending!
+      AddQnaJob.perform_later(qna.id)
+      redirect_to sources_path(type: "qna"), notice: "Re-indexing Q&A."
+    end
+
     # DELETE /qnas/1 or /qnas/1.json
     def destroy
       @qna.destroy!

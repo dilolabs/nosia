@@ -50,6 +50,14 @@ module Sources
       end
     end
 
+    # POST /documents/1/retry
+    def retry
+      document = Current.account.documents.find(params[:id])
+      document.mark_pending!
+      AddDocumentJob.perform_later(document.id)
+      redirect_to sources_path(type: "document"), notice: "Re-indexing document."
+    end
+
     # DELETE /documents/1 or /documents/1.json
     def destroy
       @document.destroy!
