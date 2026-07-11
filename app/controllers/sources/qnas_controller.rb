@@ -4,7 +4,7 @@ module Sources
 
     # GET /qnas or /qnas.json
     def index
-      @qnas = Current.account.qnas
+      redirect_to sources_path(type: "qna")
     end
 
     # GET /qnas/1 or /qnas/1.json

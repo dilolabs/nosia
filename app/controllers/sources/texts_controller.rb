@@ -4,7 +4,7 @@ module Sources
 
     # GET /texts or /texts.json
     def index
-      @texts = Current.account.texts
+      redirect_to sources_path(type: "text")
     end
 
     # GET /texts/1 or /texts/1.json

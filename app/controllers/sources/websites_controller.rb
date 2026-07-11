@@ -4,7 +4,7 @@ module Sources
 
     # GET /websites or /websites.json
     def index
-      @websites = Current.account.websites.order(:url)
+      redirect_to sources_path(type: "website")
     end
 
     # GET /websites/1 or /websites/1.json

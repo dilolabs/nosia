@@ -41,4 +41,12 @@ class SourcesControllerTest < ActionDispatch::IntegrationTest
     get sources_url(type: "bogus")
     assert_response :success
   end
+
+  test "legacy per-type index redirects to unified view with type filter" do
+    get sources_documents_url
+    assert_redirected_to sources_url(type: "document")
+
+    get sources_qnas_url
+    assert_redirected_to sources_url(type: "qna")
+  end
 end
