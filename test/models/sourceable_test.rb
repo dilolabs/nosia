@@ -51,4 +51,35 @@ class SourceableTest < ActiveSupport::TestCase
     assert_equal 2, @account.texts.search(nil).count
     assert_equal 2, @account.texts.search("").count
   end
+
+  test "document search matches on title" do
+    matching = @account.documents.create!(title: "Refund policy", file: attach_blob("refund.pdf"))
+    other    = @account.documents.create!(title: "Office hours",  file: attach_blob("hours.pdf"))
+
+    results = @account.documents.search("refund")
+
+    assert_includes results, matching
+    assert_not_includes results, other
+  end
+
+  test "website search matches on data even when computed title is blank" do
+    # No markdown H1 in data, so #title is nil/blank -- the data term still matches.
+    matching = @account.websites.create!(url: "https://foo.example", data: "some body mentioning refunds")
+    other    = @account.websites.create!(url: "https://bar.example", data: "unrelated content")
+
+    assert_nil matching.title
+    results = @account.websites.search("refund")
+
+    assert_includes results, matching
+    assert_not_includes results, other
+  end
+
+  private
+    def attach_blob(filename)
+      ActiveStorage::Blob.create_and_upload!(
+        io: StringIO.new("%PDF-1.4 fake"),
+        filename: filename,
+        content_type: "application/pdf"
+      )
+    end
 end

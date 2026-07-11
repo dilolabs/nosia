@@ -69,6 +69,8 @@ class Website < ApplicationRecord
   end
 
   def source_subtitle
+    # failure_reason is Sourceable's nil default until a later task stores a real
+    # crawl-error message; this branch is dormant (never taken) until then.
     return failure_reason if failed? && failure_reason.present?
     url
   end

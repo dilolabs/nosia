@@ -10,6 +10,8 @@ class Document < ApplicationRecord
 
   validates :file, presence: true
 
+  # Intentionally searches the title only, not the large extracted `content`
+  # column -- matching the user-facing label keeps results fast and predictable.
   scope :search, ->(query) {
     query.present? ? where("title ILIKE ?", "%#{query}%") : all
   }
