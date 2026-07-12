@@ -59,11 +59,23 @@ module Sourceable
   end
 
   private
+    # Each sidebar count is its own live target (dom id "source_count_<key>"),
+    # so a status change refreshes every badge in place without re-rendering the
+    # nav links -- which keeps each viewer's active-filter highlight intact.
+    def broadcast_source_counts
+      count_badges(SourceRow.counts_for(account)).each do |key, value, variant|
+        broadcast_replace_to [ account, "sources" ],
+          target: "source_count_#{key}",
+          partial: "sources/counts",
+          locals: { key:, value:, variant: }
+      end
+    end
 
-  def broadcast_source_counts
-    broadcast_replace_to [ account, "sources" ],
-      target: "sources_counts",
-      partial: "sources/counts",
-      locals: { counts: SourceRow.counts_for(account) }
-  end
+    def count_badges(counts)
+      badges = [ [ "all", counts[:total], :neutral ] ]
+      SourceRow::TYPES.each { |type| badges << [ "type-#{type}", counts[:by_type][type], :neutral ] }
+      badges << [ "status-failed", counts[:by_status]["failed"], :error ]
+      badges << [ "status-pending", counts[:by_status]["pending"], :pending ]
+      badges
+    end
 end

@@ -1,28 +1,30 @@
 <%# locals: type, status, counts %>
 <nav class="w-full md:w-44 shrink-0 md:border-r n-main-border md:pr-3 text-sm" aria-label="Source filters">
-  <%= render "sources/counts", counts: counts %>
-  <%= link_to sources_path, class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if type == 'all' && status == 'all'}" do %>
-    <span>All</span><span class="text-neutral-400"><%= counts[:total] %></span>
+  <%= link_to sources_path, class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if type == 'all' && status == 'all'}" do %>
+    <span>All</span>
+    <%= render "sources/counts", key: "all", value: counts[:total] %>
   <% end %>
 
-  <p class="text-[11px] uppercase tracking-wide text-neutral-400 mt-3 mb-1 px-2">By type</p>
+  <p class="mt-3 mb-1 px-2 text-xs uppercase tracking-wide text-neutral-400">By type</p>
   <% SourceRow::TYPES.each do |t| %>
-    <%= link_to sources_path(type: t), class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if type == t && status == 'all'}" do %>
+    <%= link_to sources_path(type: t), class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if type == t && status == 'all'}" do %>
       <span><%= source_type_icon(t) %> <%= t == "qna" ? "Q&As" : t.pluralize.capitalize %></span>
-      <span class="text-neutral-400"><%= counts[:by_type][t] %></span>
+      <%= render "sources/counts", key: "type-#{t}", value: counts[:by_type][t] %>
     <% end %>
   <% end %>
 
   <% if counts[:by_status]["failed"].positive? || counts[:by_status]["pending"].positive? %>
-    <p class="text-[11px] uppercase tracking-wide text-neutral-400 mt-3 mb-1 px-2">Needs attention</p>
+    <p class="mt-3 mb-1 px-2 text-xs uppercase tracking-wide text-neutral-400">Needs attention</p>
     <% if counts[:by_status]["failed"].positive? %>
-      <%= link_to sources_path(status: "failed"), class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if status == 'failed'}" do %>
-        <span>⚠️ Failed</span><span class="text-neutral-400"><%= counts[:by_status]["failed"] %></span>
+      <%= link_to sources_path(status: "failed"), class: "n-nav-link n-main-hover-danger justify-between #{'n-main-bg font-semibold' if status == 'failed'}" do %>
+        <span>⚠️ Failed</span>
+        <%= render "sources/counts", key: "status-failed", value: counts[:by_status]["failed"], variant: :error %>
       <% end %>
     <% end %>
     <% if counts[:by_status]["pending"].positive? %>
-      <%= link_to sources_path(status: "pending"), class: "flex justify-between items-center px-2 py-1.5 rounded #{'bg-neutral-100 dark:bg-neutral-800 font-semibold' if status == 'pending'}" do %>
-        <span>⏳ Processing</span><span class="text-neutral-400"><%= counts[:by_status]["pending"] %></span>
+      <%= link_to sources_path(status: "pending"), class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if status == 'pending'}" do %>
+        <span>⏳ Processing</span>
+        <%= render "sources/counts", key: "status-pending", value: counts[:by_status]["pending"], variant: :pending %>
       <% end %>
     <% end %>
   <% end %>

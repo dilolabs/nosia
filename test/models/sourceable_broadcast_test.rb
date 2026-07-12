@@ -15,14 +15,20 @@ class SourceableBroadcastTest < ActiveSupport::TestCase
     ActsAsTenant.current_tenant = nil
   end
 
-  test "mark_indexed! broadcasts a row replace and a counts replace" do
+  # One row replace + one replace per sidebar count badge
+  # (all + 4 types + failed + pending = 7) = 8 broadcasts.
+  EXPECTED_BROADCASTS = 8
+
+  test "mark_indexed! broadcasts the row and every count badge" do
     text = @account.texts.create!(data: "# Hi")
 
     streams = capture_turbo_stream_broadcasts([ @account, "sources" ]) do
       text.mark_indexed!
     end
 
-    assert_equal 2, streams.size
+    assert_equal EXPECTED_BROADCASTS, streams.size
+    assert streams.any? { |s| s["target"] == ActionView::RecordIdentifier.dom_id(text, :source_row) }
+    assert streams.any? { |s| s["target"] == "source_count_all" }
   end
 
   test "mark_indexing_failed! also broadcasts (update_columns bypasses callbacks)" do
@@ -32,6 +38,7 @@ class SourceableBroadcastTest < ActiveSupport::TestCase
       text.mark_indexing_failed!
     end
 
-    assert_equal 2, streams.size
+    assert_equal EXPECTED_BROADCASTS, streams.size
+    assert streams.any? { |s| s["target"] == "source_count_status-failed" }
   end
 end
