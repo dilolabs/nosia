@@ -8,7 +8,8 @@ export default class extends Controller {
     acceptedFiles: String, // comma-separated MIME types
     multiple: Boolean,
     variant: String, // "dashboard" or "minimal"
-    parallelLimit: { type: Number, default: 5 }
+    parallelLimit: { type: Number, default: 5 },
+    clickToBrowse: { type: Boolean, default: true }
   };
 
   connect() {
@@ -30,8 +31,10 @@ export default class extends Controller {
     this.containerTarget.addEventListener("dragleave", (e) => this._unhighlight(e));
     this.containerTarget.addEventListener("drop", (e) => this._handleDrop(e));
 
-    // Click to browse
-    this.containerTarget.addEventListener("click", () => this.inputTarget.click());
+    // Click to browse — opt-out so a full-list drop zone doesn't hijack row clicks
+    if (this.clickToBrowseValue) {
+      this.containerTarget.addEventListener("click", () => this.inputTarget.click());
+    }
     this.inputTarget.addEventListener("change", (e) => this._handleFileSelect(e));
 
     // Prevent default drag behavior on the whole page while dragging over dropzone

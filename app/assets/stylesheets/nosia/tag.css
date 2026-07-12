@@ -18,3 +18,16 @@
 .n-tag-disconnected {
     @apply bg-neutral-100 text-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400;
 }
+
+.n-count {
+    @apply inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium
+  bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300;
+}
+
+.n-count-error {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+}
+
+.n-count-pending {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400;
+}

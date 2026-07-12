@@ -1,0 +1,16 @@
+<%# locals: rows, has_more, page, type, status, sort, query %>
+<% if rows.empty? %>
+  <%= render "sources/empty", type: type, status: status, query: query %>
+<% else %>
+  <%= render "sources/drop_hint" %>
+  <% rows.each do |row| %>
+    <%= render "sources/source", row: row %>
+  <% end %>
+  <% if has_more %>
+    <div id="sources_load_more" class="py-4 text-center">
+      <%= link_to "Load more",
+            sources_path(type: type, status: status, sort: sort, q: query, page: page + 1, format: :turbo_stream),
+            data: { turbo_stream: true }, class: "n-btn-secondary" %>
+    </div>
+  <% end %>
+<% end %>

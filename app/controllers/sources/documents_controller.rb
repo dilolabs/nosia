@@ -4,7 +4,7 @@ module Sources
 
     # GET /documents or /documents.json
     def index
-      @documents = Current.account.documents
+      redirect_to sources_path(type: "document")
     end
 
     # GET /documents/1 or /documents/1.json
@@ -48,6 +48,14 @@ module Sources
           format.json { render json: @document.errors, status: :unprocessable_entity }
         end
       end
+    end
+
+    # POST /documents/1/retry
+    def retry
+      document = Current.account.documents.find(params[:id])
+      document.mark_pending!
+      AddDocumentJob.perform_later(document.id)
+      redirect_to sources_path(type: "document"), notice: "Re-indexing document."
     end
 
     # DELETE /documents/1 or /documents/1.json

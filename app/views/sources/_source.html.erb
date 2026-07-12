@@ -1,0 +1,36 @@
+<%# locals: row (SourceRow) %>
+<div id="<%= dom_id(row.to_model, :source_row) %>"
+     data-source-id="<%= row.id %>"
+     class="n-main-hover relative grid grid-cols-[24px_1fr_auto] md:grid-cols-[24px_1fr_110px_120px_70px_110px_90px] gap-3 items-center px-2 py-3 border-b n-main-border">
+  <span class="text-xl leading-none"><%= source_type_icon(row.source_type_key) %></span>
+
+  <div class="min-w-0">
+    <%# Stretched link: ::after covers the whole row so the entire line is
+        clickable. Action buttons below opt out with relative z-10. %>
+    <%= link_to source_show_path(row.to_model), class: "block truncate font-medium after:absolute after:inset-0 after:content-['']" do %>
+      <%= row.display_title %>
+    <% end %>
+    <p class="truncate text-xs text-neutral-500 dark:text-neutral-400"><%= row.source_subtitle %></p>
+  </div>
+
+  <span class="hidden md:inline-flex n-tag n-tag-disconnected"><%= row.source_type_label %></span>
+
+  <span class="hidden md:block"><%= render "sources/status", row: row %></span>
+
+  <span class="hidden md:block text-sm text-neutral-600 dark:text-neutral-300"><%= row.chunks_count.zero? ? "—" : row.chunks_count %></span>
+
+  <span class="hidden md:block text-xs text-neutral-400"><%= time_ago_in_words(row.created_at) %> ago</span>
+
+  <%# z-[1] lifts the actions above the stretched link's ::after so they stay
+      clickable, while staying below the toolbar's z-10 add-source dropdown. %>
+  <div class="relative z-[1] flex gap-2 justify-end">
+    <% if row.to_model.failed? %>
+      <%= button_to source_retry_path(row.to_model), method: :post, title: "Retry", class: "n-btn-icon n-main-hover-tertiary text-orange-600 dark:text-orange-300", form: { data: { turbo_confirm: false } } do %>
+        <span class="text-lg leading-none">↻</span>
+      <% end %>
+    <% end %>
+    <%= link_to source_show_path(row.to_model), title: "Delete", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" }, class: "n-btn-icon n-main-hover-danger text-red-600 dark:text-red-300" do %>
+      <%= inline_svg "svg/trash-bin.svg", class: "w-5 h-5" %>
+    <% end %>
+  </div>
+</div>

@@ -2,6 +2,7 @@ class Website < ApplicationRecord
   include Chunkable
   include Crawlable
   include Indexable
+  include Sourceable
   include RobotsCheckable
   include HtmlToMarkdownFormattable
 
@@ -10,6 +11,10 @@ class Website < ApplicationRecord
   belongs_to :account
 
   validates :url, presence: true, uniqueness: { scope: :account_id }
+
+  scope :search, ->(query) {
+    query.present? ? where("url ILIKE :q OR title ILIKE :q OR data ILIKE :q", q: "%#{query}%") : all
+  }
 
   def self.find_or_create_by_url!(account, url)
     website = account.websites.find_or_initialize_by(url: url)
@@ -57,6 +62,17 @@ class Website < ApplicationRecord
 
   def to_html
     Commonmarker.to_html(page_body)
+  end
+
+  def display_title
+    title.presence || url
+  end
+
+  def source_subtitle
+    # failure_reason is Sourceable's nil default until a later task stores a real
+    # crawl-error message; this branch is dormant (never taken) until then.
+    return failure_reason if failed? && failure_reason.present?
+    url
   end
 
   private

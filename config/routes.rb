@@ -65,10 +65,18 @@ Rails.application.routes.draw do
     resource :settings, only: [ :show ]
     resources :sources, only: [ :index ]
     namespace :sources do
-      resources :documents
-      resources :qnas
-      resources :texts
-      resources :websites
+      resources :documents do
+        member { post :retry }
+      end
+      resources :qnas do
+        member { post :retry }
+      end
+      resources :texts do
+        member { post :retry }
+      end
+      resources :websites do
+        member { post :retry }
+      end
     end
 
     root to: "dashboards#show", as: :user_root

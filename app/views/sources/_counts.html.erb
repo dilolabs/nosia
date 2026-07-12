@@ -1,0 +1,5 @@
+<%# Renders one count badge. It doubles as the Turbo Stream target for live
+    count updates (see Sourceable#broadcast_source_counts), keyed by `key`.
+    locals: key, value; optional: variant (:neutral | :error | :pending) %>
+<% variant = local_assigns.fetch(:variant, :neutral) %>
+<span id="source_count_<%= key %>" class="n-count<%= " n-count-#{variant}" unless variant == :neutral %>"><%= value %></span>

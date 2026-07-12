@@ -4,7 +4,7 @@ module Sources
 
     # GET /qnas or /qnas.json
     def index
-      @qnas = Current.account.qnas
+      redirect_to sources_path(type: "qna")
     end
 
     # GET /qnas/1 or /qnas/1.json
@@ -48,6 +48,14 @@ module Sources
           format.json { render json: @qna.errors, status: :unprocessable_entity }
         end
       end
+    end
+
+    # POST /qnas/1/retry
+    def retry
+      qna = Current.account.qnas.find(params[:id])
+      qna.mark_pending!
+      AddQnaJob.perform_later(qna.id)
+      redirect_to sources_path(type: "qna"), notice: "Re-indexing Q&A."
     end
 
     # DELETE /qnas/1 or /qnas/1.json

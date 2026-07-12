@@ -1,59 +1,33 @@
-<div class="n-title-container flex justify-between items-center">
+<%= turbo_stream_from Current.account, "sources" %>
+<%# New sources are prepended live to the matching filter view. Searched views
+    opt out (a new row may not match the query) and refresh on reload. %>
+<% unless @query %>
+  <%= turbo_stream_from Current.account, "sources", "list:#{@type}:#{@status}" %>
+<% end %>
+
+<div class="n-main-title-container">
   <h2 class="n-main-title">Sources</h2>
-  <div>
-    <%= link_to "Texts", sources_texts_path, class: "n-btn" %>
-    <%= link_to "Q&As", sources_qnas_path, class: "n-btn" %>
-    <%= link_to "Websites", sources_websites_path, class: "n-btn" %>
-    <%= link_to "Add document", new_sources_document_path, class: "n-btn-primary" %>
+</div>
+
+<div class="flex flex-col md:flex-row gap-4 mt-2">
+  <%= render "sources/source_filters", type: @type, status: @status, counts: @counts %>
+
+  <div class="flex-1 min-w-0"
+       data-controller="dropzone"
+       data-dropzone-url-value="<%= sources_documents_path %>"
+       data-dropzone-max-file-size-value="50"
+       data-dropzone-click-to-browse-value="false"
+       data-dropzone-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">
+    <%= render "sources/toolbar", type: @type, status: @status, sort: @sort, query: @query %>
+
+    <div data-dropzone-target="container" class="relative rounded-lg border-2 border-dashed n-main-border transition data-[active=true]:border-blue-500">
+      <input type="file" multiple class="hidden" data-dropzone-target="input"
+             accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">
+      <div id="sources_list">
+        <%= render "sources/rows", rows: @rows, has_more: @has_more, page: @page,
+              type: @type, status: @status, sort: @sort, query: @query %>
+      </div>
+    </div>
+    <ul data-dropzone-target="list" class="mt-3 space-y-1 hidden"></ul>
   </div>
 </div>
-<ul class="n-cards-grid list-none">
-  <% @documents.each do |document| %>
-    <li class="n-card n-main-border lg:col-span-2">
-      <div class="m-5 p-1 truncate space-y-2">
-        <div class="flex items-center justify-between">
-          <p class="n-card-subtitle"><%= document.account&.name %></p>
-          <div class="flex items-center gap-4">
-            <%= link_to sources_document_path(document), title:"Show document", class: "n-btn-icon n-main-hover n-main-focus" do %>
-              <%= inline_svg "svg/eye.svg", title:"Show", alt:"Eye", class: "mx-auto w-6 h-6" %>
-              <span class="sr-only">Show document</span>
-            <% end %>
-            <%= link_to sources_document_path(document), title:"Delete document", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
-              <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
-              <span class="sr-only">Delete document</span>
-            <% end %>
-          </div>
-        </div>
-        <div>
-          <h5 class="n-card-title">
-            <span class="text-wrap"><%= document.title %></span>
-          </h5>
-          <p><%= document.created_at %></p>
-        </div>
-      </div>
-    </li>
-  <% end %>
-</ul>
-<% if false %>
-  <div class="n-cards-grid">
-    <%= link_to sources_documents_path, title: "Documents", alt: "Open document sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/files.svg", title: "Documents", alt: "Documents", class: "mx-auto w-12 h-12" %>
-      <h5 class="n-card-title">Documents</h5>
-    <% end %>
-
-    <%= link_to sources_texts_path, title: "Text", alt:"Open Text sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/file-lines.svg", title: "Text", alt: "File lines", class: "mx-auto w-12 h-12" %>
-      <h5 class="n-card-title">Texts</h5>
-    <% end %>
-
-    <%= link_to sources_qnas_path, title: "Q&As", alt:"Open Q&As sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/question-circle.svg", title: "Q&As", alt: "Question circle", class: "mx-auto w-12 h-12" %>
-      <h5 class="n-card-title">Q&As</h5>
-    <% end %>
-
-    <%= link_to sources_websites_path, title: "Websites", alt:"Open website sources", class: "n-card n-main-focus place-content-center n-main-border n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/window.svg", title: "Websites", alt: "Window", class: "mx-auto w-12 h-12" %>
-      <h5 class="n-card-title">Websites</h5>
-    <% end %>
-  </div>
-<% end %>

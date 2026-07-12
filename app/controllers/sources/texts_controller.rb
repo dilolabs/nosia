@@ -4,7 +4,7 @@ module Sources
 
     # GET /texts or /texts.json
     def index
-      @texts = Current.account.texts
+      redirect_to sources_path(type: "text")
     end
 
     # GET /texts/1 or /texts/1.json
@@ -48,6 +48,14 @@ module Sources
           format.json { render json: @text.errors, status: :unprocessable_entity }
         end
       end
+    end
+
+    # POST /texts/1/retry
+    def retry
+      text = Current.account.texts.find(params[:id])
+      text.mark_pending!
+      AddTextJob.perform_later(text.id)
+      redirect_to sources_path(type: "text"), notice: "Re-indexing text."
     end
 
     # DELETE /texts/1 or /texts/1.json
