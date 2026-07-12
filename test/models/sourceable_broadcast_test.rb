@@ -41,4 +41,22 @@ class SourceableBroadcastTest < ActiveSupport::TestCase
     assert_equal EXPECTED_BROADCASTS, streams.size
     assert streams.any? { |s| s["target"] == "source_count_status-failed" }
   end
+
+  test "creating a source prepends its row to the 'all' list stream" do
+    streams = capture_turbo_stream_broadcasts([ @account, "sources", "list:all:all" ]) do
+      @account.texts.create!(data: "freshly added")
+    end
+
+    assert streams.any? { |s| s["action"] == "prepend" && s["target"] == "sources_list" },
+      "a new source should be prepended live to the All view"
+  end
+
+  test "creating a source prepends its row to the type-scoped list stream" do
+    streams = capture_turbo_stream_broadcasts([ @account, "sources", "list:text:all" ]) do
+      @account.texts.create!(data: "freshly added")
+    end
+
+    assert streams.any? { |s| s["action"] == "prepend" && s["target"] == "sources_list" },
+      "a new source should be prepended live to its own type view"
+  end
 end

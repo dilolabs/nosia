@@ -6,6 +6,7 @@ module Sourceable
   extend ActiveSupport::Concern
 
   included do
+    after_create_commit :broadcast_source_created
     after_update_commit :broadcast_source_status_change, if: :saved_change_to_index_status?
     after_destroy_commit :broadcast_source_removed
   end
@@ -44,6 +45,20 @@ module Sourceable
     broadcast_source_status_change
   end
 
+  # A brand-new source is prepended to the list for viewers whose current
+  # filter it matches (see #created_list_scopes), then updates in place via
+  # #broadcast_source_status_change once indexing finishes. Drag-and-drop
+  # uploads rely on this to appear without a reload.
+  def broadcast_source_created
+    created_list_scopes.each do |scope|
+      broadcast_prepend_to [ account, "sources", "list:#{scope}" ],
+        target: "sources_list",
+        partial: "sources/source",
+        locals: { row: SourceRow.new(self, chunks_count: chunks.count) }
+    end
+    broadcast_source_counts
+  end
+
   def broadcast_source_status_change
     broadcast_replace_to [ account, "sources" ],
       target: ActionView::RecordIdentifier.dom_id(self, :source_row),
@@ -59,6 +74,14 @@ module Sourceable
   end
 
   private
+    # The (type:status) filter combinations a newly-created source belongs to,
+    # matching the stream the index subscribes to (list:<type>:<status>). Only
+    # the always-visible type/status views are covered; searched views opt out
+    # of live prepends (they don't subscribe) since the row may not match the query.
+    def created_list_scopes
+      [ "all:all", "all:#{index_status}", "#{source_type_key}:all", "#{source_type_key}:#{index_status}" ]
+    end
+
     # Each sidebar count is its own live target (dom id "source_count_<key>"),
     # so a status change refreshes every badge in place without re-rendering the
     # nav links -- which keeps each viewer's active-filter highlight intact.
