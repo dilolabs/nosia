@@ -2,6 +2,7 @@
 <% if rows.empty? %>
   <%= render "sources/empty", type: type, status: status, query: query %>
 <% else %>
+  <%= render "sources/drop_hint" %>
   <% rows.each do |row| %>
     <%= render "sources/source", row: row %>
   <% end %>
