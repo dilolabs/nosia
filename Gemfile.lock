@@ -232,7 +232,7 @@ GEM
       turbo-rails
     msgpack (1.8.3)
     multipart-post (2.4.1)
-    neighbor (1.0.0)
+    neighbor (1.1.1)
       activerecord (>= 7.2)
     net-http (0.9.1)
       uri (>= 0.11.1)
