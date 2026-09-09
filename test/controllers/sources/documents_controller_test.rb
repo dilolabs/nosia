@@ -23,6 +23,19 @@ class Sources::DocumentsControllerTest < ActionDispatch::IntegrationTest
     Rack::Test::UploadedFile.new(file.path, "application/pdf")
   end
 
+  test "show renders PDF previews without violating the CSP" do
+    document = @account.documents.new(title: "Readable")
+    document.file.attach(io: StringIO.new("x"), filename: "readable.pdf", content_type: "application/pdf")
+    document.save!
+
+    get sources_document_url(document)
+
+    assert_response :success
+    assert_select "##{dom_id(document)} iframe[src*='active_storage']"
+    assert_select "##{dom_id(document)} object", count: 0
+    assert_includes response.headers["Content-Security-Policy"], "object-src 'none'"
+  end
+
   test "create cannot file a document under another user's account" do
     post sources_documents_url, params: {
       document: { title: "Leaked", account_id: @foreign_account.id, file: upload }
