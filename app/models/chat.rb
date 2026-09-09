@@ -20,7 +20,7 @@ class Chat < ApplicationRecord
   belongs_to :user
   belongs_to :model, optional: true
   has_many :chats, dependent: :destroy
-  has_many :messages, dependent: :destroy
+  has_many :messages, -> { order(created_at: :asc) }, dependent: :destroy
   has_many :token_usages, dependent: :destroy
 
   scope :root, -> { where(chat_id: nil) }

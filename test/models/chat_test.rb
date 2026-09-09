@@ -105,6 +105,26 @@ class ChatTest < ActiveSupport::TestCase
     assert Message.exists?(keep.id), "blank assistant with tool_calls must be preserved"
   end
 
+  test "to_llm preserves the chronological order of conversation messages" do
+    follow_up = @chat.messages.create!(role: :user, content: "follow-up question")
+    follow_up_answer = @chat.messages.create!(role: :assistant, content: "follow-up answer")
+    first = @chat.messages.create!(role: :user, content: "first question")
+    first_answer = @chat.messages.create!(role: :assistant, content: "first answer")
+
+    now = Time.current
+    follow_up_answer.update_columns(created_at: now + 3.seconds)
+    follow_up.update_columns(created_at: now + 2.seconds)
+    first_answer.update_columns(created_at: now + 1.second)
+    first.update_columns(created_at: now)
+
+    assert_equal [
+      "first question",
+      "first answer",
+      "follow-up question",
+      "follow-up answer"
+    ], @chat.to_llm.messages.map(&:content)
+  end
+
   # finish_generation! runs inside ChatResponseJob, which has no Current.session
   # (and thus no Current.account). The composer-unlock broadcast renders
   # messages/_form, so that form must not depend on request-scoped Current or the
