@@ -5,6 +5,8 @@ gem "dotenv", groups: [ :development, :test ] # A Ruby gem to load environment v
 
 # Use main development branch of Rails
 gem "rails", "~> 8.0.0"
+# Rails 8.0 passes options removed in JSON 3.0.
+gem "json", "< 3"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
 # Use postgresql as the database for Active Record
