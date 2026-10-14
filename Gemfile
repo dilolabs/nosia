@@ -86,8 +86,8 @@ gem "mission_control-jobs" # Dashboard and Active Job extensions to operate and 
 gem "neighbor" # Nearest neighbor search [https://github.com/ankane/neighbor]
 gem "pdf-reader" # PDF parser conforming as much as possible to the PDF specification from Adobe [https://github.com/yob/pdf-reader]
 gem "pgvector" # pgvector support for Ruby [https://github.com/pgvector/pgvector-ruby]
-gem "ruby_llm", "1.16.0" # Build chatbots, AI agents, RAG applications [https://github.com/crmne/ruby_llm]
-gem "ruby_llm-mcp" # Model Context Protocol support for RubyLLM [https://github.com/crmne/ruby_llm-mcp]
+gem "ruby_llm", "2.0.0" # Build chatbots, AI agents, RAG applications [https://github.com/crmne/ruby_llm]
+gem "ruby_llm-mcp", path: "vendor/gems/ruby_llm-mcp" # Locally patched MCP bridge; see PATCHES.md
 gem "solid_queue" # Database-backed Active Job backend [https://github.com/rails/solid_queue]
 gem "thruster" # HTTP/2 proxy for simple production-ready deployments [https://github.com/basecamp/thruster]
 

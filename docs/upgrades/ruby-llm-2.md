@@ -3,13 +3,15 @@
 ## Status
 
 Task 1 is verified on Ruby 4.0.7, Rails 8.0.5.1, and PostgreSQL using only
-the scratch database `nosia_ruby_llm_upgrade_test`. The current dependency is
-exactly RubyLLM **1.16.0**, not 2.0.0. These results do not establish that the
-final 2.0 upgrade is ready for deployment.
+the scratch database `nosia_ruby_llm_upgrade_test`. Its prerequisite checkpoint
+is exactly RubyLLM **1.16.0**. Task 3 now pins **2.0.0** and vendors the MCP
+bridge, but its runtime compatibility port is not yet implemented. These
+results do not establish that the final 2.0 upgrade is ready for deployment.
 
 Task 2 adds test-only 2.0 contracts on top of `a5ecca3`. They are intentionally
 **RED** on the unchanged 1.16.0 dependency; see the evidence below. Production
-implementation and dependency changes remain for subsequent tasks.
+implementation remains for subsequent tasks. Task 3's version/configuration
+checks are green; the other contracts remain RED, with evidence below.
 
 No application accounting, historical `TokenUsage` records, account/chat
 counters, migrations, or schema files were changed. No development or
@@ -127,7 +129,8 @@ baseline was 328 runs, 1030 assertions, 0 failures, and 1 error:
 unstubbed embedding request to `127.0.0.1:9`. Proceeding with that known baseline
 was explicitly approved; no unrelated crawler fix is included here.
 
-The dependency is intentionally left at 1.16.0. RubyLLM 2.0 dependency changes,
+At the Task 1 checkpoint the dependency was intentionally left at 1.16.0.
+RubyLLM 2.0 dependency changes,
 MCP compatibility work, the approved rename migration, and application
 accounting changes are outside this completed prerequisite task.
 
@@ -136,7 +139,7 @@ accounting changes are outside this completed prerequisite task.
 Verified on 2026-10-14 with the same scratch test database and safe environment
 as Task 1. Only six test files and this evidence note change. No application
 code, dependencies, configuration, migrations, schema, shared test helpers, or
-historical accounting records change. RubyLLM 2.0 is not installed in the project.
+historical accounting records change. RubyLLM 2.0 was not installed at that checkpoint.
 
 ### Contract coverage
 
@@ -278,3 +281,180 @@ assertions and positional-call coverage remain, and no global API shim or real
 provider call was added. This is completion of the approved **RED test stage**,
 not a green upgrade, full-suite verification, or deployment approval. The known
 crawler baseline and production fixes remain outside Task 2.
+
+## Task 3: verified vendoring and exact 2.0 dependency (intermediate build)
+
+Implemented from Task 2 commit `c8f1239` on 2026-10-14. This task changes only
+dependency packaging/pins, supported initializer configuration, the new
+configuration contract, and this evidence. **Do not deploy this intermediate
+build.** No application model, transport implementation, migration, or schema
+was changed. No migration or model-registry load command was run.
+
+### Archive provenance and local patch
+
+The published MCP 1.0.1 archive was fetched and unpacked outside the repository:
+
+```sh
+cd /tmp/opencode/nosia-rubyllm2-research
+gem fetch ruby_llm-mcp --version 1.0.1
+gem unpack ruby_llm-mcp-1.0.1.gem
+sha256sum ruby_llm-mcp-1.0.1.gem
+```
+
+All three commands exited 0. The archive hash is
+`22121bfdea1874935debdd9cee0235d02473885ce8347cf745a323f0707fd248`.
+It was checked programmatically against the `sha` returned by
+<https://rubygems.org/api/v2/rubygems/ruby_llm-mcp/versions/1.0.1.json>
+and the expected hash before importing any source. The metadata response is
+saved outside Git as `ruby_llm-mcp-1.0.1-rubygems.json` in that scratch directory.
+
+`vendor/gems/ruby_llm-mcp/` contains 120 byte-identical upstream files:
+`lib/ruby_llm/`, all `lib/generators/` and their templates, `README.md`, and
+`LICENSE`. The only omitted published files are the upstream development
+release/smoke tasks under `lib/tasks/`; neither is loaded by the Railtie.
+No caches, downloaded archives, installed gems, or upstream development
+checkout are committed. Runtime source is deliberately unmodified in Task 3.
+
+The published archive omits a source gemspec. The local gemspec was reconstructed
+from `Gem::Package.new(archive).spec`, not a Git-dependent repository gemspec.
+A read-only comparison verified all 13 selected identity/runtime metadata
+fields (`name`, `version`, `authors`, `email`, `summary`, `description`,
+`homepage`, `licenses`, `date`, `required_ruby_version`,
+`required_rubygems_version`, `metadata`, and `require_paths`). All original
+runtime dependencies match except the explicitly patched RubyLLM requirement:
+upstream `~> 1.9` excludes 2.0, so this local gem requires **`= 2.0.0`**.
+MCP's version remains **1.0.1**. The packaging list includes only retained
+published files and the local `PATCHES.md` note, with no Git calls.
+
+`vendor/gems/ruby_llm-mcp/PATCHES.md` records provenance, the local constraint
+patch, the incomplete runtime port, and the upstream replacement/removal path.
+This pin is a compatibility target, **not** a claim that upstream 1.0.1 works
+on 2.0. Task 7 must document and test each later runtime adaptation there.
+
+### Dependency and configuration inspection
+
+```sh
+bundle update ruby_llm ruby_llm-mcp --conservative
+bundle check
+```
+
+Both exited 0. The complete lockfile diff was inspected:
+
+- RubyLLM changes from 1.16.0 to exactly 2.0.0.
+- MCP 1.0.1 moves from RubyGems to the explicit vendor path, requiring 2.0.0.
+- `schematist` 1.1.0 replaces `ruby_llm-schema` 0.3.0.
+- RubyLLM's JSON requirement is now `< 3`, and its Marcel requirement is
+  `>= 1.0, < 3`. The existing root `json < 3` constraint remains unchanged;
+  JSON stays at 2.21.2 and Marcel at 1.2.1.
+- No other gem versions, Rails version, Ruby version, platforms, or Bundler
+  version change. No new HTTP dependency was needed: the locked Faraday and
+  HTTPX dependencies already satisfy the published specs.
+
+The installed/unpacked 2.0 source was inspected: OpenAI still registers
+`openai_use_system_role`, and Chat Completions still uses it to select the
+`system` role. Provider registration declares `openai_protocol`. The initializer
+retains the configured API base/key and model/embedding environment variables,
+keeps `openai_use_system_role = true`, explicitly selects
+`:chat_completions`, and removes the ignored `use_new_acts_as` setting. No
+temperature default or provider endpoint was changed.
+
+### TDD and intermediate test evidence
+
+Every Rails command used the same fake-key/local-port-9 environment and scratch
+database as above, with seed `202603`. The version contract was run before any
+dependency/configuration edit. The protocol configuration contract was then
+added and observed RED before changing the initializer/dependencies.
+
+| Check | Runs | Assertions | Failures | Errors | Exit | Observed boundary |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Version contract before update | 1 | 1 | 1 | 0 | 1 | Expected 2.0.0, actual 1.16.0 |
+| New configuration contract before update | 1 | 1 | 1 | 0 | 1 | 1.16 config lacks `openai_protocol` |
+| Version contract after update | 1 | 1 | 0 | 0 | 0 | Loaded exactly 2.0.0 |
+| Configuration contract after update | 1 | 7 | 0 | 0 | 0 | Chat Completions, endpoint/key, models, and system role preserved |
+| Entire MCP compatibility file after update | 3 | 9 | 1 | 0 | 1 | Attachment content still returns encoded data, pending Task 7 |
+| Combined Task 2 contract/footer set after update | 38 | 15 | 1 | 32 | 1 | Expected incomplete application/MCP adoption, detailed below |
+
+The combined run reports 21 setup errors at `app/models/model.rb:2` because
+`acts_as_model` was removed, 7 local-tool adapter errors because `params` was
+removed, 4 embedding errors from the old `input_tokens` reader, and the MCP
+attachment assertion failure. Repeated failed adapter setup also emits
+constant-redefinition warnings. The remaining 5 tests pass. These are upgrade
+gaps, not the authorized baseline crawl error. Tasks 4/5 must complete schema
+and supporting-model/reader adoption; Task 6 must finish the other application
+API/UI changes; Task 7 must port MCP/tool schemas and attachment/content
+conversions. No compatibility shim or premature model deletion was added here.
+
+Exact Rails commands (run from the application worktree):
+
+```sh
+task3_test() {
+  env \
+    RAILS_ENV=test \
+    DATABASE_URL=postgresql:///nosia_ruby_llm_upgrade_test \
+    PARALLEL_WORKERS=1 \
+    ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=11111111111111111111111111111111 \
+    ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=22222222222222222222222222222222 \
+    ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=33333333333333333333333333333333 \
+    AI_API_KEY=test-only \
+    AI_BASE_URL=http://127.0.0.1:9/v1 \
+    LLM_MODEL=test-model \
+    EMBEDDING_MODEL=test-embedding \
+    EMBEDDING_DIMENSIONS=4096 \
+    CHUNK_SIZE=512 \
+    CHUNK_OVERLAP=128 \
+    RETRIEVAL_FETCH_K=3 \
+    bin/rails test "$@" --seed 202603
+}
+
+# Before update: version RED, then new configuration RED.
+# --name worked but Minitest requested --include for subsequent runs.
+task3_test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  --name test_loads_the_exact_RubyLLM_2.0_release
+task3_test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  --include test_keeps_the_configured_endpoint_on_the_Chat_Completions_protocol
+
+# After update: these two targeted contracts are GREEN.
+task3_test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  --include test_loads_the_exact_RubyLLM_2.0_release
+task3_test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  --include test_keeps_the_configured_endpoint_on_the_Chat_Completions_protocol
+
+# Intentionally incomplete broader compatibility checks, exit 1.
+task3_test test/lib/ruby_llm_mcp_compatibility_test.rb
+task3_test \
+  test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/engines/tool_adapter_test.rb \
+  test/models/chat/completionable_test.rb \
+  test/models/chunk/vectorizable_test.rb \
+  test/models/chunk/searchable_test.rb \
+  test/models/agent_skill/executor_test.rb \
+  test/integration/token_footer_test.rb
+```
+
+### Packaging, static verification, and self-review
+
+A standalone `bundle exec ruby` check required `ruby_llm/mcp` and verified
+the loaded versions are RubyLLM 2.0.0 / MCP 1.0.1 and MCP's real gem path is
+this worktree's `vendor/gems/ruby_llm-mcp`, not an installed RubyGems copy
+(exit 0). This verifies loading/selection only, not bridge execution.
+
+```sh
+# Run inside vendor/gems/ruby_llm-mcp; output stays outside the repository.
+gem build ruby_llm-mcp.gemspec \
+  --output /tmp/opencode/nosia-rubyllm2-research/ruby_llm-mcp-1.0.1-nosia-task3.gem
+
+# Run from the application worktree.
+bundle exec rubocop Gemfile config/initializers/ruby_llm.rb \
+  test/lib/ruby_llm_mcp_compatibility_test.rb \
+  vendor/gems/ruby_llm-mcp/ruby_llm-mcp.gemspec
+git diff --check
+```
+
+The gem build succeeded; RuboCop inspected the 4 locally authored/changed Ruby
+files with no offenses; the diff check was clean. Upstream runtime sources
+were hash-compared, not reformatted to application style. Self-review checked
+task ownership, exact dependency constraints, the entire lockfile diff, vendor
+completeness/license, no Git-dependent gemspec, preserved configuration, and
+honest RED/green boundaries. No new public runtime methods need YARD in this
+task. Full-suite, migration rehearsal, and deployment approval remain outside
+Task 3; the existing crawler baseline was not rerun or fixed.
