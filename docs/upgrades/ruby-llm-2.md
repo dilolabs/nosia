@@ -458,3 +458,71 @@ completeness/license, no Git-dependent gemspec, preserved configuration, and
 honest RED/green boundaries. No new public runtime methods need YARD in this
 task. Full-suite, migration rehearsal, and deployment approval remain outside
 Task 3; the existing crawler baseline was not rerun or fixed.
+
+### Task 3 review follow-up: preserve the Docker path dependency
+
+Quality review found a packaging gap in the initial Task 3 checkpoint
+`5183cbe9cfbfb7d4158467c75fa6694a2f933c9e`: Docker's combined
+`COPY Gemfile Gemfile.lock vendor ./` copies the contents of `vendor` into
+`/rails`, not `/rails/vendor`. The new Gemfile path therefore did not exist at
+the first `bundle install`. The earlier local Bundler checks did not exercise
+this image-build boundary.
+
+The fix changes only that instruction into:
+
+```dockerfile
+COPY Gemfile Gemfile.lock ./
+COPY vendor ./vendor
+```
+
+The base image, multistage structure, dependency-install command, application
+copy, and final runtime behavior are unchanged. `.dockerignore` was inspected
+and does not exclude `vendor`; it required no change.
+
+`test/packaging/ruby_llm_path_dependency.rb` is a standalone Minitest executable,
+with no Rails helper, database connection, credentials, or provider requests.
+It requires both copy instructions before the first bundle install and checks
+that MCP's exact Gemfile path contains its gemspec. Its filename deliberately
+does not match normal Rails `*_test.rb` discovery. Run explicitly:
+
+```sh
+bundle exec ruby test/packaging/ruby_llm_path_dependency.rb --seed 202603
+```
+
+Before the Dockerfile edit: **2 runs, 6 assertions, 1 failure, 0 errors**, exit 1,
+because `COPY vendor ./vendor` was missing. After: **2 runs, 8 assertions,
+0 failures, 0 errors**, exit 0. RuboCop inspected the new test with no offenses:
+
+```sh
+bundle exec rubocop test/packaging/ruby_llm_path_dependency.rb
+git diff --check
+```
+
+Docker client/server 29.8.2 were available. A lightweight packaging-only build
+was run, rather than waiting for native compilation or attempting the incomplete
+2.0 application's asset build. A temporary Dockerfile outside Git was generated
+from the actual pre-install `COPY` instructions, prefixed with `FROM scratch`
+and `WORKDIR /rails`. It uses the real repository build context and its actual
+`.dockerignore`:
+
+```sh
+docker build \
+  --file /tmp/opencode/nosia-rubyllm2-research/task3-packaging/Dockerfile.packaging \
+  --output type=local,dest=/tmp/opencode/nosia-rubyllm2-research/task3-packaging/rootfs .
+
+env BUNDLE_GEMFILE=/tmp/opencode/nosia-rubyllm2-research/task3-packaging/rootfs/rails/Gemfile \
+  bundle check
+```
+
+Both commands exited 0. Hash comparison verified all **124 files** (Gemfile,
+lockfile, and 122 vendored MCP files) were retained byte-identically under the
+exported `/rails`, confirming `.dockerignore` permits this dependency. Separate
+`bundle exec ruby` checks against the repository Gemfile and Docker-exported
+Gemfile required `ruby_llm/mcp` and verified MCP 1.0.1 resolves from the respective
+`vendor/gems/ruby_llm-mcp` directory with RubyLLM 2.0.0. These use host-installed
+dependencies; they are path-resolution checks, **not** an in-image bundle install.
+
+The **full multistage application image was not built**. No Rails or database
+commands were run in this follow-up. Self-review confirms only `Dockerfile`,
+the standalone regression, and this evidence change; Tasks 4–7 and the known
+intermediate runtime failures remain untouched.
