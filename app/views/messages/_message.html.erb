@@ -97,7 +97,7 @@
             </div>
           <% end %>
 
-          <% if message.done? && (message.input_tokens || message.output_tokens) %>
+          <% if message.done? && (message.tokens.input || message.tokens.output) %>
             <%= render "messages/token_footer", message: message %>
           <% end %>
         </div>

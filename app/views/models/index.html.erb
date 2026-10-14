@@ -21,7 +21,7 @@
       </tr>
     </thead>
     <tbody>
-      <%= render @models %>
+      <%= render partial: "models/model", collection: @models, as: :model %>
     </tbody>
   </table>
 </div>

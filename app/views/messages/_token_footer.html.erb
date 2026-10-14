@@ -2,10 +2,10 @@
 <%# Compact token + environmental-impact footer for a finalized assistant message. %>
 <%# Guarded at the call site (rendered only when message.done? && tokens present). %>
 <%
-  total_in = message.input_tokens || 0
-  total_out = message.output_tokens || 0
+  total_in = message.tokens.input || 0
+  total_out = message.tokens.output || 0
   total = total_in + total_out
-  energy = GreenIt.energy_kwh(tokens: total, model_id: message.model&.model_id, kind: :completion)
+  energy = GreenIt.energy_kwh(tokens: total, model_id: message.model, kind: :completion)
   kwh = energy[:kwh]
   co2e = GreenIt.co2e_g(kwh: kwh)
   fallback = energy[:fallback]

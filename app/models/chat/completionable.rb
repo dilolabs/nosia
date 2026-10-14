@@ -13,9 +13,8 @@ module Chat::Completionable
       }.compact_blank
     )
 
-    self.assume_model_exists = true
-    self.with_model(options[:model], provider: :openai)
-    self.with_params(max_tokens: options[:max_tokens], top_p: options[:top_p], top_k: options[:top_k])
+    self.with_model(options[:model], provider: :openai, assume_model_exists: true)
+    self.with_provider_options(max_tokens: options[:max_tokens], top_p: options[:top_p], top_k: options[:top_k])
     self.with_temperature(options[:temperature])
 
     # Add MCP tools if available
@@ -44,13 +43,13 @@ module Chat::Completionable
 
       augmented_system_prompt = system_prompt.sub("%{documents}", documents.to_json)
 
-      self.with_instructions(augmented_system_prompt, replace: true)
+      self.with_instructions(augmented_system_prompt)
     else
-      self.with_instructions(system_prompt, replace: true)
+      self.with_instructions(system_prompt)
     end
 
     # Warn the model about attachments that couldn't be retrieved so it doesn't
-    # hallucinate over them. Appended (not replace:) so the system prompt stays.
+    # hallucinate over them. Append so the system prompt stays.
     if excluded_sources.present?
       titles = excluded_sources.filter_map { |source| source.title if source.respond_to?(:title) }
       names = titles.any? ? titles : excluded_sources.map { |source| source.class.name.downcase }

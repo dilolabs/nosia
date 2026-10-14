@@ -9,8 +9,9 @@ bridge, but its runtime compatibility port is not yet implemented. These
 results do not establish that the final 2.0 upgrade is ready for deployment.
 Task 4 now verifies the three rename migrations on the dedicated legacy-schema
 rehearsal database and updates the schema from the normal scratch test database.
-Task 5 adopts the supporting associations and normalized accounting readers;
-request/instruction/catalog/usage-UI changes and the MCP runtime port remain pending.
+Task 5 adopts the supporting associations and normalized accounting readers.
+Task 6 now ports request/instruction APIs, catalog pages, and usage/tool-call UI;
+the MCP/local-engine runtime port remains pending for Task 7.
 
 Task 2 adds test-only 2.0 contracts on top of `a5ecca3`. They are intentionally
 **RED** on the unchanged 1.16.0 dependency; see the evidence below. Production
@@ -1051,3 +1052,218 @@ Self-review confirms the follow-up owns only the one-line view fix and this
 evidence. The diff check is clean. Task 6/7 compatibility gaps and the full-suite
 verification boundary are unchanged; this follow-up does not claim the overall
 upgrade is ready.
+
+## Task 6: request APIs, catalog metadata, and message rendering
+
+Implemented from `d7c2a12` on 2026-10-14 using RubyLLM **2.0.0**. This task
+changes only its application request/instruction/catalog/rendering consumers,
+associated tests, the streaming stub's method name, and this evidence. No
+dependency, migration, schema, historical ledger field, counter implementation,
+CSS, route declaration, or MCP/local-engine implementation changes are included.
+The prerequisite `test/lib/ruby_llm_tokens_test.rb` already uses the supported
+2.0 `cache_read:` / `cache_write:` constructor keywords at this starting commit;
+it is rerun unchanged. Historical 1.x checkpoint syntax remains intact.
+
+### Behavior and isolation
+
+- Completion and enrichment use `with_provider_options`. Completion retains
+  the exact flat `max_tokens`, `top_p`, and `top_k` names and values; temperature
+  still uses its dedicated setter. A real `Chat#render` assertion verifies the
+  configured OpenAI Chat Completions payload, without an HTTP request: no new
+  `provider_options` nesting or `max_completion_tokens` rename is introduced.
+  RubyLLM 2.0 no longer rewrites unsupported temperatures; this port preserves
+  the requested value and does not silently normalize it for a provider.
+- Baseline/augmented completion and guard instructions use 2.0's replacement
+  default, without `replace:`. Excluded-attachment warnings and LLM skill
+  instructions use `append: true`. A persisted system-message test verifies
+  the skill keeps its baseline. Both Ruby skill allowlists expose only the new
+  provider-options name, not a compatibility alias.
+- The real 2.0 `Chat#with_model` resets `assume_model_exists` from its keyword
+  default; merely setting the accessor first no longer preserves that intent.
+  Completion and both guard calls now pass `assume_model_exists: true`
+  explicitly, preserving the existing custom OpenAI-compatible backend behavior.
+  The real model-switch regression accepts an unregistered slash/dot ID locally.
+- Catalog actions use `RubyLLM.models.all`, provider-qualified `.find`, and
+  `.refresh`. Entries are real `RubyLLM::Model` metadata, rendered through an
+  explicit partial/collection/local, never an AR/polymorphic route. Safe row IDs
+  hash the provider/ID pair. Prices use `.price(:input)` / `.price(:output)`;
+  unknown buckets display `—`, while free buckets display `$0.00`. Index and
+  show retain Comparia consumption by the string registry ID.
+- The existing show route keeps the literal `model` segment and passes
+  `model_id` plus `provider` in the query. Both identity parameters must be
+  nonblank strings, and registry misses return 404. Tests round-trip overlapping
+  IDs from two providers and `org/slash.model.v2`, and reject absent, blank,
+  array/hash, unknown identities, and a nonliteral path ID. The route definitions
+  and refresh URL are unchanged. Catalog tests scope a local `RubyLLM::Models`
+  instance through a singleton accessor restored in `ensure`; they neither
+  mutate the global registry cache/store nor fetch a catalog. Refresh itself
+  is replaced only on that isolated instance.
+- Footers and both rendering guards use normalized `message.tokens`. GreenIt
+  receives the string `message.model`, and only standard input/output contribute
+  to the footer estimate. Real `ruby_llm_usages` rows exercise reported zero,
+  absent buckets, a nil model fallback, and done/unreported guards. Existing
+  application counter-cache and per-kind totals assertions remain unchanged.
+- Tool-call rendering iterates the public hash values and retains names,
+  arguments, escaping, and existing markup. The regression uses real persisted
+  internal calls/results and verifies public `RubyLLM::ToolCall` values; it
+  does not call `dom_id` or route internal records. No legacy tool-result content
+  reader was found in the runtime scan.
+- New JSON/SSE integration tests run the real completion preamble and controller
+  response code, replacing only retrieval and the provider-completion boundary
+  on locally created chats. SSE preserves raw markdown chunks and `[DONE]`.
+  Singleton replacements are restored in `ensure`; no global compatibility
+  methods or actual provider requests are added to these contracts.
+
+### Test-first evidence
+
+All Rails invocations use only the already-migrated
+`nosia_ruby_llm_upgrade_test`, fake credentials, and the port-9 endpoint below.
+No development/production DB was accessed and no migration command was run.
+All recorded Task 6 runs use seed **202606**, with no skips.
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| New/updated six-file contract set before production edits | 24 | 45 | 3 | 16 | 1 |
+| Corrected allowlist loading plus isolated guard keyword RED | 3 | 8 | 3 | 0 | 1 |
+| First same-set run after implementation | 24 | 185 | 2 | 0 | 1 |
+| Contracts plus real wire-payload and JSON/SSE characterization | **27** | **216** | **0** | **0** | **0** |
+| Final focused request/catalog/footer/cache/accounting/chat/streaming/job/API set (27 files) | **152** | **604** | **0** | **0** | **0** |
+
+The initial RED reproduced removed `with_params`, obsolete `replace:`, the
+custom-model reset, removed application `Model`, legacy footer readers/string
+model access, and array-pair tool-call rendering. One initial test setup error
+referenced `AgentSkill::RubyExecutor` before loading its enclosing executor file;
+the corrected isolated run fails on the intended old allowlist and guard
+instruction keywords. The first post-implementation run exposed two incorrect
+test assumptions, not runtime regressions: persisted **Chat** still exposes its
+internal model record (unlike **Message**'s string model), and PostgreSQL JSONB
+does not preserve insertion order for argument keys. The assertions now check
+the chat's `model.model_id` and argument content without ordering assumptions.
+No behavior assertion was weakened to accept an old API. Real payload and API
+response tests were added as supplemental characterization after the core port.
+
+### Reproduction commands
+
+The actual shell wrapper was `/tmp/opencode/nosia-task6-rails`, containing this
+same environment and `exec ... bin/rails "$@"`. Its portable equivalent is:
+
+```sh
+task6_rails() {
+  env \
+    RAILS_ENV=test \
+    DATABASE_URL=postgresql:///nosia_ruby_llm_upgrade_test \
+    PARALLEL_WORKERS=1 \
+    ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=11111111111111111111111111111111 \
+    ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=22222222222222222222222222222222 \
+    ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=33333333333333333333333333333333 \
+    AI_API_KEY=test-only \
+    AI_BASE_URL=http://127.0.0.1:9/v1 \
+    LLM_MODEL=test-model \
+    EMBEDDING_MODEL=test-embedding \
+    EMBEDDING_DIMENSIONS=4096 \
+    CHUNK_SIZE=512 \
+    CHUNK_OVERLAP=128 \
+    RETRIEVAL_FETCH_K=3 \
+    bin/rails "$@"
+}
+task6_test() { task6_rails test "$@" --seed 202606; }
+
+contracts=(
+  test/models/chat/request_options_test.rb test/models/chunk/enrichable_test.rb
+  test/models/agent_skill/executor_test.rb
+  test/integration/models_consumption_column_test.rb
+  test/integration/token_footer_test.rb test/integration/tool_calls_rendering_test.rb
+)
+
+# Before production edits: initial RED, then corrected isolated RED.
+task6_test "${contracts[@]}"
+task6_test test/models/agent_skill/executor_test.rb \
+  test/models/chat/request_options_test.rb --include '/allowlists|relevance/'
+
+# After production edits and test-setup corrections: GREEN, including extra
+# real payload and JSON/SSE response characterization.
+task6_test "${contracts[@]}" test/controllers/api/v1/completions_controller_test.rb
+
+# Broader verification; results and boundaries are recorded below.
+task6_test
+
+focused=(
+  test/models/chat_test.rb test/models/message_test.rb
+  test/models/chat/completionable_test.rb test/models/chat/request_options_test.rb
+  test/models/chat/stop_generation_test.rb test/models/chat/wait_for_attached_sources_test.rb
+  test/models/chat/similarity_search_test.rb
+  test/models/chunk/vectorizable_test.rb test/models/chunk/searchable_test.rb
+  test/models/chunk/enrichable_test.rb test/models/chunk_embedding_storage_test.rb
+  test/models/agent_skill/executor_test.rb test/models/agent_skill_test.rb
+  test/models/account_test.rb test/models/token_usage_test.rb
+  test/lib/ruby_llm_tokens_test.rb
+  test/integration/token_footer_test.rb test/integration/models_consumption_column_test.rb
+  test/integration/token_summary_cache_test.rb test/integration/tool_calls_rendering_test.rb
+  test/controllers/chats_controller_test.rb test/controllers/api/v1/completions_controller_test.rb
+  test/controllers/api/v1/api_authentication_test.rb test/jobs/chat_response_job_test.rb
+  test/models/message_placeholder_test.rb test/models/message_html_to_markdown_test.rb
+  test/models/message/stream_buffer_test.rb
+)
+task6_test "${focused[@]}"
+```
+
+The full non-system suite completed in **204.082031 s**: **373 runs, 1288
+assertions, 1 failure, 10 errors, 0 skips**, exit 1. No Task 6 failure/error
+remains in that run. Its complete non-green boundary is:
+
+- **Task 7:** one MCP attachment-decoding assertion failure, seven adapter-test
+  errors, one local-server-tools error, and one local-engine-chat integration
+  error. All nine errors reach the removed `klass.params` call at
+  `lib/engines/tool_adapter.rb:64`. Failed class construction also emits the
+  already documented constant-redefinition warnings. Schema/call/decoding work
+  remains untouched for Task 7.
+- **Accepted baseline:** `Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts`
+  attempts its unstubbed embedding against `127.0.0.1:9` and raises
+  `Faraday::ConnectionFailed`. It is not fixed or silently skipped here.
+
+The final focused command also includes a strengthened catalog assertion that
+only the two well-formed registry misses reach `.find`; malformed requests and
+nonliteral path IDs are rejected before lookup. Test tenant cleanup is explicit.
+It completed in **192.600134 s**, exit 0: **152 runs, 604 assertions, 0 failures,
+0 errors, 0 skips**. This rerun verifies every final Task 6 runtime/test edit,
+including unchanged normalized-token characterization, usage counters/cache,
+completion streaming and stop behavior, chat controllers, API authentication,
+JSON/SSE completions, and chat response jobs. The full-suite result above used
+the same final runtime code, before the extra catalog assertion and footer-test
+tenant-cleanup refinement. System/browser tests and the standalone migration
+rehearsal were not rerun in Task 6.
+
+### Static checks and self-review
+
+The final changed-Ruby lint command is:
+
+```sh
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  app/controllers/models_controller.rb app/models/chat/completionable.rb \
+  app/models/chat/answer_relevance.rb app/models/chat/context_relevance.rb \
+  app/models/chunk/enrichable.rb app/models/agent_skill/executor.rb \
+  app/models/agent_skills/base.rb test/test_helper.rb \
+  test/models/chat/request_options_test.rb test/models/chunk/enrichable_test.rb \
+  test/models/agent_skill/executor_test.rb test/integration/models_consumption_column_test.rb \
+  test/integration/token_footer_test.rb test/integration/tool_calls_rendering_test.rb \
+  test/controllers/api/v1/completions_controller_test.rb
+git diff --check
+```
+
+The temporary config is the previously documented Ruby-4 parser override, not
+a repository configuration edit. An initial lint run found only two array
+spacing offenses in the new request test; they were corrected with a named
+local variable. The final lint inspected **15 files with no offenses**, exit 0,
+and `git diff --check` also exited 0. Runtime searches in `app/`, `config/`, and
+`lib/` found no remaining Task 6 `with_params`, `replace:`, `assume_exists`,
+application catalog `Model` calls, or legacy message-token/content readers.
+The intentionally deferred `lib/engines/tool_adapter.rb:64` `klass.params` and
+vendored MCP schema/content APIs remain Task 7 work. Application `TokenUsage`
+columns, accounting SQL, and historical migration fields are not API-renamed.
+No new public application helper/API was introduced, so no
+additional YARD surface is needed. Self-review checks exact request values,
+replacement/append intent, registry isolation and provider identity, strict
+parameter validation, nil-versus-zero pricing and usage, escaping, SSE raw
+chunks, unchanged ledger/counters, and the Task 6-only diff. No child agents
+were spawned. This evidence does not establish that the overall upgrade is
+complete, that Task 7 works, or that deployment is approved.

@@ -73,7 +73,7 @@ class AgentSkill
 
       @execution.update!(input: { instructions: instructions.truncate(1000) })
 
-      message = chat.with_instructions(instructions, replace: false).ask(@context[:query])
+      message = chat.with_instructions(instructions, append: true).ask(@context[:query])
       record_agent_skill_usage(message)
       message
     end
@@ -119,7 +119,7 @@ class AgentSkill
   end
 
   class RubyExecutor
-    ALLOWED_CHAT_METHODS = %i[ask with_instructions with_params with_temperature with_model
+    ALLOWED_CHAT_METHODS = %i[ask with_instructions with_provider_options with_temperature with_model
                               similarity_search messages user account].freeze
 
     def initialize(agent_skill, context, execution)

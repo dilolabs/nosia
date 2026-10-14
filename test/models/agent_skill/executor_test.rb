@@ -93,6 +93,34 @@ class AgentSkill::ExecutorTest < ActiveSupport::TestCase
     end
   end
 
+  test "LLM instructions append to the real persisted baseline without replacing it" do
+    @chat.with_instructions("Keep this baseline")
+    @chat.define_singleton_method(:ask) { |*| nil }
+    context = { chat: @chat, user: @user, account: @account, query: "q", agent_skill: @skill }
+
+    AgentSkill::Executor.execute(@skill, context: context)
+
+    instructions = @chat.messages.where(role: :system).map(&:content)
+    assert_equal 2, instructions.size
+    assert_equal "Keep this baseline", instructions.first
+    assert_includes instructions.last, "## Agent Skill: summarize"
+  end
+
+  test "Ruby skill allowlists expose provider options rather than the removed params API" do
+    calls = []
+    @chat.define_singleton_method(:with_provider_options) { |**options| calls << options; self }
+    skill = AgentSkills::Base.new(chat: @chat, query: "q", agent_skill: @skill)
+
+    AgentSkill::Executor # Load its nested executors before checking their allowlists.
+    assert_includes AgentSkill::RubyExecutor::ALLOWED_CHAT_METHODS, :with_provider_options
+    assert_not_includes AgentSkill::RubyExecutor::ALLOWED_CHAT_METHODS, :with_params
+    assert_respond_to skill, :with_provider_options
+    assert_not skill.respond_to?(:with_params)
+    assert_same @chat, skill.with_provider_options(max_tokens: 17, top_p: 0.8, top_k: 6)
+    assert_equal [ { max_tokens: 17, top_p: 0.8, top_k: 6 } ], calls
+    assert_raises(NoMethodError) { skill.with_params(max_tokens: 17) }
+  end
+
   private
     def assistant_with_usage(**tokens)
       message = @chat.messages.create!(role: :assistant, content: "ok")
