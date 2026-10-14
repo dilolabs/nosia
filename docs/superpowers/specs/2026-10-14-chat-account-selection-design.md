@@ -150,7 +150,7 @@ Use Minitest and account/membership fixtures, not RSpec or factories. Stub exter
 - MCP lists/add/remove operations and slash-command choices use the selected/saved account; another account's tools/skills do not leak into the composer.
 - With relevant chunks in two accounts, retrieval and cited evidence include only chunks from the chat account, including when the other account has a closer vector match.
 - System prompt selection and completion/query-embedding usage retain the chat's account attribution.
-- A second-account citation opens successfully through chat context; wrong-chat/wrong-account citation requests fail.
+- A second-account citation opens successfully through chat context; unowned-chat/wrong-account citation requests fail. Another owned chat in the same account uses the same account-level chunk-access boundary; this feature does not add a per-message citation allowlist.
 - No-membership users see the empty state and cannot create chat sources/chats.
 - Composer-unlock broadcasts still render the correct read-only account label with `Current.session` unset.
 
@@ -158,6 +158,7 @@ Use Minitest and account/membership fixtures, not RSpec or factories. Stub exter
 
 - Footer picker works on the dashboard and new-chat page, including keyboard access and narrow layouts.
 - Account change refreshes tools/skills and resets an approved draft; cancel preserves all draft state.
+- Turbo Back/Forward restoration never mixes account-specific attachment references, tool choices, or skill options into another account's composer.
 - Already saved sources stay in the previous account after a switch.
 - Pending uploads/source requests prevent account switching and sending; failures remain visible and cannot silently lose an attachment.
 - Sending, follow-up messages, reload, and background unlock all show a read-only account name.
