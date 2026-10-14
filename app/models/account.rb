@@ -32,7 +32,7 @@ class Account < ApplicationRecord
 
     account.account_users.grant_to(account.owner)
 
-    content = default_system_prompt
+    content = Prompts.system_prompt
     account.prompts.create!(name: "system_prompt", content:)
     account.prompts.create!(user: account.owner, name: "system_prompt", content:)
 
