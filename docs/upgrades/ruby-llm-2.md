@@ -1005,3 +1005,49 @@ owned diff, macro ordering/ownership, SQL joins, nil/zero eligibility, cache
 mapping, source deduplication, pending callback lifecycle, and unchanged Task 6/7
 boundaries. Task 5's focused behavior is green; the intermediate upgrade remains
 unsuitable for deployment until the later tasks and release verification finish.
+
+### Task 5 quality-review follow-up: generating-show association consumer
+
+Review of `a018845d078bc709b2a5dc54380746a322ca5e19` found a missed consumer
+outside the initial model/helper scan: `app/views/chats/show.html.erb:19`
+still queried `where.missing(:tool_calls)`. With `generating: true`, both the
+pre-assistant retrieval state and the blank in-progress assistant state raised
+`ActionView::Template::Error: An association named :tool_calls does not exist on
+the model Message`. The existing focused model tests did not render this page.
+
+The fix changes only that query's association to `:ruby_llm_tool_calls`. Blank
+content selection, ordering, and the existing placeholder-versus-thinking
+animation UX remain unchanged. No tests needed rewriting. No token-footer,
+catalog, request/instruction, tool-call rendering, MCP, migration, or schema
+changes are included. The wider `app/`, `lib/`, and `config/` scan found no other
+nondeferred relationship query using the removed association. The separately
+documented `_tool_calls` hash-rendering adaptation remains deferred, not fixed.
+
+All checks below used the same approved scratch-only environment and seed
+**202605**; no provider calls or development/production database access occurred.
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Existing generating-show tests before query fix | 2 | 0 | 0 | 2 | 1 |
+| Same tests after query fix | 2 | 6 | 0 | 0 | 0 |
+| Task 5 focused models, message regressions, and both generating-show tests | **92** | **304** | **0** | **0** | **0** |
+
+Exact commands, using the safe `task4_rails`, `task5_test`, and `focused` array
+already defined above:
+
+```sh
+# Run before and after the one-line query change.
+task5_test test/controllers/chats_controller_test.rb:77 \
+  test/controllers/chats_controller_test.rb:96
+
+# Final focused verification.
+task5_test "${focused[@]}" test/models/message_placeholder_test.rb \
+  test/models/message_html_to_markdown_test.rb test/models/message/stream_buffer_test.rb \
+  test/controllers/chats_controller_test.rb:77 test/controllers/chats_controller_test.rb:96
+git diff --check
+```
+
+Self-review confirms the follow-up owns only the one-line view fix and this
+evidence. The diff check is clean. Task 6/7 compatibility gaps and the full-suite
+verification boundary are unchanged; this follow-up does not claim the overall
+upgrade is ready.

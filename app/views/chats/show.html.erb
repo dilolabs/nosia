@@ -16,7 +16,7 @@
             dom_id(message, :content)) and the final broadcast_updated (target
             dom_id(message, :messages)) aiming at DOM nodes that don't exist. %>
         <% if @chat.generating? %>
-          <% in_progress = @chat.messages.assistant.where(content: [ nil, "" ]).where.missing(:tool_calls).order(:created_at).last %>
+          <% in_progress = @chat.messages.assistant.where(content: [ nil, "" ]).where.missing(:ruby_llm_tool_calls).order(:created_at).last %>
           <% if in_progress %>
             <%# Streaming already started: render the bubble (shows the Generating
                 placeholder) so live broadcasts have targets. broadcast_created
