@@ -17,9 +17,10 @@ history below. It covers maintenance, three-phase execution, read-only before/
 after audits, offline model loading, and irreversible recovery. Verification used
 Ruby **4.0.7**, Rails **8.0.5.1**, and only three explicitly disposable PostgreSQL
 databases. No development/production database, real paid provider, deployment,
-cleanup, push, or merge was used. Production-sized rehearsal, tested backup/
-restore, live authenticated MCP interoperability, and the parent's fresh final
-integration/data-safety review remain outstanding release gates.
+cleanup, push, or merge was used. The parent's fresh final integration/data-safety
+review approved runtime `88a2a18`; independent final verification is recorded at
+the end of this document. Production-sized rehearsal, tested backup/restore,
+and live authenticated MCP interoperability remain outstanding operator gates.
 
 ## Verified application checkpoints
 
@@ -2275,5 +2276,37 @@ Self-review confirms that only the three specified runtime files change, no
 completion/chat-constructor stubs remain in the MCP tests, conversion assertions
 were relocated rather than weakened, history/media persist, and public tool,
 approval, cancellation, and streaming behavior are exercised without private
-core APIs or fabricated user input. The parent's final all-branch review is
-still outstanding.
+core APIs or fabricated user input. The parent's final all-branch review was
+outstanding at that checkpoint; its completed result is recorded below.
+
+## Final parent verification and review
+
+The fresh-context final integration reviewer approved runtime `88a2a18`, including
+the explicit MCP generation fix, with no remaining blocking findings. Task-level
+specification and code-quality reviews also passed after their recorded fixes.
+
+The parent independently reran the complete non-system suite with the safe test
+environment above and `--seed 20261014`: **466 runs, 2106 assertions, 0 failures,
+1 error, 0 skips**, exit **1**, in **246.963772 s**. The sole error remains the
+accepted, unchanged public-host crawl test's unstubbed embedding connection to
+`127.0.0.1:9`. This is not an all-green suite or permission to merge/deploy.
+
+Independent parent checks also confirmed:
+
+- Migration rehearsal: **12 tests / 154 assertions**, no failures/errors, exit 0.
+- Standalone packaging: **2 tests / 8 assertions**, no failures/errors, exit 0.
+- `bin/rails zeitwerk:check`, `bundle check`, and `git diff --check`: exit 0.
+- Both latest MCP test files pass targeted Ruby-4 RuboCop; the three changed
+  generation bridge files pass targeted Lint checks, all exit 0.
+- Default full RuboCop: **338 files / 317 offenses**, exit 1. This is the same
+  offense count as the Task 8 checkpoint: unsupported Ruby-2.7 parsing and the
+  intentionally byte-preserved legacy fixture remain documented limitations.
+- Brakeman: **3 warnings with the exact same fingerprints as baseline**, zero
+  scan errors, exit 3. No new warning is hidden or treated as a clean scan.
+
+Final scanner reports are `/tmp/opencode/nosia-rubyllm2-final-rubocop.json` and
+`/tmp/opencode/nosia-rubyllm2-final-brakeman.json`. Production-sized rehearsal,
+consistent tested restore, live authenticated interoperability, browser testing,
+and a full native image build remain unperformed. No cleanup, push, merge,
+deployment, or worktree deletion was done. Searchable lessons are captured in
+[the integration solution](../solutions/integration-issues/ruby-llm-2-migration-lifecycle-pitfalls.md).

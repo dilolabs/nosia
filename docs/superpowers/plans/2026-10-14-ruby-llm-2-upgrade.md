@@ -85,7 +85,7 @@ bin/rails test test/models/chat_test.rb test/models/chat/completionable_test.rb 
 
 ```ruby
 test "token buckets keep standard input separate from cache reads and writes" do
-  tokens = RubyLLM::Tokens.new(input: 80, output: 20, cache_read: 15, cache_write: 5)
+  tokens = RubyLLM::Tokens.new(input: 80, output: 20, cached: 15, cache_creation: 5)
   assert_equal 80, tokens.input
   assert_equal 100, tokens.input + tokens.cache_read + tokens.cache_write
   assert_equal 20, tokens.output
@@ -418,7 +418,7 @@ rg 'acts_as_model|acts_as_tool_call|use_new_acts_as|with_params|replace:|params_
 Allow legitimate application-ledger database columns and the intentional legacy schema fixture; do not blindly replace accounting SQL or quoted historical migration fields.
 
 - [x] Confirm YARD documentation for new public bridge/helper methods; preserve upstream style within vendored sources and repository conventions in application files. Self-review with Rails code-review and migration-safety guidance. Task 8 adds no public runtime API.
-- [ ] Parent session: fresh final integration/data-safety review before merge. Tasks 1–7 already received their task-level reviews; do not conflate those with this final gate. No child agents were spawned by Task 8.
+- [x] Parent session: fresh final integration/data-safety review approved at `88a2a18` after the MCP explicit-generation follow-up. Parent verification confirmed 466 tests / 2106 assertions, zero failures and the accepted pre-existing crawl error; migration rehearsal 12 / 154 and packaging 2 / 8 passed. This does not approve production rollout or merging with a non-green baseline.
 - [x] Commit only task-owned files after tests/checks. Leave the worktree on its upgrade branch for review; do not merge, push, deploy, or delete the worktree without user direction.
 
 ### Operator release gates (not performed by this implementation)
