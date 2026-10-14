@@ -4,7 +4,7 @@ require "bundler/setup"
 require "minitest/autorun"
 require "active_record"
 require "ruby_llm"
-require "pgvector"
+require "neighbor"
 
 class RubyLLMV2UpgradeTest < Minitest::Test
   DATABASE = "nosia_ruby_llm_upgrade_migration_test"
@@ -20,16 +20,16 @@ class RubyLLMV2UpgradeTest < Minitest::Test
     end
     @migration_files.each { |file| require file }
     ActiveRecord::Base.establish_connection(adapter: "postgresql", database: DATABASE)
-    guard_database!
+    verify_database
     ActiveRecord::Migration.verbose = false
     # Only these scratch tables are removed. Never drop a database/schema or read
     # Rails configuration, DATABASE_URL, dotenv, credentials, or application models.
     fixture_tables = File.read(LEGACY_SCHEMA).scan(/create_table "([^"]+)"/).flatten
-    guard_database!
+    verify_database
     (fixture_tables + %w[ruby_llm_models ruby_llm_tool_calls ruby_llm_usages ruby_llm_batches ruby_llm_v2_backfills schema_migrations ar_internal_metadata]).each do |name|
       connection.drop_table(name, if_exists: true, force: :cascade)
     end
-    guard_database!
+    verify_database
     load LEGACY_SCHEMA
     @tables = {}
     seed_legacy_data
@@ -62,7 +62,7 @@ class RubyLLMV2UpgradeTest < Minitest::Test
     assert_equal [ [ 80, 20, 15, 5, 3 ], [ 12, 4, 2, 1, 6 ], [ nil, nil, nil, nil, nil ] ],
       usages.pluck(:input_tokens, :output_tokens, :cache_read_tokens, :cache_write_tokens, :thinking_tokens)
     assert_equal [ [ "openai", "legacy-answer" ], [ "anthropic", "legacy-tool" ], [ "openai", "legacy-answer" ] ], usages.pluck(:provider, :model)
-    assert_equal [ [ "Chat", 21, "Message", "chat", "succeeded" ] ], usages.distinct.pluck(:chat_type, :chat_id, :message_type, :operation, :status)
+    assert_equal [ [ "Chat", 21, "Message", "chat", "succeeded" ] ], usages.reorder(nil).distinct.pluck(:chat_type, :chat_id, :message_type, :operation, :status)
     assert_equal [ 92, 24, 17, 6, 9 ], %i[input_tokens output_tokens cache_read_tokens cache_write_tokens thinking_tokens].map { |column| usages.sum(column) }
     assert_equal [ [ nil ] * 6 ] * 3, usages.pluck(:input_cost, :output_cost, :cache_read_cost, :cache_write_cost, :thinking_cost, :total_cost)
     assert_equal table(:messages).where(id: [ 103, 104, 106 ]).order(:id).pluck(:created_at, :updated_at), usages.pluck(:created_at, :updated_at)
@@ -83,17 +83,17 @@ class RubyLLMV2UpgradeTest < Minitest::Test
       original_say.call(message, *args)
       raise "simulated interruption after committed usage batch" if message.start_with?("usages: migrated through")
     end
-    error = assert_raises(RuntimeError) { migration.up }
+    error = assert_raises(RuntimeError) { with_batch_size(3) { migration.up } }
     assert_match(/simulated interruption/, error.message)
-    assert_equal 3, table(:ruby_llm_usages).count
+    assert_equal [ 103 ], table(:ruby_llm_usages).pluck(:message_id)
     progress = table(:ruby_llm_v2_backfills).find_by!(task: "usages")
-    assert_equal 107, progress.last_id
+    assert_equal 103, progress.last_id
     refute progress.completed
     committed = table(:ruby_llm_usages).order(:id).map(&:attributes)
     backfill.up
     prepare.up
     backfill.up
-    assert_equal committed, table(:ruby_llm_usages).order(:id).map(&:attributes)
+    assert_equal committed, table(:ruby_llm_usages).where(message_id: 103).map(&:attributes)
     assert_equal({ 103 => 1, 104 => 1, 106 => 1 }, table(:ruby_llm_usages).group(:message_id).count)
     finish.up
     assert_equal @before, snapshot
@@ -107,7 +107,7 @@ class RubyLLMV2UpgradeTest < Minitest::Test
     prepare.up
     error = assert_raises(RuntimeError) { finish.up }
     assert_match(/Run BackfillRubyLlmV2Data before this migration/, error.message)
-    refute connection.columns(:messages).find { |column| column.name == "cache_until_here" }.null == false
+    assert connection.columns(:messages).find { |column| column.name == "cache_until_here" }.null
     connection.create_table(:ruby_llm_v2_backfills, id: false) do |t|
       t.string :task
       t.bigint :last_id
@@ -143,7 +143,7 @@ class RubyLLMV2UpgradeTest < Minitest::Test
       ActiveRecord::Base.connection
     end
 
-    def guard_database!
+    def verify_database
       unless connection.select_value("SELECT current_database()") == DATABASE
         raise "Refusing migration rehearsal outside the dedicated disposable database #{DATABASE}"
       end
@@ -172,6 +172,18 @@ class RubyLLMV2UpgradeTest < Minitest::Test
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       yield
       warn "#{DATABASE} #{phase}: #{format('%.3f', Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)}s (7 messages, not a production estimate)"
+    end
+
+    # Exercise real batch commits without adding ten thousand fixture messages.
+    # Restore the generated production default even when the injection raises.
+    def with_batch_size(size)
+      original = BackfillRubyLlmV2Data::BATCH_SIZE
+      BackfillRubyLlmV2Data.send(:remove_const, :BATCH_SIZE)
+      BackfillRubyLlmV2Data.const_set(:BATCH_SIZE, size)
+      yield
+    ensure
+      BackfillRubyLlmV2Data.send(:remove_const, :BATCH_SIZE)
+      BackfillRubyLlmV2Data.const_set(:BATCH_SIZE, original)
     end
 
     def insert(name, attributes)

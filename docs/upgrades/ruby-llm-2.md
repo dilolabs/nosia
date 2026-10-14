@@ -7,15 +7,19 @@ the scratch database `nosia_ruby_llm_upgrade_test`. Its prerequisite checkpoint
 is exactly RubyLLM **1.16.0**. Task 3 now pins **2.0.0** and vendors the MCP
 bridge, but its runtime compatibility port is not yet implemented. These
 results do not establish that the final 2.0 upgrade is ready for deployment.
+Task 4 now verifies the three rename migrations on the dedicated legacy-schema
+rehearsal database and updates the schema from the normal scratch test database.
+Application model/API adoption and the MCP runtime port remain pending.
 
 Task 2 adds test-only 2.0 contracts on top of `a5ecca3`. They are intentionally
 **RED** on the unchanged 1.16.0 dependency; see the evidence below. Production
 implementation remains for subsequent tasks. Task 3's version/configuration
 checks are green; the other contracts remain RED, with evidence below.
 
-No application accounting, historical `TokenUsage` records, account/chat
-counters, migrations, or schema files were changed. No development or
-production database was accessed, and no deployment was performed.
+Through Task 3, no migrations or schema files changed. Task 4 adds the generated
+phases and schema dump, without rewriting application accounting, historical
+`TokenUsage` records, or account/chat counters. No development or production
+database was accessed, and no deployment was performed.
 
 ## Verified application checkpoints
 
@@ -526,3 +530,176 @@ The **full multistage application image was not built**. No Rails or database
 commands were run in this follow-up. Self-review confirms only `Dockerfile`,
 the standalone regression, and this evidence change; Tasks 4–7 and the known
 intermediate runtime failures remain untouched.
+
+## Task 4: guarded rename-mode migration rehearsal
+
+Implemented from `620e46e` on 2026-10-14. This verifies only the migration task,
+not the whole upgrade or a production rollout. The original `38faaab:db/schema.rb`
+is byte-identically preserved in
+`test/fixtures/files/ruby_llm_1_16_schema.rb`, committed in `72309c2` **before**
+dumping the upgraded schema. The fixture retains PostgreSQL bigint IDs, integer
+roles, pgvector columns, all application tables, and the real foreign keys.
+
+### Safety and reproduction
+
+Create the dedicated rehearsal database once, using a local PostgreSQL role
+allowed to create databases and enable the existing `vector` extension:
+
+```sh
+createdb nosia_ruby_llm_upgrade_migration_test
+bundle exec ruby test/upgrades/ruby_llm_v2.rb
+```
+
+The standalone Minitest file deliberately does **not** match `*_test.rb` and does
+not require `test_helper`, boot the application, read dotenv/database.yml or
+credentials, or instantiate the obsolete `Model`/`ToolCall` classes. It requires
+Active Record, RubyLLM, and Neighbor (the existing pgvector schema DSL support).
+It connects with an explicit adapter/database hash, ignoring `DATABASE_URL`.
+Before any table drops or legacy fixture loading it checks
+`SELECT current_database()` equals **exactly**
+`nosia_ruby_llm_upgrade_migration_test`, failing closed otherwise. It drops only
+the named fixture/upgrade/AR metadata tables in that disposable database, never
+an entire database or schema. Do not run simultaneous rehearsals against it.
+
+Rails commands below use the same fake keys and port-9 endpoint as prior tasks.
+The `-u CI` prevents test-environment eager loading of the old supporting classes:
+
+```sh
+task4_rails() {
+  env -u CI \
+    RAILS_ENV=test \
+    DATABASE_URL=postgresql:///nosia_ruby_llm_upgrade_test \
+    PARALLEL_WORKERS=1 \
+    ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=11111111111111111111111111111111 \
+    ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=22222222222222222222222222222222 \
+    ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=33333333333333333333333333333333 \
+    AI_API_KEY=test-only \
+    AI_BASE_URL=http://127.0.0.1:9/v1 \
+    LLM_MODEL=test-model \
+    EMBEDDING_MODEL=test-embedding \
+    EMBEDDING_DIMENSIONS=4096 \
+    CHUNK_SIZE=512 \
+    CHUNK_OVERLAP=128 \
+    RETRIEVAL_FETCH_K=3 \
+    bin/rails "$@"
+}
+
+# Already generated and checked in: do not generate duplicates.
+task4_rails generate ruby_llm:upgrade --mode rename \
+  chat:Chat message:Message model:Model tool_call:ToolCall
+
+# Run only after the standalone rehearsal is green.
+task4_rails db:migrate
+task4_rails db:schema:dump
+```
+
+The generator exited 0 without eager loading obsolete model declarations and
+produced exactly these three files; no copy, cleanup, or discard flags were used:
+
+| Phase | Checked-in migration | Normal scratch db:migrate elapsed |
+| --- | --- | ---: |
+| Prepare | `20261014152719_prepare_ruby_llm_v2_upgrade.rb` | 0.4172 s |
+| Backfill | `20261014152720_backfill_ruby_llm_v2_data.rb` | 0.1284 s |
+| Finish | `20261014152721_finish_ruby_llm_v2_upgrade.rb` | 0.1383 s |
+
+To execute individual phases on the **same dedicated normal scratch database**
+instead of all pending migrations (these are alternatives, not replay commands):
+
+```sh
+task4_rails db:migrate:up VERSION=20261014152719
+task4_rails db:migrate:up VERSION=20261014152720
+task4_rails db:migrate:up VERSION=20261014152721
+```
+
+Plain `db:migrate` runs all pending phases. It exited 0 only after the standalone
+rehearsal passed and automatically dumped `db/schema.rb` from
+`nosia_ruby_llm_upgrade_test`. Read-only SQL confirmed the connected database,
+latest version `20261014152721`, and all four journal entries completed. An
+explicit `db:schema:dump` also exited 0 after migration. This
+normal scratch database had **zero messages/usages**; the populated legacy
+preservation evidence comes from the separate rehearsal, not that empty migrate.
+No existing development/production database was migrated or reset.
+
+### Test-first failures and narrowly adapted generator output
+
+`bundle exec ruby test/upgrades/ruby_llm_v2.rb --seed 202604` was run before
+generation: **5 runs, 5 assertions, 5 failures, 0 errors**, exit 1, explicitly
+reporting the missing prepare migration. After generation, an initial harness
+setup issue identified missing Neighbor schema-DSL loading; adding its existing
+dependency allowed the complete unmodified legacy fixture to load.
+
+The unmodified generated phases were then run with the same command: **5 runs,
+28 assertions, 1 failure, 3 errors**, exit 1. Prepare raised PostgreSQL
+`PG::InvalidTextRepresentation` for integer role comparison with `'assistant'`,
+including before the missing-identity guard could produce its intended error.
+All raw role predicates were audited: one in each phase. The **only** generated
+source adaptations are those three predicates and their explanatory comments:
+
+```ruby
+# Nosia's historical integer enum encodes assistant as 10; do not load the current Message model.
+conditions << "#{message_value(:role)} = 10" if column_exists?(:messages, :role)
+```
+
+The historical encoding remains system **0**, assistant **10**, user **20**,
+tool **30**. It is fixed migration history, not a lookup from today's app enum.
+No migration framework was replaced, guards removed, or current app classes
+ported to make these tests pass. The generated default batch size stays 10,000.
+
+### Verified preservation and recovery boundaries
+
+The green rehearsal seeds anonymous table classes with real FK order and
+timestamps: user/account/membership, two historical provider-qualified models,
+one chat, seven messages spanning all four roles, a tool call/result, an Active
+Storage blob/attachment, an existing application usage row, and nonzero counters.
+Assertions cover:
+
+- Message count, IDs, integer roles, legacy token columns, chat/model/tool IDs,
+  plaintext, attachment/blob attributes, and tool arguments/signature.
+- Nonempty structured `content_raw` takes precedence over stale plaintext and
+  is copied to `raw_content`; empty JSON preserves plaintext; absent raw remains
+  absent. Tool results gain the correct internal `Message` type/result ID.
+- Exactly three historical usages, including the assistant with all-null token
+  buckets identified through the chat model; explicit message model wins over
+  chat model. Five bucket totals are **92 / 24 / 17 / 6 / 9**, unchanged, with
+  original provider/model/timestamps and **all six price fields nil**.
+- Application `token_usages` attributes and account/chat counters are unchanged.
+  Legacy message columns remain; no cleanup was generated or applied.
+- Every original FK survives its table/column rename, except the generated,
+  intentional removal of `tool_calls.message_id -> messages` when the internal
+  tool-call owner becomes polymorphic. Unrelated application FKs are not removed.
+- Preparation/backfill can retry before finish. A test-only batch size of 3
+  (restored in `ensure`) and a `say` callback force interruption **after commit**:
+  message 103's usage and journal cursor survive; retry creates the remaining
+  two usages, retains the first row byte-for-byte, and does not duplicate rows.
+- Finish refuses absent/incomplete backfills with actionable errors. Prepare
+  refuses unknown provider/model identity before moving any tables; it does not
+  invent identity or prices. Prepare/backfill reject replay after finish.
+  All three `down` methods remain irreversible and DDL transactions disabled.
+
+The final unfiltered command `bundle exec ruby test/upgrades/ruby_llm_v2.rb`
+also passed: **5 runs, 89 assertions, 0 failures, 0 errors, 0 skips**, exit 0,
+seed `7918`, **9.748071 s** total; populated phases **0.366 / 0.169 / 0.142 s**.
+The first fully green seeded run was **5 runs, 89 assertions, 0 failures,
+0 errors, 0 skips**, exit 0, seed `202604`, in **9.930930 s** including fixture
+recreation per test. The measured populated happy-path phases were **0.354 s /
+0.161 s / 0.141 s**. These tiny local fixtures and empty scratch migrations are
+**not production downtime estimates**. A production-sized snapshot, reviewed
+lock behavior, tested backup/restore, matching 1.16 application, drained AI
+work, and maintenance remain release preconditions. Rename mode requires all
+affected writers stopped; even concurrent indexes do not make renames/DDL online.
+On failure keep AI paused and diagnose the failed phase; never skip its guards.
+Recovery after cutover restores the matching database backup and application
+together, not `db:rollback`. New 2.0 writes do not maintain legacy columns.
+
+Self-review checks task-only ownership, exact database guards, generator-only
+SQL adaptation, retained FKs/columns, interruption commits, unknown prices, and
+the schema diff. The harness passes RuboCop without a temporary parser override;
+generated upstream formatting is retained. A read-only ERB comparison against
+the installed 2.0.0 generator templates verified all three files differ only by
+the documented role line/comment. Ruby compilation checked the three migrations
+and original schema fixture successfully; `git diff --check` was clean.
+There is no new application public
+API requiring YARD in this task. Task 5 must still remove obsolete supporting
+declarations and port runtime associations/readers; Task 7's MCP compatibility
+port remains RED. The full Rails suite and autoload validation were deliberately
+not represented as green or rerun here; the accepted crawler baseline is unchanged.
