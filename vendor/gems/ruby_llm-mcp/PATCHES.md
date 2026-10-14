@@ -46,9 +46,10 @@ These are the complete imported-source differences from the archive above:
 | --- | --- |
 | `lib/ruby_llm/mcp/attachment.rb` | Strict base64 decode into `StringIO`, invoke the parent with filename `mcp-attachment`, then retain the declared MIME type. Inherit real `content`, `encoded`, `source`, `config`, and `byte_size`; malformed base64 raises rather than becoming a path or URL. |
 | `lib/ruby_llm/mcp/content.rb` | Ordinary bridge-owned text/attachments value, not a removed core subclass or global shim. Accept only already-built attachments (single or array, compacting nils). `to_tool_result` returns text or the supported string/attachment array; `to_message(role:)` separates the two fields. |
+| `lib/ruby_llm/mcp/configuration.rb` | Add the application-owned `resource_url_validator` callback. Fresh/reset configurations leave it nil, so HTTP resource reads fail closed until a policy is explicitly installed. |
 | `lib/ruby_llm/mcp/tool.rb` | Expose the full nested schema through `parameters_schema` and the corresponding `to_h` key. Convert every text/image/audio/embedded-resource/resource-link block; preserve all files, first and last. Structured JSON remains authoritative, including with accompanying attachments; retain output-schema validation and error hashes. Return only real RubyLLM-supported tool result types. |
 | `lib/ruby_llm/mcp/prompt.rb` | Build real messages with separate text/files. Read standard `data`/`mimeType` media fields, retaining the upstream legacy field fallback, and consume embedded resource contents without rereading their URI. |
-| `lib/ruby_llm/mcp/resource.rb` | Include converted messages, never a content value in `Message#content`. Direct HTTP(S) reads retain `HTTPX.get`, check `raise_for_status`, and return a real `MCP::Result` containing the body's String value. HTTP status/transport failures propagate as their original HTTPX exceptions, not successful content or a masked `NoMethodError`. Resource URI dispatch is unchanged. |
+| `lib/ruby_llm/mcp/resource.rb` | Include converted messages, never a content value in `Message#content`. Every direct HTTP(S) fetch first requires a callable URL validator returning truthy approval; missing/rejecting policy raises `ConfigurationError`, and policy exceptions propagate before network I/O. Then retain `HTTPX.get`, check `raise_for_status`, and return a real `MCP::Result` containing the body's String value. HTTP status/transport failures propagate as their original HTTPX exceptions. URI dispatch is unchanged; vendor code does not reference the host application's URL-guard class. |
 | `lib/ruby_llm/mcp/sample.rb` | Convert sampling inputs into real messages with separate attachments. |
 | `lib/ruby_llm/mcp/handlers/concerns/sampling_actions.rb` | Same conversion for handler-based sampling, including system instructions. |
 | `lib/ruby_llm/mcp/native/messages/responses.rb` | Remove the last removed-core-content type check. Serialize actual message text and attachments, using base64 wire data and `finish_reason`. Keep singular responses for one block. Multiple blocks require MCP 2025-11-25 or newer; older protocols explicitly raise `InvalidFormatError` rather than silently losing files or sending an invalid array. |
@@ -77,9 +78,38 @@ objects** for both HTTP and HTTPS links and direct resource inclusion. These
 exercise public bridge APIs, metadata registration/caching, surrounding text,
 structured results plus all files, status errors, and transport errors. The
 initial `git://`-only contract did not cover the raw-Hash HTTP reader defect;
-that defect is fixed in the already-listed `resource.rb`, so the inventory
-remains **10 modified imported files / 110 pristine files**. HTTP(S) is not
+that defect is fixed in the already-listed `resource.rb`. The subsequent quality
+review also adds `configuration.rb`, making the final inventory **11 modified
+imported files / 109 pristine files**. HTTP(S) is not
 rerouted through MCP `resource_read` or a replacement transport.
+
+### Task 7 quality-review security and JSON boundaries
+
+The host app installs `config.resource_url_validator = ->(url) { UrlGuard.verify!(url) }`
+in `config/initializers/ruby_llm.rb`. This enforces Nosia's existing outbound
+policy for resource links, including links beside plain text or structured
+results, and direct resource reads. Tests use the actual initializer callback
+with fake DNS and count zero HTTP calls for metadata, loopback, RFC1918, private
+IPv6, and private/mixed DNS results. Unset/non-callable/false/nil approvals fail
+closed. HTTPX's default resource-reader session does **not** follow redirects;
+a real request-pipeline test with canned physical I/O verifies a public redirect
+to metadata never causes a second request. Do not enable redirect-following
+without validating each destination before I/O.
+
+**Known limitation retained:** `UrlGuard.verify!` resolves before HTTPX makes
+its own connection. The documented DNS-rebinding/TOCTOU window remains; this
+patch does not pin resolved IPs or claim all SSRF risks are eliminated. Stdio,
+SSE, streamable HTTP, OAuth, and their policies are not rewritten.
+
+The app tool-execution controller now converts only its HTTP JSON response:
+real attachments become `{type, data, mimeType, filename}` with strict base64
+data, arrays/hashes recurse without changing keys/order, and JSON primitives
+remain unchanged. Unsupported objects fail rather than invoking arbitrary
+`as_json`/IO inspection. The model/LLM loop still receives the real decoded
+RubyLLM attachment objects. PNG/audio endpoint regressions exercise the actual
+remote tool, `McpServer#execute_tool`, authenticated route, and JSON rendering;
+plain/structured/error semantics and the existing argument/tenant boundaries
+are retained. No core attachment serializer or global monkey patch is added.
 
 ## Maintenance and removal
 

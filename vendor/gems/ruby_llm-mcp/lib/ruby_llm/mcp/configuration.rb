@@ -215,6 +215,9 @@ module RubyLLM
       attr_reader :extensions, :protocol_track
       attr_writer :logger, :mcp_configuration, :protocol_version
 
+      # @return [#call, nil] application URL policy; HTTP resource fetches require a truthy approval
+      attr_accessor :resource_url_validator
+
       REQUEST_TIMEOUT_DEFAULT = 8000
       VALID_PROTOCOL_TRACKS = %i[stable draft].freeze
 
@@ -357,6 +360,7 @@ module RubyLLM
         # MCPs configuration
         @mcps_config_path = nil
         @mcp_configuration = []
+        @resource_url_validator = nil
 
         # Rails specific configuration
         @launch_control = :automatic

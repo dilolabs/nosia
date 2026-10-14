@@ -65,6 +65,11 @@ class RubyLlmMcpCompatibilityTest < ActiveSupport::TestCase
 
   setup do
     @adapter = CannedAdapter.new
+    stub_url_resolver([ "93.184.216.34" ])
+  end
+
+  teardown do
+    unstub_url_resolver
   end
 
   test "loads the exact RubyLLM 2.0 release" do
@@ -303,6 +308,102 @@ class RubyLlmMcpCompatibilityTest < ActiveSupport::TestCase
       assert_not resource.content_loaded?
       assert_empty @adapter.calls
     end
+  end
+
+  test "application initializer installs the real outbound resource URL policy" do
+    config = RubyLLM::MCP.config
+    assert_respond_to config, :resource_url_validator
+    assert_respond_to config.resource_url_validator, :call
+    assert_instance_of URI::HTTPS, config.resource_url_validator.call("https://resources.example.com/note")
+    stub_url_resolver([ "169.254.169.254" ])
+    assert_raises(UrlGuard::Blocked) { config.resource_url_validator.call("http://169.254.169.254/latest/meta-data/") }
+  end
+
+  {
+    "metadata" => [ "http://169.254.169.254/latest/meta-data/", [ "169.254.169.254" ] ],
+    "loopback" => [ "http://127.0.0.1/private", [ "127.0.0.1" ] ],
+    "rfc1918_10" => [ "http://10.0.0.1/private", [ "10.0.0.1" ] ],
+    "rfc1918_172" => [ "http://172.16.0.1/private", [ "172.16.0.1" ] ],
+    "rfc1918_192" => [ "http://192.168.1.1/private", [ "192.168.1.1" ] ],
+    "ipv6_loopback" => [ "http://[::1]/private", [ "::1" ] ],
+    "ipv6_private" => [ "http://[fc00::1]/private", [ "fc00::1" ] ],
+    "ipv6_linklocal" => [ "http://[fe80::1]/private", [ "fe80::1" ] ],
+    "private_hostname" => [ "https://private-resources.example.com/secret", [ "10.1.2.3" ] ],
+    "mixed_dns" => [ "https://mixed-resources.example.com/secret", [ "93.184.216.34", "192.168.1.1" ] ]
+  }.each do |label, (uri, addresses)|
+    %w[text structured].each do |mode|
+      test "resource URL policy blocks #{label} links beside #{mode} before HTTP" do
+        stub_url_resolver(addresses)
+        extra = mode == "structured" ? { "structuredContent" => { "count" => 3 } } : {}
+        canned_result([ text_block("before"), { "type" => "resource_link", "uri" => uri, "name" => "secret" }, text_block("after") ], extra)
+        with_canned_http_response(canned_http_response(uri, text: "credentials never fetched")) do |requests|
+          assert_raises(UrlGuard::Blocked) { remote_tool.call }
+          assert_empty requests
+          assert_not @adapter.registered_resources.fetch(0).content_loaded?
+        end
+      end
+    end
+  end
+
+  test "resource URL policy validates each direct HTTP fetch including after cache reset" do
+    uri = "https://resources.example.com/note"
+    resource = RubyLLM::MCP::Resource.new(@adapter, "uri" => uri, "name" => "note")
+    with_canned_http_response(canned_http_response(uri, text: "public body")) do |requests|
+      assert_equal "public body", resource.content
+      resource.reset_content!
+      stub_url_resolver([ "127.0.0.1" ])
+      assert_raises(UrlGuard::Blocked) { resource.include(plain_chat) }
+      assert_equal [ uri ], requests
+      assert_not resource.content_loaded?
+    end
+  end
+
+  test "HTTP resource URL policy fails closed when the validator is unset or rejects" do
+    config = RubyLLM::MCP.config
+    assert_respond_to config, :resource_url_validator
+    previous = config.resource_url_validator
+    [ nil, false, ->(_) { false }, ->(_) { nil } ].each do |validator|
+      config.resource_url_validator = validator
+      uri = "https://resources.example.com/note"
+      resource = RubyLLM::MCP::Resource.new(@adapter, "uri" => uri)
+      with_canned_http_response(canned_http_response(uri, text: "must not be fetched")) do |requests|
+        assert_raises(RubyLLM::MCP::Errors::ConfigurationError) { resource.content }
+        assert_empty requests
+      end
+    end
+  ensure
+    config.resource_url_validator = previous if config.respond_to?(:resource_url_validator=)
+  end
+
+  test "new and reset MCP configurations default to no HTTP resource validator" do
+    config = RubyLLM::MCP::Configuration.new
+    assert_respond_to config, :resource_url_validator
+    assert_nil config.resource_url_validator
+    config.resource_url_validator = ->(_) { true }
+    config.reset!
+    assert_nil config.resource_url_validator
+  end
+
+  test "resource HTTP reader does not follow redirects to blocked hosts" do
+    uri = "https://resources.example.com/redirect"
+    requests = []
+    responses = []
+    original_send = HTTPX::Session.instance_method(:send_request)
+    HTTPX::Session.define_method(:send_request) do |request, _selector, *_|
+      requests << request.uri.to_s
+      response = HTTPX::Response.new(request, 302, "1.1", { "location" => "http://169.254.169.254/latest/meta-data/" })
+      response << "redirect response"
+      response.finish!
+      responses << response
+      request.response = response
+    end
+    resource = RubyLLM::MCP::Resource.new(@adapter, "uri" => uri)
+    assert_equal "redirect response", resource.content
+    assert_equal [ uri ], requests
+  ensure
+    HTTPX::Session.define_method(:send_request, original_send)
+    HTTPX::Session.send(:private, :send_request)
+    responses&.each(&:close)
   end
 
   test "prompt fetch and inclusion use real messages with separate attachments" do

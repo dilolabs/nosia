@@ -112,6 +112,11 @@ module RubyLLM
       end
 
       def fetch_uri_content(uri)
+        validator = MCP.config.resource_url_validator
+        unless validator.respond_to?(:call) && validator.call(uri)
+          raise Errors::ConfigurationError.new(message: "HTTP resources require an approving resource_url_validator")
+        end
+
         response = HTTPX.get(uri)
         response.raise_for_status
         Result.new({ "result" => { "contents" => [{ "text" => response.body.to_s }] } })

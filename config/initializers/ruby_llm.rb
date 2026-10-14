@@ -6,3 +6,7 @@ RubyLLM.configure do |config|
   config.openai_protocol = :chat_completions
   config.openai_use_system_role = true # Use 'system' role instead of 'developer'
 end
+
+RubyLLM::MCP.configure do |config|
+  config.resource_url_validator = ->(url) { UrlGuard.verify!(url) }
+end

@@ -1704,3 +1704,167 @@ equal to the response text. No full application image or in-image dependency
 installation is claimed. Review confirms the runtime diff remains exactly the
 two HTTP-reader lines described above; other bridge conversions and all
 transport/auth/URI dispatch code are untouched by this follow-up.
+
+### Task 7 quality-review follow-up: outbound policy and binary-safe tool JSON
+
+Review of `28ef68ed0261f4a0c183ab377e8dd4b13164fe6e` identified two blockers in
+the newly reachable all-block conversion. A resource link beside text or
+structured output could fetch a private/metadata HTTP URL without Nosia's
+outbound policy. Separately, Rails tried to serialize decoded attachment/IO
+state in the AJAX tool endpoint; a real binary PNG raised
+`JSON::GeneratorError: "\x89" from ASCII-8BIT to UTF-8`.
+
+This follow-up changes only eight files:
+
+- `vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/configuration.rb`
+- `vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/resource.rb`
+- `config/initializers/ruby_llm.rb`
+- `app/controllers/mcp_servers_controller.rb`
+- `test/lib/ruby_llm_mcp_compatibility_test.rb`
+- `test/controllers/mcp_servers_controller_test.rb`
+- `vendor/gems/ruby_llm-mcp/PATCHES.md`
+- This runbook.
+
+#### Security boundary
+
+The vendored configuration exposes one documented callback,
+`resource_url_validator`, defaulting to nil on initialization/reset. Before
+**every** HTTP(S) resource fetch, the resource reader requires a callable
+validator with a truthy result; unset/non-callable/false/nil approval raises
+`MCP::Errors::ConfigurationError` before I/O. Policy exceptions propagate.
+The app initializer installs `->(url) { UrlGuard.verify!(url) }`; vendor code has
+no reference to the application constant and no weaker URL-policy fallback.
+HTTP(S) still uses `HTTPX.get`; non-HTTP resource dispatch, all transport
+implementations, credentials, and the existing server endpoint/stdio guards
+are unchanged.
+
+Tests exercise the **actual initializer callback** with fake DNS, not only a
+stubbed vendor validator. Metadata, loopback, all three RFC1918 ranges, IPv6
+loopback/private/link-local, private-resolving hostnames, and mixed public/private
+DNS results must raise `UrlGuard::Blocked` with **zero HTTP fetches**, both
+beside plain text and beside structured output. Public HTTP/HTTPS fixtures use
+the real guard with public fake DNS plus canned HTTPX I/O. Direct resource reads
+are rechecked after cache reset; this is validation on a new fetch, not a claim
+to solve DNS rebinding. New/reset configurations and rejection callbacks also
+have explicit fail-closed contracts.
+
+HTTPX's default resource session does not enable `follow_redirects`. The redirect
+test runs the actual `HTTPX.get`/request/response pipeline and replaces only its
+physical `Session#send_request`, restoring the method and visibility in `ensure`.
+A public 302 pointing to `169.254.169.254` produces exactly one request, never
+a metadata fetch. No redirect plugin or replacement transport was introduced.
+Future redirect-following would require destination validation **before every
+redirect request**.
+
+**Remaining known limitation:** `UrlGuard.verify!` resolves DNS before HTTPX
+independently connects. The existing DNS-rebinding/TOCTOU window documented in
+`lib/url_guard.rb` remains open; closing it requires IP-pinned connections and
+is not claimed here. This patch enforces the existing Nosia policy; it does not
+claim all outbound-network/SSRF risks have been eliminated.
+
+#### HTTP serialization boundary
+
+Only the tool-execution controller's JSON response is converted. A real
+`RubyLLM::Attachment` becomes `{type, data, mimeType, filename}`, with type as a
+String and data from the attachment's base64 `encoded` API. Arrays and hashes
+recurse without changing their keys/order; JSON primitives remain unchanged.
+Unsupported objects raise `TypeError` rather than entering arbitrary `as_json`
+or IO inspection. No global serializer, core monkey patch, or model/LLM result
+conversion is added. The existing permitted tool-argument JSON object and
+account-scoped lookup are unchanged; no record attributes are mass-assigned.
+
+Endpoint tests use real remote MCP tool conversion, real
+`McpServer#execute_tool`, and the authenticated controller route, replacing only
+the remote client/adapter I/O. Actual non-UTF8 PNG and audio bytes must round-trip
+through base64 with exact MIME/filename fields and no `StringIO` internals.
+Plain text and structured JSON remain unchanged; remote error hashes retain
+their wrapper semantics. A direct model call in those same tests still returns
+real decoded attachments. A separate nested-IO rejection contract verifies
+Rails never invokes that object's `as_json`.
+
+#### RED/GREEN and verification
+
+All Rails commands use the unchanged `task7_rails` safe environment above,
+only `nosia_ruby_llm_upgrade_test`, and seed **202607**. No development/production
+DB, migration, reset, deployment, Task 8 work, or child agent is involved.
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| New policy/initializer and binary endpoint repros before runtime changes | 27 | 31 | 24 | 2 | 1 |
+| Same selection after initial fixes | **27** | **133** | **0** | **0** | **0** |
+| Unsupported nested IO before primitive-only JSON fallback | 1 | 1 | 1 | 0 | 1 |
+| Final complete MCP/local-engine/endpoint set | **103** | **569** | **0** | **0** | **0** |
+| Packaging regression | **2** | **8** | **0** | **0** | **0** |
+| Full non-system suite after both fixes | **445** | **1919** | **0** | **1** | **1** |
+
+The initial RED independently reproduced private HTTP reads instead of
+`UrlGuard::Blocked`, the missing configuration/initializer contract, missing
+revalidation after cache reset, and both real PNG JSON errors. The existing
+default no-redirect behavior was a passing characterization in that selection,
+not claimed as a newly failing feature. The final focused set additionally
+includes the false/non-callable validator case, error-hash preservation, and
+unsupported-IO rejection. It completed in **7.364649 s**. The full unfiltered
+suite completed after all runtime/test changes in **403.184424 s**, with no
+skips. Its only error is the accepted
+`Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts` embedding
+connection failure at `127.0.0.1:9`. There are **no MCP, adapter, policy, or JSON
+endpoint failures/errors**. This records a completed full run, not a claim that
+the entire suite or release gate is green.
+
+```sh
+# RED, then initial GREEN:
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/controllers/mcp_servers_controller_test.rb \
+  --include '/resource_URL_policy|outbound_resource_URL|HTTP_resource_validator|blocked_hosts|remote_binary/' \
+  --seed 202607
+# Independent unsupported-object RED:
+task7_rails test test/controllers/mcp_servers_controller_test.rb \
+  --include '/unsupported_IO/' --seed 202607
+# Final focused set:
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/ruby_llm_mcp_transport_test.rb test/lib/engines \
+  test/lib/mcp_catalog_registry_test.rb test/models/mcp_server_test.rb \
+  test/models/mcp_server_local_test.rb test/controllers/mcp_servers_controller_test.rb \
+  test/integration/local_engine_chat_test.rb test/integration/activate_engine_test.rb \
+  test/integration/engines_boot_test.rb --seed 202607
+task7_rails test --seed 202607
+bundle exec ruby test/packaging/ruby_llm_path_dependency.rb --seed 202607
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  app/controllers/mcp_servers_controller.rb config/initializers/ruby_llm.rb \
+  test/controllers/mcp_servers_controller_test.rb test/lib/ruby_llm_mcp_compatibility_test.rb
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml --only Lint \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/configuration.rb \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/resource.rb
+git diff --check
+```
+
+The four app/test Ruby files and two edited vendor Ruby files pass their stated
+lint checks; upstream vendor style is otherwise retained. The supported target
+remains exactly RubyLLM **2.0.0** / MCP **1.0.1**. `PATCHES.md` inventories the
+new configuration file, making **11 modified imported files / 109 pristine
+files** out of 120, against the original verified archive SHA. No gemspec,
+dependency, schema, ledger, or transport source change is included. This remains
+Task 7 hardening, not a Task 8/deployment or live-interoperability certification.
+
+Packaging was also rebuilt with the final policy-hook source and patch note:
+
+```sh
+# From vendor/gems/ruby_llm-mcp:
+gem build ruby_llm-mcp.gemspec \
+  --output /tmp/opencode/nosia-rubyllm2-research/ruby_llm-mcp-1.0.1-nosia-task7-security-json.gem
+# From the worktree:
+docker build \
+  --file /tmp/opencode/nosia-rubyllm2-research/task3-packaging/Dockerfile.packaging \
+  --output type=local,dest=/tmp/opencode/nosia-rubyllm2-research/task7-security-json-packaging/rootfs .
+env BUNDLE_GEMFILE=/tmp/opencode/nosia-rubyllm2-research/task7-security-json-packaging/rootfs/rails/Gemfile bundle check
+bundle exec ruby -e 'files = Dir["vendor/gems/ruby_llm-mcp/lib/**/*.rb"]; files.each { |file| RubyVM::InstructionSequence.compile_file(file) }; puts "Compiled #{files.size} vendored Ruby sources"'
+```
+
+All commands exit 0. All **135** exported dependency files hash-match source,
+and all **105** vendored Ruby sources compile. An exported-Gemfile standalone
+check loads MCP 1.0.1 from that vendor path against RubyLLM 2.0.0, verifies that
+an unset validator refuses a real resource read with **zero canned HTTP calls**,
+then explicitly opts into its public canned fixture and verifies its String
+content. That packaging-only process does not load the app initializer; the
+actual app callback is independently covered by the Rails contracts above.
+No full application image/in-image install or existing database was used.
