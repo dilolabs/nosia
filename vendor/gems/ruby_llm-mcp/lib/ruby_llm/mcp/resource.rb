@@ -113,7 +113,8 @@ module RubyLLM
 
       def fetch_uri_content(uri)
         response = HTTPX.get(uri)
-        { "result" => { "contents" => [{ "text" => response.body }] } }
+        response.raise_for_status
+        Result.new({ "result" => { "contents" => [{ "text" => response.body.to_s }] } })
       end
     end
   end

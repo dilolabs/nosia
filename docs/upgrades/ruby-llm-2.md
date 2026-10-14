@@ -1596,3 +1596,111 @@ dependency/schema/accounting files. Live authenticated MCP interoperability,
 system/browser tests, and the standalone migration rehearsal are not rerun here.
 Task 8's release gate, production-sized rehearsal/recovery, and deployment
 approval remain outstanding; this is not an overall-upgrade completion claim.
+
+### Task 7 specification-review follow-up: direct HTTP resource-link results
+
+Review of `9cbcc8cf38d0abbbc0a7984f8e893188327d87b5` found a missed URI branch.
+The new all-block tool conversion reaches HTTP(S) resource links even when
+other text exists. `Resource#content` expects an `MCP::Result`, but the unchanged
+HTTP reader returned a raw Hash containing an `HTTPX::Response::Body` object.
+Both linked-tool results and direct resource inclusion therefore raised
+`NoMethodError: undefined method 'error?' for an instance of Hash`; an HTTPX
+transport error instead raised a masking `ErrorResponse#body` NoMethodError.
+The original `git://`-only test did not exercise this defect.
+
+The follow-up owns only four files: the already-patched vendored `resource.rb`,
+`test/lib/ruby_llm_mcp_compatibility_test.rb`, this runbook, and `PATCHES.md`.
+The runtime change checks `response.raise_for_status`, then wraps the response
+envelope in the actual `MCP::Result`, storing `response.body.to_s`. Existing
+HTTPX status/transport exceptions propagate instead of becoming success text.
+There is no rescue shim, HTTP status-to-MCP error-code invention, URI dispatch
+rewrite, new transport, auth/header change, SDK replacement, or application
+code change. HTTP(S) still calls `HTTPX.get`; non-HTTP still calls the adapter's
+`resource_read`. No database setup/migration, development/production DB access,
+deployment, or child agent is involved.
+
+Seven public-API regressions use actual HTTPX Request/Response/Body and
+ErrorResponse objects constructed locally. Only `HTTPX.get` is replaced with a
+canned response and restored in `ensure`; no real HTTP request or DNS lookup is
+made by these tests. Coverage includes:
+
+- HTTP **and** HTTPS resource links with text before/after them, exact URI
+  dispatch, retained registered name/URI/description/MIME metadata, cached String
+  content, and reuse without refetching.
+- HTTP **and** HTTPS `Resource#include` on a real plain chat, with String content
+  and no accidental attachments or MCP `resource_read` calls.
+- A schema-validated structured result containing an HTTP resource link,
+  preserving authoritative JSON and both first-image/last-audio attachments.
+- Real HTTPX 404/503 exceptions, no persisted chat message or cached successful
+  resource body on failure, and the identical original transport exception.
+
+All Rails commands reuse the exact safe `task7_rails` environment above and
+seed **202607** against only `nosia_ruby_llm_upgrade_test`.
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Seven new HTTP contracts before reader fix | 7 | 2 | 2 | 5 | 1 |
+| Same contracts after reader fix | **7** | **64** | **0** | **0** | **0** |
+| Entire MCP/local-engine focused set after fix | **74** | **429** | **0** | **0** | **0** |
+| Standalone Docker path packaging regression | **2** | **8** | **0** | **0** | **0** |
+| Full non-system suite after fix | **416** | **1779** | **0** | **1** | **1** |
+
+The focused run completed in **6.933569 s**. The complete unfiltered suite
+finished in **284.395959 s**, with no skips. Its only error is the accepted
+`Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts` embedding
+connection failure at `127.0.0.1:9`; there are no MCP/local-adapter failures or
+errors. This is exact completed-run evidence, not a green full-suite claim.
+
+```sh
+# Identical RED/GREEN command, before/after the two-line reader adaptation.
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  --include '/resource_links_retain_metadata|resource_inclusion_converts|HTTP_resource/' \
+  --seed 202607
+
+# Full MCP/local-engine set, unchanged selection from the Task 7 gate.
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/ruby_llm_mcp_transport_test.rb test/lib/engines \
+  test/lib/mcp_catalog_registry_test.rb test/models/mcp_server_test.rb \
+  test/models/mcp_server_local_test.rb test/controllers/mcp_servers_controller_test.rb \
+  test/integration/local_engine_chat_test.rb test/integration/activate_engine_test.rb \
+  test/integration/engines_boot_test.rb --seed 202607
+task7_rails test --seed 202607
+bundle exec ruby test/packaging/ruby_llm_path_dependency.rb --seed 202607
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  test/lib/ruby_llm_mcp_compatibility_test.rb
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  --only Lint vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/resource.rb
+git diff --check
+```
+
+Both changed Ruby files pass their lint checks. No public method was added;
+only the private HTTP-reader return/error contract changes. `PATCHES.md` now
+describes that exact behavior. The complete imported-source inventory remains
+ten documented differences and 110 pristine files against the same published
+1.0.1 archive SHA above. This follow-up does not claim Task 8, live authenticated
+MCP interoperability, or deployment readiness.
+
+The vendored gem was rebuilt outside Git, and the unchanged Docker pre-install
+COPY fixture was rerun with the final resource source/patch note:
+
+```sh
+# From vendor/gems/ruby_llm-mcp:
+gem build ruby_llm-mcp.gemspec \
+  --output /tmp/opencode/nosia-rubyllm2-research/ruby_llm-mcp-1.0.1-nosia-task7-resource-link.gem
+# From the worktree:
+docker build \
+  --file /tmp/opencode/nosia-rubyllm2-research/task3-packaging/Dockerfile.packaging \
+  --output type=local,dest=/tmp/opencode/nosia-rubyllm2-research/task7-resource-link-packaging/rootfs .
+env BUNDLE_GEMFILE=/tmp/opencode/nosia-rubyllm2-research/task7-resource-link-packaging/rootfs/rails/Gemfile bundle check
+```
+
+All three commands exit 0. All **135** exported dependency files hash-match
+source. Reading the built gem's data archive also confirms `resource.rb` matches
+the final source byte-for-byte, with MCP 1.0.1 and the exact RubyLLM 2.0.0 pin.
+An exported-Gemfile `bundle exec ruby -r ruby_llm/mcp` check verifies
+MCP 1.0.1 resolves from that export against RubyLLM 2.0.0 and runs a real
+`Resource#content` conversion with a canned HTTPX response, requiring a String
+equal to the response text. No full application image or in-image dependency
+installation is claimed. Review confirms the runtime diff remains exactly the
+two HTTP-reader lines described above; other bridge conversions and all
+transport/auth/URI dispatch code are untouched by this follow-up.

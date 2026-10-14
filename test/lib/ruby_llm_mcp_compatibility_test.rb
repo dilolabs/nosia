@@ -220,6 +220,91 @@ class RubyLlmMcpCompatibilityTest < ActiveSupport::TestCase
     assert_equal({ uri: "git://server/readme" }, @adapter.calls.last)
   end
 
+  %w[http https].each do |scheme|
+    test "#{scheme} resource links retain metadata and surrounding tool text" do
+      uri = "#{scheme}://resources.example.com/readme?format=text"
+      link = { "type" => "resource_link", "name" => "linked", "uri" => uri, "description" => "readme", "mimeType" => "text/plain" }
+      canned_result([ text_block("before"), link, text_block("after") ])
+
+      with_canned_http_response(canned_http_response(uri, text: "linked café")) do |requests|
+        result = remote_tool.call
+        assert_equal "before\nlinked: readme\n\nlinked café\nafter", result
+        assert_equal [ uri ], requests
+        assert_equal [ { name: "lookup", parameters: {} } ], @adapter.calls
+        resource = @adapter.registered_resources.fetch(0)
+        assert_equal "linked", resource.name
+        assert_equal uri, resource.uri
+        assert_equal "readme", resource.description
+        assert_equal "text/plain", resource.mime_type
+        assert resource.content_loaded?
+        assert_instance_of String, resource.content
+        assert_equal "linked café", resource.content
+        resource.include(plain_chat)
+        assert_equal [ uri ], requests, "registered resource should retain its fetched content"
+        assert_same resource, @adapter.registered_resources.fetch(0)
+      end
+    end
+
+    test "#{scheme} resource inclusion converts the HTTPX body into message text" do
+      uri = "#{scheme}://resources.example.com/note"
+      resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "note", "description" => "notes", "uri" => uri, "mimeType" => "text/plain")
+      chat = plain_chat
+      with_canned_http_response(canned_http_response(uri, text: "resource body")) do |requests|
+        resource.include(chat)
+        assert_equal "note: notes\n\nresource body", chat.messages.last.content
+        assert_empty chat.messages.last.attachments
+        assert_instance_of String, resource.content
+        assert_equal "resource body", resource.content
+        assert_empty @adapter.calls, "HTTP URIs must not be redirected to MCP resource_read"
+        assert_equal [ uri ], requests
+      end
+    end
+  end
+
+  test "HTTP resource links retain structured tool output and every accompanying attachment" do
+    uri = "https://resources.example.com/structured"
+    canned_result([ media_block("image", "image/png", "first image"), text_block("summary"),
+      { "type" => "resource_link", "name" => "linked", "uri" => uri, "mimeType" => "text/plain" },
+      media_block("audio", "audio/wav", "last audio") ], "structuredContent" => { "count" => 3 })
+    schema = { "type" => "object", "properties" => { "count" => { "type" => "integer" } }, "required" => [ "count" ] }
+
+    with_canned_http_response(canned_http_response(uri, text: "linked body")) do |requests|
+      text, files = RubyLLM::Tool.split_result(remote_tool(output_schema: schema).call)
+      assert_equal({ "count" => 3 }, JSON.parse(text))
+      assert_equal [ "first image", "last audio" ], files.map(&:content)
+      assert_equal [ "image/png", "audio/wav" ], files.map(&:mime_type)
+      assert_equal "linked body", @adapter.registered_resources.fetch(0).content
+      assert_equal [ uri ], requests
+    end
+  end
+
+  test "HTTP resource status errors stay errors instead of becoming successful resource text" do
+    [ 404, 503 ].each do |status|
+      uri = "https://resources.example.com/status/#{status}"
+      resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "missing", "uri" => uri)
+      chat = plain_chat
+      with_canned_http_response(canned_http_response(uri, status: status, text: "not resource content")) do
+        error = assert_raises(HTTPX::HTTPError) { resource.include(chat) }
+        assert_equal status, error.response.status
+        assert_empty chat.messages
+        assert_not resource.content_loaded?
+        assert_empty @adapter.calls
+      end
+    end
+  end
+
+  test "HTTP resource transport errors retain their original exception" do
+    uri = "http://resources.example.com/unavailable"
+    request = HTTPX::Session.new.build_request("GET", uri)
+    failure = IOError.new("canned HTTP resource failure")
+    resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "unavailable", "uri" => uri)
+    with_canned_http_response(HTTPX::ErrorResponse.new(request, failure)) do
+      assert_same failure, assert_raises(IOError) { resource.content }
+      assert_not resource.content_loaded?
+      assert_empty @adapter.calls
+    end
+  end
+
   test "prompt fetch and inclusion use real messages with separate attachments" do
     @adapter.prompt_messages = [
       { "role" => "user", "content" => text_block("prompt text") },
@@ -337,6 +422,24 @@ class RubyLlmMcpCompatibilityTest < ActiveSupport::TestCase
   end
 
   private
+    def canned_http_response(uri, status: 200, text:)
+      request = HTTPX::Session.new.build_request("GET", uri)
+      HTTPX::Response.new(request, status, "1.1", { "content-type" => "text/plain; charset=utf-8" }).tap do |response|
+        response << text
+        response.finish!
+      end
+    end
+
+    def with_canned_http_response(response)
+      original_get = HTTPX.method(:get)
+      requests = []
+      HTTPX.define_singleton_method(:get) { |uri| requests << uri; response }
+      yield requests
+    ensure
+      HTTPX.define_singleton_method(:get, original_get)
+      response.close
+    end
+
     def sampling_request(coordinator)
       result = RubyLLM::MCP::Result.new({ "id" => "sample", "method" => "sampling/createMessage", "params" => {
         "systemPrompt" => "system instructions", "maxTokens" => 100,
