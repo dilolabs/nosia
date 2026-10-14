@@ -18,9 +18,13 @@ module Chunk::Searchable
   # Records the query-embedding TokenUsage for a chat-scoped similarity search.
   # The chat is the source (the scope runs before the triggering user message is
   # reliably persisted in all flows); chat_id carries the aggregation axis.
-  # No-op when there is no chat or no input_tokens.
+  # No-op when there is no chat or no positive normalized input.
+  # @param embedding_result [RubyLLM::Embedding, nil] Result exposing normalized tokens
+  # @param chat [Chat, nil] Chat responsible for the query embedding
+  # @return [TokenUsage, nil] The ledger event, or nil when not attributable/reported
+  # @raise [ActiveRecord::RecordInvalid] if the ledger event cannot be saved
   def self.record_query_embedding_usage(embedding_result, chat:)
-    return unless chat && embedding_result&.input_tokens&.positive?
+    return unless chat && embedding_result&.tokens&.input&.positive?
 
     TokenUsage.create!(
       account_id: chat.account_id,
@@ -28,7 +32,7 @@ module Chunk::Searchable
       kind: :embedding,
       source: chat,
       model_id: ENV["EMBEDDING_MODEL"],
-      input_tokens: embedding_result.input_tokens,
+      input_tokens: embedding_result.tokens.input,
       output_tokens: 0
     )
   end

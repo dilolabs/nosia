@@ -70,6 +70,33 @@ class MessageTest < ActiveSupport::TestCase
     assert_equal [], message.attached_document_ids
   end
 
+  test "tool calls expose a hash while persistence filters use internal records" do
+    caller = @chat.messages.create!(role: :assistant, content: "Searching")
+    result = @chat.messages.create!(role: :tool, content: "Found")
+    first_call = caller.ruby_llm_tool_calls.create!(tool_call_id: "call_search", name: "search", arguments: {}, result: result)
+    caller.ruby_llm_tool_calls.create!(tool_call_id: "call_more", name: "search", arguments: {})
+    excluded = @chat.messages.create!(role: :tool, content: "Internal")
+    excluded.ruby_llm_tool_calls.create!(tool_call_id: "call_internal", name: "search", arguments: {})
+
+    assert_kind_of Hash, caller.tool_calls
+    assert_equal %w[call_more call_search], caller.tool_calls.keys.sort
+    assert_equal first_call.tool_call_id, result.parent_tool_call.id
+    assert_equal [ result ], caller.tool_results
+    assert_equal [ caller.id, result.id ], @chat.messages.without_tool_calls.map(&:id)
+    assert_equal [ caller.id ], @chat.messages.for_user.map(&:id)
+  end
+
+  test "broadcast_created skips intermediate assistant messages with internal tool calls" do
+    message = @chat.messages.create!(role: :assistant, content: "")
+    message.ruby_llm_tool_calls.create!(tool_call_id: "call_hidden", name: "search", arguments: {})
+
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+      message.broadcast_created
+    end
+
+    assert_empty streams
+  end
+
   # Lexxy emits lexxy:insert-link only on paste, so a TYPED url never goes
   # through /chat_sources. attach_website_sources_from_content! is the
   # server-side path that turns http(s) urls in the message body into crawled

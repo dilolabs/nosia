@@ -9,12 +9,13 @@ bridge, but its runtime compatibility port is not yet implemented. These
 results do not establish that the final 2.0 upgrade is ready for deployment.
 Task 4 now verifies the three rename migrations on the dedicated legacy-schema
 rehearsal database and updates the schema from the normal scratch test database.
-Application model/API adoption and the MCP runtime port remain pending.
+Task 5 adopts the supporting associations and normalized accounting readers;
+request/instruction/catalog/usage-UI changes and the MCP runtime port remain pending.
 
 Task 2 adds test-only 2.0 contracts on top of `a5ecca3`. They are intentionally
 **RED** on the unchanged 1.16.0 dependency; see the evidence below. Production
 implementation remains for subsequent tasks. Task 3's version/configuration
-checks are green; the other contracts remain RED, with evidence below.
+checks were green at that checkpoint; subsequent task evidence follows below.
 
 Through Task 3, no migrations or schema files changed. Task 4 adds the generated
 phases and schema dump, without rewriting application accounting, historical
@@ -827,3 +828,180 @@ also passed Ruby compilation. Self-review confirms exact FK targeting, atomic
 replacement/retry, preserved blank/raw semantics, active corruption checks,
 scratch-only schema adjustment, and unchanged application/gem code. Tasks 5/7
 and production-sized rehearsal/recovery validation remain pending.
+
+## Task 5: supporting associations and normalized accounting
+
+Implemented from `ed0ee33647f170269ce3065a86ba2904bba7c15e` on 2026-10-14,
+using the installed RubyLLM **2.0.0**. This is only the persistence/accounting
+task, not completion of the upgrade or deployment approval. No migration,
+schema, dependency, request options, instructions, catalog, token-footer view,
+or MCP implementation changes are included. No development/production database
+was accessed. All Rails commands used only `nosia_ruby_llm_upgrade_test` with
+fake credentials and the deliberately unreachable local provider endpoint.
+
+### Ownership and behavior
+
+- Remove the obsolete application `Model` and `ToolCall` declarations. The gem
+  now owns its supporting records. Remove the duplicate Chat model/messages
+  associations and Message model/tool-call associations. The macro owns Chat's
+  internal registry foreign key and deterministic **created_at, id** message
+  ordering. Application chat/message associations, integer roles, attachments,
+  callbacks, and other fields remain intact.
+- Blank-assistant cleanup, the existing `without_tool_calls` SQL predicate,
+  and the intermediate-assistant broadcast guard use `ruby_llm_tool_calls`,
+  never relation methods on the public `tool_calls` hash. Model/helper searches
+  found no remaining legacy tool-call persistence reads to change.
+- Completion and skill accounting read `message.tokens` and string
+  `message.model`. Standard input/output map unchanged to the application
+  ledger; cache reads/writes map to `cached_tokens`/`cache_creation_tokens`,
+  and thinking remains its own bucket. Completion still skips unreported input
+  and deduplicates by source. Skills retain input-**or**-output eligibility and
+  their execution source. Optional buckets default to zero; reported zero input
+  is not treated as missing. No historical events or counters are replayed.
+- Both embedding concerns, including the after-save pending-result guard, use
+  `tokens.input`. Query recording still requires a chat; both paths retain the
+  configured `EMBEDDING_MODEL` identity rather than substituting the result model.
+  Vector generation/persistence and the existing pending-result lifecycle are
+  unchanged.
+- Existing accounting tests now create real provider attempts through
+  `message.ruby_llm_usages.create!` with required chat/operation/provider/model/
+  status fields, not retained message token columns. The 120/30 persisted test
+  asserts the supporting record is `RubyLLM::ActiveRecord::Usage`. The original
+  normalized singleton contracts and all original behavior assertions remain.
+  Skill instruction stubs accept keyword arguments without porting instructions.
+- The prior prerequisite token test now uses the supported 2.0 constructor
+  keywords `cache_read:`/`cache_write:`; all five assertions are preserved.
+  No global compatibility shim or shared helper change was introduced.
+
+The new embedding callback regressions execute real `generate_embedding` via
+`before_save`, store the vector and pending result, then execute after-save
+recording. Only `RubyLLM.embed` is temporarily replaced with a local result and
+restored in `ensure`; no provider call is made. Positive input records once and
+clears pending state. Zero, unreported input, and absent tokens record nothing
+and retain pending state, matching the previous lifecycle. Tests also cover
+timestamp ties, public tool-call hashes and result links, SQL distinctness,
+intermediate broadcast suppression, and chat destruction with attachments,
+internal calls, and both ledgers.
+
+### Test-first and final evidence
+
+Every run below used seed **202605**, with no skips.
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Existing Task 2 ledger/embedding/skill and blank/history contracts, before runtime edits | 22 | 2 | 0 | 21 | 1 |
+| New callback/lifecycle/filter/broadcast regressions, before runtime edits | 8 | 0 | 0 | 8 | 1 |
+| Accounting contracts after association adoption, before token-reader changes | 34 | 37 | 4 | 19 | 1 |
+| Focused accounting/persistence contracts after changes | 34 | 140 | 0 | 0 | 0 |
+| Full focused model/accounting set (11 files) | **78** | **273** | **0** | **0** | **0** |
+| Placeholder, HTML normalization, stream-buffer regressions (3 files) | **12** | **25** | **0** | **0** | **0** |
+| Broader focused set after final token-constructor correction (17 files) | **105** | **316** | **1** | **11** | **1** |
+
+Initial RED reasons were 17 setup errors from removed `acts_as_model` and four
+embedding `input_tokens` errors. New callback tests independently reached that
+obsolete reader in `record_embedding_usage_if_needed`; the other new tests were
+initially blocked by the same supporting-model setup. After association adoption,
+accounting RED exposed the intended `legacy token reader used` failures and
+missing application events despite real provider usage, plus query-embedding
+reader errors. Three intermediate test setup/assertion issues were corrected:
+read ordering from the association rather than executing Rails' wrapped scope
+without its relation context; select full messages rather than PostgreSQL-invalid
+`DISTINCT id ORDER BY created_at`; attach before adding calls to avoid exercising
+the deferred tool-call rendering partial in a deletion-lifecycle test.
+
+The 80/20 normalized completion contract verifies all five buckets, exact source/
+account/chat/model identity, and exactly 80 input / 20 output increments on both
+account and chat; a second call changes neither events nor counters. Separate
+persisted-usage tests cover output-only completion skip, zero-input creation,
+unreported/nil messages, and output-only skill recording with zero defaults.
+
+The broader run's remaining boundaries are **not** the accepted crawler baseline:
+
+- Task 6: two token-footer setup errors (`Model` removed / Message `model:` is
+  no longer an association) and one catalog setup error referencing `Model`.
+  These UI tests and views were deliberately not rewritten here.
+- Task 7: seven local tool-adapter errors and one local-server adapter error
+  from removed `RubyLLM::Tool.params`; MCP attachment decoding still fails
+  because it returns the base64 wire payload as content. Repeated adapter setup
+  also emits constant-redefinition warnings.
+- While arranging the lifecycle regression, attaching to an assistant that
+  already has calls reproduced the deferred `messages/_tool_calls.html.erb`
+  array-pair/`name` error from iterating the new hash as a relation. No view fix
+  was included. The final broader command does not exercise that attachment path.
+
+The existing stubbed streaming and stop-generation tests pass in the focused
+set. They do not establish real request compatibility: `with_params` and old
+instruction keywords remain for Task 6. An initial broader run also identified
+the prerequisite token test's old constructor keywords (105 runs, 311 assertions,
+1 failure, 12 errors); only that accounting test was corrected before the final
+broader rerun above. The full suite, real providers, and accepted unstubbed-crawl
+baseline were not rerun or fixed.
+
+### Exact reproduction and review
+
+Use `task4_rails` from the safety section above; it expands every call to the
+complete approved scratch-only environment and unsets `CI`.
+
+```sh
+task5_test() { task4_rails test "$@" --seed 202605; }
+
+contracts=(
+  test/models/chat/completionable_test.rb
+  test/models/chunk/vectorizable_test.rb
+  test/models/chunk/searchable_test.rb
+  test/models/agent_skill/executor_test.rb
+  test/models/chat_test.rb
+)
+
+# Initial RED (before runtime changes).
+task5_test "${contracts[@]}" \
+  --include '/record_completion_usage|embedding|executor records|purge_blank|chronological/'
+task5_test test/models/chat_test.rb test/models/message_test.rb \
+  test/models/chunk/vectorizable_test.rb \
+  --include '/timestamp_ties|destroying_a_chat|tool_calls_expose|intermediate_assistant|saving_generated_embeddings/'
+
+# Unblocked accounting RED, then GREEN with the same command.
+task5_test "${contracts[@]}" test/models/message_test.rb \
+  --include '/record_completion_usage|embedding|executor records|executor skips|purge_blank|chronological|timestamp_ties|destroying_a_chat|tool_calls_expose|intermediate_assistant/'
+
+focused=(
+  test/models/chat_test.rb test/models/message_test.rb
+  test/models/chat/completionable_test.rb test/models/chat/stop_generation_test.rb
+  test/models/chunk/vectorizable_test.rb test/models/chunk/searchable_test.rb
+  test/models/chunk_embedding_storage_test.rb test/models/agent_skill/executor_test.rb
+  test/models/account_test.rb test/models/token_usage_test.rb
+  test/lib/ruby_llm_tokens_test.rb
+)
+task5_test "${focused[@]}"
+task5_test test/models/message_placeholder_test.rb \
+  test/models/message_html_to_markdown_test.rb test/models/message/stream_buffer_test.rb
+
+# Intentionally still RED at the documented Task 6/7 boundaries.
+task5_test "${focused[@]}" test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/engines/tool_adapter_test.rb test/models/mcp_server_test.rb \
+  test/models/mcp_server_local_test.rb test/integration/token_footer_test.rb \
+  test/integration/models_consumption_column_test.rb
+
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  app/models/chat.rb app/models/message.rb app/models/chunk/vectorizable.rb \
+  app/models/chunk/searchable.rb app/models/agent_skill/executor.rb \
+  test/models/chat_test.rb test/models/message_test.rb \
+  test/models/chat/completionable_test.rb test/models/chunk/vectorizable_test.rb \
+  test/models/agent_skill/executor_test.rb test/lib/ruby_llm_tokens_test.rb
+git diff --check
+```
+
+A read-only Rails runner verified the exact connected scratch database and
+schema version **20261014152721**, Chat's model class
+`RubyLLM::ActiveRecord::Model` with foreign key `ruby_llm_model_id`, unchanged
+role mapping **0/10/20/30**, and absence of the two obsolete supporting files.
+No migration command was run. The runtime-matching RuboCop configuration is the
+existing four-line temporary parser override documented in Task 2, not a repo
+configuration change. The final lint run inspected all 11 changed Ruby files
+with no offenses, and `git diff --check` was clean. Public accounting documentation
+now describes normalized inputs, return values, and persistence failures.
+Self-review checked the complete
+owned diff, macro ordering/ownership, SQL joins, nil/zero eligibility, cache
+mapping, source deduplication, pending callback lifecycle, and unchanged Task 6/7
+boundaries. Task 5's focused behavior is green; the intermediate upgrade remains
+unsuitable for deployment until the later tasks and release verification finish.

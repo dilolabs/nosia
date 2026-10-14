@@ -81,19 +81,21 @@ class AgentSkill
     private
 
     def record_agent_skill_usage(message)
-      return unless message && (message.input_tokens || message.output_tokens)
+      return unless message
+      tokens = message.tokens
+      return unless tokens.input || tokens.output
 
       TokenUsage.create!(
         account_id: @execution.account_id,
         chat_id: @execution.chat_id,
         kind: :agent_skill,
         source: @execution,
-        model_id: message.model&.model_id,
-        input_tokens: message.input_tokens || 0,
-        output_tokens: message.output_tokens || 0,
-        cached_tokens: message.cached_tokens || 0,
-        cache_creation_tokens: message.cache_creation_tokens || 0,
-        thinking_tokens: message.thinking_tokens || 0
+        model_id: message.model,
+        input_tokens: tokens.input || 0,
+        output_tokens: tokens.output || 0,
+        cached_tokens: tokens.cache_read || 0,
+        cache_creation_tokens: tokens.cache_write || 0,
+        thinking_tokens: tokens.thinking || 0
       )
     end
 

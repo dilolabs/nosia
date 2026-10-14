@@ -12,8 +12,8 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
   end
 
   test "record_completion_usage! creates a TokenUsage for an assistant message with tokens" do
-    msg = @chat.messages.create!(role: :assistant, content: "hi",
-                                 input_tokens: 120, output_tokens: 30, model: nil)
+    msg = assistant_with_usage
+    assert_kind_of RubyLLM::ActiveRecord::Usage, msg.ruby_llm_usages.first
     assert_difference -> { TokenUsage.where(source: msg).count }, 1 do
       @chat.record_completion_usage!(msg)
     end
@@ -25,38 +25,35 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
   end
 
   test "record_completion_usage! stores the ruby_llm string model_id via message.model" do
-    model = Model.create!(model_id: "glm-5.2", name: "GLM 5.2", provider: "openai")
-    msg = @chat.messages.create!(role: :assistant, content: "hi",
-                                 input_tokens: 10, output_tokens: 5, model: model)
+    msg = assistant_with_usage(input_tokens: 10, output_tokens: 5)
     @chat.record_completion_usage!(msg)
     assert_equal "glm-5.2", TokenUsage.find_by(source: msg).model_id
   end
 
   test "record_completion_usage! is idempotent (no dupe on re-run)" do
-    msg = @chat.messages.create!(role: :assistant, content: "hi",
-                                 input_tokens: 10, output_tokens: 5)
+    msg = assistant_with_usage(input_tokens: 10, output_tokens: 5)
     @chat.record_completion_usage!(msg)
     assert_no_difference -> { TokenUsage.count } do
       @chat.record_completion_usage!(msg)
     end
   end
 
-  test "record_completion_usage! stores nil model_id gracefully when Model is absent" do
-    msg = @chat.messages.create!(role: :assistant, content: "hi",
-                                 input_tokens: 10, output_tokens: 5, model: nil)
+  test "record_completion_usage! stores nil model_id gracefully when the message model is absent" do
+    msg = assistant_with_usage(input_tokens: 10, output_tokens: 5)
+    msg.define_singleton_method(:model) { nil }
     @chat.record_completion_usage!(msg)
     assert_nil TokenUsage.find_by(source: msg).model_id
   end
 
   test "record_completion_usage! skips messages without input_tokens" do
-    msg = @chat.messages.create!(role: :assistant, content: "hi", input_tokens: nil)
+    msg = assistant_with_usage(input_tokens: nil)
     assert_no_difference -> { TokenUsage.count } do
       @chat.record_completion_usage!(msg)
     end
   end
 
   test "record_completion_usage! records normalized tokens and a string model exactly once" do
-    msg = @chat.messages.create!(role: :assistant, content: "normalized usage", model: nil)
+    msg = assistant_with_usage(input_tokens: 80, output_tokens: 20)
     tokens = Struct.new(:input, :output, :cache_read, :cache_write, :thinking).new(80, 20, 15, 5, 3)
     msg.define_singleton_method(:tokens) { tokens }
     msg.define_singleton_method(:model) { "glm-5.2" }
@@ -93,6 +90,30 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
     ] do
       @chat.record_completion_usage!(msg)
     end
+  end
+
+  test "record_completion_usage! skips nil messages and messages without provider usage" do
+    msg = @chat.messages.create!(role: :assistant, content: "unreported")
+    assert_no_difference -> { TokenUsage.count } do
+      @chat.record_completion_usage!(nil)
+      @chat.record_completion_usage!(msg)
+    end
+  end
+
+  test "record_completion_usage! records zero input and defaults unreported buckets to zero" do
+    msg = assistant_with_usage(input_tokens: 0, output_tokens: nil, cache_read_tokens: nil, cache_write_tokens: nil, thinking_tokens: nil)
+    assert_difference -> { TokenUsage.where(source: msg).count }, 1 do
+      @chat.record_completion_usage!(msg)
+    end
+    usage = TokenUsage.find_by!(source: msg)
+    assert_equal [ 0, 0, 0, 0, 0 ], usage.attributes.values_at("input_tokens", "output_tokens", "cached_tokens", "cache_creation_tokens", "thinking_tokens")
+  end
+
+  def assistant_with_usage(**tokens)
+    msg = @chat.messages.create!(role: :assistant, content: "hi")
+    msg.ruby_llm_usages.create!(chat: @chat, operation: "chat", provider: "openai", model: "glm-5.2", status: "succeeded",
+      **{ input_tokens: 120, output_tokens: 30, cache_read_tokens: 15, cache_write_tokens: 5, thinking_tokens: 3 }.merge(tokens))
+    msg.reload
   end
 
   def assistant_with_stubbed_update
