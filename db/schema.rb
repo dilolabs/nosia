@@ -610,7 +610,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
   add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "messages", "chats"
   add_foreign_key "messages", "ruby_llm_models", column: "model_id"
-  add_foreign_key "messages", "ruby_llm_tool_calls", column: "tool_call_id"
+  add_foreign_key "messages", "ruby_llm_tool_calls", column: "tool_call_id", on_delete: :nullify
   add_foreign_key "prompts", "accounts"
   add_foreign_key "prompts", "users"
   add_foreign_key "qnas", "accounts"

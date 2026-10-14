@@ -632,8 +632,10 @@ The unmodified generated phases were then run with the same command: **5 runs,
 28 assertions, 1 failure, 3 errors**, exit 1. Prepare raised PostgreSQL
 `PG::InvalidTextRepresentation` for integer role comparison with `'assistant'`,
 including before the missing-identity guard could produce its intended error.
-All raw role predicates were audited: one in each phase. The **only** generated
-source adaptations are those three predicates and their explanatory comments:
+All raw role predicates were audited: one in each phase. At the initial Task 4
+checkpoint `d5af481`, the only generated source adaptations were those three
+predicates and their explanatory comments. The preservation fixes below add
+two further narrowly scoped adaptations:
 
 ```ruby
 # Nosia's historical integer enum encodes assistant as 10; do not load the current Message model.
@@ -666,7 +668,9 @@ Assertions cover:
   Legacy message columns remain; no cleanup was generated or applied.
 - Every original FK survives its table/column rename, except the generated,
   intentional removal of `tool_calls.message_id -> messages` when the internal
-  tool-call owner becomes polymorphic. Unrelated application FKs are not removed.
+  tool-call owner becomes polymorphic. The quality-review follow-up below also
+  changes only the obsolete `messages.tool_call_id` FK's delete action to
+  `ON DELETE SET NULL`; unrelated application FKs are not removed or changed.
 - Preparation/backfill can retry before finish. A test-only batch size of 3
   (restored in `ensure`) and a `say` callback force interruption **after commit**:
   message 103's usage and journal cursor survive; retry creates the remaining
@@ -676,7 +680,7 @@ Assertions cover:
   invent identity or prices. Prepare/backfill reject replay after finish.
   All three `down` methods remain irreversible and DDL transactions disabled.
 
-The final unfiltered command `bundle exec ruby test/upgrades/ruby_llm_v2.rb`
+The initial checkpoint's final command `bundle exec ruby test/upgrades/ruby_llm_v2.rb`
 also passed: **5 runs, 89 assertions, 0 failures, 0 errors, 0 skips**, exit 0,
 seed `7918`, **9.748071 s** total; populated phases **0.366 / 0.169 / 0.142 s**.
 The first fully green seeded run was **5 runs, 89 assertions, 0 failures,
@@ -691,15 +695,135 @@ On failure keep AI paused and diagnose the failed phase; never skip its guards.
 Recovery after cutover restores the matching database backup and application
 together, not `db:rollback`. New 2.0 writes do not maintain legacy columns.
 
-Self-review checks task-only ownership, exact database guards, generator-only
-SQL adaptation, retained FKs/columns, interruption commits, unknown prices, and
+Self-review checks task-only ownership, exact database guards, documented
+generator adaptations, retained FKs/columns, interruption commits, unknown prices, and
 the schema diff. The harness passes RuboCop without a temporary parser override;
 generated upstream formatting is retained. A read-only ERB comparison against
-the installed 2.0.0 generator templates verified all three files differ only by
-the documented role line/comment. Ruby compilation checked the three migrations
+the installed 2.0.0 generator templates verified that initial checkpoint differed
+only by the documented role line/comment. That historical comparison does not
+describe the expanded adaptations below. Ruby compilation checked the three migrations
 and original schema fixture successfully; `git diff --check` was clean.
 There is no new application public
 API requiring YARD in this task. Task 5 must still remove obsolete supporting
 declarations and port runtime associations/readers; Task 7's MCP compatibility
 port remains RED. The full Rails suite and autoload validation were deliberately
 not represented as green or rerun here; the accepted crawler baseline is unchanged.
+
+### Task 4 quality-review follow-up: deletion and blank-content preservation
+
+Review of `d5af481` exposed two preservation defects; neither original Task 4
+commit was amended. This follow-up still changes only Task 4 migration/test/schema
+and evidence files, not application or gem source. The real database rollout
+has **not** happened: use these corrected migrations for its first execution.
+
+**Historical tool results:** the retained
+`messages.tool_call_id -> ruby_llm_tool_calls.id` FK had `NO ACTION`. RubyLLM
+2.0 destroys a caller's internal tool calls before the result message; unlike
+1.16, its tool-call model does not nullify that old pointer first. Direct internal
+call deletion, caller destruction, and chat destruction all reproduced
+`PG::ForeignKeyViolation` on `fk_rails_552873cb52`.
+
+Finish now changes only that FK to `on_delete: :nullify`, **after** verifying
+backfills/usages/results and making the legacy column nullable. It locates the
+exact existing source column/target, preserves its name and other options, and
+does nothing if the obsolete FK is absent. Removal/recreation is atomic in a
+short DDL transaction; the replacement is added unvalidated and then validated.
+Retry checks the existing action and validates any interrupted replacement.
+No cascading result deletion or broad FK removal is introduced. This DDL can
+still take locks: keep the existing maintenance/no-writers requirement.
+
+The harness now loads the real RubyLLM 2.0 AR macros/internal records explicitly,
+using separate test-only `RuntimeChat`/`RuntimeMessage` classes on the existing
+tables and historical polymorphic names. It does not boot Nosia or load its
+callbacks. Tests verify direct call deletion and real 2.0 caller destruction
+retain every result attribute except the nullified legacy pointer; chat
+destruction completes with its dependent rows removed. FK comparison permits
+**only** the documented action change, and finish retry retains the FK options
+and validation. Full application callback/attachment deletion coverage remains
+Task 5 integration work.
+
+**Blank raw payloads:** generated backfill/finish validation rejected all NULL
+plaintext with non-SQL-NULL `content_raw`, although the upstream renderer
+deliberately keeps the original plaintext for blank raw values. Both verifiers
+now use the unchanged `RubyLLM::Generators::LegacyContentSQL.render` expression
+and PostgreSQL `IS DISTINCT FROM`: the raw JSON must equal `content_raw`, and
+the plaintext must equal the renderer's expected result, null-safely. Finish
+explicitly requires the helper so it works independently of backfill loading.
+The original backfill transformation is unchanged. This strengthens rejection
+of wrong non-NULL content/raw data instead of merely dropping the old check.
+
+The fixture matrix adds both NULL and non-NULL plaintext for SQL NULL, JSON
+null, `false`, `[]`, `{}`, empty strings, and whitespace strings including a
+nonbreaking space. Tests exercise backfill and finish independently and compare
+raw JSON null-safely. Both phases must still reject absent plaintext, absent raw
+payload, corrupt nonblank plaintext, and corrupt nonblank raw JSON. Existing
+nonempty JSON precedence, accounting, interruption, and guard tests remain.
+
+Test-first evidence, all against `nosia_ruby_llm_upgrade_migration_test`:
+
+| Stage | Result | Exit |
+| --- | --- | ---: |
+| Deletion regressions before FK fix, seed `202604` | 8 runs, 98 assertions, 1 failure, 3 FK errors | 1 |
+| After targeted FK fix, seed `202604` | 8 runs, 111 assertions, no failures/errors | 0 |
+| Blank/corrupt-content regressions before verifier fix, seed `202604` | 12 runs, 137 assertions, 2 failures, 2 errors | 1 |
+| After verifier fix, seed `202604` | 12 runs, 151 assertions, no failures/errors | 0 |
+| Final unfiltered harness, seed `48583` | **12 runs, 154 assertions, no failures/errors/skips**, **25.028505 s** | 0 |
+
+Final populated happy-path phase timings were **0.407 / 0.166 / 0.151 s** for
+the seven-message base fixture; the separate blank-value tests add fourteen
+variants. These are local correctness timings, not production estimates.
+
+The normal scratch database already recorded finish as applied; `db:migrate`
+would not rerun this edited unreleased migration. After the harness passed,
+only its targeted relaxation was applied there, with an exact database guard,
+then its schema was dumped. Using the `task4_rails` function above, the exact
+scratch-only repair and dump were:
+
+```sh
+task4_rails runner '
+  expected = "nosia_ruby_llm_upgrade_test"
+  actual = ActiveRecord::Base.connection.select_value("SELECT current_database()")
+  abort "Refusing scratch FK repair in #{actual}" unless actual == expected
+  require Rails.root.join("db/migrate/20261014152721_finish_ruby_llm_v2_upgrade.rb").to_s
+  FinishRubyLlmV2Upgrade.new.send(:relax_legacy_message_constraints)
+  key = ActiveRecord::Base.connection.foreign_keys(:messages).find { |candidate| candidate.column == "tool_call_id" && candidate.to_table == "ruby_llm_tool_calls" }
+  abort "FK repair failed" unless key.on_delete == :nullify && key.validate?
+  puts "#{actual}: only legacy tool-result FK relaxed and validated"
+'
+task4_rails db:schema:dump
+```
+
+Both exited 0. The resulting schema diff is exactly one FK declaration gaining
+`on_delete: :nullify`; its version remains `20261014152721`. This private-method
+repair is an explicitly authorized **scratch-only** exception, not a production
+replay procedure. If any real database had applied an earlier finish, stop for
+a separately reviewed forward-fix plan rather than assuming `db:migrate` applies
+edits to previously recorded migrations. No development/production DB was touched.
+
+Current generator differences are intentionally more than the three role
+predicates: both content verifiers, finish's explicit renderer require, and
+finish's single legacy FK relaxation are also adapted. Prepare remains otherwise
+unaltered. The upstream gem/framework source remains unchanged.
+
+Final checks, all exit 0:
+
+```sh
+bundle exec ruby test/upgrades/ruby_llm_v2.rb
+bundle exec rubocop test/upgrades/ruby_llm_v2.rb
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  --only Lint db/migrate/20261014152719_prepare_ruby_llm_v2_upgrade.rb \
+  db/migrate/20261014152720_backfill_ruby_llm_v2_data.rb \
+  db/migrate/20261014152721_finish_ruby_llm_v2_upgrade.rb
+bundle exec ruby -r active_record \
+  -r ./db/migrate/20261014152721_finish_ruby_llm_v2_upgrade.rb \
+  -e 'abort "Finish did not load its own renderer" unless defined?(RubyLLM::Generators::LegacyContentSQL); puts "Finish independently loads LegacyContentSQL"'
+git diff --check
+```
+
+The temporary migration-lint config is the previously documented four-line
+runtime-matching Ruby 4 parser override, not a repository configuration change.
+Generated upstream formatting is retained; all three migrations and the harness
+also passed Ruby compilation. Self-review confirms exact FK targeting, atomic
+replacement/retry, preserved blank/raw semantics, active corruption checks,
+scratch-only schema adjustment, and unchanged application/gem code. Tasks 5/7
+and production-sized rehearsal/recovery validation remain pending.

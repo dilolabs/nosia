@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'generators/ruby_llm/upgrade/legacy_content_sql'
+
 class FinishRubyLlmV2Upgrade < ActiveRecord::Migration[8.0]
   disable_ddl_transaction!
 
@@ -31,6 +33,26 @@ class FinishRubyLlmV2Upgrade < ActiveRecord::Migration[8.0]
 
       with_upgrade_safety { change_column_null :messages, column, true }
     end
+    relax_legacy_tool_result_foreign_key
+  end
+
+  def relax_legacy_tool_result_foreign_key
+    key = connection.foreign_keys(:messages).find do |candidate|
+      candidate.column == 'tool_call_id' && candidate.to_table == 'ruby_llm_tool_calls'
+    end
+    return unless key
+
+    # 2.0 destroys the internal call before its historical result message.
+    # Retain the result and all other FKs; only the obsolete pointer is cleared.
+    if key.on_delete != :nullify
+      with_upgrade_safety do
+        connection.transaction do
+          remove_foreign_key :messages, name: key.name
+          add_foreign_key :messages, :ruby_llm_tool_calls, **key.options.merge(on_delete: :nullify, validate: false)
+        end
+      end
+    end
+    validate_foreign_key :messages, name: key.name
   end
 
   def mark_finished
@@ -82,9 +104,14 @@ class FinishRubyLlmV2Upgrade < ActiveRecord::Migration[8.0]
   def verify_message_content
     return unless column_exists?(:messages, :content_raw)
 
+    # Blank raw JSON keeps the original plaintext, including NULL. Nonblank raw
+    # must still render exactly, and the raw payload itself must be preserved.
+    rendered_content = RubyLLM::Generators::LegacyContentSQL.new(connection).render(
+      content: quote_column(:content), raw: quote_column(:content_raw)
+    )
     missing = migration_record(:messages)
               .where.not(content_raw: nil)
-              .where('raw_content IS NULL OR content IS NULL')
+              .where("raw_content IS DISTINCT FROM content_raw::jsonb OR content IS DISTINCT FROM (#{rendered_content})")
               .limit(1)
               .pick(connection.primary_key(:messages))
     raise "Message #{missing} did not preserve content_raw" if missing

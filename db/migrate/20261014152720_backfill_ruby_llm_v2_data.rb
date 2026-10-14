@@ -143,9 +143,14 @@ class BackfillRubyLlmV2Data < ActiveRecord::Migration[8.0]
   def verify_message_content
     return unless column_exists?(:messages, :content_raw)
 
+    # Blank raw JSON keeps the original plaintext, including NULL. Nonblank raw
+    # must still render exactly, and the raw payload itself must be preserved.
+    rendered_content = RubyLLM::Generators::LegacyContentSQL.new(connection).render(
+      content: quote_column(:content), raw: quote_column(:content_raw)
+    )
     missing = migration_record(:messages)
               .where.not(content_raw: nil)
-              .where('raw_content IS NULL OR content IS NULL')
+              .where("raw_content IS DISTINCT FROM content_raw::jsonb OR content IS DISTINCT FROM (#{rendered_content})")
               .limit(1)
               .pick(connection.primary_key(:messages))
     raise "Message #{missing} did not preserve content_raw" if missing
