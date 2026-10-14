@@ -9,16 +9,14 @@ class Message < ApplicationRecord
   scope :without_system_prompts, -> { where.not(role: [ :system, :tool ]) }
   scope :with_content, -> { where("role != 10 OR (role = 10 AND content IS NOT NULL AND content != '')") }
   scope :without_tool_calls, -> {
-    left_joins(:tool_calls)
-      .where("messages.role != 30 OR tool_calls.id IS NULL")
+    left_joins(:ruby_llm_tool_calls)
+      .where("messages.role != 30 OR ruby_llm_tool_calls.id IS NULL")
       .distinct
   }
 
   enum :role, { system: 0, assistant: 10, user: 20, tool: 30 }
 
   belongs_to :chat
-  belongs_to :model, optional: true
-  has_many :tool_calls, dependent: :destroy
   has_many :token_usages, as: :source, dependent: :destroy
 
   before_create :set_default_role
@@ -73,7 +71,7 @@ class Message < ApplicationRecord
 
     # EN: If it's an assistant message with tool_calls, DO NOT broadcast
     # They are intermediate messages not meant for the user
-    if assistant? && tool_calls.exists?
+    if assistant? && ruby_llm_tool_calls.exists?
       Rails.logger.info "🚫 Skipping broadcast for intermediate assistant message ##{id} with tool_calls"
       return
     end

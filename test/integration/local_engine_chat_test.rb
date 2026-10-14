@@ -35,7 +35,7 @@ class LocalEngineChatTest < ActiveSupport::TestCase
     assert tools.any? { |t| t.name == "openalex_search_works" }, "OpenAlex tool not wired into chat"
 
     adapted = tools.find { |t| t.name == "openalex_search_works" }
-    result = adapted.call({ "query" => "einstein" })
+    result = adapted.call(**{ "query" => "einstein" })
     assert_match(/Relativity/, result)
   end
 end

@@ -1,0 +1,136 @@
+# frozen_string_literal: true
+
+module RubyLLM
+  module MCP
+    class Prompt
+      class Argument
+        attr_reader :name, :description, :required
+
+        def initialize(name:, description:, required:)
+          @name = name
+          @description = description
+          @required = required
+        end
+
+        def to_h
+          {
+            name: @name,
+            description: @description,
+            required: @required
+          }
+        end
+      end
+
+      attr_reader :name, :description, :arguments, :adapter
+
+      def initialize(adapter, prompt)
+        @adapter = adapter
+        @name = prompt["name"]
+        @description = prompt["description"]
+        @arguments = parse_arguments(prompt["arguments"])
+      end
+
+      def fetch(arguments = {})
+        fetch_prompt_messages(arguments)
+      end
+
+      def include(chat, arguments: {})
+        validate_arguments!(arguments)
+        messages = fetch_prompt_messages(arguments)
+
+        messages.each { |message| chat.add_message(message) }
+        chat
+      end
+
+      # @param chat [RubyLLM::Chat, Object] plain chat or acts_as_chat record
+      # @param arguments [Hash] MCP prompt arguments
+      # @return [RubyLLM::Message, nil] generated response or a tool response awaiting approval
+      def ask(chat, arguments: {}, &)
+        include(chat, arguments: arguments)
+
+        # MCP explicitly requests generation, even after an assistant prefill.
+        # The normal loop must still execute tools and honor approval pauses.
+        chat.generate(&) if chat.complete?
+        chat.complete(&)
+      end
+
+      alias say ask
+
+      def complete(argument, value, context: nil)
+        if @adapter.capabilities.completion?
+          result = @adapter.completion_prompt(name: @name, argument: argument, value: value, context: context)
+          if result.error?
+            return result.to_error
+          end
+
+          response = result.value["completion"]
+
+          Completion.new(argument: argument, values: response["values"], total: response["total"],
+                         has_more: response["hasMore"])
+        else
+          message = "Completion is not available for this MCP server"
+          raise Errors::Capabilities::CompletionNotAvailable.new(message: message)
+        end
+      end
+
+      def to_h
+        {
+          name: @name,
+          description: @description,
+          arguments: @arguments.map(&:to_h)
+        }
+      end
+
+      alias to_json to_h
+
+      private
+
+      def fetch_prompt_messages(arguments)
+        result = @adapter.execute_prompt(
+          name: @name,
+          arguments: arguments
+        )
+
+        result.raise_error! if result.error?
+
+        result.value["messages"].map do |message|
+          content = create_content_for_message(message["content"])
+
+          content.to_message(role: message["role"])
+        end
+      end
+
+      def validate_arguments!(incoming_arguments)
+        @arguments.each do |arg|
+          if arg.required && incoming_arguments.key?(arg.name)
+            raise Errors::PromptArgumentError, "Argument #{arg.name} is required"
+          end
+        end
+      end
+
+      def create_content_for_message(content)
+        case content["type"]
+        when "text"
+          MCP::Content.new(text: content["text"])
+        when "image", "audio"
+          attachment = MCP::Attachment.new(content["data"] || content["content"], content["mimeType"] || content["mime_type"])
+          MCP::Content.new(text: nil, attachments: [attachment])
+        when "resource"
+          data = content["resource"]
+          resource = Resource.new(adapter, data.merge("content_response" => data))
+          resource.to_content
+        end
+      end
+
+      def parse_arguments(arguments)
+        if arguments.nil?
+          []
+        else
+          arguments.map do |arg|
+            Argument.new(name: arg["name"], description: arg["description"], required: arg["required"])
+          end
+        end
+      end
+    end
+  end
+end

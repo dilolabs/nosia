@@ -40,3 +40,6 @@
 
 # Brainstorming visual companion scratch
 .superpowers/
+
+# Isolated development worktrees
+/.worktrees/

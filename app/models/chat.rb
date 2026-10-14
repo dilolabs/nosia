@@ -18,9 +18,7 @@ class Chat < ApplicationRecord
   belongs_to :account
   belongs_to :chat, optional: true
   belongs_to :user
-  belongs_to :model, optional: true
   has_many :chats, dependent: :destroy
-  has_many :messages, -> { order(created_at: :asc) }, dependent: :destroy
   has_many :token_usages, dependent: :destroy
 
   scope :root, -> { where(chat_id: nil) }
@@ -71,8 +69,13 @@ class Chat < ApplicationRecord
   # de-duped via the polymorphic source link (idempotent: re-running a
   # completion for the same message does not create a duplicate). Called from
   # Chat::Completionable#complete_with_nosia with the just-completed message.
+  # @param message [Message, nil] Persisted assistant with normalized provider usage
+  # @return [TokenUsage, nil] The new ledger event, or nil for unreported/already-recorded usage
+  # @raise [ActiveRecord::RecordInvalid] if the ledger event cannot be saved
   def record_completion_usage!(message)
-    return if message.nil? || message.input_tokens.nil?
+    return if message.nil?
+    tokens = message.tokens
+    return if tokens.input.nil?
     return if TokenUsage.where(source: message).exists?
 
     TokenUsage.create!(
@@ -80,12 +83,12 @@ class Chat < ApplicationRecord
       chat_id: id,
       kind: :completion,
       source: message,
-      model_id: message.model&.model_id,
-      input_tokens: message.input_tokens || 0,
-      output_tokens: message.output_tokens || 0,
-      cached_tokens: message.cached_tokens || 0,
-      cache_creation_tokens: message.cache_creation_tokens || 0,
-      thinking_tokens: message.thinking_tokens || 0
+      model_id: message.model,
+      input_tokens: tokens.input || 0,
+      output_tokens: tokens.output || 0,
+      cached_tokens: tokens.cache_read || 0,
+      cache_creation_tokens: tokens.cache_write || 0,
+      thinking_tokens: tokens.thinking || 0
     )
   end
 
@@ -96,8 +99,9 @@ class Chat < ApplicationRecord
   # further turn in the chat. A blank assistant that carries tool_calls is a
   # legitimate intermediate step, so it is preserved. Called before each completion
   # so a prior failed turn cannot poison the conversation.
+  # @return [Array<Message>] Destroyed blank assistant records without internal tool calls
   def purge_blank_assistant_messages!
-    messages.assistant.where(content: [ nil, "" ]).where.missing(:tool_calls).destroy_all
+    messages.assistant.where(content: [ nil, "" ]).where.missing(:ruby_llm_tool_calls).destroy_all
   end
 
   def first_question

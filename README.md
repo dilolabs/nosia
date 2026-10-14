@@ -498,6 +498,12 @@ docker compose down -v
 
 ### Upgrade
 
+**Upgrading from RubyLLM 1.x to 2.0?** Follow the
+[RubyLLM 2.0 operator runbook](docs/upgrades/ruby-llm-2-deployment.md) and its
+[verification limits](docs/upgrades/ruby-llm-2.md) **instead of** the routine
+restart below. This rename-mode upgrade requires maintenance, a tested restore,
+the matching 1.16 recovery build, three migrations, and data audits.
+
 Keep Nosia up to date with the latest features and security fixes:
 
 ```bash

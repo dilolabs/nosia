@@ -3,7 +3,7 @@ module AgentSkills
     attr_reader :context
 
     ALLOWED_CHAT_METHODS = %i[
-      ask with_instructions with_params with_temperature with_model
+      ask with_instructions with_provider_options with_temperature with_model
       similarity_search messages user account
     ].freeze
 

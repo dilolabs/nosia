@@ -1,0 +1,544 @@
+require "test_helper"
+require "base64"
+
+class RubyLlmMcpCompatibilityTest < ActiveSupport::TestCase
+  class CannedAdapter
+    attr_accessor :result, :prompt_messages, :resource_contents
+    attr_reader :calls, :registered_resources
+
+    def initialize
+      @calls = []
+      @registered_resources = []
+    end
+
+    def client
+      Struct.new(:name).new("canned")
+    end
+
+    def execute_tool(**arguments)
+      @calls << arguments
+      @result
+    end
+
+    def execute_prompt(**arguments)
+      @calls << arguments
+      RubyLLM::MCP::Result.new({ "result" => { "messages" => @prompt_messages } })
+    end
+
+    def resource_read(uri:)
+      @calls << { uri: uri }
+      RubyLLM::MCP::Result.new({ "result" => { "contents" => @resource_contents } })
+    end
+
+    def register_resource(resource)
+      @registered_resources << resource
+    end
+  end
+
+  class CannedCoordinator
+    attr_accessor :sampling_callback
+    attr_reader :responses, :errors
+
+    def initialize
+      @responses = []
+      @errors = []
+    end
+
+    def sampling_callback_enabled?
+      !sampling_callback.nil?
+    end
+
+    def sampling_create_message_response(**response)
+      @responses << response
+    end
+
+    def error_response(**error)
+      @errors << error
+    end
+  end
+
+  setup do
+    @adapter = CannedAdapter.new
+    stub_url_resolver([ "93.184.216.34" ])
+  end
+
+  teardown do
+    unstub_url_resolver
+  end
+
+  test "loads the exact RubyLLM 2.0 release" do
+    assert_equal Gem::Version.new("2.0.0"), Gem.loaded_specs.fetch("ruby_llm").version
+  end
+
+  test "keeps the configured endpoint on the Chat Completions protocol" do
+    config = RubyLLM.config
+
+    assert_respond_to config, :openai_protocol
+    assert_equal :chat_completions, config.openai_protocol
+    assert_equal ENV.fetch("LLM_MODEL"), config.default_model
+    assert_equal ENV.fetch("EMBEDDING_MODEL"), config.default_embedding_model
+    assert_equal ENV.fetch("AI_BASE_URL"), config.openai_api_base
+    assert_equal ENV.fetch("AI_API_KEY"), config.openai_api_key
+    assert_equal true, config.openai_use_system_role
+  end
+
+  test "MCP attachments expose decoded bytes and preserve the base64 wire payload" do
+    payload = "binary payload".b
+    encoded = Base64.strict_encode64(payload)
+    attachment = RubyLLM::MCP::Attachment.new(encoded, "application/pdf")
+
+    assert_equal payload, attachment.content
+    assert_equal encoded, attachment.encoded
+    assert_equal payload.bytesize, attachment.byte_size
+    assert_equal "application/pdf", attachment.mime_type
+    assert_kind_of StringIO, attachment.source
+    assert_equal "mcp-attachment", attachment.filename
+    assert_same RubyLLM.config, attachment.config
+    assert_not attachment.path?
+    assert_not attachment.url?
+    assert attachment.pdf?
+  end
+
+  test "MCP rejects invalid base64 rather than reading a path or URL" do
+    [ "/etc/passwd", "http://127.0.0.1/private", "not base64!" ].each do |data|
+      assert_raises(ArgumentError) { RubyLLM::MCP::Attachment.new(data, "image/png") }
+    end
+  end
+
+  test "image audio and file bytes survive provider serialization without double encoding" do
+    bytes = "\x00\xff\x80binary\x00".b
+    encoded = Base64.strict_encode64(bytes)
+    attachments = %w[image/png audio/wav application/pdf].map { |mime| RubyLLM::MCP::Attachment.new(encoded, mime) }
+    attachments.each do |attachment|
+      assert_equal bytes, attachment.content
+      assert_equal encoded, attachment.encoded
+      assert_equal bytes.bytesize, attachment.byte_size
+      assert_same RubyLLM.config, attachment.config
+    end
+    parts = RubyLLM::Protocols::ChatCompletions::Media.format_content("caption", attachments)
+    assert_equal "data:image/png;base64,#{encoded}", parts[1].dig(:image_url, :url)
+    assert_equal encoded, parts[2].dig(:input_audio, :data)
+    assert_equal "data:application/pdf;base64,#{encoded}", parts[3].dig(:file, :file_data)
+  end
+
+  test "bridge content explicitly converts to supported tool results and messages" do
+    assert_not RubyLLM.const_defined?(:Content, false)
+    attachment = RubyLLM::MCP::Attachment.new(Base64.strict_encode64("bytes"), "image/png")
+    content = RubyLLM::MCP::Content.new(text: "caption", attachments: [ nil, attachment ])
+
+    assert_equal [ attachment ], content.attachments
+    assert_equal [ "caption", attachment ], content.to_tool_result
+    text, files = RubyLLM::Tool.split_result(content.to_tool_result)
+    assert_equal "caption", text
+    assert_equal [ attachment ], files
+    message = content.to_message(role: :user)
+    assert_equal :user, message.role
+    assert_equal "caption", message.content
+    assert_equal [ attachment ], message.attachments
+    assert_equal "plain", RubyLLM::MCP::Content.new(text: "plain").to_tool_result
+    assert_equal [ attachment ], RubyLLM::MCP::Content.new(attachments: attachment).to_tool_result
+    assert_raises(ArgumentError) { RubyLLM::MCP::Content.new(attachments: [ "http://127.0.0.1/private" ]) }
+  end
+
+  test "remote tool preserves nested required schema and keyword arguments" do
+    schema = { "type" => "object", "properties" => {
+      "query" => { "type" => "string" }, "options" => { "type" => "object", "properties" => {
+        "limit" => { "type" => "integer" }
+      }, "required" => [ "limit" ] }
+    }, "required" => [ "query", "options" ] }
+    tool = remote_tool(input_schema: schema)
+    canned_result([ text_block("first"), text_block("last") ])
+
+    assert_equal schema, tool.parameters_schema
+    assert_equal schema, tool.to_h.fetch(:parameters_schema)
+    assert_equal "first\nlast", tool.call(**{ "query" => "search", "options" => { "limit" => 2 } })
+    assert_equal [ { name: "lookup", parameters: { query: "search", options: { "limit" => 2 } } } ], @adapter.calls
+  end
+
+  test "remote tool retains every text image audio and file block" do
+    canned_result([
+      media_block("image", "image/png", "first image"), text_block("first text"),
+      media_block("audio", "audio/wav", "audio bytes"),
+      { "type" => "resource", "resource" => { "uri" => "file:///server/report", "mimeType" => "application/pdf", "blob" => Base64.strict_encode64("pdf bytes") } },
+      text_block("last text"), media_block("image", "image/jpeg", "last image")
+    ])
+
+    result = remote_tool.call
+    assert_kind_of Array, result
+    text, files = RubyLLM::Tool.split_result(result)
+    assert_includes text, "first text"
+    assert_includes text, "last text"
+    assert_equal [ "first image", "audio bytes", "pdf bytes", "last image" ], files.map(&:content)
+    assert_equal [ "image/png", "audio/wav", "application/pdf", "image/jpeg" ], files.map(&:mime_type)
+    files.each do |file|
+      assert_equal Base64.strict_encode64(file.content), file.encoded
+      assert_equal file.content.bytesize, file.byte_size
+      assert_kind_of StringIO, file.source
+    end
+  end
+
+  test "remote tool retains all attachments even without text" do
+    canned_result([ media_block("image", "image/png", "first"), media_block("image", "image/png", "last") ])
+    text, files = RubyLLM::Tool.split_result(remote_tool.call)
+    assert_equal "", text
+    assert_equal [ "first", "last" ], files.map(&:content)
+  end
+
+  test "structured output stays authoritative and retains attachments with and without a schema" do
+    [ nil, { "type" => "object", "properties" => { "count" => { "type" => "integer" } }, "required" => [ "count" ] } ].each do |schema|
+      canned_result([ text_block("untrusted summary"), media_block("image", "image/png", "image") ], "structuredContent" => { "count" => 3 })
+      text, files = RubyLLM::Tool.split_result(remote_tool(output_schema: schema).call)
+      assert_equal({ "count" => 3 }, JSON.parse(text))
+      assert_equal [ "image" ], files.map(&:content)
+    end
+  end
+
+  test "remote tool preserves error hashes and output schema validation" do
+    tool = remote_tool(output_schema: { "type" => "object", "required" => [ "count" ], "properties" => { "count" => { "type" => "integer" } } })
+    canned_result([ text_block("first"), text_block("last") ], "isError" => true)
+    assert_equal({ error: "Tool execution error: first\nlast" }, tool.call)
+    canned_result([], "structuredContent" => { "count" => "invalid" })
+    assert_match(/Structured output is not valid/, tool.call.fetch(:error))
+    @adapter.result = RubyLLM::MCP::Result.new({ "error" => { "code" => -32603, "message" => "server failed" } })
+    assert_match(/server failed/, tool.call.fetch(:error))
+    canned_result([])
+    assert_equal "", tool.call
+  end
+
+  test "remote embedded resources and resource links retain text and URI dispatch" do
+    @adapter.resource_contents = [ { "text" => "linked text" } ]
+    canned_result([
+      { "type" => "resource", "resource" => { "uri" => "file:///server/inline", "text" => "embedded text" } },
+      { "type" => "resource_link", "name" => "linked", "uri" => "git://server/readme", "description" => "readme", "mimeType" => "text/plain" }
+    ])
+    result = remote_tool.call
+    assert_kind_of String, result
+    assert_includes result, "embedded text"
+    assert_includes result, "linked text"
+    assert_equal [ "git://server/readme" ], @adapter.registered_resources.map(&:uri)
+    assert_equal({ uri: "git://server/readme" }, @adapter.calls.last)
+  end
+
+  %w[http https].each do |scheme|
+    test "#{scheme} resource links retain metadata and surrounding tool text" do
+      uri = "#{scheme}://resources.example.com/readme?format=text"
+      link = { "type" => "resource_link", "name" => "linked", "uri" => uri, "description" => "readme", "mimeType" => "text/plain" }
+      canned_result([ text_block("before"), link, text_block("after") ])
+
+      with_canned_http_response(canned_http_response(uri, text: "linked café")) do |requests|
+        result = remote_tool.call
+        assert_equal "before\nlinked: readme\n\nlinked café\nafter", result
+        assert_equal [ uri ], requests
+        assert_equal [ { name: "lookup", parameters: {} } ], @adapter.calls
+        resource = @adapter.registered_resources.fetch(0)
+        assert_equal "linked", resource.name
+        assert_equal uri, resource.uri
+        assert_equal "readme", resource.description
+        assert_equal "text/plain", resource.mime_type
+        assert resource.content_loaded?
+        assert_instance_of String, resource.content
+        assert_equal "linked café", resource.content
+        resource.include(plain_chat)
+        assert_equal [ uri ], requests, "registered resource should retain its fetched content"
+        assert_same resource, @adapter.registered_resources.fetch(0)
+      end
+    end
+
+    test "#{scheme} resource inclusion converts the HTTPX body into message text" do
+      uri = "#{scheme}://resources.example.com/note"
+      resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "note", "description" => "notes", "uri" => uri, "mimeType" => "text/plain")
+      chat = plain_chat
+      with_canned_http_response(canned_http_response(uri, text: "resource body")) do |requests|
+        resource.include(chat)
+        assert_equal "note: notes\n\nresource body", chat.messages.last.content
+        assert_empty chat.messages.last.attachments
+        assert_instance_of String, resource.content
+        assert_equal "resource body", resource.content
+        assert_empty @adapter.calls, "HTTP URIs must not be redirected to MCP resource_read"
+        assert_equal [ uri ], requests
+      end
+    end
+  end
+
+  test "HTTP resource links retain structured tool output and every accompanying attachment" do
+    uri = "https://resources.example.com/structured"
+    canned_result([ media_block("image", "image/png", "first image"), text_block("summary"),
+      { "type" => "resource_link", "name" => "linked", "uri" => uri, "mimeType" => "text/plain" },
+      media_block("audio", "audio/wav", "last audio") ], "structuredContent" => { "count" => 3 })
+    schema = { "type" => "object", "properties" => { "count" => { "type" => "integer" } }, "required" => [ "count" ] }
+
+    with_canned_http_response(canned_http_response(uri, text: "linked body")) do |requests|
+      text, files = RubyLLM::Tool.split_result(remote_tool(output_schema: schema).call)
+      assert_equal({ "count" => 3 }, JSON.parse(text))
+      assert_equal [ "first image", "last audio" ], files.map(&:content)
+      assert_equal [ "image/png", "audio/wav" ], files.map(&:mime_type)
+      assert_equal "linked body", @adapter.registered_resources.fetch(0).content
+      assert_equal [ uri ], requests
+    end
+  end
+
+  test "HTTP resource status errors stay errors instead of becoming successful resource text" do
+    [ 404, 503 ].each do |status|
+      uri = "https://resources.example.com/status/#{status}"
+      resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "missing", "uri" => uri)
+      chat = plain_chat
+      with_canned_http_response(canned_http_response(uri, status: status, text: "not resource content")) do
+        error = assert_raises(HTTPX::HTTPError) { resource.include(chat) }
+        assert_equal status, error.response.status
+        assert_empty chat.messages
+        assert_not resource.content_loaded?
+        assert_empty @adapter.calls
+      end
+    end
+  end
+
+  test "HTTP resource transport errors retain their original exception" do
+    uri = "http://resources.example.com/unavailable"
+    request = HTTPX::Session.new.build_request("GET", uri)
+    failure = IOError.new("canned HTTP resource failure")
+    resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "unavailable", "uri" => uri)
+    with_canned_http_response(HTTPX::ErrorResponse.new(request, failure)) do
+      assert_same failure, assert_raises(IOError) { resource.content }
+      assert_not resource.content_loaded?
+      assert_empty @adapter.calls
+    end
+  end
+
+  test "application initializer installs the real outbound resource URL policy" do
+    config = RubyLLM::MCP.config
+    assert_respond_to config, :resource_url_validator
+    assert_respond_to config.resource_url_validator, :call
+    assert_instance_of URI::HTTPS, config.resource_url_validator.call("https://resources.example.com/note")
+    stub_url_resolver([ "169.254.169.254" ])
+    assert_raises(UrlGuard::Blocked) { config.resource_url_validator.call("http://169.254.169.254/latest/meta-data/") }
+  end
+
+  {
+    "metadata" => [ "http://169.254.169.254/latest/meta-data/", [ "169.254.169.254" ] ],
+    "loopback" => [ "http://127.0.0.1/private", [ "127.0.0.1" ] ],
+    "rfc1918_10" => [ "http://10.0.0.1/private", [ "10.0.0.1" ] ],
+    "rfc1918_172" => [ "http://172.16.0.1/private", [ "172.16.0.1" ] ],
+    "rfc1918_192" => [ "http://192.168.1.1/private", [ "192.168.1.1" ] ],
+    "ipv6_loopback" => [ "http://[::1]/private", [ "::1" ] ],
+    "ipv6_private" => [ "http://[fc00::1]/private", [ "fc00::1" ] ],
+    "ipv6_linklocal" => [ "http://[fe80::1]/private", [ "fe80::1" ] ],
+    "private_hostname" => [ "https://private-resources.example.com/secret", [ "10.1.2.3" ] ],
+    "mixed_dns" => [ "https://mixed-resources.example.com/secret", [ "93.184.216.34", "192.168.1.1" ] ]
+  }.each do |label, (uri, addresses)|
+    %w[text structured].each do |mode|
+      test "resource URL policy blocks #{label} links beside #{mode} before HTTP" do
+        stub_url_resolver(addresses)
+        extra = mode == "structured" ? { "structuredContent" => { "count" => 3 } } : {}
+        canned_result([ text_block("before"), { "type" => "resource_link", "uri" => uri, "name" => "secret" }, text_block("after") ], extra)
+        with_canned_http_response(canned_http_response(uri, text: "credentials never fetched")) do |requests|
+          assert_raises(UrlGuard::Blocked) { remote_tool.call }
+          assert_empty requests
+          assert_not @adapter.registered_resources.fetch(0).content_loaded?
+        end
+      end
+    end
+  end
+
+  test "resource URL policy validates each direct HTTP fetch including after cache reset" do
+    uri = "https://resources.example.com/note"
+    resource = RubyLLM::MCP::Resource.new(@adapter, "uri" => uri, "name" => "note")
+    with_canned_http_response(canned_http_response(uri, text: "public body")) do |requests|
+      assert_equal "public body", resource.content
+      resource.reset_content!
+      stub_url_resolver([ "127.0.0.1" ])
+      assert_raises(UrlGuard::Blocked) { resource.include(plain_chat) }
+      assert_equal [ uri ], requests
+      assert_not resource.content_loaded?
+    end
+  end
+
+  test "HTTP resource URL policy fails closed when the validator is unset or rejects" do
+    config = RubyLLM::MCP.config
+    assert_respond_to config, :resource_url_validator
+    previous = config.resource_url_validator
+    [ nil, false, ->(_) { false }, ->(_) { nil } ].each do |validator|
+      config.resource_url_validator = validator
+      uri = "https://resources.example.com/note"
+      resource = RubyLLM::MCP::Resource.new(@adapter, "uri" => uri)
+      with_canned_http_response(canned_http_response(uri, text: "must not be fetched")) do |requests|
+        assert_raises(RubyLLM::MCP::Errors::ConfigurationError) { resource.content }
+        assert_empty requests
+      end
+    end
+  ensure
+    config.resource_url_validator = previous if config.respond_to?(:resource_url_validator=)
+  end
+
+  test "new and reset MCP configurations default to no HTTP resource validator" do
+    config = RubyLLM::MCP::Configuration.new
+    assert_respond_to config, :resource_url_validator
+    assert_nil config.resource_url_validator
+    config.resource_url_validator = ->(_) { true }
+    config.reset!
+    assert_nil config.resource_url_validator
+  end
+
+  test "resource HTTP reader does not follow redirects to blocked hosts" do
+    uri = "https://resources.example.com/redirect"
+    requests = []
+    responses = []
+    original_send = HTTPX::Session.instance_method(:send_request)
+    HTTPX::Session.define_method(:send_request) do |request, _selector, *_|
+      requests << request.uri.to_s
+      response = HTTPX::Response.new(request, 302, "1.1", { "location" => "http://169.254.169.254/latest/meta-data/" })
+      response << "redirect response"
+      response.finish!
+      responses << response
+      request.response = response
+    end
+    resource = RubyLLM::MCP::Resource.new(@adapter, "uri" => uri)
+    assert_equal "redirect response", resource.content
+    assert_equal [ uri ], requests
+  ensure
+    HTTPX::Session.define_method(:send_request, original_send)
+    HTTPX::Session.send(:private, :send_request)
+    responses&.each(&:close)
+  end
+
+  test "prompt fetch and inclusion use real messages with separate attachments" do
+    @adapter.prompt_messages = [
+      { "role" => "user", "content" => text_block("prompt text") },
+      { "role" => "user", "content" => media_block("image", "image/png", "prompt image") },
+      { "role" => "assistant", "content" => media_block("audio", "audio/wav", "prompt audio") },
+      { "role" => "user", "content" => { "type" => "resource", "resource" => { "uri" => "file:///inline", "text" => "inline text", "mimeType" => "text/plain" } } }
+    ]
+    prompt = RubyLLM::MCP::Prompt.new(@adapter, "name" => "demo")
+    chat = plain_chat
+    assert_same chat, prompt.include(chat)
+    assert_equal 4, chat.messages.size
+    assert_equal "prompt text", chat.messages.first.content
+    assert_equal "prompt image", chat.messages[1].attachments.first.content
+    assert_equal :assistant, chat.messages[2].role
+    assert_equal "prompt audio", chat.messages[2].attachments.first.content
+    assert_includes chat.messages.last.content, "inline text"
+    assert chat.messages.all? { |message| message.content.nil? || message.content.is_a?(String) }
+  end
+
+  test "prompt and resource inclusion persist real chat text and bytes without provider calls" do
+    user = User.create!(email: "bridge@example.com", password: "testpassword123")
+    account = Account.create!(name: "Bridge", owner: user)
+    ActsAsTenant.with_tenant(account) do
+      chat = account.chats.create!(user: user, model: "test-model", provider: :openai, assume_model_exists: true)
+      @adapter.prompt_messages = [ { "role" => "user", "content" => media_block("image", "image/png", "persisted image") } ]
+      RubyLLM::MCP::Prompt.new(@adapter, "name" => "demo").include(chat)
+      resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "report", "uri" => "file:///report", "mimeType" => "application/pdf",
+        "content_response" => { "blob" => Base64.strict_encode64("persisted pdf") })
+      resource.include(chat)
+      messages = chat.messages.reload.to_a
+      assert_equal 2, messages.size
+      assert_equal [ "persisted image", "persisted pdf" ], messages.map { |message| message.attachments.first.download }
+      assert_equal [ "image/png", "application/pdf" ], messages.map { |message| message.attachments.first.content_type }
+      assert_equal "report: ", messages.last.content
+    end
+  end
+
+  test "resource inclusion on plain chats keeps text and blob data separate" do
+    chat = plain_chat
+    resource = RubyLLM::MCP::Resource.new(@adapter, "name" => "note", "description" => "notes", "uri" => "file:///note",
+      "content_response" => { "text" => "resource text" })
+    resource.include(chat)
+    assert_equal "note: notes\n\nresource text", chat.messages.last.content
+    assert_empty chat.messages.last.attachments
+  end
+
+  test "sampling rejection still avoids completion and returns coordinator error" do
+    coordinator = CannedCoordinator.new
+    coordinator.sampling_callback = ->(_) { false }
+    sampling_request(coordinator).execute
+    assert_empty coordinator.responses
+    assert_equal "Sampling request was rejected", coordinator.errors.first.fetch(:message)
+  end
+
+  test "sampling response formatter uses actual message fields and base64 wire data" do
+    formatter = RubyLLM::MCP::Native::Messages::Responses
+    response = formatter.sampling_create_message(id: "sample", model: "test-model",
+      message: RubyLLM::Message.new(role: :assistant, content: "answer", finish_reason: :max_tokens))
+    assert_equal({ type: "text", text: "answer" }, response.dig(:result, :content))
+    assert_equal "maxTokens", response.dig(:result, :stopReason)
+
+    attachment = RubyLLM::MCP::Attachment.new(Base64.strict_encode64("response audio"), "audio/wav")
+    response = formatter.sampling_create_message(id: "audio", model: "test-model",
+      message: RubyLLM::Message.new(role: :assistant, content: nil, attachments: [ attachment ]))
+    assert_equal({ type: :audio, data: Base64.strict_encode64("response audio"), mimeType: "audio/wav" }, response.dig(:result, :content))
+    assert_equal "endTurn", response.dig(:result, :stopReason)
+  end
+
+  test "sampling responses do not silently drop mixed text and multiple files" do
+    attachments = [ "one", "two" ].map { |bytes| RubyLLM::MCP::Attachment.new(Base64.strict_encode64(bytes), "image/png") }
+    response = RubyLLM::MCP::Native::Messages::Responses.sampling_create_message(id: "mixed", model: "test-model",
+      message: RubyLLM::Message.new(role: :assistant, content: "caption", attachments: attachments))
+    assert_equal [ { type: "text", text: "caption" },
+      { type: :image, data: Base64.strict_encode64("one"), mimeType: "image/png" },
+      { type: :image, data: Base64.strict_encode64("two"), mimeType: "image/png" } ], response.dig(:result, :content)
+  end
+
+  test "older sampling protocols retain single blocks but explicitly reject multiple blocks" do
+    formatter = RubyLLM::MCP::Native::Messages::Responses
+    single = RubyLLM::Message.new(role: :assistant, content: "answer")
+    response = formatter.sampling_create_message(id: "legacy", model: "test-model", message: single, protocol_version: "2025-06-18")
+    assert_equal({ type: "text", text: "answer" }, response.dig(:result, :content))
+    attachment = RubyLLM::MCP::Attachment.new(Base64.strict_encode64("image"), "image/png")
+    mixed = RubyLLM::Message.new(role: :assistant, content: "caption", attachments: [ attachment ])
+    error = assert_raises(RubyLLM::MCP::Errors::InvalidFormatError) do
+      formatter.sampling_create_message(id: "legacy", model: "test-model", message: mixed, protocol_version: "2025-06-18")
+    end
+    assert_match(/2025-11-25/, error.message)
+  end
+
+  private
+    def canned_http_response(uri, status: 200, text:)
+      request = HTTPX::Session.new.build_request("GET", uri)
+      HTTPX::Response.new(request, status, "1.1", { "content-type" => "text/plain; charset=utf-8" }).tap do |response|
+        response << text
+        response.finish!
+      end
+    end
+
+    def with_canned_http_response(response)
+      original_get = HTTPX.method(:get)
+      requests = []
+      HTTPX.define_singleton_method(:get) { |uri| requests << uri; response }
+      yield requests
+    ensure
+      HTTPX.define_singleton_method(:get, original_get)
+      response.close
+    end
+
+    def sampling_request(coordinator)
+      result = RubyLLM::MCP::Result.new({ "id" => "sample", "method" => "sampling/createMessage", "params" => {
+        "systemPrompt" => "system instructions", "maxTokens" => 100,
+        "modelPreferences" => { "hints" => [ { "name" => "test-model" } ] },
+        "messages" => [
+          { "role" => "user", "content" => text_block("sample text") },
+          { "role" => "user", "content" => media_block("image", "image/png", "sample image") },
+          { "role" => "assistant", "content" => media_block("audio", "audio/wav", "sample audio") }
+        ]
+      } })
+      RubyLLM::MCP::Sample.new(result, coordinator)
+    end
+
+    def plain_chat
+      RubyLLM::Chat.new(model: "test-model", provider: :openai, assume_model_exists: true)
+    end
+
+    def remote_tool(input_schema: { "type" => "object", "properties" => {} }, output_schema: nil)
+      RubyLLM::MCP::Tool.new(@adapter, { "name" => "lookup", "description" => "Lookup", "inputSchema" => input_schema, "outputSchema" => output_schema })
+    end
+
+    def canned_result(blocks, extra = {})
+      @adapter.result = RubyLLM::MCP::Result.new({ "result" => { "content" => blocks }.merge(extra) })
+    end
+
+    def text_block(text)
+      { "type" => "text", "text" => text }
+    end
+
+    def media_block(type, mime_type, bytes)
+      { "type" => type, "mimeType" => mime_type, "data" => Base64.strict_encode64(bytes) }
+    end
+end

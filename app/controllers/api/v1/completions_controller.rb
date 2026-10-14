@@ -27,6 +27,12 @@ module Api
           end
         elsif completion_params[:prompt].present?
           prompt = completion_params[:prompt]
+          @chat.messages.create!(role: :user, content: prompt)
+        end
+
+        if @chat.complete?
+          render json: { error: "A user prompt or final user message is required" }, status: :unprocessable_entity
+          return
         end
 
         stream_response = ActiveModel::Type::Boolean.new.cast(params[:stream]) || false

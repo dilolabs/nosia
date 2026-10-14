@@ -61,7 +61,7 @@ module Engines
         Engines::ToolAdapter.const_set(const_name_for(tool_name), klass)
         klass.description(mcp_tool_class.description_value)
         schema = mcp_tool_class.input_schema_value&.to_h
-        klass.params(schema.deep_transform_keys(&:to_s)) if schema
+        klass.parameters(schema.deep_transform_keys(&:to_s)) if schema
         klass
       end
 
