@@ -139,7 +139,10 @@ class McpServer < ApplicationRecord
     end
   end
 
-  # Execute a tool
+  # Execute a ready server's tool through RubyLLM's keyword interface.
+  # @param tool_name [String] registered tool name
+  # @param arguments [Hash] JSON object, never attachment paths or model attributes
+  # @return [Hash] success/result or the existing error wrapper
   def execute_tool(tool_name, arguments = {})
     return { error: "Server not ready" } unless status_ready?
 
@@ -147,7 +150,7 @@ class McpServer < ApplicationRecord
       tool = tools.find { |t| t.name == tool_name }
       return { error: "Tool not found: #{tool_name}" } unless tool
 
-      result = tool.call(arguments)
+      result = tool.call(**arguments.to_h.transform_keys(&:to_s))
       { success: true, result: result }
     rescue => e
       { error: e.message }

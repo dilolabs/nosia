@@ -17,7 +17,7 @@ module Chunk::Enrichable
 
   def chat(prompt, instructions: "", max_tokens: 150)
     chat = RubyLLM.chat(model: ENV["LLM_MODEL"], provider: :openai, assume_model_exists: true)
-    chat.with_params(max_tokens:)
+    chat.with_provider_options(max_tokens:)
     chat.with_instructions(instructions)
     response = chat.ask(prompt)
     response.content

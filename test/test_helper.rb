@@ -33,7 +33,7 @@ module ActiveSupport
     def stub_chat_for_streaming(chat, chunks:)
       chat.define_singleton_method(:mcp_tools) { [] }
       chat.define_singleton_method(:with_model) { |*| }
-      chat.define_singleton_method(:with_params) { |*| }
+      chat.define_singleton_method(:with_provider_options) { |*| }
       chat.define_singleton_method(:with_temperature) { |*| }
       chat.define_singleton_method(:with_instructions) { |*| }
       chat.define_singleton_method(:similarity_search) { |*| [] }

@@ -1,0 +1,29 @@
+mcp_servers:
+  filesystem:
+    # SDK adapter to use (optional, defaults to config.default_adapter)
+    # Options: ruby_llm, mcp_sdk
+    # adapter: ruby_llm
+
+    transport_type: stdio
+    command: npx
+    args:
+      - "@modelcontextprotocol/server-filesystem"
+      - "<%%= Rails.root %>"
+    env: {}
+    with_prefix: true
+
+  # Example with MCP SDK (official)
+  # weather:
+  #   adapter: mcp_sdk
+  #   transport_type: http
+  #   url: "https://api.example.com/mcp"
+  #   headers:
+  #     Authorization: "Bearer <%%= ENV['WEATHER_API_KEY'] %>"
+
+  # Example with SSE (RubyLLM adapter only)
+  # notifications:
+  #   adapter: ruby_llm
+  #   transport_type: sse
+  #   url: "https://api.example.com/mcp/sse"
+  #   headers:
+  #     Authorization: "Bearer <%%= ENV['API_KEY'] %>"

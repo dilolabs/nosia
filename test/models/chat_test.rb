@@ -98,7 +98,7 @@ class ChatTest < ActiveSupport::TestCase
   # step (content lives in the tool calls), not a failed generation — keep it.
   test "purge_blank_assistant_messages! keeps blank assistant messages with tool_calls" do
     keep = @chat.messages.create!(role: :assistant, content: "")
-    keep.tool_calls.create!(tool_call_id: "call_1", name: "search", arguments: {})
+    keep.ruby_llm_tool_calls.create!(tool_call_id: "call_1", name: "search", arguments: {})
 
     @chat.purge_blank_assistant_messages!
 
@@ -123,6 +123,35 @@ class ChatTest < ActiveSupport::TestCase
       "follow-up question",
       "follow-up answer"
     ], @chat.to_llm.messages.map(&:content)
+  end
+
+  test "to_llm breaks timestamp ties by message id" do
+    first = @chat.messages.create!(role: :user, content: "first")
+    second = @chat.messages.create!(role: :assistant, content: "second")
+    @chat.messages.update_all(created_at: Time.current)
+
+    assert_equal [ first.id, second.id ], @chat.messages.pluck(:id)
+    assert_equal [ "first", "second" ], @chat.to_llm.messages.map(&:content)
+    assert_equal [ "created_at", "id" ], @chat.messages.order_values.map { |ordering| ordering.expr.name }
+  end
+
+  test "destroying a chat removes messages attachments internal calls and both usage ledgers" do
+    caller = @chat.messages.create!(role: :assistant, content: "")
+    result = @chat.messages.create!(role: :tool, content: "found")
+    caller.attachments.attach(io: StringIO.new("saved"), filename: "saved.txt", content_type: "text/plain")
+    attachment_id = caller.attachments.first.id
+    call = caller.ruby_llm_tool_calls.create!(tool_call_id: "call_destroy", name: "search", arguments: {}, result: result)
+    provider_usage = caller.ruby_llm_usages.create!(chat: @chat, operation: "chat", provider: "openai", model: "test-model", status: "succeeded", input_tokens: 8)
+    usage = TokenUsage.create!(account: @account, chat: @chat, source: caller, kind: :completion, input_tokens: 8, output_tokens: 0)
+
+    @chat.destroy!
+
+    assert_not Message.exists?(caller.id)
+    assert_not Message.exists?(result.id)
+    assert_not RubyLLM::ActiveRecord::ToolCall.exists?(call.id)
+    assert_not RubyLLM::ActiveRecord::Usage.exists?(provider_usage.id)
+    assert_not TokenUsage.exists?(usage.id)
+    assert_not ActiveStorage::Attachment.exists?(attachment_id)
   end
 
   # finish_generation! runs inside ChatResponseJob, which has no Current.session

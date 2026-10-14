@@ -1,20 +1,16 @@
-<tr id="<%= dom_id model %>">
+<tr id="model_<%= Digest::SHA256.hexdigest([model.provider, model.id].to_json) %>">
   <td><%= model.provider %></td>
   <td><%= model.name %></td>
   <td><%= number_with_delimiter(model.context_window) if model.context_window %></td>
   <td>
-    <% if model.pricing && model.pricing['text_tokens'] && model.pricing['text_tokens']['standard'] %>
-      <% input = model.pricing['text_tokens']['standard']['input_per_million'] %>
-      <% output = model.pricing['text_tokens']['standard']['output_per_million'] %>
-      <% if input && output %>
-        $<%= "%.2f" % input %> / $<%= "%.2f" % output %>
-      <% end %>
-    <% end %>
+    <% input = model.price(:input) %>
+    <% output = model.price(:output) %>
+    <%= input.nil? ? "—" : format("$%.2f", input) %> / <%= output.nil? ? "—" : format("$%.2f", output) %>
   </td>
   <td>
-    <% mwh = GreenIt.dataset_mwh_per_1000_tokens(model.model_id) %>
+    <% mwh = GreenIt.dataset_mwh_per_1000_tokens(model.id) %>
     <%= mwh ? number_with_delimiter(mwh.to_i) : "—" %>
   </td>
-  <td><%= link_to "Show", model %></td>
-  <td><%= link_to "Start chat", new_chat_path(model: model.model_id) %></td>
+  <td><%= link_to "Show", model_path("model", model_id: model.id, provider: model.provider) %></td>
+  <td><%= link_to "Start chat", new_chat_path(model: model.id) %></td>
 </tr>

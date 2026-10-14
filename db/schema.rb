@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
+ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -146,16 +146,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.bigint "account_id", null: false
-    t.bigint "model_id"
+    t.bigint "ruby_llm_model_id"
     t.bigint "chat_id"
     t.boolean "generating", default: false, null: false
     t.integer "input_tokens_count", default: 0, null: false
     t.integer "output_tokens_count", default: 0, null: false
     t.string "thinking_phase"
     t.datetime "stopped_at"
+    t.boolean "cancelled", default: false, null: false
     t.index ["account_id"], name: "index_chats_on_account_id"
     t.index ["chat_id"], name: "index_chats_on_chat_id"
-    t.index ["model_id"], name: "index_chats_on_model_id"
+    t.index ["ruby_llm_model_id"], name: "index_chats_on_ruby_llm_model_id"
     t.index ["user_id"], name: "index_chats_on_user_id"
   end
 
@@ -250,32 +251,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
     t.integer "thinking_tokens"
     t.string "attached_website_ids", default: [], array: true
     t.string "attached_document_ids", default: [], array: true
+    t.boolean "cache_until_here", default: false, null: false
+    t.string "finish_reason"
+    t.jsonb "citations"
+    t.jsonb "server_tool_calls"
+    t.jsonb "raw_content"
+    t.jsonb "raw_reasoning"
     t.index ["chat_id"], name: "index_messages_on_chat_id"
     t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["model_id"], name: "index_messages_on_model_id"
     t.index ["tool_call_id"], name: "index_messages_on_tool_call_id"
-  end
-
-  create_table "models", force: :cascade do |t|
-    t.string "model_id", null: false
-    t.string "name", null: false
-    t.string "provider", null: false
-    t.string "family"
-    t.datetime "model_created_at"
-    t.integer "context_window"
-    t.integer "max_output_tokens"
-    t.date "knowledge_cutoff"
-    t.jsonb "modalities", default: {}
-    t.jsonb "capabilities", default: []
-    t.jsonb "pricing", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["capabilities"], name: "index_models_on_capabilities", using: :gin
-    t.index ["family"], name: "index_models_on_family"
-    t.index ["modalities"], name: "index_models_on_modalities", using: :gin
-    t.index ["provider", "model_id"], name: "index_models_on_provider_and_model_id", unique: true
-    t.index ["provider"], name: "index_models_on_provider"
   end
 
   create_table "passwordless_sessions", force: :cascade do |t|
@@ -315,6 +300,101 @@ ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
     t.integer "index_status", default: 0, null: false
     t.datetime "indexed_at"
     t.index ["account_id"], name: "index_qnas_on_account_id"
+  end
+
+  create_table "ruby_llm_batches", force: :cascade do |t|
+    t.string "provider_batch_id", null: false
+    t.string "provider", null: false
+    t.string "status", null: false
+    t.string "raw_status"
+    t.boolean "completed", default: false, null: false
+    t.string "chat_type"
+    t.string "batch_protocol"
+    t.jsonb "chat_ids", default: []
+    t.jsonb "request_counts"
+    t.jsonb "reported_cost"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider", "provider_batch_id"], name: "index_ruby_llm_batches_on_provider_and_provider_batch_id", unique: true
+    t.index ["status"], name: "index_ruby_llm_batches_on_status"
+  end
+
+  create_table "ruby_llm_models", force: :cascade do |t|
+    t.string "model_id", null: false
+    t.string "name", null: false
+    t.string "provider", null: false
+    t.string "family"
+    t.datetime "model_created_at"
+    t.integer "context_window"
+    t.integer "max_output_tokens"
+    t.date "knowledge_cutoff"
+    t.jsonb "modalities", default: {}
+    t.jsonb "capabilities", default: []
+    t.jsonb "pricing", default: {}
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "unlisted_at"
+    t.index ["capabilities"], name: "index_ruby_llm_models_on_capabilities", using: :gin
+    t.index ["family"], name: "index_ruby_llm_models_on_family"
+    t.index ["modalities"], name: "index_ruby_llm_models_on_modalities", using: :gin
+    t.index ["provider", "model_id"], name: "index_ruby_llm_models_on_provider_and_model_id", unique: true
+    t.index ["provider"], name: "index_ruby_llm_models_on_provider"
+  end
+
+  create_table "ruby_llm_tool_calls", force: :cascade do |t|
+    t.string "tool_call_id", null: false
+    t.string "name", null: false
+    t.jsonb "arguments", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "message_id", null: false
+    t.text "thought_signature"
+    t.string "message_type", null: false
+    t.string "result_type"
+    t.bigint "result_id"
+    t.string "approval"
+    t.boolean "remote", default: false, null: false
+    t.index ["message_type", "message_id"], name: "index_ruby_llm_tool_calls_on_message_type_and_message_id"
+    t.index ["name"], name: "index_ruby_llm_tool_calls_on_name"
+    t.index ["result_type", "result_id"], name: "index_ruby_llm_tool_calls_on_result_type_and_result_id"
+    t.index ["tool_call_id"], name: "index_ruby_llm_tool_calls_on_tool_call_id", unique: true
+  end
+
+  create_table "ruby_llm_usages", force: :cascade do |t|
+    t.string "chat_type", null: false
+    t.bigint "chat_id", null: false
+    t.string "message_type"
+    t.bigint "message_id"
+    t.string "operation", null: false
+    t.string "provider", null: false
+    t.string "model", null: false
+    t.string "status", null: false
+    t.integer "input_tokens"
+    t.integer "output_tokens"
+    t.integer "cache_read_tokens"
+    t.integer "cache_write_tokens"
+    t.integer "thinking_tokens"
+    t.decimal "input_cost", precision: 16, scale: 10
+    t.decimal "output_cost", precision: 16, scale: 10
+    t.decimal "cache_read_cost", precision: 16, scale: 10
+    t.decimal "cache_write_cost", precision: 16, scale: 10
+    t.decimal "thinking_cost", precision: 16, scale: 10
+    t.decimal "total_cost", precision: 16, scale: 10
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_type", "chat_id"], name: "index_ruby_llm_usages_on_chat_type_and_chat_id"
+    t.index ["message_type", "message_id"], name: "index_ruby_llm_usages_on_message_type_and_message_id"
+    t.index ["status"], name: "index_ruby_llm_usages_on_status"
+    t.check_constraint "operation::text = ANY (ARRAY['chat'::character varying, 'embedding'::character varying, 'moderation'::character varying, 'image'::character varying, 'speech'::character varying, 'transcription'::character varying, 'ocr'::character varying, 'rerank'::character varying]::text[])"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'succeeded'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])"
+  end
+
+  create_table "ruby_llm_v2_backfills", id: false, force: :cascade do |t|
+    t.string "task", null: false
+    t.bigint "last_id"
+    t.boolean "completed", default: false, null: false
+    t.index ["task"], name: "index_ruby_llm_v2_backfills_on_task", unique: true
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -482,19 +562,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
     t.index ["source_type", "source_id"], name: "index_token_usages_on_source_type_and_source_id"
   end
 
-  create_table "tool_calls", force: :cascade do |t|
-    t.string "tool_call_id", null: false
-    t.string "name", null: false
-    t.jsonb "arguments", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "message_id", null: false
-    t.text "thought_signature"
-    t.index ["message_id"], name: "index_tool_calls_on_message_id"
-    t.index ["name"], name: "index_tool_calls_on_name"
-    t.index ["tool_call_id"], name: "index_tool_calls_on_tool_call_id", unique: true
-  end
-
   create_table "users", force: :cascade do |t|
     t.string "email", null: false
     t.datetime "created_at", null: false
@@ -534,7 +601,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
   add_foreign_key "chat_mcp_sessions", "mcp_servers"
   add_foreign_key "chats", "accounts"
   add_foreign_key "chats", "chats"
-  add_foreign_key "chats", "models"
+  add_foreign_key "chats", "ruby_llm_models"
   add_foreign_key "chats", "users"
   add_foreign_key "chunks", "accounts"
   add_foreign_key "credentials", "users"
@@ -542,8 +609,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
   add_foreign_key "documents", "authors"
   add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "messages", "chats"
-  add_foreign_key "messages", "models"
-  add_foreign_key "messages", "tool_calls"
+  add_foreign_key "messages", "ruby_llm_models", column: "model_id"
+  add_foreign_key "messages", "ruby_llm_tool_calls", column: "tool_call_id", on_delete: :nullify
   add_foreign_key "prompts", "accounts"
   add_foreign_key "prompts", "users"
   add_foreign_key "qnas", "accounts"
@@ -557,6 +624,5 @@ ActiveRecord::Schema[8.0].define(version: 2026_08_22_100000) do
   add_foreign_key "texts", "accounts"
   add_foreign_key "token_usages", "accounts"
   add_foreign_key "token_usages", "chats"
-  add_foreign_key "tool_calls", "messages"
   add_foreign_key "websites", "accounts"
 end

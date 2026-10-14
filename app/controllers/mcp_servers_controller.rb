@@ -84,14 +84,34 @@ class McpServersController < ApplicationController
   def execute_tool
     @mcp_server = Current.account.mcp_servers.find(params[:id])
     tool_name = params[:tool_name]
-    arguments = params[:arguments] || {}
+    if !params[:arguments].nil? && !params[:arguments].is_a?(ActionController::Parameters)
+      render json: { error: "Tool arguments must be a JSON object" }, status: :bad_request
+      return
+    end
+    # Tool inputs are an arbitrary JSON object, not McpServer attributes.
+    arguments = params.permit(arguments: {}).fetch(:arguments, {}).to_h
 
     result = @mcp_server.execute_tool(tool_name, arguments)
 
-    render json: result
+    render json: tool_result_for_json(result)
   end
 
   private
+
+  def tool_result_for_json(value)
+    case value
+    when RubyLLM::Attachment
+      { type: value.type.to_s, data: value.encoded, mimeType: value.mime_type, filename: value.filename }
+    when Array
+      value.map { |item| tool_result_for_json(item) }
+    when Hash
+      value.transform_values { |item| tool_result_for_json(item) }
+    when String, Numeric, TrueClass, FalseClass, NilClass
+      value
+    else
+      raise TypeError, "Unsupported tool result JSON value"
+    end
+  end
 
   def set_mcp_server
     @mcp_server = Current.account.mcp_servers.find(params[:id])

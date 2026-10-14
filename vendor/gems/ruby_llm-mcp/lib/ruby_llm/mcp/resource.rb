@@ -1,0 +1,126 @@
+# frozen_string_literal: true
+
+module RubyLLM
+  module MCP
+    class Resource
+      attr_reader :uri, :name, :description, :mime_type, :adapter, :subscribed, :apps_metadata
+
+      def initialize(adapter, resource)
+        @adapter = adapter
+        @uri = resource["uri"]
+        @name = resource["name"]
+        @description = resource["description"]
+        @mime_type = resource["mimeType"]
+        @apps_metadata = Extensions::Apps::ResourceMetadata.new(resource[Extensions::Apps::Constants::META_KEY])
+        if resource.key?("content_response")
+          @content_response = resource["content_response"]
+          @content = @content_response["text"] || @content_response["blob"]
+        end
+
+        @subscribed = false
+      end
+
+      def content
+        return @content unless @content.nil?
+
+        result = read_response
+        result.raise_error! if result.error?
+
+        @content_response = result.value.dig("contents", 0)
+        @content = @content_response["text"] || @content_response["blob"]
+      end
+
+      def content_loaded?
+        !@content.nil?
+      end
+
+      def subscribe!
+        if @adapter.capabilities.resource_subscribe?
+          @adapter.resources_subscribe(uri: @uri)
+          @subscribed = true
+        else
+          message = "Resource subscribe is not available for this MCP server"
+          raise Errors::Capabilities::ResourceSubscribeNotAvailable.new(message: message)
+        end
+      end
+
+      def unsubscribe!
+        if @adapter.capabilities.resource_subscribe?
+          @adapter.resources_unsubscribe(uri: @uri)
+          @subscribed = false
+        else
+          message = "Resource unsubscribe is not available for this MCP server"
+          raise Errors::Capabilities::ResourceSubscribeNotAvailable.new(message: message)
+        end
+      end
+
+      def reset_content!
+        @content = nil
+        @content_response = nil
+      end
+
+      def include(chat, **args)
+        message = to_content(**args).to_message(role: "user")
+
+        chat.add_message(message)
+      end
+
+      def to_content
+        content = self.content
+        case content_type
+        when "text"
+          MCP::Content.new(text: "#{name}: #{description}\n\n#{content}")
+        when "blob"
+          attachment = MCP::Attachment.new(content, mime_type)
+          MCP::Content.new(text: "#{name}: #{description}", attachments: [attachment])
+        end
+      end
+
+      def to_h
+        {
+          uri: @uri,
+          name: @name,
+          description: @description,
+          mime_type: @mime_type,
+          contented_loaded: content_loaded?,
+          content: @content
+        }
+      end
+
+      alias to_json to_h
+
+      private
+
+      def content_type
+        return "text" if @content_response.nil?
+
+        if @content_response.key?("blob") && !@content_response["blob"].nil?
+          "blob"
+        else
+          "text"
+        end
+      end
+
+      def read_response(uri: @uri)
+        parsed = URI.parse(uri)
+        case parsed.scheme
+        when "http", "https"
+          fetch_uri_content(uri)
+        else # file:// or git://
+          @adapter.resource_read(uri: uri)
+        end
+      end
+
+      def fetch_uri_content(uri)
+        validator = MCP.config.resource_url_validator
+        unless validator.respond_to?(:call) && validator.call(uri)
+          raise Errors::ConfigurationError.new(message: "HTTP resources require an approving resource_url_validator")
+        end
+
+        response = HTTPX.get(uri)
+        response.raise_for_status
+        Result.new({ "result" => { "contents" => [{ "text" => response.body.to_s }] } })
+      end
+    end
+  end
+end

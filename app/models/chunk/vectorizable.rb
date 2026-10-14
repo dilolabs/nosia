@@ -31,15 +31,15 @@ module Chunk::Vectorizable
   private
 
   def record_embedding_usage_if_needed
-    return unless @pending_embedding_result&.input_tokens&.positive?
+    return unless @pending_embedding_result&.tokens&.input&.positive?
     record_embedding_usage(@pending_embedding_result, chat: nil)
     @pending_embedding_result = nil
   end
 
-  # Record the embedding's input_tokens as a TokenUsage. Indexing embeddings have
-  # no chat context (chat: nil). No-op when input_tokens is absent/zero.
+  # Record the embedding's normalized input as a TokenUsage. Indexing embeddings
+  # have no chat context (chat: nil). No-op when input is absent/zero.
   def record_embedding_usage(embedding_result, chat:)
-    return unless embedding_result&.input_tokens&.positive?
+    return unless embedding_result&.tokens&.input&.positive?
 
     TokenUsage.create!(
       account_id: account_id,
@@ -48,7 +48,7 @@ module Chunk::Vectorizable
       source_id: id,
       source_type: self.class.name,
       model_id: ENV["EMBEDDING_MODEL"],
-      input_tokens: embedding_result.input_tokens,
+      input_tokens: embedding_result.tokens.input,
       output_tokens: 0
     )
   end

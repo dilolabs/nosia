@@ -78,7 +78,7 @@ class Engines::ToolAdapterTest < ActiveSupport::TestCase
 
   test "execute delegates to the MCP tool with server_context and returns a string" do
     adapted = Engines::ToolAdapter.for(FlatTool, server_context: { api_key: "sekret" })
-    result = adapted.call({ "query" => "einstein" })
+    result = adapted.call(**{ "query" => "einstein" })
     assert_equal "got einstein key=sekret", result
   end
 
@@ -86,6 +86,24 @@ class Engines::ToolAdapterTest < ActiveSupport::TestCase
     adapted = Engines::ToolAdapter.for(NestedTool, server_context: { api_key: "k" })
     assert_kind_of RubyLLM::Tool, adapted
     assert_equal "nested_demo", adapted.name
+  end
+
+  test "keyword calls preserve nested parameters_schema without exposing server secrets" do
+    adapted = Engines::ToolAdapter.for(NestedTool, server_context: { api_key: "sekret" })
+
+    result = adapted.call(query: "einstein")
+    assert_equal "einstein", JSON.parse(result.sub(/\Aok\n\n/, "")).fetch("query")
+
+    schema = adapted.parameters_schema.deep_stringify_keys
+    assert_equal "string", schema.fetch("properties").fetch("query").fetch("type")
+    assert_equal [ "query" ], schema.fetch("required")
+    nested = schema.fetch("properties").fetch("params")
+    assert_equal "object", nested.fetch("type")
+    assert_equal "integer", nested.fetch("properties").fetch("per_page").fetch("type")
+    assert_equal "integer", nested.fetch("properties").fetch("page").fetch("type")
+    assert_not_includes schema.to_json, "server_context"
+    assert_not_includes schema.to_json, "api_key"
+    assert_not_includes schema.to_json, "sekret"
   end
 
   test "unsupported schema returns nil (tool dropped)" do
@@ -100,20 +118,20 @@ class Engines::ToolAdapterTest < ActiveSupport::TestCase
 
   test "execute swallows a raised exception into an error string" do
     adapted = Engines::ToolAdapter.for(RaisingTool, server_context: {})
-    result = adapted.call({ "query" => "x" })
+    result = adapted.call(query: "x")
     assert_match(/^Error calling raising_demo: boom/, result)
   end
 
   test "unwrap error branch surfaces an error response as Error: prefix" do
     adapted = Engines::ToolAdapter.for(ErrorDemoTool, server_context: {})
-    result = adapted.call({ "query" => "x" })
+    result = adapted.call(query: "x")
     assert_match(/^Error: /, result)
     assert_includes result, "failed"
   end
 
   test "unwrap appends hash structured_content as JSON" do
     adapted = Engines::ToolAdapter.for(StructuredTool, server_context: {})
-    result = adapted.call({ "query" => "x" })
+    result = adapted.call(query: "x")
     assert_match(/^body/, result)
     json_tail = result.sub(/\Abody\n\n/, "")
     parsed = JSON.parse(json_tail)
