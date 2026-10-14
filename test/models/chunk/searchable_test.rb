@@ -9,19 +9,50 @@ class Chunk::SearchableTest < ActiveSupport::TestCase
   end
 
   test "query embedding records a TokenUsage with chat_id set and chat as source" do
-    fake = Struct.new(:vectors, :input_tokens, :model).new([ 0.1, 0.2 ], 6, "text-embedding-3-small")
+    tokens = Struct.new(:input).new(8)
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], tokens, "text-embedding-3-small")
     assert_difference -> { TokenUsage.where(kind: "embedding", chat_id: @chat.id).count }, 1 do
       Chunk::Searchable.record_query_embedding_usage(fake, chat: @chat)
     end
     usage = TokenUsage.find_by(kind: "embedding", chat_id: @chat.id)
-    assert_equal 6, usage.input_tokens
+    assert_equal 8, usage.input_tokens
     assert_equal @chat, usage.source
   end
 
   test "query embedding recording is a no-op without a chat" do
-    fake = Struct.new(:vectors, :input_tokens, :model).new([ 0.1, 0.2 ], 6, "text-embedding-3-small")
+    tokens = Struct.new(:input).new(8)
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], tokens, "text-embedding-3-small")
     assert_no_difference -> { TokenUsage.count } do
       Chunk::Searchable.record_query_embedding_usage(fake, chat: nil)
+    end
+  end
+
+  test "query embedding recording is a no-op for zero input tokens" do
+    tokens = Struct.new(:input).new(0)
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], tokens, "text-embedding-3-small")
+    assert_no_difference -> { TokenUsage.count } do
+      Chunk::Searchable.record_query_embedding_usage(fake, chat: @chat)
+    end
+  end
+
+  test "query embedding recording is a no-op for unreported input tokens" do
+    tokens = Struct.new(:input).new(nil)
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], tokens, "text-embedding-3-small")
+    assert_no_difference -> { TokenUsage.count } do
+      Chunk::Searchable.record_query_embedding_usage(fake, chat: @chat)
+    end
+  end
+
+  test "query embedding recording is a no-op without tokens" do
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], nil, "text-embedding-3-small")
+    assert_no_difference -> { TokenUsage.count } do
+      Chunk::Searchable.record_query_embedding_usage(fake, chat: @chat)
+    end
+  end
+
+  test "query embedding recording is a no-op without an embedding result" do
+    assert_no_difference -> { TokenUsage.count } do
+      Chunk::Searchable.record_query_embedding_usage(nil, chat: @chat)
     end
   end
 end

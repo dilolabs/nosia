@@ -55,6 +55,46 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
     end
   end
 
+  test "record_completion_usage! records normalized tokens and a string model exactly once" do
+    msg = @chat.messages.create!(role: :assistant, content: "normalized usage", model: nil)
+    tokens = Struct.new(:input, :output, :cache_read, :cache_write, :thinking).new(80, 20, 15, 5, 3)
+    msg.define_singleton_method(:tokens) { tokens }
+    msg.define_singleton_method(:model) { "glm-5.2" }
+    msg.define_singleton_method(:input_tokens) { raise "legacy token reader used" }
+
+    assert_difference({
+      -> { TokenUsage.where(source: msg).count } => 1,
+      -> { @chat.reload.input_tokens_count } => 80,
+      -> { @chat.reload.output_tokens_count } => 20,
+      -> { @account.reload.input_tokens_count } => 80,
+      -> { @account.reload.output_tokens_count } => 20
+    }) do
+      @chat.record_completion_usage!(msg)
+    end
+
+    usage = TokenUsage.find_by!(source: msg)
+    assert_equal "completion", usage.kind
+    assert_equal @account.id, usage.account_id
+    assert_equal @chat.id, usage.chat_id
+    assert_equal msg, usage.source
+    assert_equal "glm-5.2", usage.model_id
+    assert_equal 80, usage.input_tokens
+    assert_equal 20, usage.output_tokens
+    assert_equal 15, usage.cached_tokens
+    assert_equal 5, usage.cache_creation_tokens
+    assert_equal 3, usage.thinking_tokens
+
+    assert_no_difference [
+      -> { TokenUsage.count },
+      -> { @chat.reload.input_tokens_count },
+      -> { @chat.reload.output_tokens_count },
+      -> { @account.reload.input_tokens_count },
+      -> { @account.reload.output_tokens_count }
+    ] do
+      @chat.record_completion_usage!(msg)
+    end
+  end
+
   def assistant_with_stubbed_update
     msg = @chat.messages.create!(role: :assistant, content: "")
     # Stop the post-loop message.update (similar_chunk_ids) from firing

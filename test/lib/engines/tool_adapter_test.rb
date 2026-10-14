@@ -88,6 +88,24 @@ class Engines::ToolAdapterTest < ActiveSupport::TestCase
     assert_equal "nested_demo", adapted.name
   end
 
+  test "keyword calls preserve nested parameters_schema without exposing server secrets" do
+    adapted = Engines::ToolAdapter.for(NestedTool, server_context: { api_key: "sekret" })
+
+    result = adapted.call(query: "einstein")
+    assert_equal "einstein", JSON.parse(result.sub(/\Aok\n\n/, "")).fetch("query")
+
+    schema = adapted.parameters_schema.deep_stringify_keys
+    assert_equal "string", schema.fetch("properties").fetch("query").fetch("type")
+    assert_equal [ "query" ], schema.fetch("required")
+    nested = schema.fetch("properties").fetch("params")
+    assert_equal "object", nested.fetch("type")
+    assert_equal "integer", nested.fetch("properties").fetch("per_page").fetch("type")
+    assert_equal "integer", nested.fetch("properties").fetch("page").fetch("type")
+    assert_not_includes schema.to_json, "server_context"
+    assert_not_includes schema.to_json, "api_key"
+    assert_not_includes schema.to_json, "sekret"
+  end
+
   test "unsupported schema returns nil (tool dropped)" do
     assert_nil Engines::ToolAdapter.for(UnsupportedTool, server_context: {})
   end

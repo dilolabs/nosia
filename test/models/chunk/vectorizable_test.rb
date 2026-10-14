@@ -12,7 +12,8 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
   end
 
   test "indexing embedding records a TokenUsage with chat_id nil" do
-    fake = Struct.new(:vectors, :input_tokens, :model).new([ 0.1, 0.2 ], 8, "text-embedding-3-small")
+    tokens = Struct.new(:input).new(8)
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], tokens, "text-embedding-3-small")
     assert_difference -> { TokenUsage.where(kind: "embedding", account: @account).count }, 1 do
       @chunk.send(:record_embedding_usage, fake, chat: nil)
     end
@@ -24,9 +25,31 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
   end
 
   test "record_embedding_usage is a no-op for zero input_tokens" do
-    fake = Struct.new(:vectors, :input_tokens, :model).new([ 0.1, 0.2 ], 0, "text-embedding-3-small")
+    tokens = Struct.new(:input).new(0)
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], tokens, "text-embedding-3-small")
     assert_no_difference -> { TokenUsage.count } do
       @chunk.send(:record_embedding_usage, fake, chat: nil)
+    end
+  end
+
+  test "record_embedding_usage is a no-op for unreported input tokens" do
+    tokens = Struct.new(:input).new(nil)
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], tokens, "text-embedding-3-small")
+    assert_no_difference -> { TokenUsage.count } do
+      @chunk.send(:record_embedding_usage, fake, chat: nil)
+    end
+  end
+
+  test "record_embedding_usage is a no-op without tokens" do
+    fake = Struct.new(:vectors, :tokens, :model).new([ 0.1, 0.2 ], nil, "text-embedding-3-small")
+    assert_no_difference -> { TokenUsage.count } do
+      @chunk.send(:record_embedding_usage, fake, chat: nil)
+    end
+  end
+
+  test "record_embedding_usage is a no-op without an embedding result" do
+    assert_no_difference -> { TokenUsage.count } do
+      @chunk.send(:record_embedding_usage, nil, chat: nil)
     end
   end
 end
