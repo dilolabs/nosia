@@ -1267,3 +1267,104 @@ parameter validation, nil-versus-zero pricing and usage, escaping, SSE raw
 chunks, unchanged ledger/counters, and the Task 6-only diff. No child agents
 were spawned. This evidence does not establish that the overall upgrade is
 complete, that Task 7 works, or that deployment is approved.
+
+### Task 6 quality-review follow-up: prompt-only completion lifecycle and disclosure
+
+Review of `1f677d8e9a3bfef623445e6fcea20453bc3eee6d` found an important gap
+in the original API characterization: its helper replaced `Chat#complete`, so
+it did not exercise RubyLLM 2.0's conversation state machine. The original
+Task 6 results above remain historical evidence, not proof that the real loop
+handled every API input safely.
+
+The controller's `prompt:` branch assigned the question only to a local variable,
+unlike its `messages:` branch, which persisted messages. RubyLLM 1.16 generated
+when `complete` was called, but 2.0 considers a system-only chat complete and
+returns the last system message without contacting the provider. Nosia then
+fetched its last persisted message and serialized the private system prompt,
+including retrieved context, as an assistant JSON answer. SSE returned only
+`[DONE]`, with no generation. Missing input and completed assistant-ending
+histories reached the same no-pending-response state and disclosure path.
+
+The narrowly scoped controller fix:
+
+- Persist exactly one user message in the `prompt:` branch with `create!` before
+  `complete_with_nosia`; do not add any extra user message in the `messages:` branch.
+- Check the public 2.0 `@chat.complete?` state before retrieval or system-instruction
+  insertion. A request with no pending response gets JSON **422** with
+  `A user prompt or final user message is required`, including when streaming was
+  requested. This fails closed for missing input and completed histories rather
+  than pretending to generate or returning internal context. No role normalization,
+  endpoint redesign, retry mechanism, or broad input-validation framework is added.
+
+All focused API tests now leave both `Chat#complete` and the RubyLLM chat loop,
+protocol request rendering, SSE parsing/accumulation, persistence callbacks,
+instruction lookup, and provider-options setters **real**. A local Faraday test
+adapter replaces only HTTP I/O on newly constructed transport connections; all
+unmatched requests fail locally. It feeds two raw content deltas plus a final
+usage/stop event through the protocol's real `on_data` handler. No provider
+completion method is replaced and no network request is made by these tests.
+Retrieval/MCP/guard dependencies are isolated on the newly created application
+chat, and a real account prompt plus a canned retrieved chunk contain explicit
+test-only system/context markers. Both constructor replacements are restored in
+`ensure`; no global compatibility alias or transport configuration is retained.
+
+Coverage includes prompt-only JSON and SSE on **both** `/v1/completions` and
+`/v1/chat/completions`, the existing message-based JSON/SSE paths, and a multi-turn
+user/assistant/user history. Every successful provider request must contain the
+actual final user question and unchanged flat `max_tokens`, `top_p`, `top_k`, and
+temperature values. Tests verify one request, one copy of each persisted user
+message, persisted provider output, no system/context markers in the client
+response, raw SSE markdown deltas, and `[DONE]`. Separate JSON/SSE tests require
+422 and zero provider calls for absent input and completed assistant histories.
+
+Test-first evidence, using the unchanged safe environment and seed **202606**:
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Real-loop prompt contracts before controller changes | 7 | 72 | 4 | 0 | 1 |
+| Same contracts after persisting prompt user | 7 | 148 | 0 | 0 | 0 |
+| Added missing-input/completed-history contracts before state guard | 11 | 162 | 4 | 0 | 1 |
+| All API contracts after the state guard | **11** | **180** | **0** | **0** | **0** |
+| Expanded 27-file focused set, including the previous 152-test coverage | **161** | **776** | **0** | **0** | **0** |
+
+The first RED JSON responses visibly included **both** test markers;
+both prompt-only SSE paths recorded **zero** provider requests. With the new
+transport boundary, the message-based and user-ending history tests already
+passed before the controller fix. The second RED independently reproduced JSON
+disclosure for missing input and completed history, plus SSE **200** with only
+`data: [DONE]` instead of the required rejection. These were assertion failures,
+not test setup or transport errors.
+
+The final focused run completed in **187.647139 s**, exit 0, with no skips.
+The API-only final GREEN took **18.547295 s**, exit 0. Both use the same safe
+scratch-only environment and seed. The full non-system suite and standalone
+migration rehearsal were not rerun in this follow-up; their earlier documented
+results are not presented as new verification.
+
+Exact commands, reusing the `task6_rails`, `task6_test`, and 27-file `focused`
+definitions above (the actual external wrapper remains unchanged):
+
+```sh
+# Run before and after each narrowly scoped controller edit.
+sh /tmp/opencode/nosia-task6-rails test \
+  test/controllers/api/v1/completions_controller_test.rb --seed 202606
+
+# Rerun the previously green 152-test focused set with the expanded API file.
+task6_test "${focused[@]}"
+
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  app/controllers/api/v1/completions_controller.rb \
+  test/controllers/api/v1/completions_controller_test.rb
+git diff --check
+```
+
+This follow-up owns only the API controller, its request tests, and this evidence.
+It touches no Task 7 code, dependency, migration, schema, root-user change, or
+development/production database, and spawns no child agents. No new public helper
+is introduced. The full suite's earlier Task 7/accepted crawler failures are not
+fixed or represented as green by this follow-up. RuboCop inspected the two changed
+Ruby files with **no offenses**, and `git diff --check` exited 0. Self-review
+verified the real-loop/transport boundary, exact pending-user persistence without
+duplicates, rejection before retrieval/system-prompt insertion, JSON/SSE marker
+non-disclosure, unchanged request options, ensure-based stub restoration, API
+authentication/account scoping, and the three-file ownership boundary.
