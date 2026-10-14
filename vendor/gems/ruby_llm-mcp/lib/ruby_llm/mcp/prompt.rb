@@ -90,10 +90,7 @@ module RubyLLM
         result.value["messages"].map do |message|
           content = create_content_for_message(message["content"])
 
-          RubyLLM::Message.new(
-            role: message["role"],
-            content: content
-          )
+          content.to_message(role: message["role"])
         end
       end
 
@@ -110,10 +107,11 @@ module RubyLLM
         when "text"
           MCP::Content.new(text: content["text"])
         when "image", "audio"
-          attachment = MCP::Attachment.new(content["content"], content["mime_type"])
+          attachment = MCP::Attachment.new(content["data"] || content["content"], content["mimeType"] || content["mime_type"])
           MCP::Content.new(text: nil, attachments: [attachment])
         when "resource"
-          resource = Resource.new(adapter, content["resource"])
+          data = content["resource"]
+          resource = Resource.new(adapter, data.merge("content_response" => data))
           resource.to_content
         end
       end

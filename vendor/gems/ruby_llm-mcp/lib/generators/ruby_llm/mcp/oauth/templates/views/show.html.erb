@@ -54,16 +54,16 @@
               <p class="mcp-tool-description mcp-text-muted">No description available</p>
             <% end %>
 
-            <% if tool.params_schema.present? && tool.params_schema["properties"]&.any? %>
+            <% if tool.parameters_schema.present? && tool.parameters_schema["properties"]&.any? %>
               <div class="mcp-tool-schema">
                 <h4>Input Parameters</h4>
                 <div class="mcp-parameters">
-                  <% tool.params_schema["properties"].each do |param_name, param_info| %>
+                  <% tool.parameters_schema["properties"].each do |param_name, param_info| %>
                     <div class="mcp-parameter">
                       <div class="mcp-parameter-header">
                         <code class="mcp-param-name"><%= param_name %></code>
                         <span class="mcp-param-type"><%= param_info["type"] %></span>
-                        <% if tool.params_schema["required"]&.include?(param_name) %>
+                        <% if tool.parameters_schema["required"]&.include?(param_name) %>
                           <span class="mcp-badge mcp-badge-required">Required</span>
                         <% end %>
                       </div>
@@ -81,10 +81,10 @@
 
                 <details class="mcp-schema-details">
                   <summary>View Full Schema</summary>
-                  <pre class="mcp-schema-code"><%= JSON.pretty_generate(tool.params_schema) %></pre>
+                  <pre class="mcp-schema-code"><%= JSON.pretty_generate(tool.parameters_schema) %></pre>
                 </details>
               </div>
-            <% elsif tool.params_schema.present? %>
+            <% elsif tool.parameters_schema.present? %>
               <div class="mcp-tool-schema">
                 <p class="mcp-text-muted"><em>No input parameters required</em></p>
               </div>

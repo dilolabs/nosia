@@ -52,6 +52,16 @@ class McpServerLocalTest < ActiveSupport::TestCase
     assert_equal [], server.tools
   end
 
+  test "#execute_tool passes string keyed arguments through the keyword API" do
+    stub_registration(tool_classes: [ FlatToolForServer ])
+    server = @account.mcp_servers.create!(name: "demo", transport_type: "local", status: "ready", metadata: { engine: "demo" })
+
+    assert_equal({ success: true, result: "ok" }, server.execute_tool("flat_for_server", { "query" => "https://not-a-source.example" }))
+    assert_equal({ error: "Tool not found: missing" }, server.execute_tool("missing"))
+    server.update!(status: "disconnected")
+    assert_equal({ error: "Server not ready" }, server.execute_tool("flat_for_server"))
+  end
+
   test "#tools returns [] when the server is not ready" do
     stub_registration(tool_classes: [ FlatToolForServer ])
     server = @account.mcp_servers.create!(

@@ -1,6 +1,16 @@
 require "test_helper"
 
 class McpServerTest < ActiveSupport::TestCase
+  class KeywordTool < RubyLLM::Tool
+    def name
+      "keyword"
+    end
+
+    def execute(query:, options: {})
+      { query: query, options: options }
+    end
+  end
+
   def setup
     @user = User.create!(email: "ms@example.com", password: "testpassword123")
     @account = Account.create!(name: "MS Account", owner: @user)
@@ -63,5 +73,39 @@ class McpServerTest < ActiveSupport::TestCase
 
     assert_not server.valid?
     assert_not_empty server.errors[:endpoint]
+  end
+
+  test "remote execution keeps hash arguments and recoverable error contracts" do
+    server = @account.mcp_servers.new(name: "remote", transport_type: "sse", status: "ready")
+    server.define_singleton_method(:tools) { [ KeywordTool.new ] }
+    assert_equal({ success: true, result: { query: "file:///not-a-source", options: { "limit" => 2 } } },
+      server.execute_tool("keyword", { "query" => "file:///not-a-source", "options" => { "limit" => 2 } }))
+    assert_equal({ success: true, result: { error: "Invalid tool arguments: missing keyword: query" } }, server.execute_tool("keyword"))
+    assert_equal({ error: "Tool not found: missing" }, server.execute_tool("missing"))
+  end
+
+  test "client config preserves stdio command args env and HTTP URL headers and auth" do
+    original_client = RubyLLM::MCP.method(:client)
+    calls = []
+    RubyLLM::MCP.define_singleton_method(:client) { |**options| calls << options; Object.new }
+    begin
+      server = @account.mcp_servers.new(name: "stdio", transport_type: "stdio", connection_config: {
+        command: "ruby", args: [ "server.rb" ], env: { "TOOL_MODE" => "test" }
+      })
+      assert server.client
+      assert_equal({ command: "ruby", args: [ "server.rb" ], env: { "TOOL_MODE" => "test" } }, calls.last.fetch(:config))
+      %w[sse streamable].each do |type|
+        server = @account.mcp_servers.new(name: type, transport_type: type, endpoint: "https://mcp.example.com/mcp",
+          connection_config: { headers: { "X-Custom" => "kept" } }, auth_config: { token: "fake-token" })
+        assert server.client
+        assert_equal type.to_sym, calls.last.fetch(:transport_type)
+        assert_equal({ url: "https://mcp.example.com/mcp", headers: { "X-Custom" => "kept", "Authorization" => "Bearer fake-token" } }, calls.last.fetch(:config))
+      end
+      server = @account.mcp_servers.new(name: "key", transport_type: "streamable", endpoint: "https://mcp.example.com/mcp", auth_config: { api_key: "fake-key" })
+      assert server.client
+      assert_equal "fake-key", calls.last.dig(:config, :headers, "X-API-Key")
+    ensure
+      RubyLLM::MCP.define_singleton_method(:client, original_client)
+    end
   end
 end

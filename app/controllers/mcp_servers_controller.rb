@@ -84,7 +84,12 @@ class McpServersController < ApplicationController
   def execute_tool
     @mcp_server = Current.account.mcp_servers.find(params[:id])
     tool_name = params[:tool_name]
-    arguments = params[:arguments] || {}
+    if !params[:arguments].nil? && !params[:arguments].is_a?(ActionController::Parameters)
+      render json: { error: "Tool arguments must be a JSON object" }, status: :bad_request
+      return
+    end
+    # Tool inputs are an arbitrary JSON object, not McpServer attributes.
+    arguments = params.permit(arguments: {}).fetch(:arguments, {}).to_h
 
     result = @mcp_server.execute_tool(tool_name, arguments)
 

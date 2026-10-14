@@ -50,10 +50,13 @@ module RubyLLM
         "#{@adapter.client.name}: #{@name}"
       end
 
-      def params_schema
+      # @return [Hash, nil] the complete MCP argument JSON Schema
+      def parameters_schema
         @normalized_input_schema
       end
 
+      # @param params [Hash] remote MCP tool arguments
+      # @return [String, Array<String, RubyLLM::Attachment>, Hash] converted success or recoverable error
       def execute(**params)
         result = @adapter.execute_tool(
           name: @mcp_name,
@@ -73,32 +76,29 @@ module RubyLLM
           return { error: "Tool execution error: #{text_values}" }
         end
 
-        # Validate structured content if present AND output schema is defined
-        if result.value.key?("structuredContent") && !@output_schema.nil?
-          clean_schema = @output_schema.except("$schema")
+        if result.value.key?("structuredContent")
           structured_content = result.value["structuredContent"]
-          is_valid = SchemaValidator.valid?(clean_schema, structured_content)
-          unless is_valid
+          if @output_schema && !SchemaValidator.valid?(@output_schema.except("$schema"), structured_content)
             return { error: "Structured output is not valid: #{structured_content}" }
           end
-
-          # Return structured content as JSON - this is the authoritative, schema-validated data
-          # The LLM needs the structured data to give accurate responses
-          return create_content_for_message({ "type" => "text", "text" => structured_content.to_json })
         end
 
-        if text_values.empty?
-          create_content_for_message(content.first)
-        else
-          create_content_for_message({ "type" => "text", "text" => text_values })
-        end
+        # Convert every block, not just the first non-text block. Structured data
+        # is authoritative text, but must not discard accompanying files.
+        values = content.map { |block| create_content_for_message(block) }.compact
+        text = if result.value.key?("structuredContent")
+                 structured_content.to_json
+               else
+                 values.map(&:text).compact.join("\n")
+               end
+        MCP::Content.new(text: text, attachments: values.flat_map(&:attachments)).to_tool_result
       end
 
       def to_h
         {
           name: @name,
           description: @description,
-          params_schema: @normalized_input_schema,
+          parameters_schema: @normalized_input_schema,
           annotations: @annotations&.to_h
         }
       end
@@ -108,6 +108,8 @@ module RubyLLM
       private
 
       def create_content_for_message(content)
+        return MCP::Content.new(text: content.to_s) unless content.is_a?(Hash)
+
         case content["type"]
         when "text"
           MCP::Content.new(text: content["text"])

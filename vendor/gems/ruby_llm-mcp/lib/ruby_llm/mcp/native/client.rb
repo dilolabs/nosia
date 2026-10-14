@@ -361,7 +361,8 @@ module RubyLLM
         end
 
         def sampling_create_message_response(id:, model:, message:, **_options)
-          body = Native::Messages::Responses.sampling_create_message(id: id, model: model, message: message)
+          body = Native::Messages::Responses.sampling_create_message(id: id, model: model, message: message,
+                                                                    protocol_version: protocol_version)
           request(body, wait_for_response: false)
         end
 

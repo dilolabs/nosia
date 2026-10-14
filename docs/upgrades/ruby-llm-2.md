@@ -5,13 +5,14 @@
 Task 1 is verified on Ruby 4.0.7, Rails 8.0.5.1, and PostgreSQL using only
 the scratch database `nosia_ruby_llm_upgrade_test`. Its prerequisite checkpoint
 is exactly RubyLLM **1.16.0**. Task 3 now pins **2.0.0** and vendors the MCP
-bridge, but its runtime compatibility port is not yet implemented. These
+bridge; Task 7 now implements its narrow runtime compatibility port. These
 results do not establish that the final 2.0 upgrade is ready for deployment.
 Task 4 now verifies the three rename migrations on the dedicated legacy-schema
 rehearsal database and updates the schema from the normal scratch test database.
 Task 5 adopts the supporting associations and normalized accounting readers.
 Task 6 now ports request/instruction APIs, catalog pages, and usage/tool-call UI;
-the MCP/local-engine runtime port remains pending for Task 7.
+Task 7 now verifies the MCP/local-engine runtime port with canned I/O. The
+integration/release gate in Task 8 remains pending; no deployment is approved.
 
 Task 2 adds test-only 2.0 contracts on top of `a5ecca3`. They are intentionally
 **RED** on the unchanged 1.16.0 dependency; see the evidence below. Production
@@ -1368,3 +1369,230 @@ verified the real-loop/transport boundary, exact pending-user persistence withou
 duplicates, rejection before retrieval/system-prompt insertion, JSON/SSE marker
 non-disclosure, unchanged request options, ensure-based stub restoration, API
 authentication/account scoping, and the three-file ownership boundary.
+
+## Task 7: narrow vendored MCP and local-tool runtime port
+
+Implemented from `bc7caaeebb9936517664245424f4c73991ac004d` on 2026-10-14.
+This task retains the published MCP **1.0.1** implementation and its existing
+transports/features; it does not replace it with the official SDK. The supported
+RubyLLM target remains **exactly 2.0.0**. No dependency, migration, schema,
+historical accounting, request-option, AI endpoint, or transport implementation
+change is included. No child agents, real provider calls in the new contracts,
+development/production database access, or deployment actions were used.
+
+### Compatibility boundaries
+
+`vendor/gems/ruby_llm-mcp/PATCHES.md` inventories all ten imported-source edits
+and their behavior against archive SHA-256
+`22121bfdea1874935debdd9cee0235d02473885ce8347cf745a323f0707fd248`.
+The archive hash was rechecked and a byte comparison confirmed **120 imported
+files: exactly 10 documented differences and 110 pristine files**. The existing
+local gemspec and exact pin are unchanged.
+
+- MCP attachments strictly decode base64 into `StringIO`, run the real parent
+  constructor with filename `mcp-attachment`, and retain the explicit MIME type.
+  Tests distinguish decoded binary bytes, byte size, and re-encoded wire bytes,
+  check parent source/config/type behavior, and run the actual Chat Completions
+  media formatter for image/audio/PDF data without double encoding. Invalid
+  base64 raises; neither it nor root tool arguments become local paths/URLs.
+- `MCP::Content` is an ordinary bridge-owned value, not a global core shim.
+  Its explicit `to_tool_result` and `to_message(role:)` return supported RubyLLM
+  values/fields. Attachment normalization compacts nil entries and accepts a
+  single real attachment or array; it never creates attachments from untrusted
+  strings. Tests call these public methods and the real 2.0 `Tool.split_result`.
+- Remote tools expose full nested/required `parameters_schema` and the renamed
+  `to_h` key. Every success block is converted, including all text/images/audio,
+  embedded resource blobs/text, and resource links. Structured JSON remains
+  authoritative (with or without output schema) while retaining accompanying
+  files. Schema validation and both JSON-RPC/execution error hashes remain.
+  Empty content returns an empty string rather than dereferencing `content.first`.
+- Prompt/resource inclusion uses actual `RubyLLM::Message` text and attachment
+  fields. Standard prompt media fields and the existing legacy aliases work;
+  embedded prompt resources consume their included content. Plain-chat and real
+  persisted-chat tests verify text, roles, file bytes, MIME types, and Active
+  Storage persistence without a provider call. Existing resource URI dispatch
+  is deliberately unchanged; non-HTTP resource reads in these tests use canned
+  adapter replies, not local file access or an SSRF-guard bypass.
+- Both legacy callback and handler-based sampling convert system/text/image/audio
+  inputs into real messages. Completion alone is canned on an otherwise real
+  plain chat; coordinator responses/errors and rejection are exercised. The
+  discovered native response formatter also referenced removed core Content;
+  it now reads message text/files, base64-encodes wire data, and uses
+  `finish_reason`. Single-block shapes remain unchanged. MCP 2025-11-25 added
+  array sampling content; older negotiated versions explicitly reject multiple
+  blocks with `InvalidFormatError`, never truncate or send an invalid array.
+  The native client passes its existing negotiated version to that formatter.
+  This boundary was checked against the official 2025-06-18 and 2025-11-25
+  published JSON schemas; no protocol-negotiation algorithm was changed.
+- Local tools use `Tool.parameters`; direct/local/remote invocation uses the 2.0
+  keyword API. Old positional-call tests were converted, not supported by a shim.
+  `McpServer#execute_tool` first makes a plain Hash and string-normalizes root
+  keys. This matters because `HashWithIndifferentAccess#transform_keys` retains
+  string keys even when the core tool normalizes keywords to symbols. Credentials
+  remain bound in `server_context`, absent from the LLM schema.
+- The real JSON endpoint regression reproduced unpermitted Parameters expansion,
+  so only `arguments` is permitted as an arbitrary JSON object and converted at
+  the controller boundary. Non-object JSON is rejected with 400. A real local
+  MCP tool receives query/nested options with server-bound credentials; sibling
+  record/auth attributes do not change the server, and cross-account execution
+  remains 404. Existing result/error wrapper semantics are preserved.
+- Transport characterization instantiates the original stdio/SSE/streamable/
+  streamable_http classes without connecting. A second contract replaces only
+  their physical constructors with canned I/O and runs the actual client,
+  adapter, native protocol, capability handshake, default auto-start, list,
+  keyword tool call, and stop. Command/args/env, URL/custom/auth headers, and
+  capability errors are preserved. Existing stdio opt-in and public-URL tests
+  remain unchanged. No local fixture bypasses the application's URL guard.
+
+The unused OAuth generator view receives only the mechanical schema-reader
+rename, not a UI rewrite. A complete vendored-runtime scan finds no remaining
+removed `RubyLLM::Content`, `params_schema`, `.params`, `.param`, `with_params`,
+legacy token readers, or old message-model/stop-reason reader calls. The local
+variable `stop_reason` in the response formatter is not a removed API call.
+New public bridge methods and changed public boundaries have YARD documentation.
+
+### Test-first evidence
+
+All Rails runs use only the already-migrated `nosia_ruby_llm_upgrade_test` and
+the safe environment below. No database setup, migration, reset, or data-repair
+command was run in this task. All seeded Task 7 runs use **202607** except the
+initial existing-contract run, which used seed **21639**. No tests are skipped.
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Existing MCP decode/local schema tests before edits | 12 | 13 | 1 | 7 | 1 |
+| Expanded bridge/schema/persistence contracts before runtime edits | 23 | 21 | 3 | 16 | 1 |
+| Same bridge/local schema set after initial port | 23 | 121 | 0 | 0 | 0 |
+| Sampling and local/remote server keyword regressions before fixes | 31 | 128 | 2 | 2 | 1 |
+| After sample/server/formatter fixes, before sampling-concern fix | 32 | 145 | 1 | 0 | 1 |
+| Endpoint regression plus transport/engine/bridge tests before controller fix | 56 | 282 | 2 | 0 | 1 |
+| Expanded non-object endpoint and negotiated-version guard RED | 2 | 6 | 1 | 1 | 1 |
+| Final complete MCP/local-engine focused set | **67** | **365** | **0** | **0** | **0** |
+
+Initial RED reproduced encoded attachment content, removed local schema API,
+remote nested-schema loss, removed core Content, and empty-content dereference.
+The independent sampling-handler failure was observed after the legacy sample
+path was green, not hidden behind its earlier failure. Endpoint RED first showed
+unpermitted parameters, then the indifferent-Hash keyword boundary; the final
+test also exposed false-valued non-object input. The negotiated-version RED
+proved the native client initially omitted its legacy version when formatting
+a multi-block response. All now have passing behavior assertions.
+
+Two test harness mistakes were corrected before counting the expanded RED:
+Minitest 6 does not ship `minitest/mock`, and Ruby 4 requires explicit braces
+for MCP Result's positional response Hash when the constructor also has a
+keyword parameter. No production compatibility shim or dependency was added
+to hide those setup errors. Supplemental binary/provider serialization coverage
+was added after the core attachment RED/GREEN, not represented as a new failing
+implementation requirement. An existing OpenAlex integration test independently
+reproduced the old positional tool call; only its call syntax was updated.
+
+### Exact reproduction commands
+
+```sh
+task7_rails() {
+  env \
+    RAILS_ENV=test \
+    DATABASE_URL=postgresql:///nosia_ruby_llm_upgrade_test \
+    PARALLEL_WORKERS=1 \
+    ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=11111111111111111111111111111111 \
+    ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=22222222222222222222222222222222 \
+    ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=33333333333333333333333333333333 \
+    AI_API_KEY=test-only \
+    AI_BASE_URL=http://127.0.0.1:9/v1 \
+    LLM_MODEL=test-model \
+    EMBEDDING_MODEL=test-embedding \
+    EMBEDDING_DIMENSIONS=4096 \
+    CHUNK_SIZE=512 \
+    CHUNK_OVERLAP=128 \
+    RETRIEVAL_FETCH_K=3 \
+    bin/rails "$@"
+}
+
+# Initial existing-contract RED (before any production edit).
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/engines/tool_adapter_test.rb
+
+# Expanded RED and first GREEN, same files, after converting positional tests.
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/engines/tool_adapter_test.rb --seed 202607
+
+# Sampling/server RED and intermediate handler RED.
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/models/mcp_server_test.rb test/models/mcp_server_local_test.rb --seed 202607
+
+# Final focused set; all MCP/local-engine contracts, including engine activation.
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/ruby_llm_mcp_transport_test.rb test/lib/engines \
+  test/lib/mcp_catalog_registry_test.rb test/models/mcp_server_test.rb \
+  test/models/mcp_server_local_test.rb test/controllers/mcp_servers_controller_test.rb \
+  test/integration/local_engine_chat_test.rb test/integration/activate_engine_test.rb \
+  test/integration/engines_boot_test.rb --seed 202607
+
+# Unfiltered non-system suite, with only the accepted baseline permitted to fail.
+task7_rails test --seed 202607
+```
+
+The final focused run completed in **5.719568 s**. An initial unfiltered run was
+stopped by the shell's 120-second timeout and is not counted as test evidence.
+The next completed full run took **248.568093 s**, with **406 runs, 1688
+assertions, 0 failures, 1 error**, exit 1: only the accepted
+`Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts` live embedding
+request to `127.0.0.1:9`. The final unfiltered rerun additionally includes the
+binary/provider and negotiated legacy-protocol contracts and expanded non-object
+input coverage: **409 runs, 1715 assertions, 0 failures, 1 error, 0 skips**,
+**287.336980 s**, exit 1. Its only error is that same accepted crawler baseline.
+There are **no MCP or local-adapter failures/errors**. This is a completed Task 7
+verification run, not a green full suite or Task 8 release approval.
+
+### Packaging, static checks, and self-review
+
+```sh
+bundle exec ruby test/packaging/ruby_llm_path_dependency.rb --seed 202607
+
+# Run inside vendor/gems/ruby_llm-mcp; do not leave an archive in the repository.
+gem build ruby_llm-mcp.gemspec \
+  --output /tmp/opencode/nosia-rubyllm2-research/ruby_llm-mcp-1.0.1-nosia-task7.gem
+
+# Run from the worktree; this unchanged FROM-scratch fixture uses Dockerfile's
+# actual pre-bundle COPY instructions, not a full application image build.
+docker build \
+  --file /tmp/opencode/nosia-rubyllm2-research/task3-packaging/Dockerfile.packaging \
+  --output type=local,dest=/tmp/opencode/nosia-rubyllm2-research/task7-final-packaging/rootfs .
+env BUNDLE_GEMFILE=/tmp/opencode/nosia-rubyllm2-research/task7-final-packaging/rootfs/rails/Gemfile bundle check
+
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  app/controllers/mcp_servers_controller.rb app/models/mcp_server.rb \
+  lib/engines/tool_adapter.rb test/controllers/mcp_servers_controller_test.rb \
+  test/integration/local_engine_chat_test.rb test/lib/engines/tool_adapter_test.rb \
+  test/lib/ruby_llm_mcp_compatibility_test.rb test/lib/ruby_llm_mcp_transport_test.rb \
+  test/models/mcp_server_local_test.rb test/models/mcp_server_test.rb
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml --only Lint \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/{attachment,content,tool,prompt,resource,sample}.rb \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/handlers/concerns/sampling_actions.rb \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/native/{client,messages/responses}.rb
+bundle exec ruby -e 'files = Dir["vendor/gems/ruby_llm-mcp/lib/**/*.rb"]; files.each { |file| RubyVM::InstructionSequence.compile_file(file) }; puts "Compiled #{files.size} vendored Ruby sources"'
+git diff --check
+```
+
+Packaging regression: **2 runs, 8 assertions, no failures/errors**, exit 0.
+The gem builds as 1.0.1. The Docker export succeeds, all **135 files** under
+the exported Gemfile/lockfile/vendor dependency layout hash-match source, and
+`bundle check` succeeds there. A `bundle exec ruby -r ruby_llm/mcp` check against
+that exported Gemfile verifies the exported vendor path, RubyLLM 2.0.0, decoded
+attachment bytes, and real message conversion. These checks use host-installed
+dependencies; **no full multistage application image or in-image bundle install
+is claimed**. Dockerfile and `.dockerignore` are unchanged.
+
+RuboCop inspects **10 application/test Ruby files** with no offenses and all
+**9 edited vendored runtime Ruby files** with no Lint offenses, using the existing
+external Ruby-4 parser override. Upstream layout is retained, not globally
+reformatted. All **105 vendored Ruby source files** compile. The diff check is
+clean. Self-review checks the full task-owned diff, exact imported-file inventory,
+no core shim, real conversion/persistence/provider serialization assertions,
+transport/config/security preservation, protocol-specific sampling shapes,
+tenant-scoped endpoint arguments, ensure-based fake restoration, and unchanged
+dependency/schema/accounting files. Live authenticated MCP interoperability,
+system/browser tests, and the standalone migration rehearsal are not rerun here.
+Task 8's release gate, production-sized rehearsal/recovery, and deployment
+approval remain outstanding; this is not an overall-upgrade completion claim.

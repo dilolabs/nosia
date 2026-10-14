@@ -16,7 +16,7 @@ Fetched with `gem fetch ruby_llm-mcp --version 1.0.1` and unpacked with
 `/tmp/opencode/nosia-rubyllm2-research`, outside the repository. The downloaded
 archive, metadata response, and unpacked comparison copy stay outside Git.
 
-The 120 imported files are byte-identical to the archive: `lib/ruby_llm/`,
+The 120 imported files were initially byte-identical to the archive: `lib/ruby_llm/`,
 `lib/generators/` (including every generator template), `README.md`, and
 `LICENSE`. No runtime assets are omitted. The only excluded published files
 are upstream development tasks `lib/tasks/release.rake` (publishing/tagging)
@@ -37,19 +37,46 @@ Ruby requirement, require path, and other runtime dependency requirements.
 Only the RubyLLM constraint and packaging file list are adapted. The file list
 is local and deterministic, includes this note, and does not call Git.
 
-**Task 3 only establishes provenance, packaging, and dependency resolution.**
-No imported runtime source has been changed yet. The bridge's removed
-`RubyLLM::Content` inheritance, attachment bytes, tool schema reader, and
-prompt/resource/sampling conversions still require the narrow Task 7 port.
-Do not deploy this intermediate dependency switch or interpret a passing
-version assertion as working MCP compatibility. Application association/schema
-adoption and token-reader updates also remain in Tasks 4–6.
+### Task 7 runtime port (2026-10-14)
+
+The supported RubyLLM target remains **exactly 2.0.0**, not arbitrary 2.x.
+These are the complete imported-source differences from the archive above:
+
+| File relative to this directory | Local adaptation |
+| --- | --- |
+| `lib/ruby_llm/mcp/attachment.rb` | Strict base64 decode into `StringIO`, invoke the parent with filename `mcp-attachment`, then retain the declared MIME type. Inherit real `content`, `encoded`, `source`, `config`, and `byte_size`; malformed base64 raises rather than becoming a path or URL. |
+| `lib/ruby_llm/mcp/content.rb` | Ordinary bridge-owned text/attachments value, not a removed core subclass or global shim. Accept only already-built attachments (single or array, compacting nils). `to_tool_result` returns text or the supported string/attachment array; `to_message(role:)` separates the two fields. |
+| `lib/ruby_llm/mcp/tool.rb` | Expose the full nested schema through `parameters_schema` and the corresponding `to_h` key. Convert every text/image/audio/embedded-resource/resource-link block; preserve all files, first and last. Structured JSON remains authoritative, including with accompanying attachments; retain output-schema validation and error hashes. Return only real RubyLLM-supported tool result types. |
+| `lib/ruby_llm/mcp/prompt.rb` | Build real messages with separate text/files. Read standard `data`/`mimeType` media fields, retaining the upstream legacy field fallback, and consume embedded resource contents without rereading their URI. |
+| `lib/ruby_llm/mcp/resource.rb` | Include converted messages, never a content value in `Message#content`. Resource URI dispatch is unchanged. |
+| `lib/ruby_llm/mcp/sample.rb` | Convert sampling inputs into real messages with separate attachments. |
+| `lib/ruby_llm/mcp/handlers/concerns/sampling_actions.rb` | Same conversion for handler-based sampling, including system instructions. |
+| `lib/ruby_llm/mcp/native/messages/responses.rb` | Remove the last removed-core-content type check. Serialize actual message text and attachments, using base64 wire data and `finish_reason`. Keep singular responses for one block. Multiple blocks require MCP 2025-11-25 or newer; older protocols explicitly raise `InvalidFormatError` rather than silently losing files or sending an invalid array. |
+| `lib/ruby_llm/mcp/native/client.rb` | Pass the already-negotiated version to that response formatter; no transport or negotiation algorithm change. |
+| `lib/generators/ruby_llm/mcp/oauth/templates/views/show.html.erb` | Mechanical `params_schema` → `parameters_schema` reader rename only; no generated UI redesign. |
+
+The local gemspec constraint/file-list adaptation described above is unchanged.
+All other imported files remain pristine. No official SDK replacement, new
+transport, transport implementation edit, auth/config rewrite, schema migration,
+or RubyLLM core monkey patch is introduced. Stdio opt-in and public-URL validation
+remain in the application's `McpServer`. The app's local adapter now uses
+`Tool.parameters`; server tool invocation uses keywords with a plain string-keyed
+Hash. Only the tool endpoint's `arguments` JSON object is permitted/normalized,
+separately from record attributes and tenant scoping.
+
+Compatibility tests call the real bridge and 2.0 `Tool.split_result`, real
+message construction/persistence, and actual provider media serialization.
+Network/provider completion and physical transport I/O alone use canned fakes.
+Original stdio/SSE/streamable/streamable_http class selection, command/env,
+URL/headers, lifecycle, capability errors, and application security guards are
+covered. This is **not** a live-server interoperability certification or a
+deployment approval; see `docs/upgrades/ruby-llm-2.md` for exact task evidence.
 
 ## Maintenance and removal
 
 1. Preserve the pristine archive hash above as the comparison base. Fetch and
    verify it outside the repository before reviewing or refreshing the patch.
-2. Document each runtime file changed by Task 7 and its behavior here. Keep
+2. Keep the runtime-file inventory and behavior above current. Keep
    stdio, SSE, and streamable HTTP transports and security checks unchanged.
 3. Run the MCP/local-engine compatibility tests without provider credentials,
    alongside the application accounting and migration verification gates.
