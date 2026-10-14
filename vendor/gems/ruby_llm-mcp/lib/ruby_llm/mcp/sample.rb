@@ -170,7 +170,7 @@ module RubyLLM
         end
         raw_messages.each { |message| chat.add_message(create_message(message)) }
 
-        chat.complete
+        chat.generate
       end
 
       def preferred_model

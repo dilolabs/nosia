@@ -6,8 +6,10 @@
 approval.** RubyLLM is pinned to **2.0.0**, with the narrow vendored MCP **1.0.1**
 port. Tasks 1–7 and the Task 8 integration checks are recorded below; the original
 RED-stage sections are historical evidence, not outstanding compatibility failures.
-The final full suite has **445 runs, 1919 assertions, 0 failures, 1 accepted crawl
-error**, not an all-pass result. Default full lint and security scans are also
+The latest full suite, after the [explicit MCP-generation follow-up](#task-7-integration-review-follow-up-explicit-mcp-generation),
+has **466 runs, 2106 assertions, 0 failures, 1 accepted crawl error**, not an
+all-pass result. The earlier Task 8 full-suite counts/logs remain historical.
+Default full lint and security scans at that checkpoint are also
 non-green; their precise baseline comparisons are in the Task 8 evidence.
 
 Start with the [operator runbook](ruby-llm-2-deployment.md), not the incremental
@@ -1877,6 +1879,11 @@ dependency, migration, schema, legacy alias, or unrelated baseline fix was neede
 The [operator runbook](ruby-llm-2-deployment.md) supersedes the historical rollout
 notes above. The parent session's fresh final review is **not yet recorded**.
 
+**Subsequent Task 7 follow-up:** the explicit MCP-generation review/fix and its
+new verification are recorded [below](#task-7-integration-review-follow-up-explicit-mcp-generation).
+The runtime commit, counts, and logs in this Task 8 section remain the original
+checkpoint; they are not silently rewritten as verification of the later fix.
+
 ### Safe execution and artifact inventory
 
 All Rails commands use the full fake-key/port-9 environment in `task7_rails`
@@ -2108,3 +2115,165 @@ remains explicit. **Production-sized rehearsal, tested backup/restore, live
 authenticated interoperability, and fresh final integration/data-safety review
 remain unperformed gates**, not checked-off release approval. No push, merge,
 deployment, cleanup migration, worktree removal, or child agent was performed.
+
+## Task 7 integration-review follow-up: explicit MCP generation
+
+Implemented from documentation checkpoint `41b2a6f` after the parent's final
+integration review. The earlier Task 8 matrix above describes runtime
+`a3ae029`; it did not establish fresh MCP generation after an assistant prefill.
+This follow-up changes exactly three already-patched vendored runtime files,
+two test files (one new), `PATCHES.md`, and this evidence. No dependency,
+migration, schema, application request/controller behavior, URL policy,
+transport, or operator deployment procedure is changed.
+
+### Verified public API and intent
+
+The actual pinned 2.0.0 sources were inspected: public `RubyLLM::Chat#generate`
+requests and appends one provider response, honoring fallbacks and cancellation,
+but does not execute tools. Public `complete` instead runs pending work until
+`complete?` or `awaiting_approval?`. An assistant without tool calls, system-only
+history, or an empty chat is already complete. The AR chat macro exposes the
+same public `generate`, `complete`, and `complete?` APIs while persisting their
+messages/usages.
+
+- `MCP::Prompt#ask` still includes the actual MCP prompt messages first. If the
+  chat is already complete it explicitly calls `generate`, then always runs
+  `complete` to finish any newly generated tool round or stop at an approval
+  pause. User-ended history uses only the existing loop, so it does not generate
+  twice. The same block is forwarded through these public operations; once the
+  initial generated answer completes the chat, the second operation does no
+  extra provider work or duplicate streaming. No synthetic `user: Continue`
+  message is inserted and no supplied assistant message is treated as a newly
+  generated answer.
+- Legacy block sampling in `Sample#chat` and handler sampling in
+  `SamplingActions#default_chat_completion` request one public `generate`,
+  including assistant-ended, user-ended, and system-only histories. These chats
+  have no local tools configured. No core/private API or completion-state shim
+  is introduced.
+
+`test/lib/ruby_llm_mcp_generation_test.rb` adds **22 real-loop contracts**.
+Faraday's local test adapter replaces only HTTP I/O on newly constructed real
+RubyLLM transport connections. Provider completion, message/media rendering,
+protocol parsing, `generate`/`complete`, tool execution, approval state,
+streaming accumulation, and AR callbacks remain real. Every unmatched/extra
+provider request fails locally. The bundled `gpt-4o-mini` metadata is resolved
+offline; the global app model/endpoint/key defaults are unchanged.
+
+Coverage includes:
+
+- Both sampling modes and plain/persisted prompt asks generate exactly once
+  after assistant-ended and system-only input; user-ended input also generates
+  exactly once. Responses must be real `RubyLLM::Message` objects with generated
+  content and a non-nil exact response model, not an echo of the prefill.
+- Original roles/history, binary PNG/WAV attachments, and their provider wire
+  encodings survive. Persisted prompt tests check stored message counts/content
+  and downloaded attachment bytes, not just an in-memory fake chat.
+- Plain/persisted prompt tool rounds generate two provider responses, execute the
+  tool once, retain its result/history, and finish without an extra round. New
+  approval-required calls pause before execution/generation; public approve and
+  complete resume once. Cancellation raises before any provider call rather
+  than silently returning the supplied assistant. Prompt streaming yields only
+  the two actual generated deltas, without duplicate chunks or an extra request.
+
+The old compatibility-file sampling test and its unused handler class are
+replaced by these real-loop conversion contracts. Its system/text/role/media
+reader assertions are retained and strengthened in the new file; neither chat
+construction nor completion is stubbed. The rejection and response-formatting
+contracts remain in `ruby_llm_mcp_compatibility_test.rb` unchanged.
+
+### Test-first and completed verification evidence
+
+All Rails commands use the exact safe `task7_rails` environment already defined
+above, only `nosia_ruby_llm_upgrade_test`, `PARALLEL_WORKERS=1`, and the requested
+seed **20261014**, with a **600000 ms** command timeout. No existing development/
+production DB, real provider credentials/network, model refresh, migration, Task 8
+rollout action, or child agent was used. Background full-suite completion is
+awaited before recording its result and committing, not left as a pending claim.
+
+| Stage | Runs | Assertions | Failures | Errors | Exit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Corrected real-loop contracts before any runtime edit | **22** | **87** | **16** | **0** | **1** |
+| Same contracts after the minimal three-file port | **22** | **199** | **0** | **0** | **0** |
+| Complete MCP/local-engine/endpoint set, including new real-loop file | **124** | **756** | **0** | **0** | **0** |
+| Standalone packaging regression | **2** | **8** | **0** | **0** | **0** |
+| Latest full non-system suite after generation fix | **466** | **2106** | **0** | **1** | **1** |
+
+The clean RED took **16.828678 s**. Its failed assistant/system cases recorded
+**zero provider requests** where one/two were required; cancellation returned
+the prefill instead of raising. Six existing user-ended cases already passed,
+providing the no-double-generation characterization. The first preliminary test
+run had a helper named `message` colliding with Minitest's own assertion helper,
+and persisted fake ASCII "image/audio" bytes could not survive actual MIME
+sniffing. These were test setup mistakes, corrected before the counted RED by
+renaming the helper and using real PNG/WAV signatures. No runtime MIME behavior
+or core API was patched to hide them.
+
+The 22-contract GREEN took **16.538978 s** and the MCP-focused run
+**22.741272 s**, with no skips. The final unfiltered suite completed in
+**224.813963 s**, seed **20261014**, against the same new runtime/test sources.
+Its sole error is the accepted
+`Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts` embedding
+connection failure at `127.0.0.1:9`. There are **no MCP generation, conversion,
+adapter, or endpoint failures/errors**. These are the latest completed results;
+the earlier Task 8 **445 / 1919** result remains a distinct historical checkpoint,
+not retrospectively rewritten or claimed to cover this fix.
+
+```sh
+# RED before runtime edits; GREEN after the three public-API adaptations.
+task7_rails test test/lib/ruby_llm_mcp_generation_test.rb --seed 20261014
+# Complete MCP/local-engine gate:
+task7_rails test test/lib/ruby_llm_mcp_compatibility_test.rb \
+  test/lib/ruby_llm_mcp_generation_test.rb test/lib/ruby_llm_mcp_transport_test.rb \
+  test/lib/engines test/lib/mcp_catalog_registry_test.rb test/models/mcp_server_test.rb \
+  test/models/mcp_server_local_test.rb test/controllers/mcp_servers_controller_test.rb \
+  test/integration/local_engine_chat_test.rb test/integration/activate_engine_test.rb \
+  test/integration/engines_boot_test.rb --seed 20261014
+task7_rails test --seed 20261014
+bundle exec ruby test/packaging/ruby_llm_path_dependency.rb --seed 20261014
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml \
+  test/lib/ruby_llm_mcp_compatibility_test.rb test/lib/ruby_llm_mcp_generation_test.rb
+bundle exec rubocop --config /tmp/opencode/nosia-rubyllm2-task2-rubocop.yml --only Lint \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/prompt.rb \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/sample.rb \
+  vendor/gems/ruby_llm-mcp/lib/ruby_llm/mcp/handlers/concerns/sampling_actions.rb
+git diff --check
+```
+
+Both changed test files pass full targeted lint, and all three edited vendor
+runtime files pass targeted Lint checks, retaining upstream style. `Prompt#ask`
+and the handler's return/intent documentation describe the public contract.
+`PATCHES.md` records the generation adaptations and unchanged exact support
+target **RubyLLM 2.0.0 / MCP 1.0.1**. Imported-file inventory remains **11 modified
+files / 109 pristine files**; no additional vendor runtime file is changed.
+The known accepted crawler error and URL-policy DNS-rebinding/TOCTOU window are
+not fixed or claimed eliminated. Live authenticated interoperability, production
+rehearsal/recovery, and the parent's new all-branch integration review remain
+unperformed gates, not an overall-upgrade or production approval.
+
+Packaging/static follow-up commands also completed with exit 0:
+
+```sh
+# From vendor/gems/ruby_llm-mcp:
+gem build ruby_llm-mcp.gemspec \
+  --output /tmp/opencode/nosia-rubyllm2-research/ruby_llm-mcp-1.0.1-nosia-task7-generation.gem
+# From the worktree:
+docker build \
+  --file /tmp/opencode/nosia-rubyllm2-research/task3-packaging/Dockerfile.packaging \
+  --output type=local,dest=/tmp/opencode/nosia-rubyllm2-research/task7-generation-packaging/rootfs .
+env BUNDLE_GEMFILE=/tmp/opencode/nosia-rubyllm2-research/task7-generation-packaging/rootfs/rails/Gemfile bundle check
+bundle exec ruby -e 'files = Dir["vendor/gems/ruby_llm-mcp/lib/**/*.rb"]; files.each { |file| RubyVM::InstructionSequence.compile_file(file) }; puts "Compiled #{files.size} vendored Ruby sources"'
+```
+
+All **135** exported dependency files hash-match source and all **105** vendored
+Ruby files compile. A database-free exported-Gemfile smoke check loads MCP 1.0.1
+from the exported path with RubyLLM 2.0.0, includes a supplied assistant prefill
+through actual `Prompt#ask`, and requires one real-loop Faraday-canned provider
+request and a distinct generated response/model. No full multistage image or
+in-image dependency installation is claimed. Byte comparison reverified the
+original published archive SHA and the exact 11-file vendor diff inventory.
+Self-review confirms that only the three specified runtime files change, no
+completion/chat-constructor stubs remain in the MCP tests, conversion assertions
+were relocated rather than weakened, history/media persist, and public tool,
+approval, cancellation, and streaming behavior are exercised without private
+core APIs or fabricated user input. The parent's final all-branch review is
+still outstanding.

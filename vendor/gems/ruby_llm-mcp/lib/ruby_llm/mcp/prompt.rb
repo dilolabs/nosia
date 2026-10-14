@@ -42,9 +42,15 @@ module RubyLLM
         chat
       end
 
+      # @param chat [RubyLLM::Chat, Object] plain chat or acts_as_chat record
+      # @param arguments [Hash] MCP prompt arguments
+      # @return [RubyLLM::Message, nil] generated response or a tool response awaiting approval
       def ask(chat, arguments: {}, &)
         include(chat, arguments: arguments)
 
+        # MCP explicitly requests generation, even after an assistant prefill.
+        # The normal loop must still execute tools and honor approval pauses.
+        chat.generate(&) if chat.complete?
         chat.complete(&)
       end
 

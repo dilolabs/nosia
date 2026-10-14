@@ -48,10 +48,10 @@ These are the complete imported-source differences from the archive above:
 | `lib/ruby_llm/mcp/content.rb` | Ordinary bridge-owned text/attachments value, not a removed core subclass or global shim. Accept only already-built attachments (single or array, compacting nils). `to_tool_result` returns text or the supported string/attachment array; `to_message(role:)` separates the two fields. |
 | `lib/ruby_llm/mcp/configuration.rb` | Add the application-owned `resource_url_validator` callback. Fresh/reset configurations leave it nil, so HTTP resource reads fail closed until a policy is explicitly installed. |
 | `lib/ruby_llm/mcp/tool.rb` | Expose the full nested schema through `parameters_schema` and the corresponding `to_h` key. Convert every text/image/audio/embedded-resource/resource-link block; preserve all files, first and last. Structured JSON remains authoritative, including with accompanying attachments; retain output-schema validation and error hashes. Return only real RubyLLM-supported tool result types. |
-| `lib/ruby_llm/mcp/prompt.rb` | Build real messages with separate text/files. Read standard `data`/`mimeType` media fields, retaining the upstream legacy field fallback, and consume embedded resource contents without rereading their URI. |
+| `lib/ruby_llm/mcp/prompt.rb` | Build real messages with separate text/files. Read standard `data`/`mimeType` media fields, retaining the upstream legacy field fallback, and consume embedded resource contents without rereading their URI. For explicit `ask`, initiate public `generate` only when `complete?` says no pending work, then run `complete` to finish tools or pause for approval. User-ended history resumes the ordinary loop without an extra generation. |
 | `lib/ruby_llm/mcp/resource.rb` | Include converted messages, never a content value in `Message#content`. Every direct HTTP(S) fetch first requires a callable URL validator returning truthy approval; missing/rejecting policy raises `ConfigurationError`, and policy exceptions propagate before network I/O. Then retain `HTTPX.get`, check `raise_for_status`, and return a real `MCP::Result` containing the body's String value. HTTP status/transport failures propagate as their original HTTPX exceptions. URI dispatch is unchanged; vendor code does not reference the host application's URL-guard class. |
-| `lib/ruby_llm/mcp/sample.rb` | Convert sampling inputs into real messages with separate attachments. |
-| `lib/ruby_llm/mcp/handlers/concerns/sampling_actions.rb` | Same conversion for handler-based sampling, including system instructions. |
+| `lib/ruby_llm/mcp/sample.rb` | Convert sampling inputs into real messages with separate attachments; explicitly request one response with public `Chat#generate`, including assistant-prefilled/system-only history. |
+| `lib/ruby_llm/mcp/handlers/concerns/sampling_actions.rb` | Same conversion and explicit single generation for handler-based sampling, including system instructions. |
 | `lib/ruby_llm/mcp/native/messages/responses.rb` | Remove the last removed-core-content type check. Serialize actual message text and attachments, using base64 wire data and `finish_reason`. Keep singular responses for one block. Multiple blocks require MCP 2025-11-25 or newer; older protocols explicitly raise `InvalidFormatError` rather than silently losing files or sending an invalid array. |
 | `lib/ruby_llm/mcp/native/client.rb` | Pass the already-negotiated version to that response formatter; no transport or negotiation algorithm change. |
 | `lib/generators/ruby_llm/mcp/oauth/templates/views/show.html.erb` | Mechanical `params_schema` → `parameters_schema` reader rename only; no generated UI redesign. |
@@ -67,7 +67,8 @@ separately from record attributes and tenant scoping.
 
 Compatibility tests call the real bridge and 2.0 `Tool.split_result`, real
 message construction/persistence, and actual provider media serialization.
-Network/provider completion and physical transport I/O alone use canned fakes.
+Network/physical transport I/O uses canned fakes. The generation contracts leave
+the provider, protocol, complete/generate loops, streaming parser, and persistence real.
 Original stdio/SSE/streamable/streamable_http class selection, command/env,
 URL/headers, lifecycle, capability errors, and application security guards are
 covered. This is **not** a live-server interoperability certification or a
@@ -110,6 +111,29 @@ RubyLLM attachment objects. PNG/audio endpoint regressions exercise the actual
 remote tool, `McpServer#execute_tool`, authenticated route, and JSON rendering;
 plain/structured/error semantics and the existing argument/tenant boundaries
 are retained. No core attachment serializer or global monkey patch is added.
+
+### Task 7 integration-review explicit generation
+
+RubyLLM 2.0 `complete` resumes pending work; assistant-ended and system-only
+histories are already `complete?` and otherwise echo supplied messages without
+provider generation. MCP prompt asks and sampling are explicit generation
+requests. The three files listed above now use public `generate` at that
+boundary, without fake user messages, private APIs, core patches, or double
+generation for user-ended histories. Prompt asks retain their complete tool
+loop, approval pauses, cancellation, and streamed chunks on plain and persisted
+chats. Sampling performs one generation with no configured local tools.
+
+`test/lib/ruby_llm_mcp_generation_test.rb` replaces the former sampling
+completion-stub fixture with real-loop Faraday-canned provider tests. They
+verify actual request counts, generated response model/content, original
+history and binary PNG/WAV attachments, tool continuation, approval/resume,
+cancellation, and streaming without duplicate chunks. The earlier conversion
+assertions are retained there rather than hidden behind a stubbed `complete`.
+The inventory remains **11 modified imported files / 109 pristine files**;
+this follow-up changes only three already-patched runtime sources. The exact
+supported target remains RubyLLM **2.0.0**, not arbitrary 2.x. Earlier Task 8
+verification counts are historical; current follow-up evidence is in the app
+upgrade runbook. The known URL-policy DNS-rebinding limitation remains unchanged.
 
 ## Maintenance and removal
 

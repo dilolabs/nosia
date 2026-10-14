@@ -57,12 +57,6 @@ class RubyLlmMcpCompatibilityTest < ActiveSupport::TestCase
     end
   end
 
-  class SamplingHandler < RubyLLM::MCP::Handlers::SamplingHandler
-    def execute
-      accept(default_chat_completion("test-model"))
-    end
-  end
-
   setup do
     @adapter = CannedAdapter.new
     stub_url_resolver([ "93.184.216.34" ])
@@ -450,32 +444,6 @@ class RubyLlmMcpCompatibilityTest < ActiveSupport::TestCase
     resource.include(chat)
     assert_equal "note: notes\n\nresource text", chat.messages.last.content
     assert_empty chat.messages.last.attachments
-  end
-
-  test "sample and sampling handler convert system text image and audio messages" do
-    [ nil, SamplingHandler ].each do |handler|
-      coordinator = CannedCoordinator.new
-      coordinator.sampling_callback = handler
-      sample = sampling_request(coordinator)
-      chat = plain_chat
-      response = RubyLLM::Message.new(role: :assistant, content: "canned reply")
-      chat.define_singleton_method(:complete) { response }
-      previous_model = RubyLLM::MCP.config.sampling.preferred_model
-      RubyLLM::MCP.config.sampling.preferred_model = "test-model"
-      original_new = RubyLLM::Chat.method(:new)
-      RubyLLM::Chat.define_singleton_method(:new) { |**_| chat }
-      begin
-        sample.execute
-        assert_empty coordinator.errors
-        assert_equal response, coordinator.responses.first.fetch(:message)
-        assert_equal [ :system, :user, :user, :assistant ], chat.messages.map(&:role)
-        assert_equal [ "system instructions", "sample text", nil, nil ], chat.messages.map(&:content)
-        assert_equal [ "sample image", "sample audio" ], chat.messages.flat_map(&:attachments).map(&:content)
-      ensure
-        RubyLLM::Chat.define_singleton_method(:new, original_new)
-        RubyLLM::MCP.config.sampling.preferred_model = previous_model
-      end
-    end
   end
 
   test "sampling rejection still avoids completion and returns coordinator error" do

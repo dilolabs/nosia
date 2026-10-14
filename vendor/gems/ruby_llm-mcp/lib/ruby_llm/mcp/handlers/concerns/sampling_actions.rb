@@ -29,9 +29,9 @@ module RubyLLM
             reject(message)
           end
 
-          # Default chat completion using RubyLLM::Chat
+          # Request one explicit sampling generation, including assistant-prefilled histories.
           # @param model [String] the model to use
-          # @return [Object] chat completion response
+          # @return [RubyLLM::Message] generated sampling response
           def default_chat_completion(model)
             chat = RubyLLM::Chat.new(model: model)
 
@@ -43,7 +43,7 @@ module RubyLLM
               chat.add_message(create_message(message))
             end
 
-            chat.complete
+            chat.generate
           end
 
           private
