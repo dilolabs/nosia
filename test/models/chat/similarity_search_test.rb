@@ -22,9 +22,9 @@ class Chat::SimilaritySearchTest < ActiveSupport::TestCase
   # partial into #thinking_animation_content. Stubs the vector search so no pgvector /
   # embedding network call fires.
   test "similarity_search broadcasts searching then retrieving, in order" do
-    fake_chunk = Struct.new(:context, :augmented_context).new("ctx", "aug")
+    fake_chunk = Struct.new(:context, :augmented_context, :chunkable).new("ctx", "aug", Object.new)
     proxy = Object.new
-    proxy.define_singleton_method(:search_by_similarity) { |*| [fake_chunk] }
+    proxy.define_singleton_method(:search_by_similarity) { |*| [ fake_chunk ] }
     acct = Object.new
     acct.define_singleton_method(:chunks) { proxy }
     @chat.define_singleton_method(:account) { acct }
@@ -39,5 +39,35 @@ class Chat::SimilaritySearchTest < ActiveSupport::TestCase
     assert_equal 2, updates.size, "expected exactly searching + retrieving phase broadcasts"
     assert_includes updates[0].inner_html, "Searching", "first phase should be Searching"
     assert_includes updates[1].inner_html, "Retrieving", "second phase should be Retrieving"
+  end
+
+  test "similarity_search ignores chunks whose source no longer exists" do
+    website = @account.websites.create!(url: "https://orphan.example")
+    Chunk.insert_all!([ {
+      chunkable_id: website.id,
+      chunkable_type: "Website",
+      account_id: @account.id,
+      content: "orphaned content",
+      metadata: { position: 1 },
+      created_at: Time.current,
+      updated_at: Time.current
+    } ])
+    orphan = Chunk.find_by!(chunkable_id: website.id, chunkable_type: "Website")
+    website.delete
+
+    proxy = Object.new
+    proxy.define_singleton_method(:search_by_similarity) { |*| [ orphan ] }
+    acct = Object.new
+    acct.define_singleton_method(:chunks) { proxy }
+    @chat.define_singleton_method(:account) { acct }
+    @chat.define_singleton_method(:context_relevance) { |*| true }
+    @chat.define_singleton_method(:retrieval_fetch_k) { 5 }
+
+    original_augmented_context = ENV["AUGMENTED_CONTEXT"]
+    ENV["AUGMENTED_CONTEXT"] = "true"
+
+    assert_empty @chat.similarity_search("any question")
+  ensure
+    ENV["AUGMENTED_CONTEXT"] = original_augmented_context
   end
 end
