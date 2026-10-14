@@ -1,6 +1,6 @@
 # RubyLLM 2.0 Upgrade
 
-Status: Design approved in conversation; awaiting review of this written specification.
+Status: Written specification reviewed and approved by the user.
 
 ## Goal
 
@@ -35,6 +35,10 @@ integrations, and application-owned usage accounting.
 3. **Approve patched MCP approach.** The user approved a documented, narrowly
    patched vendored copy of MCP 1.0.1 and the upgrade design presented below.
    This preserves existing transports without a separate MCP SDK migration.
+4. **Proceed with known baseline.** After testing the unchanged application in
+   the isolated worktree, the user authorized continuing with the existing crawl
+   test's live embedding request recorded as a baseline error. Do not expand
+   upgrade scope to fix unrelated crawl-test isolation.
 
 ## MCP Compatibility
 
@@ -170,10 +174,13 @@ approval. New 2.0 writes do not maintain the retained legacy columns.
 - [x] Compare implementation approaches and approve the design.
 - [x] Finalize and self-review this specification for scope and consistency.
 - [x] Independent specification review: approved, with no blocking issues.
+- [x] User reviewed and approved the committed written specification.
 
-The written specification must be reviewed before an implementation plan is
-created. Application and dependency changes begin only after that review and
-the implementation planning step.
+Application and dependency changes begin only after the implementation planning
+step. The isolated-worktree baseline has 328 runs, 1030 assertions, no failures,
+and one accepted error: the existing public-host crawl test reaches an unstubbed
+embedding request. Fake credentials and an unreachable local endpoint ensure
+the verification process cannot make a paid provider request.
 
 ## References
 
