@@ -1,30 +1,29 @@
-# RubyLLM 2.0 upgrade: prerequisites and compatibility contracts
+# RubyLLM 2.0 upgrade: verification evidence
 
 ## Status
 
-Task 1 is verified on Ruby 4.0.7, Rails 8.0.5.1, and PostgreSQL using only
-the scratch database `nosia_ruby_llm_upgrade_test`. Its prerequisite checkpoint
-is exactly RubyLLM **1.16.0**. Task 3 now pins **2.0.0** and vendors the MCP
-bridge; Task 7 now implements its narrow runtime compatibility port. These
-results do not establish that the final 2.0 upgrade is ready for deployment.
-Task 4 now verifies the three rename migrations on the dedicated legacy-schema
-rehearsal database and updates the schema from the normal scratch test database.
-Task 5 adopts the supporting associations and normalized accounting readers.
-Task 6 now ports request/instruction APIs, catalog pages, and usage/tool-call UI;
-Task 7 now verifies the MCP/local-engine runtime port with canned I/O. The
-integration/release gate in Task 8 remains pending; no deployment is approved.
+**Code integration verified with known baseline exceptions; not production
+approval.** RubyLLM is pinned to **2.0.0**, with the narrow vendored MCP **1.0.1**
+port. Tasks 1–7 and the Task 8 integration checks are recorded below; the original
+RED-stage sections are historical evidence, not outstanding compatibility failures.
+The final full suite has **445 runs, 1919 assertions, 0 failures, 1 accepted crawl
+error**, not an all-pass result. Default full lint and security scans are also
+non-green; their precise baseline comparisons are in the Task 8 evidence.
 
-Task 2 adds test-only 2.0 contracts on top of `a5ecca3`. They are intentionally
-**RED** on the unchanged 1.16.0 dependency; see the evidence below. Production
-implementation remains for subsequent tasks. Task 3's version/configuration
-checks were green at that checkpoint; subsequent task evidence follows below.
-
-Through Task 3, no migrations or schema files changed. Task 4 adds the generated
-phases and schema dump, without rewriting application accounting, historical
-`TokenUsage` records, or account/chat counters. No development or production
-database was accessed, and no deployment was performed.
+Start with the [operator runbook](ruby-llm-2-deployment.md), not the incremental
+history below. It covers maintenance, three-phase execution, read-only before/
+after audits, offline model loading, and irreversible recovery. Verification used
+Ruby **4.0.7**, Rails **8.0.5.1**, and only three explicitly disposable PostgreSQL
+databases. No development/production database, real paid provider, deployment,
+cleanup, push, or merge was used. Production-sized rehearsal, tested backup/
+restore, live authenticated MCP interoperability, and the parent's fresh final
+integration/data-safety review remain outstanding release gates.
 
 ## Verified application checkpoints
+
+Final integration evidence is collected in [Task 8](#task-8-final-integration-evidence).
+The sections between here and Task 8 preserve the chronological implementation
+and review record; references to later tasks being pending describe that checkpoint.
 
 Each prerequisite has its own committed application source and exact dependency
 lockfile, preserved as a recovery reference before later 2.0 work:
@@ -1868,3 +1867,244 @@ then explicitly opts into its public canned fixture and verifies its String
 content. That packaging-only process does not load the app initializer; the
 actual app callback is independently covered by the Rails contracts above.
 No full application image/in-image install or existing database was used.
+
+## Task 8: final integration evidence
+
+Verified on 2026-10-14 from runtime commit
+**`a3ae02933dba6e53610a67c946b80ad3df8ac364`**, on `upgrade/ruby-llm-2`, Ruby **4.0.7** / Rails **8.0.5.1** /
+PostgreSQL. Task 8 changes documentation and read-only audit SQL only; no runtime,
+dependency, migration, schema, legacy alias, or unrelated baseline fix was needed.
+The [operator runbook](ruby-llm-2-deployment.md) supersedes the historical rollout
+notes above. The parent session's fresh final review is **not yet recorded**.
+
+### Safe execution and artifact inventory
+
+All Rails commands use the full fake-key/port-9 environment in `task7_rails`
+above, with `PARALLEL_WORKERS=1`. Normal Rails checks use only
+`nosia_ruby_llm_upgrade_test`. Fresh setup substitutes only
+`DATABASE_URL=postgresql:///nosia_ruby_llm_upgrade_fresh_test`;
+the standalone harness ignores that variable and guards its own literal
+`nosia_ruby_llm_upgrade_migration_test`. No existing development/production DB
+was opened. The scratch databases/worktree are retained, not cleaned up.
+
+The local command recorder `/tmp/opencode/nosia-task8-verify.py` supplies that
+environment, captures complete logs and exact argument arrays/working directory/
+exit codes/timings under **`/tmp/opencode/nosia-rubyllm2-task8/`**. These are local
+artifacts, not durable production evidence. Its flags `--fresh`, `--base`, and
+`--vendor` select the fresh URL, read-only archived source, or gem-build directory
+respectively. `targeted-ruby-files.txt` records the complete authored-Ruby selection;
+`focused-suite.json` records the complete focused test argument list.
+
+### Fresh schema-based setup (not historical replay)
+
+The new scratch name was first checked absent in `pg_database` through a guarded
+normal-test connection; `createdb nosia_ruby_llm_upgrade_fresh_test` exited 0.
+A direct connection then asserted **both the exact fresh database name and zero
+public tables before `db:prepare`**. No database drop or existing schema reload
+was used. The fresh-only commands were:
+
+```sh
+# In the full safe test environment, substituting ONLY the fresh DATABASE_URL:
+bin/rails db:prepare
+bin/rails ruby_llm:load_models
+bin/rails runner /tmp/opencode/nosia-task8-fresh-smoke.rb
+```
+
+All final commands exit **0**. Schema preparation took **2.195 s**. The packaged
+offline model load took **3.773 s** and loaded **1672 models**; inspection confirms
+the task calls `load_from_json`, never `refresh`. The guarded smoke test passed
+**1 run, 36 assertions, 0 failures/errors/skips** (Minitest seed **11138**).
+It checks schema version `20261014152721`, all gem support tables and retained
+message columns, integer role encoding, Chat's gem-owned registry key,
+provider/model and tool-call unique indexes, usage index, validated legacy result
+FK with `SET NULL`, and the independent application ledger. The fresh journal is
+empty because no legacy rows were migrated.
+
+Within a rolled-back transaction it creates a real account/chat/messages and an
+uploaded text attachment, reads its bytes, adds a fake **80 / 20 / 15 / 5 / 3**
+provider usage, verifies normalized readers/string model, and calls application
+accounting twice. Exactly one own-ledger event and **80 / 20** account/chat
+increments result. A custom test-model registry row exists only inside that
+transaction; no provider call is made. The local initial smoke attempted a deferred
+attachment upload before transaction commit (**1 run, 29 assertions, 1 error**,
+exit 1); using `Blob.create_and_upload!` fixed the verification harness, not Rails
+or application behavior. Final evidence is `fresh-smoke-final.{log,json}`.
+
+`bin/setup` was inspected, **not executed**: it already calls `db:prepare` but also
+installs packages and clears logs. The unchanged historical `CreateModels`
+migration calls removed `RubyLLM.models.load_from_json!` / `Model.save_to_database`.
+Full migration replay from zero is **not supported/verified with 2.0**; use the
+tested schema-based path. Existing 1.16 upgrades apply only pending phases. No
+historical rewrite or runtime legacy alias was added.
+
+### Migration and SQL-audit rehearsal
+
+```sh
+bundle exec ruby test/upgrades/ruby_llm_v2.rb --seed 202608
+```
+
+Exit **0**: **12 runs, 154 assertions, 0 failures/errors/skips**, **26.510185 s**
+Minitest time. Seven-message populated phases: prepare **0.408 s**, backfill
+**0.170 s**, finish **0.158 s**. Guards, integer roles, FK deletion semantics,
+blank/raw preservation, null costs, own-ledger/counter preservation, interrupted
+committed batches/retries, and finish guards all pass. These are tiny local
+correctness measurements, **not production downtime estimates**.
+
+The new `ruby-llm-2-audit-{before,after,common}.sql` files were then executed via
+`psql -X` on the guarded harness fixture, first with the real 1.16 names and then
+after the real three-phase upgrade. The additional fourteen NULL/blank raw JSON
+variants were included. The two ordered projection sets matched **row-for-row**,
+including expected converted content, tool results, five usage buckets and
+provider identity, attachment/blob links, complete own ledger, and counters.
+All after-only journal/index/FK/price queries also execute successfully.
+
+The reproducible local driver is `/tmp/opencode/nosia-task8-audit-check.rb`;
+`audit-before.txt`, `audit-after.txt`, and `audit-sql-final.{log,json}` retain the
+result. It reuses the harness's exact-database guard before fixture loading.
+Its final invocation exits **0**, followed by another **12/154** passing harness
+run (seed **202608**, **26.383574 s**). This is fixture SQL validation, not an
+audit of a production snapshot or a tested backup/restore.
+
+### Final runtime gates
+
+Using `task7_rails` with seed **202608**:
+
+```sh
+task7_rails test --seed 202608
+task7_rails zeitwerk:check
+bundle check
+bundle exec ruby test/packaging/ruby_llm_path_dependency.rb --seed 202608
+```
+
+| Gate | Observed result | Exit |
+| --- | --- | ---: |
+| Full non-system Rails suite | **445 runs, 1919 assertions, 0 failures, 1 error, 0 skips**, **347.776854 s** | **1** |
+| Combined high-value focused set | **264 runs, 1345 assertions, 0 failures/errors/skips**, **233.363096 s** | **0** |
+| Zeitwerk | Application eager-loads: `All is good!` | 0 |
+| Bundler | Dependencies satisfied | 0 |
+| Standalone Docker path regression | **2 runs, 8 assertions, 0 failures/errors/skips** | 0 |
+
+The full suite's **only** error is the explicitly authorized baseline
+`Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts`, which reaches
+its unstubbed embedding request to `127.0.0.1:9` and raises
+`Faraday::ConnectionFailed`. It is neither hidden nor fixed, and the full suite
+is **not green**. No Task 2 compatibility RED remains. New completion API tests
+use real RubyLLM JSON/SSE loops with fake HTTP responses, including prompt-only
+input and 422/non-disclosure for no pending user response.
+
+The focused command combines the Task 6 `focused` array of 27 application/API/
+accounting/UI/streaming/job test files with the complete final Task 7 selection:
+
+```sh
+task7_rails test "${focused[@]}" \
+  test/lib/ruby_llm_mcp_compatibility_test.rb test/lib/ruby_llm_mcp_transport_test.rb \
+  test/lib/engines test/lib/mcp_catalog_registry_test.rb test/models/mcp_server_test.rb \
+  test/models/mcp_server_local_test.rb test/controllers/mcp_servers_controller_test.rb \
+  test/integration/local_engine_chat_test.rb test/integration/activate_engine_test.rb \
+  test/integration/engines_boot_test.rb --seed 202608
+```
+
+Both background test commands completed and their exit results were received
+before Task 8 was committed; no background verification process was left running.
+
+### Full lint and security: not green, baseline distinguished
+
+```sh
+bundle exec rubocop
+bundle exec brakeman --no-pager \
+  -o /tmp/opencode/nosia-rubyllm2-task8/brakeman-report.json
+```
+
+Full RuboCop exits **1**, **337 files / 317 offenses**. A `git archive 38faaab`
+source snapshot under the artifact directory was scanned with the **same current
+installed lint tools**, from its own directory using the current `BUNDLE_GEMFILE`;
+the original/root worktree and its unrelated edits were never modified. That
+comparable baseline is **326 files / 98 offenses**, exit **1**. The difference
+is explicit, not described as an unchanged green lint gate:
+
+- **188** array-spacing offenses in the intentionally byte-preserved legacy
+  schema fixture (the original generated schema is normally excluded).
+- **27** unsupported-parser errors in the three new generated migrations.
+- **4** additional unsupported-parser errors in the expanded executor tests.
+- The original **98** findings remain: **91** Ruby-2.7-parser errors, **6** spacing
+  offenses in old migrations, and **1** trailing-empty-line offense.
+
+The repository's `4`-only `.ruby-version` does not yield a supported target for
+this RuboCop setup, which defaults to the **Ruby 2.7 parser**. No broad style
+changes, baseline fixes, or repository lint exclusions were introduced.
+`rubocop-ruby4.yml` outside Git inherits the root config and sets only
+`AllCops: TargetRubyVersion: 4.0`. With it, **40 changed authored application/test
+Ruby files have zero offenses**, exit **0**. The **14** generated/edited-vendor/
+gemspec Ruby files pass **Lint-only** checks, exit **0**, retaining upstream style.
+All **105** vendored Ruby sources also compile, exit **0**. The default full
+invocation is still not represented as passing.
+
+Brakeman **8.0.4** exits **3** with **3 warnings, 0 scan errors**. The archived
+base scan exits **3** with the **same three fingerprints**, no new warnings:
+
+| Finding | File | Fingerprint prefix |
+| --- | --- | --- |
+| RenderInline / XSS, medium | `app/views/sources/texts/edit.html.erb:9` | `09d0f4d11f58` |
+| PermitAttributes / account_id mass assignment, high | `app/controllers/api_tokens_controller.rb:34` | `4fad3c218f35` |
+| EOLRails, high | unchanged Rails 8.0.5.1 in `Gemfile.lock` | `d84924377155` |
+
+These existing findings require separate triage; no ignore/suppression or Rails
+upgrade was added here. Static scanning is not a live penetration test or a
+complete dependency vulnerability audit. Full JSON reports and the comparable
+lint reports are retained in the artifact directory.
+
+### Packaging, source review, and limits
+
+The MCP gem builds outside Git as
+`/tmp/opencode/nosia-rubyllm2-task8/ruby_llm-mcp-1.0.1-nosia-task8.gem`, exit **0**.
+Its **121** packaged files byte-match vendor source and its dependency remains
+`ruby_llm (= 2.0.0)`. Provenance recheck matches archive SHA
+`22121bfdea1874935debdd9cee0235d02473885ce8347cf745a323f0707fd248`:
+**120 imported files / 11 documented differences / 109 pristine**, MIT license
+unchanged. `PATCHES.md` retains the narrow-port inventory and upstream removal path.
+
+```sh
+# From vendor/gems/ruby_llm-mcp:
+gem build ruby_llm-mcp.gemspec \
+  --output /tmp/opencode/nosia-rubyllm2-task8/ruby_llm-mcp-1.0.1-nosia-task8.gem
+# From the application worktree:
+docker build \
+  --file /tmp/opencode/nosia-rubyllm2-research/task3-packaging/Dockerfile.packaging \
+  --output type=local,dest=/tmp/opencode/nosia-rubyllm2-task8/packaging/rootfs .
+env BUNDLE_GEMFILE=/tmp/opencode/nosia-rubyllm2-task8/packaging/rootfs/rails/Gemfile bundle check
+git diff --check
+```
+
+Each exits **0**. The Docker fixture uses the actual pre-install COPY instructions
+and `.dockerignore`; **135** exported dependency files hash-match source. Original
+and exported Gemfiles resolve RubyLLM **2.0.0** and MCP **1.0.1** from their respective
+vendor paths. A real decoded binary attachment/message conversion also runs
+against the exported path. This uses host-installed dependencies: **no full native
+multistage image build, in-image bundle install, or assets:precompile was run**.
+System/browser tests and live authenticated provider/MCP calls were not run.
+
+Preliminary verification-tool invocations (missing `python`, wrong gemspec working
+directory, and passing RubyGems `FileSource` instead of a filename) failed with
+**127 / 1 / 1**, respectively; corrected final commands above pass. They required
+no application/dependency change. An initial baseline lint scan explicitly included
+generated schemas and was not comparable; the own-directory **98-offense** baseline
+above is the comparison used, with both reports retained.
+
+Removed-API searches over `app/`, `config/`, and `lib/` return no matches. The only
+test matches are intentional rejection of `with_params` and the valid persisted
+**Chat** model record's `model_id` check; **Message** model is a string. Legacy
+schema/migration fields and application-ledger columns remain intentionally named.
+YARD review confirms new public bridge conversion/config boundaries and changed
+application accounting/MCP boundaries are documented; no new public runtime API
+is introduced in Task 8.
+
+Self-review covers the full branch scope, lockfile delta, tenant/input boundaries,
+instruction/provider options, true completion state machine, associations/enum,
+nil/zero/cache accounting, content/tool/attachment preservation, phase ordering/
+retry/irreversibility, FK targeting, narrow vendor inventory/security configuration,
+read-only audit SQL, and maintenance/recovery instructions. No broad baseline fixes
+or runtime redesign was added. The known URL-policy DNS-rebinding/TOCTOU limitation
+remains explicit. **Production-sized rehearsal, tested backup/restore, live
+authenticated interoperability, and fresh final integration/data-safety review
+remain unperformed gates**, not checked-off release approval. No push, merge,
+deployment, cleanup migration, worktree removal, or child agent was performed.
