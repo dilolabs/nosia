@@ -8,9 +8,14 @@ class ChatAccountAccessTest < ActionDispatch::IntegrationTest
 
   test "unowned and revoked chats reject every conversation web operation" do
     own = chats(:picker_second_chat)
+    foreign = chats(:picker_foreign_chat)
+    sessions = {
+      own => own.chat_mcp_sessions.create!(mcp_server: mcp_servers(:picker_second_tool)),
+      foreign => foreign.chat_mcp_sessions.create!(mcp_server: mcp_servers(:picker_foreign_tool))
+    }
     @user.account_users.find_by!(account: @second).destroy!
 
-    [ own, chats(:picker_foreign_chat) ].each do |chat|
+    sessions.each do |chat, session|
       requests = [
         [ :get, chat_url(chat), {} ],
         [ :post, stop_chat_url(chat), {} ],
@@ -18,7 +23,7 @@ class ChatAccountAccessTest < ActionDispatch::IntegrationTest
         [ :post, chat_messages_url(chat), { message: { content: "Denied" } } ],
         [ :post, chat_sources_url, { chat_id: chat.id, url: "https://denied.example" } ],
         [ :post, chat_mcp_sessions_url(chat), { mcp_server_id: mcp_servers(:picker_second_tool).id } ],
-        [ :delete, chat_mcp_session_url(chat, 999999999), {} ]
+        [ :delete, chat_mcp_session_url(chat, session), {} ]
       ]
 
       requests.each do |verb, url, values|
@@ -30,6 +35,7 @@ class ChatAccountAccessTest < ActionDispatch::IntegrationTest
 
         assert_response :not_found
         assert_equal counts, [ Chat.count, Message.count, Website.count, ChatMcpSession.count ]
+        assert chat.chat_mcp_sessions.exists?(session.id)
       end
     end
   end

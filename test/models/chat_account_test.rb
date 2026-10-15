@@ -99,4 +99,97 @@ class ChatAccountTest < ActiveSupport::TestCase
     assert_predicate chat.reload, :generating?
     assert_equal @second.id, chat.account_id
   end
+
+  test "model-level tool linking rejects a different account" do
+    chat = chats(:picker_second_chat)
+
+    assert_raises(ActiveRecord::RecordNotFound) { chat.add_mcp_server(mcp_servers(:picker_first_tool)) }
+  end
+
+  test "helper snapshots restore a pre-existing tenant" do
+    helper = ApplicationController.helpers
+
+    ActsAsTenant.with_tenant(@first) do
+      assert_equal [ "Second tool" ], helper.ready_chat_mcp_servers(@second).map(&:name)
+      assert_equal [ "second-skill" ], JSON.parse(helper.agent_skill_autocomplete_data(@second)).map { |skill| skill.fetch("name") }
+      assert_equal @first, ActsAsTenant.current_tenant
+    end
+  end
+
+  test "skill snapshots use the explicit account under another tenant" do
+    helper = ApplicationController.helpers
+    observed = []
+    original_skills = @second.method(:agent_skills)
+    lookup = -> do
+      observed << ActsAsTenant.current_tenant
+      original_skills.call
+    end
+
+    ActsAsTenant.with_tenant(@first) do
+      with_singleton_replacement(@second, :agent_skills, lookup) do
+        assert_equal [ "second-skill" ], JSON.parse(helper.agent_skill_autocomplete_data(@second)).map { |skill| skill.fetch("name") }
+      end
+      assert_equal @first, ActsAsTenant.current_tenant
+    end
+    assert_equal [ @second ], observed
+  end
+
+  test "linked tools materialize within the chat tenant" do
+    chat = chats(:picker_second_chat)
+    server = mcp_servers(:picker_second_tool)
+    server.update!(metadata: { engine: "open_alex" })
+    chat.chat_mcp_sessions.create!(mcp_server: server)
+
+    ActsAsTenant.with_tenant(@first) do
+      assert_includes chat.mcp_tools.map(&:name), "openalex_search_works"
+      assert_equal @first, ActsAsTenant.current_tenant
+    end
+  end
+
+  test "background generation uses and restores the saved account tenant" do
+    chat = chats(:picker_second_chat)
+    observed = []
+    chat.define_singleton_method(:complete_with_nosia) do |*args, **options|
+      observed << ActsAsTenant.current_tenant
+      nil
+    end
+    chat.define_singleton_method(:complete_with_agent_skills) do |*args, **options|
+      observed << ActsAsTenant.current_tenant
+      nil
+    end
+    original_find = Chat.method(:find)
+    lookup = ->(*ids) { ids == [ chat.id ] ? chat : original_find.call(*ids) }
+
+    Current.reset
+    ActsAsTenant.with_tenant(@first) do
+      with_singleton_replacement(Chat, :find, lookup) { ChatResponseJob.perform_now(chat.id, "Account context") }
+      assert_equal @first, ActsAsTenant.current_tenant
+    end
+    assert_equal [ @second ], observed
+  end
+
+  test "background generation restores the prior tenant after a completion error" do
+    chat = chats(:picker_second_chat)
+    chat.start_generation!
+    observed = []
+    completion = ->(*) do
+      observed << ActsAsTenant.current_tenant
+      raise ArgumentError, "Completion failed"
+    end
+    chat.define_singleton_method(:complete_with_nosia, completion)
+    chat.define_singleton_method(:complete_with_agent_skills, completion)
+    original_find = Chat.method(:find)
+    lookup = ->(*ids) { ids == [ chat.id ] ? chat : original_find.call(*ids) }
+
+    Current.reset
+    ActsAsTenant.with_tenant(@first) do
+      with_singleton_replacement(Chat, :find, lookup) do
+        assert_raises(ArgumentError) { ChatResponseJob.perform_now(chat.id, "Account context") }
+      end
+      assert_equal @first, ActsAsTenant.current_tenant
+    end
+    assert_equal [ @second ], observed
+    assert_not chat.reload.generating?
+    assert_nil ActsAsTenant.current_tenant
+  end
 end
