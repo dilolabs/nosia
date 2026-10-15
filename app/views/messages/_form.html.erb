@@ -1,17 +1,24 @@
 <%= turbo_frame_tag "#{dom_id(chat)}_message_form" do %>
-  <%= form_with(model: Message.new, url: [chat, chat.messages.new], class: "w-full") do |form| %>
+  <% is_generating = chat.generating %>
+  <% skills = JSON.parse(agent_skill_autocomplete_data(chat.account)) %>
+  <%= form_with(model: Message.new, url: [chat, chat.messages.new], class: "w-full",
+        data: { chat_account_target: "form", generation_busy: is_generating, action: "submit->chat-account#guard" }) do |form| %>
     <%= form.label :content, "Ask anything…", class: "sr-only" %>
 
-    <% is_generating = chat.generating %>
-    <div class="relative w-full" data-controller="composer" data-composer-skills-value="<%= agent_skill_autocomplete_data(chat.account) %>">
-      <%= form.lexxy_rich_text_area :content, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: !is_generating, placeholder: is_generating ? "Generating…" : "Ask anything...", disabled: is_generating, data: { composer_target: "editor" }, class: "n-form-chat" %>
+    <div class="relative w-full" data-controller="composer composer-sources"
+         data-composer-skills-value="<%= skills.to_json %>"
+         data-composer-sources-account-id-value="<%= chat.account_id %>"
+         data-composer-sources-chat-id-value="<%= chat.id if chat.persisted? %>"
+         data-action="chat-account:reset@window->composer-sources#reset">
+      <%= form.lexxy_rich_text_area :content, permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}', autofocus: !is_generating, placeholder: is_generating ? "Generating…" : "Ask anything...", disabled: is_generating, data: { composer_target: "editor", composer_sources_target: "editor" }, class: "n-form-chat" %>
 
-      <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_target: "websiteIds" } %>
-      <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_target: "documentIds" } %>
+      <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_sources_target: "websiteIds" } %>
+      <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_sources_target: "documentIds" } %>
 
       <div class="n-skill-menu hidden" role="listbox" aria-label="Available skills" data-composer-target="menu"></div>
+      <ul hidden role="alert" class="mt-2 text-sm text-red-600" data-composer-sources-target="errors"></ul>
 
-      <%= form.button type: :submit,
+      <%= form.button type: :submit, aria: { label: "Send" }, data: { chat_account_target: "send" },
         class: "n-btn-chat n-btn-chat-send",
         disabled: is_generating do %>
       <% if is_generating %>
@@ -29,14 +36,15 @@
     <% end %>
     </div>
 
-    <div class="mt-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-      <span>Enter to send · Shift+Enter for a line break<%= " · Type / for skills" if chat.account.agent_skills.explicitly_invocable.exists? %><br>Nosia can make mistakes. Verify in case of doubt.</span>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-500 dark:text-neutral-400">
+      <%= render "chats/account", chat: chat, form: form %>
       <button type="button" data-controller="modal-open" data-modal-open-target-value="mcp-selector-modal" data-action="click->modal-open#open" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
         </svg>
-        MCP (<%= chat.mcp_servers.count %>)
+        MCP (<%= chat.chat_mcp_sessions.count %>)
       </button>
+      <span class="basis-full">Enter to send · Shift+Enter for a line break<%= " · Type / for skills" if skills.any? %><br>Nosia can make mistakes. Verify in case of doubt.</span>
     </div>
   <% end %>
 <% end %>

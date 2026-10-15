@@ -6,6 +6,94 @@ class ChatAccountSelectionTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_picker_user }
 
+  test "both new-chat entry points show membership-only selected-account controls" do
+    [ user_root_url, new_chat_url ].each do |url|
+      get url, params: { account_id: @second.id, model: "picker-test-model" }
+
+      assert_response :success
+      assert_select "select[name='chat[account_id]'] option", count: 2
+      assert_select "select[name='chat[account_id]'] option[selected][value='#{@second.id}']"
+      assert_select "select[name='chat[account_id]'] option[value='#{@foreign.id}']", count: 0
+      assert_select "#chat-form input[type=hidden][name='chat[model]'][value='picker-test-model']"
+      assert_select "#chat-form input[type=checkbox][name='mcp_server_ids[]']", count: 1
+      assert_select "#chat-form input[type=checkbox][value='#{mcp_servers(:picker_second_tool).id}']"
+      assert_select "#chat-form [data-composer-skills-value]" do |nodes|
+        assert_equal [ "second-skill" ], JSON.parse(nodes.first["data-composer-skills-value"]).map { |skill| skill.fetch("name") }
+      end
+    end
+  end
+
+  test "both new-chat entry points default to the first account and preserve the model" do
+    [ user_root_url, new_chat_url ].each do |url|
+      get url, params: { model: "picker-test-model" }
+
+      assert_response :success
+      assert_select "select[name='chat[account_id]'] option[selected][value='#{@first.id}']"
+      assert_select "#chat-form input[type=hidden][name='chat[model]'][value='picker-test-model']"
+    end
+  end
+
+  test "new-chat composers expose explicit account and source lifecycle context" do
+    [ user_root_url, new_chat_url ].each do |url|
+      get url, params: { account_id: @second.id }
+
+      assert_response :success
+      assert_select "[data-controller~=chat-account][data-chat-account-account-id-value='#{@second.id}']" do |roots|
+        assert_includes roots.first["data-action"], "turbo:before-cache@document->chat-account#beforeCache:capture"
+      end
+      assert_select "#chat-form[data-chat-account-target=form][data-generation-busy=false]" do |forms|
+        assert_equal "submit->chat-account#guard submit->mcp-fields-sync#copy", forms.first["data-action"]
+      end
+      assert_select "[data-controller~=composer-sources][data-composer-sources-account-id-value='#{@second.id}'][data-composer-sources-chat-id-value='']"
+      assert_select "lexxy-editor[data-composer-target=editor][data-composer-sources-target=editor]"
+      assert_select "input[data-composer-sources-target=websiteIds]"
+      assert_select "input[data-composer-sources-target=documentIds]"
+      assert_select "ul[hidden][role=alert][data-composer-sources-target=errors]"
+      assert_select "button[type=submit][aria-label=Send][data-chat-account-target=send]"
+      if url == user_root_url
+        assert_select "[data-controller~=dropzone][data-dropzone-account-id-value='#{@second.id}'][data-action='chat-account:reset@window->dropzone#resetChatDraft']"
+      end
+    end
+  end
+
+  test "saved chat shows a read-only account and its own MCP options" do
+    chat = chats(:picker_second_chat)
+    chat.chat_mcp_sessions.create!(mcp_server: mcp_servers(:picker_second_tool))
+
+    get chat_url(chat)
+
+    assert_response :success
+    assert_select "[data-chat-account-readonly]", text: /Research team/
+    assert_select "select[name='chat[account_id]']", count: 0
+    assert_select "#mcp-selector-modal", text: /Second tool/
+    assert_select "#mcp-selector-modal", text: /First tool/, count: 0
+    assert_select "button", text: /MCP \(1\)/
+    assert_select "[data-controller~=chat-reconnect][data-controller~=chat-account][data-chat-account-account-id-value='#{@second.id}']"
+    assert_select "[data-controller~=composer-sources][data-composer-sources-account-id-value='#{@second.id}'][data-composer-sources-chat-id-value='#{chat.id}']"
+    assert_select "form[data-chat-account-target=form][data-generation-busy=false][data-action='submit->chat-account#guard']"
+    assert_select "lexxy-editor[data-composer-target=editor][data-composer-sources-target=editor]"
+    assert_select "input[data-composer-sources-target=websiteIds]"
+    assert_select "input[data-composer-sources-target=documentIds]"
+    assert_select "ul[hidden][role=alert][data-composer-sources-target=errors]"
+    assert_select "button[type=submit][aria-label=Send][data-chat-account-target=send]"
+    assert_select "[data-composer-skills-value]" do |nodes|
+      assert_equal [ "second-skill" ], JSON.parse(nodes.first["data-composer-skills-value"]).map { |skill| skill.fetch("name") }
+    end
+  end
+
+  test "saved generating chat retains its busy composer state" do
+    chat = chats(:picker_second_chat)
+    chat.start_generation!
+
+    get chat_url(chat)
+
+    assert_response :success
+    assert_select "[data-controller~=chat-reconnect][data-chat-reconnect-generating-value=true]"
+    assert_select "form[data-chat-account-target=form][data-generation-busy=true]"
+    assert_select "button[type=submit][aria-label=Send][data-chat-account-target=send][disabled]"
+    assert_select "[data-chat-account-readonly]", text: /Research team/
+  end
+
   test "new chat rejects an explicit account outside memberships" do
     get new_chat_url, params: { account_id: @foreign.id }
     assert_response :not_found

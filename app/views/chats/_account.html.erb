@@ -1,0 +1,13 @@
+<div class="flex flex-wrap items-center gap-2">
+  <% if chat.persisted? %>
+    <span data-chat-account-readonly>Account: <%= chat.account.name %></span>
+  <% else %>
+    <%= form.label :account_id, "Account", class: "n-label !mb-0" %>
+    <%= form.collection_select :account_id, Current.user.accounts.order(:name), :id, :name,
+      { selected: chat.account_id, prompt: "Select an account" },
+      { class: "n-select !w-auto max-w-full", required: true,
+        aria: { describedby: "chat-account-help" },
+        data: { chat_account_target: "picker", action: "change->chat-account#change" } } %>
+    <span id="chat-account-help" class="text-xs text-neutral-500">Searches and attachments use this account.</span>
+  <% end %>
+</div>

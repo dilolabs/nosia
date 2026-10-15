@@ -1,8 +1,22 @@
 require "test_helper"
+require "turbo/broadcastable/test_helper"
 require_relative "../support/chat_account_fixtures"
 
 class ChatAccountTest < ActiveSupport::TestCase
   include ChatAccountFixtures
+  include Turbo::Broadcastable::TestHelper
+
+  test "background unlock renders the read-only second account without Current" do
+    chat = chats(:picker_second_chat)
+    Current.reset
+
+    streams = capture_turbo_stream_broadcasts([ chat, "messages" ]) { chat.finish_generation! }
+    form = streams.find { |stream| stream["target"] == "chat_#{chat.id}_message_form" }
+
+    assert form
+    assert_includes form.inner_html, "Research team"
+    assert_not_includes form.inner_html, "chat[account_id]"
+  end
 
   test "persisted chats cannot be reassigned" do
     chat = chats(:picker_second_chat)

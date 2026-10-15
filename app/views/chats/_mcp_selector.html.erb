@@ -18,7 +18,7 @@
 
       <%# Body %>
       <div class="p-6">
-        <% available_servers = Current.account.mcp_servers.enabled.ready %>
+        <% available_servers = ready_chat_mcp_servers(chat.account) %>
 
         <% if available_servers.any? %>
           <div class="space-y-3">

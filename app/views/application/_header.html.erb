@@ -6,7 +6,7 @@
   </div>
   <div class="flex items-center">
     <div class="flex items-center">
-      <% if Current.user %>
+      <% if Current.user && Current.account %>
         <button command="show-modal" commandfor="dialog" id="toggleSidebarMobileSearch" type="button" class="n-nav-link n-main-hover">
           <span class="sr-only">Search</span>
           <%= inline_svg "svg/search.svg", title:"Search", alt:"Search", class:"w-5 h-5" %>

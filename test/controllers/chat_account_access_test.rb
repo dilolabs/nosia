@@ -6,6 +6,22 @@ class ChatAccountAccessTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_picker_user }
 
+  test "no-account entry points render the empty state without an editor or upload zone" do
+    delete logout_url
+    sign_in_picker_user(users(:picker_no_account))
+
+    [ user_root_url, new_chat_url ].each do |url|
+      get url
+
+      assert_response :success
+      assert_select "[data-chat-no-account]", text: /access to an account/
+      assert_select "lexxy-editor", count: 0
+      assert_select "[data-controller~=dropzone]", count: 0
+      assert_select "#toggleSidebarMobileSearch", count: 0
+      assert_select "#dropdownUser"
+    end
+  end
+
   test "unowned and revoked chats reject every conversation web operation" do
     own = chats(:picker_second_chat)
     foreign = chats(:picker_foreign_chat)
