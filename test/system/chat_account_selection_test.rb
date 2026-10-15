@@ -111,6 +111,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
 
     assert_selector "body[data-picker-chat-held=true]"
     assert_selector "select[name='chat[account_id]'][disabled]"
+    assert_selector "button[aria-label='Send'][disabled]"
     page.execute_script(<<~JS, @first.id.to_s)
       const picker = document.querySelector('select[name="chat[account_id]"]');
       picker.value = arguments[0];
@@ -385,6 +386,8 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_no_selector "html[aria-busy='true']"
     assert_equal [ "second-skill" ], browser_skills
     assert_not_includes draft_html, "Discard this first-account draft"
+    assert_selector "#chat-form input[type=checkbox][name='mcp_server_ids[]'][value='#{mcp_servers(:picker_second_tool).id}']", visible: :all
+    assert_no_selector "#chat-form input[type=checkbox][name='mcp_server_ids[]'][value='#{mcp_servers(:picker_first_tool).id}']", visible: :all
     assert_no_selector "input[type=checkbox][name='mcp_server_ids[]']:checked", visible: :all
     assert_no_selector "#mcp-server-hidden-fields input", visible: :all
     assert_empty browser_website_ids
@@ -395,6 +398,8 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_no_selector "html[aria-busy='true']"
     assert_equal [ "first-skill" ], browser_skills
     assert_not_includes draft_html, "Discard this first-account draft"
+    assert_selector "#chat-form input[type=checkbox][name='mcp_server_ids[]'][value='#{mcp_servers(:picker_first_tool).id}']", visible: :all
+    assert_no_selector "#chat-form input[type=checkbox][name='mcp_server_ids[]'][value='#{mcp_servers(:picker_second_tool).id}']", visible: :all
     assert_no_selector "input[type=checkbox][name='mcp_server_ids[]']:checked", visible: :all
     assert_no_selector "#mcp-server-hidden-fields input", visible: :all
     assert_empty browser_website_ids
@@ -405,6 +410,8 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_no_selector "html[aria-busy='true']"
     assert_equal [ "second-skill" ], browser_skills
     assert_not_includes draft_html, "Discard this first-account draft"
+    assert_selector "#chat-form input[type=checkbox][name='mcp_server_ids[]'][value='#{mcp_servers(:picker_second_tool).id}']", visible: :all
+    assert_no_selector "#chat-form input[type=checkbox][name='mcp_server_ids[]'][value='#{mcp_servers(:picker_first_tool).id}']", visible: :all
     assert_no_selector "input[type=checkbox][name='mcp_server_ids[]']:checked", visible: :all
     assert_no_selector "#mcp-server-hidden-fields input", visible: :all
     assert_empty browser_website_ids
