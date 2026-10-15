@@ -53,6 +53,69 @@ class ChatAccountSourcesTest < ActionDispatch::IntegrationTest
     assert_equal @second.id, Document.find(response.parsed_body.fetch("id")).account_id
   end
 
+  test "multipart dashboard retries reuse one document and indexing job within the filing account" do
+    upload_id = SecureRandom.uuid
+    ids = []
+
+    assert_difference "Document.count", 1 do
+      assert_enqueued_jobs 1, only: AddDocumentJob do
+        2.times do
+          post sources_documents_url, params: { document: { account_id: @second.id,
+            upload_id: upload_id, title: "Retry upload", file: picker_multipart_pdf } }, headers: { "Accept" => "application/json" }
+
+          assert_response :created
+          ids << response.parsed_body.fetch("id")
+        end
+      end
+    end
+
+    assert_equal 1, ids.uniq.size
+    assert_equal @second.id, Document.find(ids.first).account_id
+  end
+
+  test "multipart upload operation IDs cannot reuse another accounts document" do
+    upload_id = SecureRandom.uuid
+    ids = []
+    [ @first, @second ].each do |account|
+      post sources_documents_url, params: { document: { account_id: account.id,
+        upload_id: upload_id, file: picker_multipart_pdf } }, headers: { "Accept" => "application/json" }
+
+      assert_response :created
+      ids << response.parsed_body.fetch("id")
+      assert_equal account.id, Document.find(ids.last).account_id
+    end
+    assert_equal 2, ids.uniq.size
+
+    assert_no_difference "Document.count" do
+      assert_no_enqueued_jobs only: AddDocumentJob do
+        post sources_documents_url, params: { document: { account_id: @foreign.id,
+          upload_id: upload_id, file: picker_multipart_pdf } }, headers: { "Accept" => "application/json" }
+      end
+    end
+    assert_response :not_found
+  end
+
+  test "HTML and non-token multipart uploads retain defaults and validation errors" do
+    assert_difference "Document.count", 2 do
+      2.times do
+        post sources_documents_url, params: { document: { title: "Default upload", file: picker_multipart_pdf } }
+        assert_response :redirect
+        assert_redirected_to sources_document_url(@first.documents.order(:id).last)
+      end
+    end
+
+    [ nil, SecureRandom.uuid ].each do |upload_id|
+      assert_no_difference "Document.count" do
+        assert_no_enqueued_jobs only: AddDocumentJob do
+          post sources_documents_url, params: { document: { title: "Missing file", upload_id: upload_id } },
+            headers: { "Accept" => "application/json" }
+        end
+      end
+      assert_response :unprocessable_entity
+      assert_includes response.parsed_body.fetch("file"), "can't be blank"
+    end
+  end
+
   test "unavailable source context remains not found before SGID validation" do
     contexts = [
       { account_id: @foreign.id },
@@ -119,4 +182,9 @@ class ChatAccountSourcesTest < ActionDispatch::IntegrationTest
 
     assert_response :bad_request
   end
+
+  private
+    def picker_multipart_pdf
+      Rack::Test::UploadedFile.new(StringIO.new("%PDF-1.4\n%%EOF"), "application/pdf", original_filename: "dashboard.pdf")
+    end
 end

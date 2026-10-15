@@ -25,11 +25,11 @@ module Sources
     # POST /documents or /documents.json
     def create
       account = filing_account(:document) || raise(ChatAccountScoped::MissingAccount)
-      @document = account.documents.new(document_params)
+      upload_id = params.require(:document).permit(:upload_id)[:upload_id]
+      @document = Document.create_from_upload(account, document_params, upload_id: upload_id)
 
       respond_to do |format|
-        if @document.save
-          AddDocumentJob.perform_later(@document.id)
+        if @document.persisted?
           format.html { redirect_to sources_document_url(@document), notice: "Document was successfully created." }
           format.json { render :show, status: :created, location: sources_document_url(@document) }
         else

@@ -16,6 +16,23 @@ class Document < ApplicationRecord
     query.present? ? where("title ILIKE ?", "%#{query}%") : all
   }
 
+  # A multipart retry has a new blob, but still represents the same upload intent.
+  def self.create_from_upload(account, attributes, upload_id: nil)
+    account.with_lock do
+      document = account.documents.find_by("metadata ->> 'dashboard_upload_id' = ?", upload_id) if upload_id.present?
+
+      unless document
+        document = account.documents.new(attributes)
+        document.metadata["dashboard_upload_id"] = upload_id if upload_id.present?
+        if document.save
+          ActiveRecord.after_all_transactions_commit { AddDocumentJob.perform_later(document.id) }
+        end
+      end
+
+      document
+    end
+  end
+
   def self.create_from_blob!(account, signed_id)
     blob = ActiveStorage::Blob.find_signed!(signed_id)
 
