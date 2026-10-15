@@ -28,7 +28,7 @@ curl -fsSL https://get.nosia.ai | sh
 
 **Windows:**
 ```powershell
-Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1; .\install.ps1
+irm https://get.nosia.ai/install.ps1 | iex
 ```
 
 ![nosia-install](https://github.com/user-attachments/assets/9a11c964-ed84-4bab-be9a-01b1d1191fee)
@@ -110,7 +110,7 @@ curl -fsSL https://get.nosia.ai | sh
 
 **Windows:**
 ```powershell
-Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1; .\install.ps1
+irm https://get.nosia.ai/install.ps1 | iex
 ```
 
 You should see the following output:
@@ -584,7 +584,7 @@ If you see `script execution is disabled on this system`:
 
 ```powershell
 # Temporarily bypass execution policy for the current session
-Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1; .\install.ps1
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://get.nosia.ai/install.ps1 | iex
 ```
 
 Or run these commands separately:
@@ -593,8 +593,7 @@ Or run these commands separately:
 Set-ExecutionPolicy Bypass -Scope Process -Force
 
 # Download and run the installation script
-Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1
-.\install.ps1
+irm https://get.nosia.ai/install.ps1 | iex
 ```
 
 #### Runtime Issues

@@ -1,5 +1,5 @@
 # Nosia Installation Script for Windows
-# Usage: Invoke-WebRequest https://get.nosia.ai/install.ps1 -OutFile install.ps1; .\install.ps1
+# Usage: irm https://get.nosia.ai/install.ps1 | iex
 
 # Set strict mode
 Set-StrictMode -Version Latest
