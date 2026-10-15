@@ -582,6 +582,44 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_enqueued_jobs 1, only: AddDocumentJob
   end
 
+  test "retry after a committed PDF registration response is lost reuses its document and index job" do
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    page.execute_script(<<~JS)
+      const original = window.fetch;
+      window.pickerRegistrationIds = [];
+      window.fetch = async (input, options = {}) => {
+        const response = await original(input, options);
+        const url = new URL(input instanceof Request ? input.url : input, location.href);
+        if (url.pathname === '/chat_sources') {
+          const data = await response.clone().json();
+          window.pickerRegistrationIds.push(data.id);
+          if (window.pickerRegistrationIds.length === 1) throw new TypeError('Source response lost after commit');
+        }
+        return response;
+      };
+    JS
+    start_held_pdf_uploads("ambiguous-registration.pdf")
+    page.execute_script("window.releasePickerUpload(0)")
+    assert_text "Source response lost after commit"
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_equal 1, @second.documents.count
+    assert_enqueued_jobs 1, only: AddDocumentJob
+
+    click_on "Retry source"
+
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "input[name='chat[attached_document_ids][]']", count: 2, visible: :all
+    ids = page.evaluate_script("window.pickerRegistrationIds")
+    assert_equal 2, ids.size
+    assert_equal 1, ids.uniq.size
+    assert_equal [ ids.first.to_s ], all("input[name='chat[attached_document_ids][]']", visible: :all).map(&:value).reject(&:blank?)
+    assert_equal 1, @second.documents.count
+    assert_equal 0, @first.documents.count
+    assert_enqueued_jobs 1, only: AddDocumentJob
+    assert_equal [ "ambiguous-registration.pdf" ], page.evaluate_script("window.pickerUploadEnds")
+  end
+
   private
     def start_held_pdf_uploads(*filenames)
       page.execute_script(<<~JS, filenames)

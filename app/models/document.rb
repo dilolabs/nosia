@@ -17,11 +17,18 @@ class Document < ApplicationRecord
   }
 
   def self.create_from_blob!(account, signed_id)
-    document = account.documents.new
-    document.file.attach(signed_id)
-    document.save!
-    AddDocumentJob.perform_later(document.id)
-    document
+    blob = ActiveStorage::Blob.find_signed!(signed_id)
+
+    account.with_lock do
+      document = account.documents.joins(:file_attachment).lock.find_by(active_storage_attachments: { blob_id: blob.id })
+
+      unless document
+        document = account.documents.create!(file: blob)
+        ActiveRecord.after_all_transactions_commit { AddDocumentJob.perform_later(document.id) }
+      end
+
+      document
+    end
   end
 
   # Lexxy uploads a PDF via Active Storage direct upload, then embeds an
