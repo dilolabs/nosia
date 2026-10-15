@@ -1,4 +1,5 @@
 require "application_system_test_case"
+require "tempfile"
 require_relative "../support/chat_account_fixtures"
 
 class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
@@ -620,7 +621,336 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal [ "ambiguous-registration.pdf" ], page.evaluate_script("window.pickerUploadEnds")
   end
 
+  test "dashboard uploads file into the selected account" do
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    with_picker_pdf do |path|
+      find("[data-dropzone-target='input']", visible: :all).set(path)
+      assert_selector "[data-upload-status='success']"
+      assert @second.documents.exists?(title: File.basename(path))
+      assert_not @first.documents.exists?(title: File.basename(path))
+      accept_confirm(/Saved sources remain/) { select "First team", from: "Account" }
+      assert_no_selector "[data-upload-status]"
+      assert @second.documents.exists?(title: File.basename(path))
+    end
+  end
+
+  test "pending dashboard upload blocks switching and sending until complete" do
+    install_dashboard_upload_gate
+    with_picker_pdf do |path|
+      find("[data-dropzone-target='input']", visible: :all).set(path)
+      assert_selector "select[name='chat[account_id]'][disabled]"
+      assert_selector "button[aria-label='Send'][disabled]"
+      assert_source_submission_blocked
+      assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
+      find("lexxy-editor .lexxy-editor__content").send_keys("Edit while uploading")
+      assert_includes draft_html, "Edit while uploading"
+      page.execute_script("window.releasePickerUpload()")
+      assert_selector "[data-upload-status='success']"
+      assert_selector "select[name='chat[account_id]']:not([disabled])"
+      assert_selector "button[aria-label='Send']:not([disabled])"
+    end
+  end
+
+  test "failed dashboard uploads can retry and then unblock sending" do
+    page.execute_script(<<~JS)
+      const original = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.send = function(body) {
+        XMLHttpRequest.prototype.send = original;
+        queueMicrotask(() => this.onerror(new ProgressEvent('error')));
+      };
+    JS
+    with_picker_pdf do |path|
+      find("[data-dropzone-target='input']", visible: :all).set(path)
+      assert_text "Upload failed. Retry or remove."
+      assert_selector "button[aria-label='Send'][disabled]"
+      find("[data-action='dropzone#retryFile']").click
+      assert_selector "[data-upload-status='success']"
+      assert_selector "button[aria-label='Send']:not([disabled])"
+    end
+  end
+
+  test "dashboard retry after a committed response is lost reuses its document and index job" do
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    page.execute_script(<<~JS)
+      const open = XMLHttpRequest.prototype.open;
+      const send = XMLHttpRequest.prototype.send;
+      window.pickerDashboardIds = [];
+      XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        this.pickerUploadPath = new URL(url, location.href).pathname;
+        return open.call(this, method, url, ...rest);
+      };
+      XMLHttpRequest.prototype.send = function(body) {
+        if (this.pickerUploadPath === '/sources/documents') {
+          const loaded = this.onload;
+          this.onload = event => {
+            if (this.status >= 200 && this.status < 300) {
+              window.pickerDashboardIds.push(JSON.parse(this.responseText).id);
+              if (window.pickerDashboardIds.length === 1) return this.onerror(new ProgressEvent('error'));
+            }
+            loaded.call(this, event);
+          };
+        }
+        return send.call(this, body);
+      };
+    JS
+    with_picker_pdf do |path|
+      find("[data-dropzone-target='input']", visible: :all).set(path)
+      assert_text "Upload failed. Retry or remove."
+      assert_selector "button[aria-label='Send'][disabled]"
+      assert_equal 1, @second.documents.count
+      assert_enqueued_jobs 1, only: AddDocumentJob
+
+      click_on "Retry"
+
+      assert_selector "[data-upload-status='success']"
+      assert_selector "button[aria-label='Send']:not([disabled])"
+      ids = page.evaluate_script("window.pickerDashboardIds")
+      assert_equal 2, ids.size
+      assert_equal 1, ids.uniq.size
+      assert_equal 1, @second.documents.count
+      assert_equal 0, @first.documents.count
+      assert_enqueued_jobs 1, only: AddDocumentJob
+    end
+  end
+
+  test "queued dashboard uploads remain pending and removing an active upload starts the next" do
+    install_dashboard_upload_gate
+    page.execute_script("document.querySelector('[data-controller=dropzone]').dataset.dropzoneParallelLimitValue = '1'")
+    with_picker_pdf do |first|
+      with_picker_pdf do |removed|
+        with_picker_pdf do |last|
+          find("[data-dropzone-target='input']", visible: :all).set([ first, removed, last ])
+          assert_selector "[data-upload-status='uploading']", count: 1
+          assert_selector "[data-upload-status='pending']", count: 2
+          assert_equal 1, page.evaluate_script("window.pickerDashboardUploads.length")
+          find("[data-file-name]", text: File.basename(removed)).find("button[aria-label='Remove upload']").click
+          assert_selector "[data-upload-status='pending']", count: 1
+          assert_selector "button[aria-label='Send'][disabled]"
+          find("[data-file-name]", text: File.basename(first)).find("button[aria-label='Remove upload']").click
+          assert_selector "body[data-dashboard-uploads-held='2']"
+          assert_equal [ true, false ], page.evaluate_script("window.pickerDashboardUploads.map(upload => upload.aborted)")
+          assert_no_selector "[data-upload-status='pending']"
+          assert_selector "button[aria-label='Send'][disabled]"
+          page.execute_script("window.pickerDashboardUploads[0].error(); window.releasePickerUpload(1)")
+          assert_selector "[data-upload-status='success']", count: 1
+          assert_selector "button[aria-label='Send']:not([disabled])"
+          assert_equal [ File.basename(last) ], @first.documents.pluck(:title)
+          assert_enqueued_jobs 1, only: AddDocumentJob
+        end
+      end
+    end
+  end
+
+  test "scoped dashboard reset aborts active uploads without starting queued uploads or reviving late rows" do
+    install_dashboard_upload_gate
+    page.execute_script("document.querySelector('[data-controller=dropzone]').dataset.dropzoneParallelLimitValue = '1'")
+    with_picker_pdf do |first|
+      with_picker_pdf do |second|
+        find("[data-dropzone-target='input']", visible: :all).set([ first, second ])
+        assert_selector "[data-upload-status]", count: 2
+        page.execute_script("window.dispatchEvent(new CustomEvent('chat-account:reset', { detail: { root: document.createElement('div') } }))")
+        assert_selector "[data-upload-status]", count: 2
+        assert_selector "button[aria-label='Send'][disabled]"
+        page.execute_script("window.dispatchEvent(new CustomEvent('chat-account:reset', { detail: { root: document.querySelector('[data-controller=chat-account]') } }))")
+        assert_no_selector "[data-upload-status]"
+        assert_selector "button[aria-label='Send']:not([disabled])"
+        assert_selector "select[name='chat[account_id]']:not([disabled])"
+        assert_equal [ true ], page.evaluate_script("window.pickerDashboardUploads.map(upload => upload.aborted)")
+        assert_equal "", find("[data-dropzone-target='input']", visible: :all).value
+        page.execute_script("window.pickerDashboardUploads[0].loaded(); window.pickerDashboardUploads[0].error(); window.releasePickerUpload()")
+        assert_no_selector "[data-upload-status]"
+        assert_equal 1, page.evaluate_script("window.pickerDashboardUploads.length")
+        assert_equal 0, Document.count
+        assert_no_enqueued_jobs only: AddDocumentJob
+      end
+    end
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+  end
+
+  test "dashboard validation errors are safe removable rows that unblock Send" do
+    name = "invalid\"'][<img src=x onerror=alert(1)>.exe"
+    attempt_dashboard_upload(name, type: "application/zip")
+
+    assert_selector "[data-upload-status='error'] [role='alert']", text: "Invalid file: #{name}"
+    assert_no_selector "[data-dropzone-target='list'] img"
+    assert_selector "button[aria-label='Send'][disabled]"
+    click_on "Remove upload"
+    assert_no_selector "[data-upload-status]"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_equal 0, Document.count
+    assert_no_enqueued_jobs only: AddDocumentJob
+  end
+
+  test "quoted dashboard filenames can upload remove and intentionally upload again" do
+    with_picker_pdf("quoted'\"[<b>") do |path|
+      2.times do |index|
+        find("[data-dropzone-target='input']", visible: :all).set(path)
+        assert_selector "[data-upload-status='success'] .file-name", text: File.basename(path)
+        assert_no_selector "[data-dropzone-target='list'] b"
+        find("button[aria-label='Remove upload']").click
+        assert_no_selector "[data-upload-status]"
+        assert_equal index + 1, @first.documents.where(title: File.basename(path)).count
+      end
+      assert_enqueued_jobs 2, only: AddDocumentJob
+    end
+  end
+
+  test "generic dropzones without account context still upload into the default account" do
+    visit sources_url
+    assert_selector "[data-controller='dropzone']:not([data-dropzone-account-id-value])"
+    page.execute_script(<<~JS)
+      const send = XMLHttpRequest.prototype.send;
+      window.pickerUploadAccounts = [];
+      XMLHttpRequest.prototype.send = function(body) {
+        if (body instanceof FormData) window.pickerUploadAccounts.push(body.get('document[account_id]'));
+        return send.call(this, body);
+      };
+    JS
+    2.times do |index|
+      page.execute_script("document.querySelector('[data-controller=dropzone]').dataset.dropzoneAccountIdValue = ' '") if index == 1
+      with_picker_pdf do |path|
+        find("[data-dropzone-target='input']", visible: :all).set(path)
+        assert_selector "[data-upload-status='success']", count: index + 1
+        assert @first.documents.exists?(title: File.basename(path))
+        assert_not @second.documents.exists?(title: File.basename(path))
+      end
+    end
+    assert_equal [ nil, nil ], page.evaluate_script("window.pickerUploadAccounts")
+  end
+
+  test "dashboard HTTP and abort failures remain retryable without hiding validation failures" do
+    page.execute_script(<<~JS)
+      const send = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.send = function(body) {
+        XMLHttpRequest.prototype.send = send;
+        body.delete('document[file]');
+        return send.call(this, body);
+      };
+    JS
+    with_picker_pdf do |path|
+      find("[data-dropzone-target='input']", visible: :all).set(path)
+      assert_text "Upload failed. Retry or remove."
+      assert_equal 0, Document.count
+      assert_no_enqueued_jobs only: AddDocumentJob
+      install_dashboard_upload_gate
+      click_on "Retry"
+      assert_selector "[data-upload-status='uploading']"
+      page.execute_script("window.pickerDashboardUploads[0].xhr.onabort(new ProgressEvent('abort'))")
+      assert_selector "[data-upload-status='error']"
+      assert_selector "button[aria-label='Send'][disabled]"
+      click_on "Retry"
+      assert_selector "body[data-dashboard-uploads-held='2']"
+      page.execute_script("window.releasePickerUpload(1)")
+      assert_selector "[data-upload-status='success']"
+      assert_selector "button[aria-label='Send']:not([disabled])"
+      assert_equal 1, Document.count
+      assert_enqueued_jobs 1, only: AddDocumentJob
+    end
+  end
+
+  test "dashboard navigation rejects new files retries and disconnected old input events" do
+    page.execute_script(<<~JS)
+      const send = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.send = function(body) {
+        XMLHttpRequest.prototype.send = send;
+        queueMicrotask(() => this.onerror(new ProgressEvent('error')));
+      };
+    JS
+    with_picker_pdf do |path|
+      find("[data-dropzone-target='input']", visible: :all).set(path)
+      assert_selector "[data-upload-status='error']"
+      install_dashboard_upload_gate
+      hold_account_switch
+      page.execute_script("window.pickerOldUploadInput = document.querySelector('[data-dropzone-target=input]')")
+      accept_confirm(/Saved sources remain/) { select "Research team", from: "Account" }
+      assert_selector "body[data-account-switch-held=true]"
+      page.execute_script("document.querySelector('[data-action=\"dropzone#retryFile\"]').click()")
+      attempt_dashboard_upload("navigation.pdf")
+      assert_selector "[data-upload-status='error']", count: 1
+      assert_empty page.evaluate_script("window.pickerDashboardUploads")
+      page.execute_script("window.releaseAccountSwitch()")
+      assert_selector "select option[selected][value='#{@second.id}']"
+      attempt_dashboard_upload("disconnected.pdf", old_input: true)
+      assert_no_selector "[data-upload-status]"
+      assert_empty page.evaluate_script("window.pickerDashboardUploads")
+      assert_equal 0, Document.count
+      assert_no_enqueued_jobs only: AddDocumentJob
+    end
+  end
+
+  test "cached dashboard previews reject file entry until the fresh account renders" do
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    select "First team", from: "Account"
+    assert_selector "select option[selected][value='#{@first.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    install_dashboard_upload_gate
+    hold_account_switch
+    select "Research team", from: "Account"
+    assert_selector "html[data-turbo-preview][data-account-switch-held=true]"
+
+    attempt_dashboard_upload("preview.pdf")
+
+    assert_no_selector "[data-upload-status]"
+    assert_empty page.evaluate_script("window.pickerDashboardUploads")
+    assert_equal 0, Document.count
+    page.execute_script("window.releaseAccountSwitch()")
+    assert_no_selector "html[data-turbo-preview]"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_no_enqueued_jobs only: AddDocumentJob
+  end
+
   private
+    def attempt_dashboard_upload(name, type: "application/pdf", old_input: false)
+      page.execute_script(<<~JS, name, type, old_input)
+        const input = arguments[2] ? window.pickerOldUploadInput : document.querySelector('[data-dropzone-target=input]');
+        const files = new DataTransfer();
+        files.items.add(new File(['%PDF-1.4 %%EOF'], arguments[0], { type: arguments[1] }));
+        input.files = files.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      JS
+    end
+
+    def with_picker_pdf(prefix = "chat-account")
+      Tempfile.create([ prefix, ".pdf" ]) do |file|
+        file.write("%PDF-1.4\n% Upload-registration fixture; no parser is run.\n%%EOF\n")
+        file.flush
+        yield file.path
+      end
+    end
+
+    def install_dashboard_upload_gate
+      page.execute_script(<<~JS)
+        const open = XMLHttpRequest.prototype.open;
+        const send = XMLHttpRequest.prototype.send;
+        const abort = XMLHttpRequest.prototype.abort;
+        window.pickerDashboardUploads = [];
+        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+          this.pickerUploadPath = new URL(url, location.href).pathname;
+          return open.call(this, method, url, ...rest);
+        };
+        XMLHttpRequest.prototype.send = function(body) {
+          if (this.pickerUploadPath !== '/sources/documents') return send.call(this, body);
+          this.pickerDashboardUpload = { xhr: this, body, loaded: this.onload, error: this.onerror, aborted: false };
+          window.pickerDashboardUploads.push(this.pickerDashboardUpload);
+          document.body.dataset.dashboardUploadsHeld = window.pickerDashboardUploads.length;
+        };
+        XMLHttpRequest.prototype.abort = function() {
+          if (this.pickerDashboardUpload) this.pickerDashboardUpload.aborted = true;
+          return abort.call(this);
+        };
+        window.releasePickerUpload = (index = 0) => {
+          const upload = window.pickerDashboardUploads[index];
+          if (!upload.aborted) send.call(upload.xhr, upload.body);
+        };
+      JS
+    end
+
     def start_held_pdf_uploads(*filenames)
       page.execute_script(<<~JS, filenames)
         const filenames = arguments[0];

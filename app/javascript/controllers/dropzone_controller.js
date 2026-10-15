@@ -3,6 +3,7 @@ import { Controller } from "@hotwired/stimulus";
 export default class extends Controller {
   static targets = ["container", "input", "list"];
   static values = {
+    accountId: String,
     url: String,
     maxFileSize: { type: Number, default: 50 }, // in MB
     acceptedFiles: String, // comma-separated MIME types
@@ -16,8 +17,11 @@ export default class extends Controller {
     this.activeUploads = [];
     this.uploadQueue = [];
     this.filesByName = new Map();
+    this.uploadIdsByFileName = new Map();
     this.xhrsByFileName = new Map();
+    if (!this.hasVariantValue) this.variantValue = this.element.dataset.variant || "";
     this._bindEvents();
+    queueMicrotask(() => this._publishChatSourceState());
   }
 
   disconnect() {
@@ -33,7 +37,9 @@ export default class extends Controller {
 
     // Click to browse — opt-out so a full-list drop zone doesn't hijack row clicks
     if (this.clickToBrowseValue) {
-      this.containerTarget.addEventListener("click", () => this.inputTarget.click());
+      this.containerTarget.addEventListener("click", () => {
+        if (this.element.isConnected && !this.element.closest("[inert]")) this.inputTarget.click();
+      });
     }
     this.inputTarget.addEventListener("change", (e) => this._handleFileSelect(e));
 
@@ -66,6 +72,8 @@ export default class extends Controller {
   }
 
   _processFiles(files) {
+    if (!this.element.isConnected || this.element.closest("[inert]")) return;
+
     // Filter out duplicates (by name) and invalid files
     const uniqueFiles = files.filter(
       (file) => !this.filesByName.has(file.name) && !this.uploadQueue.find((f) => f.name === file.name)
@@ -74,6 +82,7 @@ export default class extends Controller {
     uniqueFiles.forEach((file) => {
       if (this._validateFile(file)) {
         this.filesByName.set(file.name, file);
+        this.uploadIdsByFileName.set(file.name, crypto.randomUUID());
         this.uploadQueue.push(file);
         this._renderFileEntry(file, "pending");
         this._dequeueNext();
@@ -81,6 +90,7 @@ export default class extends Controller {
         this._showValidationError(file);
       }
     });
+    this._publishChatSourceState();
   }
 
   _validateFile(file) {
@@ -117,6 +127,7 @@ export default class extends Controller {
   _renderFileEntry(file, status) {
     const li = document.createElement("li");
     li.dataset.fileName = file.name;
+    li.dataset.uploadStatus = status;
     li.className = this._entryClassName();
 
     // Status mark (icon + color)
@@ -142,10 +153,18 @@ export default class extends Controller {
     li.appendChild(statusMark);
     li.appendChild(fileName);
 
+    if (status === "error") {
+      const alert = document.createElement("span");
+      alert.setAttribute("role", "alert");
+      alert.textContent = "Upload failed. Retry or remove.";
+      li.appendChild(alert);
+    }
+
     // Remove button (only for dashboard variant)
     if (this.variantValue === "dashboard") {
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
+      removeBtn.setAttribute("aria-label", "Remove upload");
       removeBtn.dataset.action = "dropzone#removeFile";
       removeBtn.className = "remove-btn flex-shrink-0 w-5 h-5 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-600 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300";
       removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
@@ -178,32 +197,23 @@ export default class extends Controller {
   _showValidationError(file) {
     const li = document.createElement("li");
     li.dataset.fileName = file.name;
+    li.dataset.uploadStatus = "error";
     li.className = "flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-sm text-red-700 dark:text-red-300";
 
-    const icon = document.createElement("span");
-    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>`;
-
     const message = document.createElement("span");
-    message.textContent = this._validationErrorMessage(file);
-
-    li.appendChild(icon);
+    message.setAttribute("role", "alert");
+    message.textContent = `Invalid file: ${file.name}`;
     li.appendChild(message);
 
-    this.listTarget.appendChild(li);
-    if (this.listTarget.children.length === 1) {
-      this.listTarget.classList.remove("hidden");
-    }
-  }
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.dataset.action = "dropzone#removeFile";
+    removeBtn.textContent = "Remove upload";
+    li.appendChild(removeBtn);
 
-  _validationErrorMessage(file) {
-    const maxSizeBytes = this.maxFileSizeValue * 1024 * 1024;
-    if (file.size > maxSizeBytes) {
-      return `File too large. Maximum size is ${this.maxFileSizeValue} MB.`;
-    }
-    if (this.acceptedFilesValue) {
-      return "Invalid file type.";
-    }
-    return "Upload failed.";
+    this.listTarget.appendChild(li);
+    this.listTarget.classList.remove("hidden");
+    this._publishChatSourceState();
   }
 
   _dequeueNext() {
@@ -215,10 +225,11 @@ export default class extends Controller {
     this._uploadFile(file);
   }
 
-  async _uploadFile(file) {
+  _uploadFile(file) {
     // Update status to uploading
-    const entry = this.listTarget.querySelector(`[data-file-name="${file.name}"]`);
+    const entry = [...this.listTarget.querySelectorAll("[data-file-name]")].find(row => row.dataset.fileName === file.name);
     if (entry) {
+      entry.dataset.uploadStatus = "uploading";
       const statusMark = entry.querySelector(".status-mark");
       if (statusMark) {
         statusMark.className = "status-mark flex-shrink-0 w-4 h-4 rounded-full border-2 border-blue-500 animate-pulse";
@@ -226,6 +237,7 @@ export default class extends Controller {
     }
 
     this.activeUploads.push(file);
+    this._publishChatSourceState();
 
     const xhr = new XMLHttpRequest();
     this.xhrsByFileName.set(file.name, xhr);
@@ -237,55 +249,54 @@ export default class extends Controller {
       }
     };
 
-    xhr.onload = () => {
-      this.activeUploads = this.activeUploads.filter((f) => f.name !== file.name);
-      this.xhrsByFileName.delete(file.name);
-      
-      if (xhr.status >= 200 && xhr.status < 300) {
-        // Success
-        if (entry) {
-          const statusMark = entry.querySelector(".status-mark");
-          if (statusMark) {
-            statusMark.className = "status-mark flex-shrink-0 w-4 h-4 rounded-full bg-green-500 border-2 border-green-500";
-            statusMark.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>`;
-          }
-        }
-      } else {
-        // Error
-        if (entry) {
-          const statusMark = entry.querySelector(".status-mark");
-          if (statusMark) {
-            statusMark.className = "status-mark flex-shrink-0 w-4 h-4 rounded-full bg-red-500 border-2 border-red-500";
-            statusMark.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
-          }
-        }
-      }
-      this._dequeueNext();
-    };
-
-    xhr.onerror = () => {
-      this.activeUploads = this.activeUploads.filter((f) => f.name !== file.name);
-      this.xhrsByFileName.delete(file.name);
-      
-      if (entry) {
-        const statusMark = entry.querySelector(".status-mark");
-        if (statusMark) {
-          statusMark.className = "status-mark flex-shrink-0 w-4 h-4 rounded-full bg-red-500 border-2 border-red-500";
-          statusMark.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
-        }
-      }
-      this._dequeueNext();
-    };
+    xhr.onload = () => this._finishUpload(file, xhr.status >= 200 && xhr.status < 300 ? "success" : "error", xhr);
+    xhr.onerror = xhr.onabort = () => this._finishUpload(file, "error", xhr);
 
     const formData = new FormData();
     // Add document parameters - title is required by the controller
     formData.append("document[title]", file.name);
     formData.append("document[file]", file);
+    formData.append("document[upload_id]", this.uploadIdsByFileName.get(file.name));
+    if (this.hasAccountIdValue && this.accountIdValue.trim()) {
+      formData.append("document[account_id]", this.accountIdValue);
+    }
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
     xhr.open("POST", this.urlValue, true);
     xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+    xhr.setRequestHeader("Accept", "application/json");
     xhr.send(formData);
+  }
+
+  _finishUpload(file, status, xhr) {
+    if (this.xhrsByFileName.get(file.name) !== xhr) return;
+    this.xhrsByFileName.delete(file.name);
+    this.activeUploads = this.activeUploads.filter(active => active.name !== file.name);
+    const entry = [...this.listTarget.querySelectorAll("[data-file-name]")].find(row => row.dataset.fileName === file.name);
+    entry?.remove();
+    this._renderFileEntry(file, status);
+    this._dequeueNext();
+    this._publishChatSourceState();
+  }
+
+  _publishChatSourceState() {
+    if (!this.element.isConnected) return;
+    this.dispatch("state", { detail: {
+      pending: this.activeUploads.length + this.uploadQueue.length,
+      failed: Boolean(this.listTarget.querySelector("[data-upload-status='error']")),
+      dirty: this.listTarget.children.length > 0
+    } });
+  }
+
+  resetChatDraft(event) {
+    if (!event.detail.root.contains(this.element)) return;
+    this._abortAllUploads();
+    this.filesByName.clear();
+    this.uploadIdsByFileName.clear();
+    this.listTarget.replaceChildren();
+    this.listTarget.classList.add("hidden");
+    this.inputTarget.value = "";
+    this._publishChatSourceState();
   }
 
   removeFile(e) {
@@ -294,26 +305,28 @@ export default class extends Controller {
     if (!entry) return;
     const fileName = entry.dataset.fileName;
 
-    // Abort XHR if active (tracked in Task 2)
-    const xhr = this.xhrsByFileName?.get(fileName);
-    if (xhr) {
-      xhr.abort();
-      this.xhrsByFileName.delete(fileName);
-    }
-
-    // Remove from queues
+    const xhr = this.xhrsByFileName.get(fileName);
+    this.xhrsByFileName.delete(fileName);
     this.activeUploads = this.activeUploads.filter((f) => f.name !== fileName);
     this.uploadQueue = this.uploadQueue.filter((f) => f.name !== fileName);
-    this.filesByName?.delete(fileName);
+    this.filesByName.delete(fileName);
+    this.uploadIdsByFileName.delete(fileName);
+    if (xhr) {
+      xhr.onload = xhr.onerror = xhr.onabort = null;
+      xhr.abort();
+    }
 
     entry.remove();
     if (this.listTarget.children.length === 0) {
       this.listTarget.classList.add("hidden");
     }
+    this._dequeueNext();
+    this._publishChatSourceState();
   }
 
   retryFile(e) {
     e.stopPropagation();
+    if (!this.element.isConnected || this.element.closest("[inert]")) return;
     const entry = e.currentTarget.closest("[data-file-name]");
     if (!entry) return;
     const fileName = entry.dataset.fileName;
@@ -326,15 +339,17 @@ export default class extends Controller {
       this.uploadQueue.push(file);
       this._dequeueNext();
     }
+    this._publishChatSourceState();
   }
 
   _abortAllUploads() {
-    // Abort all active XHRs (tracked in Task 2)
-    if (this.xhrsByFileName) {
-      this.xhrsByFileName.forEach((xhr) => xhr.abort());
-      this.xhrsByFileName.clear();
-    }
+    const requests = [...this.xhrsByFileName.values()];
+    this.xhrsByFileName.clear();
     this.activeUploads = [];
     this.uploadQueue = [];
+    for (const xhr of requests) {
+      xhr.onload = xhr.onerror = xhr.onabort = null;
+      xhr.abort();
+    }
   }
 }
