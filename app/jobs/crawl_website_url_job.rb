@@ -1,4 +1,6 @@
 class CrawlWebsiteUrlJob < ApplicationJob
+  self.enqueue_after_transaction_commit = true
+
   queue_as :background
 
   retry_on Faraday::TimeoutError,
