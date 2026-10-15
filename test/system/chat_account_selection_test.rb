@@ -42,6 +42,119 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal @first.id, websites(:picker_first_website).reload.account_id
   end
 
+  test "sending fixes the account across reload follow-up and unlock" do
+    visit new_chat_url(model: "picker-test-model")
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    write_draft("Research question")
+
+    find("button[aria-label='Send']").click
+
+    assert_selector "[data-chat-account-readonly]", text: "Account: Research team"
+    assert_no_selector "select[name='chat[account_id]']"
+    assert_selector "form[data-generation-busy='true'] lexxy-editor[disabled]"
+    chat = @user.chats.order(:id).last
+    assert_current_path chat_path(chat)
+    assert_equal @second.id, chat.account_id
+    assert_predicate chat.reload, :generating?
+    assert_equal "Research question", chat.messages.user.last.content.strip
+    assert_enqueued_jobs 1, only: ChatResponseJob
+
+    page.refresh
+
+    assert_selector "[data-chat-account-readonly]", text: "Account: Research team"
+    assert_selector "form[data-generation-busy='true'] lexxy-editor[disabled]"
+    chat.finish_generation!
+    visit chat_url(chat)
+    assert_selector "[data-chat-account-readonly]", text: "Account: Research team"
+    assert_no_selector "select[name='chat[account_id]']"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "form[data-generation-busy='false'] lexxy-editor:not([disabled]):not([inert])"
+    write_draft("Follow-up question")
+
+    find("button[aria-label='Send']").click
+
+    assert_selector "form[data-generation-busy='true'] lexxy-editor[disabled]"
+    assert_empty find("lexxy-editor .lexxy-editor__content").text.strip
+    assert_selector "[data-chat-account-readonly]", text: "Account: Research team"
+    assert_no_selector "select[name='chat[account_id]']"
+    assert_equal @second.id, chat.reload.account_id
+    assert_equal "Follow-up question", chat.messages.user.last.content.strip
+    assert_equal 2, chat.messages.user.count
+    assert_enqueued_jobs 2, only: ChatResponseJob
+
+    visit new_chat_url
+
+    assert_selector "select option[selected][value='#{@first.id}']"
+    assert_equal @first.id.to_s, find("select[name='chat[account_id]']").value
+  end
+
+  test "account selection cannot change while the first-message POST is pending" do
+    visit new_chat_url(model: "picker-test-model")
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    write_draft("Fixed at send time")
+    counts = [ Chat.count, Message.count ]
+    page.execute_script(<<~JS)
+      const original = window.fetch;
+      window.fetch = (...args) => {
+        const url = new URL(args[0] instanceof Request ? args[0].url : args[0], location.href);
+        if (url.pathname !== '/chats' || (args[1]?.method || 'GET').toUpperCase() !== 'POST') return original(...args);
+        return new Promise((resolve, reject) => {
+          window.releasePickerChat = () => { window.fetch = original; original(...args).then(resolve, reject); };
+          document.body.dataset.pickerChatHeld = 'true';
+        });
+      };
+    JS
+
+    find("button[aria-label='Send']").click
+
+    assert_selector "body[data-picker-chat-held=true]"
+    assert_selector "select[name='chat[account_id]'][disabled]"
+    page.execute_script(<<~JS, @first.id.to_s)
+      const picker = document.querySelector('select[name="chat[account_id]"]');
+      picker.value = arguments[0];
+      picker.dispatchEvent(new Event('change', { bubbles: true }));
+    JS
+    assert_equal @second.id.to_s, find("select[name='chat[account_id]']").value
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+
+    page.execute_script("window.releasePickerChat()")
+
+    assert_selector "[data-chat-account-readonly]", text: "Account: Research team"
+    assert_selector "form[data-generation-busy='true'] lexxy-editor[disabled]"
+    assert_equal @second.id, @user.chats.order(:id).last.account_id
+    assert_enqueued_jobs 1, only: ChatResponseJob
+  end
+
+  test "footer selection is keyboard accessible on a narrow viewport" do
+    page.current_window.resize_to(390, 844)
+    picker = find_field("Account")
+    assert_selector "label[for='#{picker[:id]}']", text: "Account"
+    assert_selector "##{picker['aria-describedby']}", text: "Searches and attachments use this account."
+    picker.send_keys(:home)
+    assert_selector "select[name='chat[account_id]']:focus"
+
+    picker.send_keys(:end)
+
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    assert_equal @second.id.to_s, find_field("Account").value
+    bounds = page.evaluate_script(<<~JS)
+      (() => {
+        const picker = document.querySelector('select[name="chat[account_id]"]');
+        const bounds = picker.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, viewport: window.innerWidth };
+      })()
+    JS
+    assert_operator bounds.fetch("viewport"), :<=, 390
+    assert_operator bounds.fetch("left"), :>=, 0
+    assert_operator bounds.fetch("right"), :<=, bounds.fetch("viewport")
+  ensure
+    page.current_window.resize_to(1400, 1400)
+  end
+
   test "a pending account switch blocks Send Enter and requestSubmit from sending the old draft" do
     visit new_chat_url(model: "picker-test-model")
     write_draft("This belongs to the first account")
@@ -258,6 +371,47 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal @first.id.to_s, find("select[name='chat[account_id]']").value
   end
 
+  test "Turbo Back and Forward never restore cross-account references or tool choices" do
+    write_draft("Discard this first-account draft")
+    find("summary", text: /MCP Tools/).click
+    check "First tool"
+    dispatch_link("https://history-first.example/reference")
+    assert_selector "input[name='chat[attached_website_ids][]']", count: 2, visible: :all
+    assert_equal 1, browser_website_ids.size
+
+    accept_confirm(/clears your unsent message/) { select "Research team", from: "Account" }
+
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    assert_equal [ "second-skill" ], browser_skills
+    assert_not_includes draft_html, "Discard this first-account draft"
+    assert_no_selector "input[type=checkbox][name='mcp_server_ids[]']:checked", visible: :all
+    assert_no_selector "#mcp-server-hidden-fields input", visible: :all
+    assert_empty browser_website_ids
+
+    page.go_back
+
+    assert_selector "select option[selected][value='#{@first.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    assert_equal [ "first-skill" ], browser_skills
+    assert_not_includes draft_html, "Discard this first-account draft"
+    assert_no_selector "input[type=checkbox][name='mcp_server_ids[]']:checked", visible: :all
+    assert_no_selector "#mcp-server-hidden-fields input", visible: :all
+    assert_empty browser_website_ids
+
+    page.go_forward
+
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    assert_equal [ "second-skill" ], browser_skills
+    assert_not_includes draft_html, "Discard this first-account draft"
+    assert_no_selector "input[type=checkbox][name='mcp_server_ids[]']:checked", visible: :all
+    assert_no_selector "#mcp-server-hidden-fields input", visible: :all
+    assert_empty browser_website_ids
+    assert @first.websites.exists?(url: "https://history-first.example/reference")
+    assert_not @second.websites.exists?(url: "https://history-first.example/reference")
+  end
+
   test "a pasted URL is registered in the selected account" do
     select "Research team", from: "Account"
     assert_selector "select option[selected][value='#{@second.id}']"
@@ -327,6 +481,41 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "button[aria-label='Send']:not([disabled])"
     assert_no_text "Source registration failed"
     assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "resetting a failed source clears only the unsent draft" do
+    write_draft("Unsaved draft")
+    dispatch_link("https://reset-saved.example/reference")
+    assert_selector "input[name='chat[attached_website_ids][]']", count: 2, visible: :all
+    counts = [ Chat.count, Message.count, Website.count ]
+    page.execute_script(<<~JS)
+      const original = window.fetch;
+      window.fetch = (...args) => {
+        const url = new URL(args[0] instanceof Request ? args[0].url : args[0], location.href);
+        if (url.pathname !== '/chat_sources') return original(...args);
+        window.fetch = original;
+        return Promise.reject(new TypeError('Network unavailable'));
+      };
+    JS
+
+    dispatch_link("https://reset-failure.example/reference")
+
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_text "Network unavailable"
+    accept_confirm(/Reset this unsent draft/) { click_on "Reset draft" }
+
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "select[name='chat[account_id]']:not([disabled])"
+    assert_equal @first.id.to_s, find_field("Account").value
+    assert_empty find("lexxy-editor .lexxy-editor__content").text.strip
+    assert_not_includes draft_html, "Unsaved draft"
+    assert_no_selector "[data-composer-sources-target='errors']:not([hidden])"
+    assert_empty browser_website_ids
+    assert_equal counts, [ Chat.count, Message.count, Website.count ]
+    assert_equal @first.id, websites(:picker_first_website).reload.account_id
+    assert @first.websites.exists?(url: "https://reset-saved.example/reference")
+    assert_not @first.websites.exists?(url: "https://reset-failure.example/reference")
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
@@ -1315,5 +1504,9 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
 
     def browser_skills
       page.evaluate_script("JSON.parse(document.querySelector('[data-composer-skills-value]').dataset.composerSkillsValue).map(skill => skill.name)")
+    end
+
+    def browser_website_ids
+      page.evaluate_script("Array.from(document.querySelectorAll('input[name=\"chat[attached_website_ids][]\"]')).map(input => input.value).filter(Boolean)")
     end
 end
