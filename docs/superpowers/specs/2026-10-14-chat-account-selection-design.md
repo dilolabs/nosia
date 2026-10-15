@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-14
 
-**Status:** Design approved; awaiting user review of the written spec.
+**Status:** Written spec reviewed and approved; implementation planning authorized.
 
 ## Goal
 
@@ -34,6 +34,7 @@ The selected account is the boundary for the whole conversation: retrieval, atta
 - "Reset draft (Recommended)." Confirm before clearing unsent text, attachment references, and tool selections when changing accounts. Saved sources stay in their original account; nothing is moved or deleted. Rationale: avoid mixed-account drafts and ambiguous rich-text attachments.
 - "Approve" for design section 1: footer picker, first-account default, confirmed draft reset, selected-account dashboard/composer uploads, and fixed account after chat creation. Rationale: validates the end-to-end account-selection flow before defining security and verification.
 - "Approve" for design section 2: membership checks, rejection of wrong-account resource IDs, saved-chat account authority, upload coordination, working citations, and Minitest/system coverage. Rationale: validates the isolation safeguards and verification scope.
+- "Go" after the committed written spec was presented for review. Rationale: approves this written spec and authorizes the implementation-plan step, not application implementation.
 
 ## Scope and non-goals
 
@@ -177,4 +178,4 @@ Approved layout: **B — composer footer**, from `.superpowers/brainstorm/315631
 
 ## Review gate
 
-Both design sections were approved in conversation. The user must now review this committed written spec before the writing-plans skill is invoked. That review authorizes planning, not application implementation.
+Both design sections and the committed written spec were approved in conversation. The writing-plans skill has been invoked. Application implementation remains gated on the execution handoff.
