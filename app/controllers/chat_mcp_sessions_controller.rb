@@ -1,4 +1,6 @@
 class ChatMcpSessionsController < ApplicationController
+  include ChatAccountScoped
+
   before_action :set_chat
 
   def create
@@ -23,8 +25,7 @@ class ChatMcpSessionsController < ApplicationController
   end
 
   private
-
-  def set_chat
-    @chat = Current.user.chats.find(params[:chat_id])
-  end
+    def set_chat
+      @chat = authorized_chat(params[:chat_id])
+    end
 end

@@ -1,5 +1,7 @@
 module Sources
   class DocumentsController < ApplicationController
+    include ChatAccountScoped
+
     before_action :set_document, only: %i[ show edit update destroy ]
 
     # GET /documents or /documents.json
@@ -22,7 +24,8 @@ module Sources
 
     # POST /documents or /documents.json
     def create
-      @document = filing_account(:document).documents.new(document_params)
+      account = filing_account(:document) || raise(ChatAccountScoped::MissingAccount)
+      @document = account.documents.new(document_params)
 
       respond_to do |format|
         if @document.save
