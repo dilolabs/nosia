@@ -1,7 +1,7 @@
 <% if message.similar_chunks.any? %>
   <div class="space-y-2">
     <% message.similar_chunks.each_with_index do |chunk, index| %>
-      <%= link_to chunk, class: "block group", target: "_blank", rel: "noopener" do %>
+      <%= link_to chunk_path(chunk, chat_id: message.chat_id), class: "block group", target: "_blank", rel: "noopener" do %>
         <div class="flex items-start gap-3 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-sm">
           <!-- Source number -->
           <div class="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 flex items-center justify-center text-xs font-semibold">

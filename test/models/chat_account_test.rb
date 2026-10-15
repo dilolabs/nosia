@@ -182,6 +182,77 @@ class ChatAccountTest < ActiveSupport::TestCase
     assert_equal [ @second ], observed
   end
 
+  test "cited evidence cannot include another account's chunk IDs" do
+    width = Chunk.columns_hash.fetch("embedding").limit
+    vector = [ 1.0 ] + Array.new(width - 1, 0.0)
+    first = insert_picker_chunk(@first, texts(:picker_first_text), "First evidence", vector)
+    second = insert_picker_chunk(@second, texts(:picker_second_text), "Research evidence", vector)
+    message = chats(:picker_second_chat).messages.create!(role: :assistant, content: "Answer", similar_chunk_ids: [ first.id.to_s, second.id.to_s ])
+
+    assert_equal [ second.id ], message.similar_chunks.pluck(:id)
+  end
+
+  test "cited evidence handles absent and duplicate chunk IDs" do
+    chat = chats(:picker_second_chat)
+    width = Chunk.columns_hash.fetch("embedding").limit
+    own = insert_picker_chunk(@second, texts(:picker_second_text), "Research evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+    message = chat.messages.build(role: :assistant, content: "Answer", similar_chunk_ids: nil)
+
+    assert_empty message.similar_chunks
+
+    message.similar_chunk_ids = [ own.id.to_s, own.id.to_s ]
+    assert_equal [ own.id ], message.similar_chunks.pluck(:id)
+  end
+
+  test "real nearest-neighbor retrieval excludes a closer first-account vector" do
+    original_limit = ENV["RETRIEVAL_FETCH_K"]
+    chat = chats(:picker_second_chat)
+    width = Chunk.columns_hash.fetch("embedding").limit
+    query = [ 1.0, 0.0 ] + Array.new(width - 2, 0.0)
+    research = [ 0.8, 0.2 ] + Array.new(width - 2, 0.0)
+    insert_picker_chunk(@first, texts(:picker_first_text), "Closer but forbidden", query)
+    own = insert_picker_chunk(@second, texts(:picker_second_text), "Research evidence", research)
+    result = Struct.new(:vectors, :tokens).new(query, Struct.new(:input).new(3))
+    ENV["RETRIEVAL_FETCH_K"] = "1"
+    chat.define_singleton_method(:context_relevance) { |*args, **options| true }
+    chat.define_singleton_method(:broadcast_thinking_phase) { |*args| }
+
+    ActsAsTenant.with_tenant(@second) do
+      with_singleton_replacement(RubyLLM, :embed, ->(*args, **options) { result }) do
+        assert_equal [ own.id ], chat.similarity_search("Question").map(&:id)
+      end
+    end
+
+    assert_equal @second.id, TokenUsage.where(chat: chat, kind: :embedding).last.account_id
+  ensure
+    ENV["RETRIEVAL_FETCH_K"] = original_limit
+  end
+
+  test "saved-account prompt and completion usage do not use the first account" do
+    chat = chats(:picker_second_chat)
+    model = ruby_llm_models(:picker_model).model_id
+    instructions = []
+    chat.define_singleton_method(:with_model) { |*args, **options| }
+    chat.define_singleton_method(:with_provider_options) { |**options| }
+    chat.define_singleton_method(:with_temperature) { |*args| }
+    chat.define_singleton_method(:mcp_tools) { [] }
+    chat.define_singleton_method(:similarity_search) { |*args| [] }
+    chat.define_singleton_method(:with_instructions) { |content, **options| instructions << content }
+    chat.define_singleton_method(:broadcast_thinking_phase) { |*args| }
+    chat.define_singleton_method(:answer_relevance) { |*args, **options| true }
+    chat.define_singleton_method(:complete) do |&stream|
+      message = messages.create!(role: :assistant, content: "Answer")
+      message.ruby_llm_usages.create!(chat: self, operation: "chat", provider: "openai", model: model,
+        status: "succeeded", input_tokens: 7, output_tokens: 2)
+      message
+    end
+
+    message = ActsAsTenant.with_tenant(@second) { chat.complete_with_nosia("Question") }
+
+    assert_equal [ "Research account instructions" ], instructions
+    assert_equal @second.id, TokenUsage.find_by!(source: message).account_id
+  end
+
   test "background generation restores the prior tenant after a completion error" do
     chat = chats(:picker_second_chat)
     chat.start_generation!

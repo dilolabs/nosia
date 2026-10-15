@@ -171,8 +171,10 @@ class Message < ApplicationRecord
     Author.where(id: similar_documents.pluck(:author_id))
   end
 
+  # Resolve cited evidence only within this message's saved chat account.
+  # @return [ActiveRecord::Relation<Chunk>] Matching citations, excluding other accounts
   def similar_chunks
-    Chunk.where(id: similar_chunk_ids.uniq)
+    chat.account.chunks.where(id: Array(similar_chunk_ids).uniq)
   end
 
   def similar_documents
