@@ -1,0 +1,8 @@
+<% %w[first second foreign].each do |name| %>
+picker_<%= name %>_tool:
+  account: picker_<%= name %>
+  name: <%= name.capitalize %> tool
+  transport_type: local
+  enabled: true
+  status: ready
+<% end %>

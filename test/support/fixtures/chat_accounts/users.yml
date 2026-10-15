@@ -1,0 +1,5 @@
+<% { picker_owner: "picker@example.com", picker_outsider: "outsider@example.com", picker_no_account: "no-account@example.com" }.each do |name, email| %>
+<%= name %>:
+  email: <%= User.type_for_attribute("email").serialize(email).to_json %>
+  password_digest: <%= BCrypt::Password.create("picker-password-123", cost: BCrypt::Engine::MIN_COST).to_json %>
+<% end %>

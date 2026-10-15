@@ -1,0 +1,9 @@
+picker_first_membership:
+  account: picker_first
+  user: picker_owner
+picker_second_membership:
+  account: picker_second
+  user: picker_owner
+picker_foreign_membership:
+  account: picker_foreign
+  user: picker_outsider

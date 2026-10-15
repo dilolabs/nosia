@@ -1,0 +1,8 @@
+picker_first_prompt:
+  account: picker_first
+  name: system_prompt
+  content: First account instructions
+picker_second_prompt:
+  account: picker_second
+  name: system_prompt
+  content: Research account instructions

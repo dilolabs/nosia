@@ -1,0 +1,12 @@
+picker_first:
+  name: First team
+  owner: picker_owner
+  created_at: 2026-01-01 00:00:00
+picker_second:
+  name: Research team
+  owner: picker_owner
+  created_at: 2026-01-02 00:00:00
+picker_foreign:
+  name: Private team
+  owner: picker_outsider
+  created_at: 2026-01-03 00:00:00

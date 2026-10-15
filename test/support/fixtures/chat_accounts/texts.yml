@@ -1,0 +1,6 @@
+<% %w[first second].each do |name| %>
+picker_<%= name %>_text:
+  account: picker_<%= name %>
+  title: <%= name.capitalize %> text
+  data: <%= name.capitalize %> account evidence
+<% end %>
