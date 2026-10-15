@@ -4,6 +4,7 @@ class Chat < ApplicationRecord
   class GenerationStopped < StandardError; end
 
   include ActionView::RecordIdentifier
+  include AccountScoped
   include AnswerRelevance
   include AugmentedPrompt
   include Completionable

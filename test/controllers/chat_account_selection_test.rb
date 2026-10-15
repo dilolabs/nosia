@@ -46,6 +46,81 @@ class ChatAccountSelectionTest < ActionDispatch::IntegrationTest
     assert_equal before_counts, [ Chat.count, Message.count, ChatMcpSession.count ]
   end
 
+  test "wrong-account references fail before any chat message or tool linkage" do
+    invalid_options = [
+      { chat: { attached_website_ids: [ websites(:picker_first_website).id ] } },
+      { mcp_server_ids: [ mcp_servers(:picker_first_tool).id ] }
+    ]
+
+    invalid_options.each do |options|
+      chat_params = { account_id: @second.id, prompt: "Invalid references", model: "picker-test-model" }
+      chat_params.merge!(options.fetch(:chat, {}))
+      counts = [ Chat.count, Message.count, ChatMcpSession.count ]
+
+      assert_no_enqueued_jobs only: ChatResponseJob do
+        post chats_url, params: options.except(:chat).merge(chat: chat_params)
+      end
+
+      assert_response :not_found
+      assert_equal counts, [ Chat.count, Message.count, ChatMcpSession.count ]
+    end
+  end
+
+  test "wrong-account documents fail before any chat message or tool linkage" do
+    document = @first.documents.create!(title: "First account reference", file: {
+      io: StringIO.new("Reference"), filename: "reference.txt", content_type: "text/plain"
+    })
+    counts = [ Chat.count, Message.count, ChatMcpSession.count ]
+
+    assert_no_enqueued_jobs only: ChatResponseJob do
+      post chats_url, params: { chat: { account_id: @second.id,
+        prompt: "Invalid document", model: "picker-test-model", attached_document_ids: [ document.id ] } }
+    end
+
+    assert_response :not_found
+    assert_equal counts, [ Chat.count, Message.count, ChatMcpSession.count ]
+  end
+
+  test "missing references fail before any chat message or tool linkage" do
+    invalid_options = [
+      { chat: { attached_website_ids: [ websites(:picker_second_website).id, "missing" ] } },
+      { chat: { attached_document_ids: [ "missing" ] } },
+      { mcp_server_ids: [ mcp_servers(:picker_second_tool).id, "missing" ] }
+    ]
+
+    invalid_options.each do |options|
+      chat_params = { account_id: @second.id, prompt: "Missing references", model: "picker-test-model" }
+      chat_params.merge!(options.fetch(:chat, {}))
+      counts = [ Chat.count, Message.count, ChatMcpSession.count ]
+
+      assert_no_enqueued_jobs only: ChatResponseJob do
+        post chats_url, params: options.except(:chat).merge(chat: chat_params)
+      end
+
+      assert_response :not_found
+      assert_equal counts, [ Chat.count, Message.count, ChatMcpSession.count ]
+    end
+  end
+
+  test "create uses normalized sources and tools from the selected account" do
+    website_id = websites(:picker_second_website).id
+    tool_id = mcp_servers(:picker_second_tool).id
+
+    assert_enqueued_with(job: ChatResponseJob) do
+      post chats_url, params: { chat: { account_id: @second.id,
+        prompt: "Valid references", model: "picker-test-model",
+        attached_website_ids: [ "", website_id, website_id ] }, mcp_server_ids: [ "", tool_id, tool_id ] }
+    end
+
+    chat = @user.chats.order(:id).last
+    assert_redirected_to chat_url(chat)
+    assert_equal @second.id, chat.account_id
+    assert_equal [ website_id.to_s ], chat.messages.user.last.attached_website_ids
+    assert_equal [ tool_id ], chat.chat_mcp_sessions.pluck(:mcp_server_id)
+    assert_predicate chat, :generating?
+    assert_equal @first, @user.first_account
+  end
+
   test "owned chat in the second account remains accessible" do
     get chat_url(chats(:picker_second_chat))
 
