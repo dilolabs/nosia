@@ -21,12 +21,12 @@ class CrawlWebsiteUrlJobTransactionTest < ActiveJob::TestCase
     ActiveJob::Base.queue_adapter = @prior_adapter
   end
 
-  test "crawl publication waits until the website transaction commits" do
+  test "crawl publication waits until the outer chat transaction commits" do
     website = nil
     assert_not Website.connection.transaction_open?
 
     assert_enqueued_with(job: CrawlWebsiteUrlJob, queue: "background") do
-      Website.transaction do
+      Chat.transaction do
         assert Website.connection.current_transaction.joinable?
         website = Website.find_or_create_by_url!(@account, "https://commit.example/page")
 
@@ -42,12 +42,12 @@ class CrawlWebsiteUrlJobTransactionTest < ActiveJob::TestCase
     assert visible_to_worker, "the committed website must be visible through another connection"
   end
 
-  test "rolling back the website transaction cancels crawl publication" do
+  test "rolling back the outer chat transaction cancels crawl publication" do
     website_id = nil
     assert_not Website.connection.transaction_open?
 
     assert_no_enqueued_jobs only: CrawlWebsiteUrlJob do
-      Website.transaction do
+      Chat.transaction do
         assert Website.connection.current_transaction.joinable?
         website_id = Website.find_or_create_by_url!(@account, "https://rollback.example/page").id
         raise ActiveRecord::Rollback
