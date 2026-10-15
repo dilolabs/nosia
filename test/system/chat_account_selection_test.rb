@@ -338,7 +338,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "button[aria-label='Send'][disabled]"
     assert_selector "select[name='chat[account_id]'][disabled]"
 
-    page.execute_script("window.releasePickerUpload(0)")
+    page.execute_script("window.releasePickerUpload('browser-account.pdf')")
 
     assert_selector "body[data-picker-source-held=true]"
     assert_selector "button[aria-label='Send'][disabled]"
@@ -550,7 +550,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "select[name='chat[account_id]']:not([disabled])"
     assert_equal [ true ], page.evaluate_script("window.pickerUploads.map(upload => upload.aborted)")
     assert_empty page.evaluate_script("window.pickerUploadEnds")
-    page.execute_script("window.releasePickerUpload(0)")
+    page.execute_script("window.releasePickerUpload('deleted-upload.pdf')")
     assert_empty page.evaluate_script("window.pickerSourceRequests")
     assert_no_enqueued_jobs only: AddDocumentJob
     find("lexxy-editor .lexxy-editor__content").send_keys("Continue this draft")
@@ -561,7 +561,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     observe_source_requests
     write_draft("Surviving draft text")
     find("lexxy-editor .lexxy-editor__content").send_keys([ :control, :end ])
-    start_held_pdf_uploads("cancel-one.pdf", "keep-two.pdf")
+    start_held_pdf_uploads("cancel-one.pdf", "keep-two.pdf", reverse_requests: true)
     find("lexxy-editor figure", text: "cancel-one.pdf").click
     page.driver.browser.action.send_keys(:backspace).perform
 
@@ -570,8 +570,10 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_includes draft_html, "Surviving draft text"
     assert_selector "button[aria-label='Send'][disabled]"
     assert_selector "select[name='chat[account_id]'][disabled]"
-    assert_equal [ true, false ], page.evaluate_script("window.pickerUploads.map(upload => upload.aborted)")
-    page.execute_script("window.releasePickerUpload(0); window.releasePickerUpload(1)")
+    assert_equal [ "keep-two.pdf", "cancel-one.pdf" ], page.evaluate_script("window.pickerUploads.map(upload => upload.filename)")
+    assert_equal({ "cancel-one.pdf" => true, "keep-two.pdf" => false },
+      page.evaluate_script("Object.fromEntries(window.pickerUploads.map(upload => [upload.filename, upload.aborted]))"))
+    page.execute_script("window.releasePickerUpload('cancel-one.pdf'); window.releasePickerUpload('keep-two.pdf')")
 
     assert_selector "input[name='chat[attached_document_ids][]']", count: 2, visible: :all
     assert_selector "button[aria-label='Send']:not([disabled])"
@@ -601,7 +603,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
       };
     JS
     start_held_pdf_uploads("ambiguous-registration.pdf")
-    page.execute_script("window.releasePickerUpload(0)")
+    page.execute_script("window.releasePickerUpload('ambiguous-registration.pdf')")
     assert_text "Source response lost after commit"
     assert_selector "button[aria-label='Send'][disabled]"
     assert_equal 1, @second.documents.count
@@ -951,32 +953,60 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
       JS
     end
 
-    def start_held_pdf_uploads(*filenames)
-      page.execute_script(<<~JS, filenames)
+    def start_held_pdf_uploads(*filenames, reverse_requests: false)
+      page.execute_script(<<~JS, filenames, reverse_requests)
         const filenames = arguments[0];
+        const reverseRequests = arguments[1];
         window.pickerUploads = [];
         window.pickerUploadEnds = [];
         document.querySelector('lexxy-editor').addEventListener('lexxy:upload-end', event => window.pickerUploadEnds.push(event.detail.file.name));
         const open = XMLHttpRequest.prototype.open;
         const send = XMLHttpRequest.prototype.send;
         const abort = XMLHttpRequest.prototype.abort;
+        const storageFilenames = new Map();
+        const blobRequests = new Map();
+        const blobOrder = [...filenames].reverse();
+        const sendNextBlobRequest = () => {
+          const request = blobRequests.get(blobOrder.shift());
+          if (request) send.call(request.xhr, request.body);
+        };
         XMLHttpRequest.prototype.open = function(method, url, ...args) {
-          this.pickerStorage = method.toUpperCase() === 'PUT' && new URL(url, location.href).pathname.startsWith('/rails/active_storage/disk/');
+          const requestUrl = new URL(url, location.href);
+          this.pickerStorage = method.toUpperCase() === 'PUT' && requestUrl.pathname.startsWith('/rails/active_storage/disk/');
+          this.pickerBlobRecord = method.toUpperCase() === 'POST' && requestUrl.pathname === '/rails/active_storage/direct_uploads';
+          this.pickerStorageUrl = requestUrl.href;
+          if (this.pickerBlobRecord) {
+            // Read the real response before Active Storage consumes direct_upload.
+            this.addEventListener('load', () => {
+              if (this.status >= 200 && this.status < 300) {
+                const blob = this.response;
+                storageFilenames.set(new URL(blob.direct_upload.url, location.href).href, blob.filename);
+              }
+            });
+          }
           return open.call(this, method, url, ...args);
         };
         XMLHttpRequest.prototype.send = function(body) {
+          if (this.pickerBlobRecord && reverseRequests) {
+            blobRequests.set(JSON.parse(body).blob.filename, { xhr: this, body });
+            // Make PUT arrival order the reverse of file insertion, without sleeps.
+            if (blobRequests.size === filenames.length) sendNextBlobRequest();
+            return;
+          }
           if (!this.pickerStorage) return send.call(this, body);
-          const upload = { xhr: this, body, aborted: false };
+          const upload = { xhr: this, body, filename: storageFilenames.get(this.pickerStorageUrl), aborted: false };
           this.pickerUpload = upload;
           window.pickerUploads.push(upload);
           document.body.dataset.pickerUploadsHeld = window.pickerUploads.length;
+          if (reverseRequests) sendNextBlobRequest();
         };
         XMLHttpRequest.prototype.abort = function() {
           if (this.pickerUpload) this.pickerUpload.aborted = true;
           return abort.call(this);
         };
-        window.releasePickerUpload = index => {
-          const upload = window.pickerUploads[index];
+        window.releasePickerUpload = filename => {
+          const upload = window.pickerUploads.find(upload => upload.filename === filename);
+          if (!upload) throw new Error(`No held upload for ${filename}`);
           if (!upload.aborted) send.call(upload.xhr, upload.body);
         };
         const files = new DataTransfer();
