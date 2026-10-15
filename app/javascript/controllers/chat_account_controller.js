@@ -8,10 +8,15 @@ export default class extends Controller {
   initialize() {
     this.sources = new Map()
     this.submitting = false
+    this.switching = false
   }
 
   connect() {
-    this.syncControls()
+    this.stopSwitching()
+  }
+
+  disconnect() {
+    this.stopSwitching()
   }
 
   formTargetConnected() {
@@ -60,16 +65,16 @@ export default class extends Controller {
 
   syncControls() {
     if (this.hasPickerTarget) {
-      this.pickerTarget.disabled = this.pending || this.submitting
+      this.pickerTarget.disabled = this.switching || this.pending || this.submitting
     }
 
     if (this.hasSendTarget && this.hasFormTarget) {
-      this.sendTarget.disabled = this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true"
+      this.sendTarget.disabled = this.switching || this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true"
     }
   }
 
   guard(event) {
-    if (this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true") {
+    if (this.switching || this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true") {
       event.preventDefault()
       event.stopImmediatePropagation()
     }
@@ -78,7 +83,7 @@ export default class extends Controller {
   change() {
     const next = this.pickerTarget.value
 
-    if (this.pending || this.submitting || next === this.accountIdValue) {
+    if (this.switching || this.pending || this.submitting || next === this.accountIdValue) {
       this.pickerTarget.value = this.accountIdValue
       return
     }
@@ -90,7 +95,43 @@ export default class extends Controller {
 
     const url = new URL(window.location.href)
     url.searchParams.set("account_id", next)
+    this.startSwitching(url)
     Turbo.visit(url.toString())
+  }
+
+  startSwitching(url) {
+    this.switching = true
+    const navigation = new AbortController()
+    this.switchNavigation = navigation
+    const { signal } = navigation
+
+    document.addEventListener("turbo:before-visit", event => {
+      if (event.detail.url !== url.href) return
+
+      // Later listeners (including window listeners) can still cancel this visit.
+      queueMicrotask(() => {
+        if (event.defaultPrevented && this.switchNavigation === navigation) this.stopSwitching()
+      })
+    }, { signal })
+
+    document.addEventListener("turbo:fetch-request-error", event => {
+      if (event.target !== document.documentElement || event.detail.request.url.href !== url.href) return
+
+      // Keep Turbo's full-page network-error fallback from discarding the draft.
+      event.preventDefault()
+      this.stopSwitching()
+      window.alert("Could not change account. Your draft is still in the previous account. Please try again.")
+    }, { signal })
+
+    this.syncControls()
+  }
+
+  stopSwitching() {
+    this.switchNavigation?.abort()
+    this.switchNavigation = null
+    this.switching = false
+    if (this.hasPickerTarget) this.pickerTarget.value = this.accountIdValue
+    this.syncControls()
   }
 
   dirty() {
@@ -128,9 +169,8 @@ export default class extends Controller {
     const count = this.element.querySelector("#mcp-selected-count")
     if (count) count.textContent = "0"
 
-    this.pickerTarget.value = this.accountIdValue
     this.sources.clear()
     this.submitting = false
-    this.syncControls()
+    this.stopSwitching()
   }
 }
