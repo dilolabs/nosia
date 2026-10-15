@@ -515,6 +515,40 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
   end
 
+  test "generation prevents real keyboard editing without freezing conversation controls" do
+    chat = chats(:picker_second_chat)
+    chat.update!(generating: true)
+    visit chat_url(chat)
+    write_draft("Keep the generation draft unchanged")
+    before = draft_html
+    page.execute_script("document.querySelector('lexxy-editor .lexxy-editor__content').focus()")
+
+    page.driver.browser.action.send_keys(" forbidden typing").perform
+
+    assert_equal before, draft_html
+    assert_selector "lexxy-editor[disabled][inert]"
+    assert_selector "[data-controller~='chat-account']:not([inert])"
+    find("button[data-modal-open-target-value='mcp-selector-modal']").click
+    assert_selector "#mcp-selector-modal:not(.hidden)"
+  end
+
+  test "submission prevents real toolbar formatting and restores it when submission ends" do
+    write_draft("Keep this formatting")
+    find("lexxy-editor .lexxy-editor__content").send_keys([ :control, "a" ])
+    page.execute_script("document.querySelector('#chat-form').dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true }))")
+    before = draft_html
+
+    page.driver.browser.action.move_to(find("lexxy-editor button[data-command='bold']").native).click.perform
+
+    assert_equal before, draft_html
+    assert_selector "lexxy-editor[disabled][inert]"
+    page.execute_script("document.querySelector('#chat-form').dispatchEvent(new CustomEvent('turbo:submit-end', { bubbles: true }))")
+    assert_selector "lexxy-editor:not([disabled]):not([inert])"
+    find("lexxy-editor .lexxy-editor__content").send_keys([ :control, "a" ])
+    find("lexxy-editor button[data-command='bold']").click
+    assert_selector "lexxy-editor .lexxy-editor__content strong", text: "Keep this formatting"
+  end
+
   private
     def observe_source_requests
       page.execute_script(<<~JS)

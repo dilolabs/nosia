@@ -79,7 +79,11 @@ export default class extends Controller {
 
     if (this.hasFormTarget) {
       const editorLocked = this.navigating || this.submitting || this.formTarget.dataset.generationBusy === "true"
-      this.formTarget.querySelector("lexxy-editor")?.toggleAttribute("disabled", editorLocked)
+      const editor = this.formTarget.querySelector("lexxy-editor")
+      if (editor) {
+        editor.toggleAttribute("disabled", editorLocked)
+        editor.inert = editorLocked
+      }
 
       if (this.hasSendTarget) {
         this.sendTarget.disabled = editorLocked || this.pending || this.failed
