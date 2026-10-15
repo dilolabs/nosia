@@ -16,7 +16,7 @@ module ChatAccountScoped
 
   private
     def selected_chat_account(account_id = nil)
-      raise ActiveRecord::RecordNotFound unless account_id.nil? || account_id.is_a?(String) || account_id.is_a?(Numeric)
+      validate_chat_context_id(account_id)
 
       if account_id.present?
         Current.user.accounts.find(account_id)
@@ -35,5 +35,9 @@ module ChatAccountScoped
       chat = Current.user.chats.find(chat_id)
       Current.user.accounts.find(chat.account_id)
       chat
+    end
+
+    def validate_chat_context_id(id)
+      raise ActiveRecord::RecordNotFound unless id.nil? || id.is_a?(String) || id.is_a?(Numeric)
     end
 end

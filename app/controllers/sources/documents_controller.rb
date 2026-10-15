@@ -24,6 +24,7 @@ module Sources
 
     # POST /documents or /documents.json
     def create
+      validate_chat_context_id(params.dig(:document, :account_id))
       account = filing_account(:document) || raise(ChatAccountScoped::MissingAccount)
       upload_id = params.require(:document).permit(:upload_id)[:upload_id]
       @document = Document.create_from_upload(account, document_params, upload_id: upload_id)

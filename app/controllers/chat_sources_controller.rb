@@ -25,6 +25,9 @@ class ChatSourcesController < ApplicationController
 
   private
     def source_account
+      validate_chat_context_id(params[:chat_id])
+      validate_chat_context_id(params[:account_id])
+
       if params[:chat_id].present?
         account = authorized_chat(params[:chat_id]).account
         if params[:account_id].present? && params[:account_id].to_s != account.id.to_s

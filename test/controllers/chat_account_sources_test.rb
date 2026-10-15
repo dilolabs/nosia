@@ -183,7 +183,108 @@ class ChatAccountSourcesTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
   end
 
+  {
+    "empty array" => ->(id) { [] },
+    "empty hash" => ->(id) { {} },
+    "array" => ->(id) { [ id ] },
+    "hash" => ->(id) { { id: id } },
+    "false" => ->(id) { false },
+    "true" => ->(id) { true }
+  }.each do |shape, malformed|
+    %w[URL PDF invalid-SGID].each do |source|
+      test "#{source} registration rejects #{shape} chat context before writes or SGID validation" do
+        payload = source_payload(source).merge(chat_id: malformed.call(chats(:picker_second_chat).id))
+
+        assert_rejected_without_source_writes do
+          post chat_sources_url, params: payload, as: :json
+        end
+      end
+
+      %w[new saved].each do |context|
+        test "#{source} registration rejects #{shape} account context for #{context} chats" do
+          payload = source_payload(source).merge(account_id: malformed.call(@second.id))
+          payload[:chat_id] = chats(:picker_second_chat).id if context == "saved"
+
+          assert_rejected_without_source_writes do
+            post chat_sources_url, params: payload, as: :json
+          end
+        end
+      end
+    end
+
+    test "dashboard rejects #{shape} account context for JSON and HTML before writes" do
+      blob = source_blob
+      [ "application/json", "text/html" ].each do |format|
+        assert_rejected_without_source_writes do
+          post sources_documents_url, params: { document: { account_id: malformed.call(@second.id),
+            title: "Malformed filing account", file: blob.signed_id, upload_id: SecureRandom.uuid } },
+            as: :json, headers: { "Accept" => format }
+        end
+      end
+    end
+  end
+
+  test "missing nil and blank scalar new-source contexts retain the first-account fallback" do
+    contexts = [ {}, { account_id: nil }, { account_id: "" }, { account_id: " " },
+      { chat_id: nil }, { chat_id: "" }, { chat_id: " ", account_id: " " } ]
+    blob = source_blob
+
+    contexts.each_with_index do |context, index|
+      post chat_sources_url, params: context.merge(url: "https://fallback-#{index}.example/reference"), as: :json
+
+      assert_response :success
+      assert_equal @first.id, Website.find(response.parsed_body.fetch("id")).account_id
+
+      post chat_sources_url, params: context.merge(attachable_sgid: blob.attachable_sgid), as: :json
+
+      assert_response :success
+      assert_equal @first.id, Document.find(response.parsed_body.fetch("id")).account_id
+    end
+    assert_equal 1, @first.documents.count
+    assert_enqueued_jobs 1, only: AddDocumentJob
+  end
+
+  test "nil and blank scalar dashboard accounts retain default filing and validation errors" do
+    blob = source_blob
+    [ nil, "", " " ].each do |account_id|
+      post sources_documents_url, params: { document: { account_id: account_id, file: blob.signed_id } }, as: :json
+
+      assert_response :created
+      assert_equal @first.id, Document.find(response.parsed_body.fetch("id")).account_id
+
+      post sources_documents_url, params: { document: { account_id: account_id, title: "Missing file" } }, as: :json
+
+      assert_response :unprocessable_entity
+      assert_includes response.parsed_body.fetch("file"), "can't be blank"
+    end
+  end
+
   private
+    def source_payload(kind)
+      case kind
+      when "URL" then { url: "https://malformed-context.example/reference" }
+      when "PDF" then { attachable_sgid: source_blob.attachable_sgid }
+      when "invalid-SGID" then { attachable_sgid: "invalid" }
+      end
+    end
+
+    def source_blob
+      ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
+        filename: "context.pdf", content_type: "application/pdf")
+    end
+
+    def assert_rejected_without_source_writes
+      models = [ Website, Document, Chat, Message, ChatMcpSession, ActiveStorage::Attachment, ActiveStorage::Blob ]
+      counts = models.map(&:count)
+      chat_state = Chat.order(:id).map(&:attributes)
+
+      assert_no_enqueued_jobs { yield }
+
+      assert_equal counts, models.map(&:count), "Rejected contexts must not create sources, chats, messages, or links"
+      assert_equal chat_state, Chat.order(:id).map(&:attributes), "Rejected contexts must not change chat or generation state"
+      assert_response :not_found
+    end
+
     def picker_multipart_pdf
       Rack::Test::UploadedFile.new(StringIO.new("%PDF-1.4\n%%EOF"), "application/pdf", original_filename: "dashboard.pdf")
     end

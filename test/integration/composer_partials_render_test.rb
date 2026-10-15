@@ -27,9 +27,9 @@ class ComposerPartialsRenderTest < ActionDispatch::IntegrationTest
     # its toolbar, whose CSS hides the "Add images and video" button while
     # keeping the PDF/file button (permitted_attachment_types: application/pdf).
     assert_select "lexxy-editor[toolbar*=?]", "file"
-    assert_select "input[type='hidden'][name='chat[attached_website_ids][]'][data-composer-target='websiteIds']"
-    assert_select "input[type='hidden'][name='chat[attached_document_ids][]'][data-composer-target='documentIds']"
-    assert_select "div[data-controller='composer'][data-composer-skills-value]"
+    assert_select "input[type='hidden'][name='chat[attached_website_ids][]'][data-composer-sources-target='websiteIds']"
+    assert_select "input[type='hidden'][name='chat[attached_document_ids][]'][data-composer-sources-target='documentIds']"
+    assert_select "div[data-controller~='composer'][data-composer-skills-value]"
     assert_select "div.n-skill-menu[data-composer-target='menu']"
     assert_select "lexxy-editor[data-composer-target='editor']"
   end
@@ -39,9 +39,9 @@ class ComposerPartialsRenderTest < ActionDispatch::IntegrationTest
     get chat_url(chat)
     assert_response :success
     assert_select "lexxy-editor[name=?]", "message[content]"
-    assert_select "input[type='hidden'][name='message[attached_website_ids][]'][data-composer-target='websiteIds']"
-    assert_select "input[type='hidden'][name='message[attached_document_ids][]'][data-composer-target='documentIds']"
-    assert_select "div[data-controller='composer'][data-composer-skills-value]"
+    assert_select "input[type='hidden'][name='message[attached_website_ids][]'][data-composer-sources-target='websiteIds']"
+    assert_select "input[type='hidden'][name='message[attached_document_ids][]'][data-composer-sources-target='documentIds']"
+    assert_select "div[data-controller~='composer'][data-composer-skills-value]"
     assert_select "lexxy-editor[data-composer-target='editor']"
   end
 end
