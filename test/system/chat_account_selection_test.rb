@@ -772,6 +772,85 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "select option[selected][value='#{@second.id}']"
   end
 
+  test "removing a pending dashboard publisher unlocks the remaining composer without starting queued uploads" do
+    install_dashboard_upload_gate
+    write_draft("Keep the remaining composer draft")
+    page.execute_script("document.querySelector('[data-controller=dropzone]').dataset.dropzoneParallelLimitValue = '1'")
+    with_picker_pdf do |active|
+      with_picker_pdf do |queued|
+        find("[data-dropzone-target='input']", visible: :all).set([ active, queued ])
+        assert_selector "[data-upload-status='uploading']", count: 1
+        assert_selector "[data-upload-status='pending']", count: 1
+        assert_selector "select[name='chat[account_id]'][disabled]"
+        assert_selector "button[aria-label='Send'][disabled]"
+        page.execute_script(<<~JS)
+          window.pickerRemainingRoot = document.querySelector('[data-controller=chat-account]');
+          window.pickerRemainingForm = document.querySelector('#chat-form');
+          window.pickerRemovedDropzone = document.querySelector('[data-controller=dropzone]');
+          window.pickerRemovedDropzone.remove();
+        JS
+
+        assert_no_selector "[data-controller=dropzone]"
+        assert page.evaluate_script("window.pickerRemainingRoot === document.querySelector('[data-controller=chat-account]') && window.pickerRemainingForm === document.querySelector('#chat-form')")
+        assert_equal [ [ File.basename(active), true ] ], page.evaluate_script("window.pickerDashboardUploads.map(upload => [upload.body.get('document[file]').name, upload.aborted])")
+        assert page.evaluate_script("window.pickerDashboardUploads.every(({ xhr }) => xhr.onload === null && xhr.onerror === null && xhr.onabort === null)")
+        assert_selector "select[name='chat[account_id]']:not([disabled])"
+        assert_selector "button[aria-label='Send']:not([disabled])"
+        assert_includes draft_html, "Keep the remaining composer draft"
+        assert_equal 0, Document.count
+        assert_no_enqueued_jobs only: AddDocumentJob
+
+        page.execute_script("window.pickerDashboardUploads[0].loaded(); window.pickerDashboardUploads[0].error(); window.releasePickerUpload()")
+
+        assert_no_selector "[data-upload-status]"
+        assert_equal 2, page.evaluate_script("window.pickerRemovedDropzone.querySelector('[data-dropzone-target=list]').children.length")
+        assert_equal 0, page.evaluate_script("window.pickerRemovedDropzone.querySelectorAll('[data-upload-status=success], [data-upload-status=error]').length")
+        assert_equal 1, page.evaluate_script("window.pickerDashboardUploads.length")
+        assert_selector "select[name='chat[account_id]']:not([disabled])"
+        assert_selector "button[aria-label='Send']:not([disabled])"
+        assert_equal 0, Document.count
+        assert_no_enqueued_jobs only: AddDocumentJob
+      end
+    end
+  end
+
+  test "form replacement prunes its old publisher while an attached dashboard upload stays blocking" do
+    install_source_fetch_gate
+    install_dashboard_upload_gate
+    website_count = Website.count
+    with_picker_pdf do |path|
+      find("[data-dropzone-target='input']", visible: :all).set(path)
+      dispatch_link("https://replaced-composer.example/reference")
+      assert_selector "body[data-picker-source-held=true]"
+      assert_selector "button[aria-label='Send'][disabled]"
+      page.execute_script(<<~JS)
+        window.pickerRemainingRoot = document.querySelector('[data-controller=chat-account]');
+        window.pickerReplacedForm = document.querySelector('#chat-form');
+        window.pickerReplacedForm.replaceWith(window.pickerReplacedForm.cloneNode(true));
+      JS
+
+      assert page.evaluate_script("window.pickerRemainingRoot === document.querySelector('[data-controller=chat-account]') && window.pickerReplacedForm !== document.querySelector('#chat-form')")
+      assert page.evaluate_script("window.pickerSourceSignal.aborted")
+      assert_selector "[data-upload-status='uploading']"
+      assert_selector "select[name='chat[account_id]'][disabled]"
+      assert_selector "button[aria-label='Send'][disabled]"
+
+      page.execute_script("window.releasePickerUpload()")
+
+      assert_selector "[data-upload-status='success']"
+      assert_selector "select[name='chat[account_id]']:not([disabled])"
+      assert_selector "button[aria-label='Send']:not([disabled])"
+      page.execute_script("window.releasePickerSource()")
+      assert_selector "body[data-picker-source-released=true]"
+      assert_selector "input[name='chat[attached_website_ids][]']", count: 1, visible: :all
+      assert_selector "button[aria-label='Send']:not([disabled])"
+      assert_equal website_count, Website.count
+      assert @first.documents.exists?(title: File.basename(path))
+      assert_enqueued_jobs 1, only: AddDocumentJob
+      assert_no_enqueued_jobs only: CrawlWebsiteUrlJob
+    end
+  end
+
   test "dashboard validation errors are safe removable rows that unblock Send" do
     name = "invalid\"'][<img src=x onerror=alert(1)>.exe"
     attempt_dashboard_upload(name, type: "application/zip")

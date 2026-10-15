@@ -14,11 +14,16 @@ export default class extends Controller {
 
   connect() {
     document.addEventListener("turbo:render", this.boundSyncControls)
+    this.sourceObserver = new MutationObserver(() => {
+      if ([...this.sources.keys()].some(source => !this.element.contains(source))) this.syncControls()
+    })
+    this.sourceObserver.observe(this.element, { childList: true, subtree: true })
     this.stopSwitching()
   }
 
   disconnect() {
     document.removeEventListener("turbo:render", this.boundSyncControls)
+    this.sourceObserver.disconnect()
     this.stopSwitching()
   }
 
