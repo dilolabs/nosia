@@ -865,6 +865,106 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: AddDocumentJob
   end
 
+  test "invalid dashboard rows reserve their exact filename until removed" do
+    install_dashboard_upload_gate
+    page.execute_script("document.querySelector('[data-controller=dropzone]').dataset.dropzoneMaxFileSizeValue = '1'")
+    attempt_dashboard_upload("report.pdf", size: 1024 * 1024 + 1)
+    assert_selector "[data-upload-status='error']", count: 1
+    assert_text "Invalid file: report.pdf"
+    assert_selector "button[aria-label='Send'][disabled]"
+
+    attempt_dashboard_upload("report.pdf")
+
+    assert_selector "[data-file-name]", count: 1
+    assert_selector "[data-upload-status='error']", count: 1
+    assert_no_selector "[data-upload-status='pending'], [data-upload-status='uploading']"
+    assert_empty page.evaluate_script("window.pickerDashboardUploads")
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_equal 0, Document.count
+    assert_no_enqueued_jobs only: AddDocumentJob
+
+    click_on "Remove upload"
+
+    assert_no_selector "[data-upload-status]"
+    assert_empty page.evaluate_script("window.pickerDashboardUploads")
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    attempt_dashboard_upload("report.pdf")
+    assert_selector "[data-upload-status='uploading']", count: 1
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_selector "select[name='chat[account_id]'][disabled]"
+    assert_equal [ [ "report.pdf", false ] ], page.evaluate_script("window.pickerDashboardUploads.map(upload => [upload.body.get('document[file]').name, upload.aborted])")
+
+    page.execute_script("window.releasePickerUpload()")
+
+    assert_selector "[data-upload-status='success']", count: 1
+    assert_no_selector "[data-upload-status='pending'], [data-upload-status='error']"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "select[name='chat[account_id]']:not([disabled])"
+    assert_equal [ false ], page.evaluate_script("window.pickerDashboardUploads.map(upload => upload.aborted)")
+    assert_equal [ "report.pdf" ], @first.documents.pluck(:title)
+    assert_enqueued_jobs 1, only: AddDocumentJob
+  end
+
+  test "duplicate exact filenames in one dashboard FileList create one removable upload intent" do
+    install_dashboard_upload_gate
+    page.execute_script(<<~JS)
+      const files = new DataTransfer();
+      files.items.add(new File(['%PDF-1.4 first upload %%EOF'], 'report.pdf', { type: 'application/pdf' }));
+      files.items.add(new File(['%PDF-1.4 duplicate upload %%EOF'], 'report.pdf', { type: 'application/pdf' }));
+      const input = document.querySelector('[data-dropzone-target=input]');
+      input.files = files.files;
+      window.pickerDuplicateSelection = { nativeFileList: input.files instanceof FileList, names: [...input.files].map(file => file.name) };
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    JS
+    assert_equal({ "nativeFileList" => true, "names" => [ "report.pdf", "report.pdf" ] }, page.evaluate_script("window.pickerDuplicateSelection"))
+    assert_selector "[data-file-name]", count: 1
+    assert_selector "[data-upload-status='uploading']", count: 1
+    assert_no_selector "[data-upload-status='pending'], [data-upload-status='error']"
+    assert_equal 1, page.evaluate_script("window.pickerDashboardUploads.length")
+    assert_equal "%PDF-1.4 first upload %%EOF", page.evaluate_async_script("const done = arguments[0]; window.pickerDashboardUploads[0].body.get('document[file]').text().then(done)")
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_selector "select[name='chat[account_id]'][disabled]"
+
+    find("button[aria-label='Remove upload']").click
+
+    assert_no_selector "[data-upload-status]"
+    assert_equal [ [ "report.pdf", true ] ], page.evaluate_script("window.pickerDashboardUploads.map(upload => [upload.body.get('document[file]').name, upload.aborted])")
+    assert page.evaluate_script("window.pickerDashboardUploads.every(({ xhr }) => xhr.onload === null && xhr.onerror === null && xhr.onabort === null)")
+    page.execute_script("window.pickerDashboardUploads[0].loaded(); window.pickerDashboardUploads[0].error(); window.releasePickerUpload()")
+    assert_no_selector "[data-upload-status]"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_equal 0, Document.count
+    assert_no_enqueued_jobs only: AddDocumentJob
+
+    page.execute_script("document.querySelector('[data-controller=dropzone]').dataset.dropzoneMaxFileSizeValue = '1'")
+    attempt_dashboard_upload("report.pdf", size: 1024 * 1024 + 1)
+    assert_selector "[data-upload-status='error']", count: 1
+    assert_selector "button[aria-label='Send'][disabled]"
+    page.execute_script("window.dispatchEvent(new CustomEvent('chat-account:reset', { detail: { root: document.querySelector('[data-controller=chat-account]') } }))")
+    assert_no_selector "[data-upload-status]"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+
+    attempt_dashboard_upload("report.pdf")
+
+    assert_selector "[data-upload-status='uploading']", count: 1
+    assert_equal [ true, false ], page.evaluate_script("window.pickerDashboardUploads.map(upload => upload.aborted)")
+    assert page.evaluate_script("window.pickerDashboardUploads[0].body.get('document[upload_id]') !== window.pickerDashboardUploads[1].body.get('document[upload_id]')")
+    page.execute_script("window.pickerDashboardUploads[0].loaded(); window.pickerDashboardUploads[0].error()")
+    assert_selector "[data-upload-status='uploading']", count: 1
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_selector "select[name='chat[account_id]'][disabled]"
+
+    page.execute_script("window.releasePickerUpload(1)")
+
+    assert_selector "[data-upload-status='success']", count: 1
+    assert_no_selector "[data-upload-status='pending'], [data-upload-status='error']"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "select[name='chat[account_id]']:not([disabled])"
+    assert_equal 2, page.evaluate_script("window.pickerDashboardUploads.length")
+    assert_equal [ "report.pdf" ], @first.documents.pluck(:title)
+    assert_enqueued_jobs 1, only: AddDocumentJob
+  end
+
   test "quoted dashboard filenames can upload remove and intentionally upload again" do
     with_picker_pdf("quoted'\"[<b>") do |path|
       2.times do |index|
@@ -987,11 +1087,12 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
   end
 
   private
-    def attempt_dashboard_upload(name, type: "application/pdf", old_input: false)
-      page.execute_script(<<~JS, name, type, old_input)
+    def attempt_dashboard_upload(name, type: "application/pdf", old_input: false, size: nil)
+      page.execute_script(<<~JS, name, type, old_input, size)
         const input = arguments[2] ? window.pickerOldUploadInput : document.querySelector('[data-dropzone-target=input]');
         const files = new DataTransfer();
-        files.items.add(new File(['%PDF-1.4 %%EOF'], arguments[0], { type: arguments[1] }));
+        const content = arguments[3] === null ? '%PDF-1.4 %%EOF' : new Uint8Array(arguments[3]);
+        files.items.add(new File([content], arguments[0], { type: arguments[1] }));
         input.files = files.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
       JS

@@ -74,14 +74,12 @@ export default class extends Controller {
   _processFiles(files) {
     if (!this.element.isConnected || this.element.closest("[inert]")) return;
 
-    // Filter out duplicates (by name) and invalid files
-    const uniqueFiles = files.filter(
-      (file) => !this.filesByName.has(file.name) && !this.uploadQueue.find((f) => f.name === file.name)
-    );
+    // Reserve names before validation so every visible row owns one upload intent.
+    for (const file of files) {
+      if (this.filesByName.has(file.name)) continue;
+      this.filesByName.set(file.name, file);
 
-    uniqueFiles.forEach((file) => {
       if (this._validateFile(file)) {
-        this.filesByName.set(file.name, file);
         this.uploadIdsByFileName.set(file.name, crypto.randomUUID());
         this.uploadQueue.push(file);
         this._renderFileEntry(file, "pending");
@@ -89,7 +87,7 @@ export default class extends Controller {
       } else {
         this._showValidationError(file);
       }
-    });
+    }
     this._publishChatSourceState();
   }
 
