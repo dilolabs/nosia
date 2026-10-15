@@ -12,6 +12,8 @@ export default class extends Controller {
     this.dirty = false
     this.onLink = event => this.register({ url: event.detail.url }, "websiteIds", `url:${event.detail.url}`)
     this.onStart = event => {
+      if (this.entryBlocked) return
+
       this.uploads.add(event.detail.file)
       this.dirty = true
       this.publishState()
@@ -80,7 +82,7 @@ export default class extends Controller {
   }
 
   register(payload, target, key) {
-    if ((!payload.url && !payload.attachable_sgid) || this.operations.has(key)) return
+    if (this.entryBlocked || (!payload.url && !payload.attachable_sgid) || this.operations.has(key)) return
 
     const context = this.chatIdValue ? { chat_id: this.chatIdValue } : { account_id: this.accountIdValue }
     const operation = { payload: { ...payload, ...context }, target, pending: false, failed: false }
@@ -90,7 +92,7 @@ export default class extends Controller {
   }
 
   async run(operation) {
-    if (operation.pending) return
+    if (this.entryBlocked || operation.pending) return
 
     operation.pending = true
     operation.failed = false
@@ -127,6 +129,10 @@ export default class extends Controller {
         this.publishState()
       }
     }
+  }
+
+  get entryBlocked() {
+    return !this.element.isConnected || this.editorTarget.hasAttribute("disabled") || Boolean(this.editorTarget.closest("[inert]"))
   }
 
   // Keep the hidden input namespace from the rendered chat or message form.

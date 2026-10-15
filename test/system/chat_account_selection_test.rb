@@ -69,8 +69,9 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal [ 2, 0 ], submission_counts
     assert_selector "button[aria-label='Send'][disabled]"
     assert_selector "select[name='chat[account_id]'][disabled]"
-    find("lexxy-editor .lexxy-editor__content").send_keys(:enter)
-    assert_equal [ 3, 0 ], page.evaluate_script("[window.accountSwitchSubmissionAttempts, window.accountSwitchEscapedSubmissions]")
+    assert_selector "[data-controller~='chat-account'][inert] lexxy-editor[disabled]"
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_equal [ 2, 0 ], page.evaluate_script("[window.accountSwitchSubmissionAttempts, window.accountSwitchEscapedSubmissions]")
 
     page.execute_script("window.releaseAccountSwitch()")
 
@@ -106,11 +107,13 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal @first.id.to_s, find("select[name='chat[account_id]']").value
     assert_includes draft_html, "Keep this canceled navigation draft"
     assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
     assert_current_path user_root_path
 
     accept_confirm(/clears your unsent message/) { select "Research team", from: "Account" }
     assert_selector "select option[selected][value='#{@second.id}']"
     assert_not_includes draft_html, "Keep this canceled navigation draft"
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
   end
 
   test "a cached account preview blocks submissions until the fresh account response renders" do
@@ -149,8 +152,9 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal [ 2, 0 ], submission_counts
     assert_selector "button[aria-label='Send'][disabled]"
     assert_selector "select[name='chat[account_id]'][disabled]"
-    find("lexxy-editor .lexxy-editor__content").send_keys(:enter)
-    assert_equal [ 3, 0 ], page.evaluate_script("[window.accountSwitchSubmissionAttempts, window.accountSwitchEscapedSubmissions]")
+    assert_selector "[data-controller~='chat-account'][inert] lexxy-editor[disabled]"
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_equal [ 2, 0 ], page.evaluate_script("[window.accountSwitchSubmissionAttempts, window.accountSwitchEscapedSubmissions]")
     page.execute_script(<<~JS, @first.id.to_s)
       const picker = document.querySelector("select[name='chat[account_id]']")
       picker.value = arguments[0]
@@ -274,6 +278,9 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
 
     assert_selector "select[name='chat[account_id]'][disabled]"
     assert_selector "button[aria-label='Send'][disabled]"
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
+    find("lexxy-editor .lexxy-editor__content").send_keys(" while editing")
+    assert_includes draft_html, "while editing"
     assert_source_submission_blocked
     page.execute_script("window.releasePickerSource()")
     assert_selector "input[name='chat[attached_website_ids][]']", count: 2, visible: :all
@@ -301,6 +308,19 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "button[aria-label='Send'][disabled]"
     assert_source_submission_blocked
     page.execute_script("window.fetch = window.originalPickerFetch")
+    observe_source_requests
+    page.execute_script(<<~JS)
+      window.addEventListener('turbo:before-visit', event => {
+        Array.from(document.querySelectorAll('[data-composer-sources-target="errors"] button')).find(button => button.textContent === 'Retry source').click();
+        event.preventDefault();
+        document.body.dataset.accountSwitchCanceled = 'true';
+      }, { once: true });
+    JS
+    accept_confirm(/clears your unsent message/) { select "Research team", from: "Account" }
+    assert_selector "body[data-account-switch-canceled=true]"
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
+    assert_empty page.evaluate_script("window.pickerSourceRequests")
+    assert_text "Source registration failed"
     click_on "Retry source"
     assert_selector "input[name='chat[attached_website_ids][]']", count: 2, visible: :all
     assert_selector "button[aria-label='Send']:not([disabled])"
@@ -413,7 +433,127 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "button[aria-label='Send']:not([disabled])"
   end
 
+  test "a live account switch rejects queued URL and PDF registration in the old composer" do
+    observe_source_requests
+    hold_account_switch
+
+    select "Research team", from: "Account"
+
+    assert_selector "body[data-account-switch-held=true]"
+    assert_equal @second.id.to_s, find("select[name='chat[account_id]']").value
+    assert_equal @first.id.to_s, find("[data-composer-sources-account-id-value]")["data-composer-sources-account-id-value"]
+    assert_queued_sources_blocked("https://old-switch-source.example/reference")
+    assert_selector "[data-controller~='chat-account'][inert] lexxy-editor[disabled]"
+
+    page.execute_script("window.releaseAccountSwitch()")
+
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
+    write_draft("Research account source")
+    dispatch_link("https://fresh-switch-source.example/reference")
+    assert_selector "input[name='chat[attached_website_ids][]']", count: 2, visible: :all
+    assert @second.websites.exists?(url: "https://fresh-switch-source.example/reference")
+    assert_not @first.websites.exists?(url: "https://fresh-switch-source.example/reference")
+  end
+
+  test "a cached account preview rejects queued sources until the fresh composer renders" do
+    visit new_chat_url(model: "picker-test-model")
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    select "First team", from: "Account"
+    assert_selector "select option[selected][value='#{@first.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    observe_source_requests
+    hold_account_switch
+
+    select "Research team", from: "Account"
+
+    assert_selector "html[data-turbo-preview][data-account-switch-held=true]"
+    assert_queued_sources_blocked("https://preview-switch-source.example/reference")
+    assert_selector "[data-controller~='chat-account'][inert] lexxy-editor[disabled]"
+
+    page.execute_script("window.releaseAccountSwitch()")
+
+    assert_no_selector "html[data-turbo-preview]"
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
+    assert_selector "input[name='chat[attached_website_ids][]']", count: 1, visible: :all
+    assert_selector "input[name='chat[attached_document_ids][]']", count: 1, visible: :all
+    find("lexxy-editor .lexxy-editor__content").send_keys("Fresh research draft")
+    assert_includes draft_html, "Fresh research draft"
+  end
+
+  test "submission disables source entry without making the conversation inert and restores editing on failure" do
+    observe_source_requests
+    page.execute_script("document.querySelector('#chat-form').dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true }))")
+
+    assert_queued_sources_blocked("https://submitting-source.example/reference")
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor[disabled]"
+
+    page.execute_script("document.querySelector('#chat-form').dispatchEvent(new CustomEvent('turbo:submit-end', { detail: { success: false }, bubbles: true }))")
+
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
+    find("lexxy-editor .lexxy-editor__content").send_keys("Edit after failure")
+    assert_includes draft_html, "Edit after failure"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+  end
+
+  test "generation disables source entry but leaves the saved conversation interactive" do
+    chat = chats(:picker_second_chat)
+    chat.update!(generating: true)
+    visit chat_url(chat)
+    assert_selector "form[data-generation-busy='true'] lexxy-editor[disabled]"
+    observe_source_requests
+
+    assert_queued_sources_blocked("https://generating-source.example/reference")
+
+    assert_selector "[data-controller~='chat-account']:not([inert])"
+    find("button[data-modal-open-target-value='mcp-selector-modal']").click
+    assert_selector "#mcp-selector-modal:not(.hidden)"
+    chat.update!(generating: false)
+    visit chat_url(chat)
+    assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
+  end
+
   private
+    def observe_source_requests
+      page.execute_script(<<~JS)
+        const original = window.fetch;
+        window.pickerSourceRequests = [];
+        window.pickerSourceResponses = [];
+        window.fetch = (input, options = {}) => {
+          const url = new URL(input instanceof Request ? input.url : input, location.href);
+          const response = original(input, options);
+          if (url.pathname === '/chat_sources') {
+            window.pickerSourceRequests.push(JSON.parse(options.body));
+            window.pickerSourceResponses.push(response.then(result => result.clone().text()));
+          }
+          return response;
+        };
+      JS
+    end
+
+    def assert_queued_sources_blocked(url)
+      blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"), filename: "queued-account.pdf", content_type: "application/pdf")
+      counts = [ Website.count, Document.count ]
+      page.evaluate_async_script(<<~JS, url, blob.attachable_sgid)
+        const [url, sgid, done] = arguments;
+        const editor = document.querySelector('lexxy-editor');
+        const file = new File(['%PDF-1.4'], 'queued-account.pdf', { type: 'application/pdf' });
+        editor.dispatchEvent(new CustomEvent('lexxy:insert-link', { detail: { url }, bubbles: true }));
+        editor.dispatchEvent(new CustomEvent('lexxy:upload-start', { detail: { file }, bubbles: true }));
+        editor.value = '<action-text-attachment sgid="' + sgid + '" content-type="application/pdf" filename="queued-account.pdf"></action-text-attachment>';
+        editor.dispatchEvent(new CustomEvent('lexxy:upload-end', { detail: { file, error: null }, bubbles: true }));
+        requestAnimationFrame(() => Promise.allSettled(window.pickerSourceResponses).then(() => requestAnimationFrame(done)));
+      JS
+
+      assert_equal counts, [ Website.count, Document.count ], "Queued source events must not save into an unresolved account"
+      assert_empty page.evaluate_script("window.pickerSourceRequests")
+      assert_selector "input[name*='[attached_website_ids]']", count: 1, visible: :all
+      assert_selector "input[name*='[attached_document_ids]']", count: 1, visible: :all
+      assert_no_enqueued_jobs only: [ CrawlWebsiteUrlJob, AddDocumentJob, ChatResponseJob ]
+    end
+
     def dispatch_link(url)
       page.execute_script("document.querySelector('lexxy-editor').dispatchEvent(new CustomEvent('lexxy:insert-link', { detail: { url: arguments[0] }, bubbles: true }))", url)
     end

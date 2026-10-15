@@ -71,12 +71,19 @@ export default class extends Controller {
   }
 
   syncControls() {
+    this.element.inert = this.navigating
+
     if (this.hasPickerTarget) {
       this.pickerTarget.disabled = this.navigating || this.pending || this.submitting
     }
 
-    if (this.hasSendTarget && this.hasFormTarget) {
-      this.sendTarget.disabled = this.navigating || this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true"
+    if (this.hasFormTarget) {
+      const editorLocked = this.navigating || this.submitting || this.formTarget.dataset.generationBusy === "true"
+      this.formTarget.querySelector("lexxy-editor")?.toggleAttribute("disabled", editorLocked)
+
+      if (this.hasSendTarget) {
+        this.sendTarget.disabled = editorLocked || this.pending || this.failed
+      }
     }
   }
 
