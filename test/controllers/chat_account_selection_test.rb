@@ -102,6 +102,63 @@ class ChatAccountSelectionTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "new chat rejects array account context instead of finding multiple accounts" do
+    [ user_root_url, new_chat_url ].each do |url|
+      get url, params: { account_id: [ @second.id ] }
+
+      assert_response :not_found
+    end
+  end
+
+  test "string numeric and blank account contexts preserve new-chat selection" do
+    { @second.id => @second, @second.id.to_s => @second, nil => @first, "" => @first }.each do |account_id, account|
+      [ user_root_url, new_chat_url ].each do |url|
+        get url, params: { account_id: account_id }, as: :json, headers: { "Accept" => "text/html" }
+
+        assert_response :success
+        assert_select "select[name='chat[account_id]'] option[selected][value='#{account.id}']"
+      end
+    end
+  end
+
+  test "new chat rejects hash account context" do
+    [ user_root_url, new_chat_url ].each do |url|
+      get url, params: { account_id: { id: @second.id } }
+
+      assert_response :not_found
+    end
+  end
+
+  test "empty array account context never falls back to the first account" do
+    [ user_root_url, new_chat_url ].each do |url|
+      get url, params: { account_id: [] }, as: :json, headers: { "Accept" => "text/html" }
+
+      assert_response :not_found
+    end
+  end
+
+  test "empty hash account context never falls back to the first account" do
+    [ user_root_url, new_chat_url ].each do |url|
+      get url, params: { account_id: {} }, as: :json, headers: { "Accept" => "text/html" }
+
+      assert_response :not_found
+    end
+  end
+
+  test "malformed explicit account context cannot create a default chat" do
+    [ [ @second.id ], { id: @second.id }, [], {} ].each do |account_id|
+      counts = [ Chat.count, Message.count, ChatMcpSession.count ]
+
+      assert_no_enqueued_jobs only: ChatResponseJob do
+        post chats_url, params: { chat: { account_id: account_id,
+          prompt: "Malformed selection", model: "picker-test-model" } }, as: :json
+      end
+
+      assert_response :not_found
+      assert_equal counts, [ Chat.count, Message.count, ChatMcpSession.count ]
+    end
+  end
+
   test "create uses the second account without changing the default" do
     assert_enqueued_with(job: ChatResponseJob) do
       post chats_url, params: { chat: { account_id: @second.id,

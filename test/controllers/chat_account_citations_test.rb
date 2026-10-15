@@ -66,6 +66,63 @@ class ChatAccountCitationsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "array citation contexts are not treated as one or more authorized chats" do
+    width = Chunk.columns_hash.fetch("embedding").limit
+    vector = [ 1.0 ] + Array.new(width - 1, 0.0)
+    first = insert_picker_chunk(@first, texts(:picker_first_text), "First evidence", vector)
+    second = insert_picker_chunk(@second, texts(:picker_second_text), "Research evidence", vector)
+
+    [ second, first ].each do |chunk|
+      get chunk_url(chunk), params: { chat_id: [ chats(:picker_second_chat).id ] }
+
+      assert_response :not_found
+    end
+  end
+
+  test "hash citation contexts are rejected instead of resolving an account" do
+    width = Chunk.columns_hash.fetch("embedding").limit
+    vector = [ 1.0 ] + Array.new(width - 1, 0.0)
+    first = insert_picker_chunk(@first, texts(:picker_first_text), "First evidence", vector)
+    second = insert_picker_chunk(@second, texts(:picker_second_text), "Research evidence", vector)
+
+    [ second, first ].each do |chunk|
+      get chunk_url(chunk), params: { chat_id: { id: chats(:picker_second_chat).id } }
+
+      assert_response :not_found
+    end
+  end
+
+  test "empty array citation contexts never fall back to the first account" do
+    width = Chunk.columns_hash.fetch("embedding").limit
+    first = insert_picker_chunk(@first, texts(:picker_first_text), "First evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+
+    get chunk_url(first), params: { chat_id: [] }, as: :json, headers: { "Accept" => "text/html" }
+
+    assert_response :not_found
+  end
+
+  test "empty hash citation contexts never fall back to the first account" do
+    width = Chunk.columns_hash.fetch("embedding").limit
+    first = insert_picker_chunk(@first, texts(:picker_first_text), "First evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+
+    get chunk_url(first), params: { chat_id: {} }, as: :json, headers: { "Accept" => "text/html" }
+
+    assert_response :not_found
+  end
+
+  test "string and numeric chat contexts still resolve saved-account citations" do
+    chat = chats(:picker_second_chat)
+    width = Chunk.columns_hash.fetch("embedding").limit
+    own = insert_picker_chunk(@second, texts(:picker_second_text), "Research evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+
+    [ chat.id, chat.id.to_s ].each do |chat_id|
+      get chunk_url(own), params: { chat_id: chat_id }, as: :json, headers: { "Accept" => "text/html" }
+
+      assert_response :success
+      assert_includes response.body, "Research evidence"
+    end
+  end
+
   test "rendered citations include the saved chat context" do
     chat = chats(:picker_second_chat)
     width = Chunk.columns_hash.fetch("embedding").limit
