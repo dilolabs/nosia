@@ -1,4 +1,6 @@
 class ChatsController < ApplicationController
+  include ChatAccountScoped
+
   before_action :set_chat, only: [ :show, :destroy, :stop ]
 
   def show
@@ -14,14 +16,14 @@ class ChatsController < ApplicationController
   end
 
   def new
-    @chat = Current.user.chats.new
+    @chat = Current.user.chats.new(account: selected_chat_account(params[:account_id]))
     @selected_model = params[:model]
   end
 
   def create
     return unless prompt.present?
 
-    @chat = Current.user.chats.create!(account: Current.account, model: model, provider: :openai, assume_model_exists: true)
+    @chat = Current.user.chats.create!(account: required_chat_account(params.dig(:chat, :account_id)), model: model, provider: :openai, assume_model_exists: true)
 
     # Attach selected MCP servers to the chat
     if params[:mcp_server_ids].present?
@@ -64,7 +66,7 @@ class ChatsController < ApplicationController
   private
 
   def set_chat
-    @chat = Current.user.chats.find(params[:id])
+    @chat = authorized_chat(params[:id])
   end
 
   def model
