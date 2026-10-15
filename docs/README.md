@@ -71,6 +71,7 @@ Production deployment strategies, best practices, and operational guidance.
 
 ### Development
 - [Architecture](ARCHITECTURE.md) - Understand the codebase structure
+- [Chat account selection](chat-account-selection.md) — picker behavior, account boundaries, and source request context.
 - [Code of Conduct](../CODE_OF_CONDUCT.md) - Community guidelines
 
 ### Operations
