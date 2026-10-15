@@ -113,6 +113,64 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_not_includes draft_html, "Keep this canceled navigation draft"
   end
 
+  test "a cached account preview blocks submissions until the fresh account response renders" do
+    visit new_chat_url(model: "picker-test-model")
+    select "Research team", from: "Account"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    select "First team", from: "Account"
+    assert_selector "select option[selected][value='#{@first.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    hold_account_switch
+    counts = [ Chat.count, Message.count ]
+
+    select "Research team", from: "Account"
+
+    assert_selector "html[data-turbo-preview][data-account-switch-held=true]"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    write_draft("Do not send from this preview")
+
+    submission_counts = page.evaluate_script(<<~JS)
+      (() => {
+        const form = document.querySelector("#chat-form")
+        window.accountSwitchSubmissionAttempts = 0
+        window.accountSwitchEscapedSubmissions = 0
+        form.addEventListener("submit", () => window.accountSwitchSubmissionAttempts++, { capture: true })
+        document.addEventListener("submit", event => {
+          if (event.target === form) window.accountSwitchEscapedSubmissions++
+        })
+        form.querySelector("button[aria-label='Send']").click()
+        form.querySelector(".lexxy-editor__content").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+        form.requestSubmit()
+        return [window.accountSwitchSubmissionAttempts, window.accountSwitchEscapedSubmissions]
+      })()
+    JS
+
+    assert_equal [ 2, 0 ], submission_counts
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_selector "select[name='chat[account_id]'][disabled]"
+    find("lexxy-editor .lexxy-editor__content").send_keys(:enter)
+    assert_equal [ 3, 0 ], page.evaluate_script("[window.accountSwitchSubmissionAttempts, window.accountSwitchEscapedSubmissions]")
+    page.execute_script(<<~JS, @first.id.to_s)
+      const picker = document.querySelector("select[name='chat[account_id]']")
+      picker.value = arguments[0]
+      picker.dispatchEvent(new Event("change", { bubbles: true }))
+    JS
+    assert_equal @second.id.to_s, find("select[name='chat[account_id]']").value
+    assert_selector "html[data-turbo-preview]"
+
+    page.execute_script("window.releaseAccountSwitch()")
+
+    assert_no_selector "html[data-turbo-preview]"
+    assert_selector "select option[selected][value='#{@second.id}']"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "select[name='chat[account_id]']:not([disabled])"
+    assert_empty find("lexxy-editor .lexxy-editor__content").text.strip
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_equal 0, page.evaluate_script("window.accountSwitchPostCount")
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "a failed account switch uses Turbo recovery with a fresh intended account and no side effects" do
     visit new_chat_url(model: "picker-test-model")
     write_draft("Discard this confirmed navigation draft")
@@ -213,6 +271,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
               window.releaseAccountSwitch = () => resolve(response)
               window.failAccountSwitch = () => reject(new TypeError("Account switch connection failed"))
               document.body.dataset.accountSwitchHeld = "true"
+              document.documentElement.dataset.accountSwitchHeld = "true"
             })
           }
           return response

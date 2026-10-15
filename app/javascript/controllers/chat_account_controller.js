@@ -9,13 +9,16 @@ export default class extends Controller {
     this.sources = new Map()
     this.submitting = false
     this.switching = false
+    this.boundSyncControls = this.syncControls.bind(this)
   }
 
   connect() {
+    document.addEventListener("turbo:render", this.boundSyncControls)
     this.stopSwitching()
   }
 
   disconnect() {
+    document.removeEventListener("turbo:render", this.boundSyncControls)
     this.stopSwitching()
   }
 
@@ -63,18 +66,22 @@ export default class extends Controller {
     return this.sourceStates.some(state => state.failed)
   }
 
+  get navigating() {
+    return this.switching || document.documentElement.hasAttribute("data-turbo-preview")
+  }
+
   syncControls() {
     if (this.hasPickerTarget) {
-      this.pickerTarget.disabled = this.switching || this.pending || this.submitting
+      this.pickerTarget.disabled = this.navigating || this.pending || this.submitting
     }
 
     if (this.hasSendTarget && this.hasFormTarget) {
-      this.sendTarget.disabled = this.switching || this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true"
+      this.sendTarget.disabled = this.navigating || this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true"
     }
   }
 
   guard(event) {
-    if (this.switching || this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true") {
+    if (this.navigating || this.pending || this.failed || this.submitting || this.formTarget.dataset.generationBusy === "true") {
       event.preventDefault()
       event.stopImmediatePropagation()
     }
@@ -83,7 +90,7 @@ export default class extends Controller {
   change() {
     const next = this.pickerTarget.value
 
-    if (this.switching || this.pending || this.submitting || next === this.accountIdValue) {
+    if (this.navigating || this.pending || this.submitting || next === this.accountIdValue) {
       this.pickerTarget.value = this.accountIdValue
       return
     }
