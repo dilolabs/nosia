@@ -7,18 +7,14 @@ export default class extends Controller {
 
   connect() {
     this.operations = new Map()
-    this.uploads = new Set()
+    this.uploads = new Map()
     this.sentSgids = new Set()
     this.dirty = false
     this.onLink = event => this.register({ url: event.detail.url }, "websiteIds", `url:${event.detail.url}`)
-    this.onStart = event => {
-      if (this.entryBlocked) return
-
-      this.uploads.add(event.detail.file)
-      this.dirty = true
-      this.publishState()
-    }
+    this.onStart = event => this.uploadStarted(event.detail.file)
     this.onEnd = event => this.uploadEnded(event)
+    this.uploadObserver = new MutationObserver(() => this.reconcileUploads())
+    this.uploadObserver.observe(this.editorTarget, { childList: true, subtree: true })
 
     this.editorTarget.addEventListener("lexxy:insert-link", this.onLink)
     this.editorTarget.addEventListener("lexxy:upload-start", this.onStart)
@@ -30,40 +26,89 @@ export default class extends Controller {
     this.editorTarget.removeEventListener("lexxy:insert-link", this.onLink)
     this.editorTarget.removeEventListener("lexxy:upload-start", this.onStart)
     this.editorTarget.removeEventListener("lexxy:upload-end", this.onEnd)
+    this.uploadObserver.disconnect()
     for (const operation of this.operations.values()) operation.controller?.abort()
     this.uploads.clear()
   }
 
+  uploadStarted(file) {
+    if (this.entryBlocked || this.uploads.has(file)) return
+
+    const upload = { phase: "uploading", node: this.uploadNode(file) }
+    this.uploads.set(file, upload)
+    this.dirty = true
+    this.publishState()
+
+    // Real Lexxy start events follow the progress figure's insertion. Allow a
+    // bounded mount delay, but show a failure if that public DOM contract fails.
+    let attempts = 0
+    const bind = () => {
+      if (this.uploads.get(file) !== upload || upload.phase !== "uploading" || upload.node) return
+
+      upload.node = this.uploadNode(file)
+      if (!upload.node && ++attempts < 20) {
+        requestAnimationFrame(bind)
+      } else if (!upload.node) {
+        this.uploads.delete(file)
+        this.operations.set(file, { failed: true, pending: false, message: "The PDF upload could not be tracked. Reset the draft and attach it again." })
+        this.renderErrors()
+        this.publishState()
+      }
+    }
+    if (!upload.node) requestAnimationFrame(bind)
+  }
+
+  uploadNode(file) {
+    const assigned = new Set([...this.uploads.values()].map(upload => upload.node))
+    return [...this.editorTarget.querySelectorAll("figure")].find(node =>
+      !assigned.has(node) && node.querySelector("progress") && node.querySelector(".attachment__name")?.textContent === file.name
+    )
+  }
+
+  reconcileUploads() {
+    for (const [file, upload] of this.uploads) {
+      // Removing an uploading figure aborts Lexxy's XHR without upload-end.
+      // Once upload-end fires, figure replacement is normal SGID serialization.
+      if (upload.phase === "uploading" && upload.node && !this.editorTarget.contains(upload.node)) {
+        this.uploads.delete(file)
+      }
+    }
+    this.publishState()
+  }
+
   async uploadEnded(event) {
     const { file, error } = event.detail
-    if (!this.uploads.has(file)) return
+    const upload = this.uploads.get(file)
+    if (!upload || upload.phase !== "uploading") return
+
+    upload.phase = "serializing"
 
     try {
       if (error) throw new Error("PDF upload failed. Reset the draft and attach it again.")
 
-      const sgid = await this.nextSgid(file)
-      if (!this.uploads.has(file) || !this.element.isConnected) return
+      const sgid = await this.nextSgid(file, upload)
+      if (this.uploads.get(file) !== upload || !this.element.isConnected) return
       if (!sgid) throw new Error("The PDF could not be registered. Reset the draft and attach it again.")
 
       this.register({ attachable_sgid: sgid }, "documentIds", `sgid:${sgid}`)
     } catch (failure) {
-      if (!this.uploads.has(file) || !this.element.isConnected) return
+      if (this.uploads.get(file) !== upload || !this.element.isConnected) return
 
       this.operations.set(file, { failed: true, pending: false, message: failure.message })
       this.renderErrors()
     } finally {
-      this.uploads.delete(file)
+      if (this.uploads.get(file) === upload) this.uploads.delete(file)
       this.publishState()
     }
   }
 
   // Lexxy emits upload-end before the serialized attachment SGID is committed.
   // The live attachment DOM does not contain the SGID; read the exported value.
-  nextSgid(file) {
+  nextSgid(file, upload) {
     return new Promise(resolve => {
       let attempts = 0
       const check = () => {
-        if (!this.element.isConnected || !this.uploads.has(file)) return resolve(null)
+        if (!this.element.isConnected || this.uploads.get(file) !== upload) return resolve(null)
 
         const document = new DOMParser().parseFromString(this.editorTarget.value || "", "text/html")
         for (const node of document.querySelectorAll("action-text-attachment[sgid]")) {

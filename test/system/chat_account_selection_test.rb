@@ -330,33 +330,21 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
   end
 
   test "PDF upload lifecycle stays pending until its SGID is registered" do
-    blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"), filename: "browser-account.pdf", content_type: "application/pdf")
     select "Research team", from: "Account"
     assert_selector "select option[selected][value='#{@second.id}']"
     install_source_fetch_gate
-    page.execute_script(<<~JS)
-      const editor = document.querySelector('lexxy-editor');
-      window.pickerPDF = new File(['%PDF-1.4'], 'browser-account.pdf', { type: 'application/pdf' });
-      editor.dispatchEvent(new CustomEvent('lexxy:upload-start', { detail: { file: window.pickerPDF }, bubbles: true }));
-    JS
+    start_held_pdf_uploads("browser-account.pdf")
     assert_selector "button[aria-label='Send'][disabled]"
     assert_selector "select[name='chat[account_id]'][disabled]"
 
-    page.execute_script(<<~JS, blob.attachable_sgid)
-      const editor = document.querySelector('lexxy-editor');
-      editor.dispatchEvent(new CustomEvent('lexxy:upload-end', { detail: { file: window.pickerPDF, error: null }, bubbles: true }));
-      const sgid = arguments[0];
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        editor.value = '<action-text-attachment sgid="' + sgid + '" content-type="application/pdf" filename="browser-account.pdf"></action-text-attachment>';
-      }));
-    JS
+    page.execute_script("window.releasePickerUpload(0)")
 
     assert_selector "body[data-picker-source-held=true]"
     assert_selector "button[aria-label='Send'][disabled]"
     assert_selector "select[name='chat[account_id]'][disabled]"
     page.execute_script("window.releasePickerSource()")
     assert_selector "input[name='chat[attached_document_ids][]']", count: 2, visible: :all
-    assert_equal @second.id, Document.joins(:file_attachment).where(active_storage_attachments: { blob_id: blob.id }).last.account_id
+    assert_equal @second.id, Document.joins(file_attachment: :blob).where(active_storage_blobs: { filename: "browser-account.pdf" }).last.account_id
     assert_selector "button[aria-label='Send']:not([disabled])"
     assert_selector "select[name='chat[account_id]']:not([disabled])"
   end
@@ -549,7 +537,88 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_selector "lexxy-editor .lexxy-editor__content strong", text: "Keep this formatting"
   end
 
+  test "deleting a held direct upload clears pending without an upload-end event" do
+    observe_source_requests
+    start_held_pdf_uploads("deleted-upload.pdf")
+    assert_selector "button[aria-label='Send'][disabled]"
+
+    find("lexxy-editor .lexxy-editor__content").send_keys([ :control, "a" ], :backspace)
+
+    assert_no_selector "lexxy-editor figure progress"
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "select[name='chat[account_id]']:not([disabled])"
+    assert_equal [ true ], page.evaluate_script("window.pickerUploads.map(upload => upload.aborted)")
+    assert_empty page.evaluate_script("window.pickerUploadEnds")
+    page.execute_script("window.releasePickerUpload(0)")
+    assert_empty page.evaluate_script("window.pickerSourceRequests")
+    assert_no_enqueued_jobs only: AddDocumentJob
+    find("lexxy-editor .lexxy-editor__content").send_keys("Continue this draft")
+    assert_includes draft_html, "Continue this draft"
+  end
+
+  test "canceling one of several uploads preserves the text and remaining upload" do
+    observe_source_requests
+    write_draft("Surviving draft text")
+    find("lexxy-editor .lexxy-editor__content").send_keys([ :control, :end ])
+    start_held_pdf_uploads("cancel-one.pdf", "keep-two.pdf")
+    find("lexxy-editor figure", text: "cancel-one.pdf").click
+    page.driver.browser.action.send_keys(:backspace).perform
+
+    assert_no_selector "lexxy-editor figure", text: "cancel-one.pdf"
+    assert_selector "lexxy-editor figure", text: "keep-two.pdf"
+    assert_includes draft_html, "Surviving draft text"
+    assert_selector "button[aria-label='Send'][disabled]"
+    assert_selector "select[name='chat[account_id]'][disabled]"
+    assert_equal [ true, false ], page.evaluate_script("window.pickerUploads.map(upload => upload.aborted)")
+    page.execute_script("window.releasePickerUpload(0); window.releasePickerUpload(1)")
+
+    assert_selector "input[name='chat[attached_document_ids][]']", count: 2, visible: :all
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_selector "select[name='chat[account_id]']:not([disabled])"
+    assert_includes draft_html, "Surviving draft text"
+    assert_equal [ "keep-two.pdf" ], Document.joins(file_attachment: :blob).pluck("active_storage_blobs.filename")
+    assert_equal 1, page.evaluate_script("window.pickerSourceRequests.length")
+    assert_equal [ "keep-two.pdf" ], page.evaluate_script("window.pickerUploadEnds")
+    assert_enqueued_jobs 1, only: AddDocumentJob
+  end
+
   private
+    def start_held_pdf_uploads(*filenames)
+      page.execute_script(<<~JS, filenames)
+        const filenames = arguments[0];
+        window.pickerUploads = [];
+        window.pickerUploadEnds = [];
+        document.querySelector('lexxy-editor').addEventListener('lexxy:upload-end', event => window.pickerUploadEnds.push(event.detail.file.name));
+        const open = XMLHttpRequest.prototype.open;
+        const send = XMLHttpRequest.prototype.send;
+        const abort = XMLHttpRequest.prototype.abort;
+        XMLHttpRequest.prototype.open = function(method, url, ...args) {
+          this.pickerStorage = method.toUpperCase() === 'PUT' && new URL(url, location.href).pathname.startsWith('/rails/active_storage/disk/');
+          return open.call(this, method, url, ...args);
+        };
+        XMLHttpRequest.prototype.send = function(body) {
+          if (!this.pickerStorage) return send.call(this, body);
+          const upload = { xhr: this, body, aborted: false };
+          this.pickerUpload = upload;
+          window.pickerUploads.push(upload);
+          document.body.dataset.pickerUploadsHeld = window.pickerUploads.length;
+        };
+        XMLHttpRequest.prototype.abort = function() {
+          if (this.pickerUpload) this.pickerUpload.aborted = true;
+          return abort.call(this);
+        };
+        window.releasePickerUpload = index => {
+          const upload = window.pickerUploads[index];
+          if (!upload.aborted) send.call(upload.xhr, upload.body);
+        };
+        const files = new DataTransfer();
+        for (const name of filenames) files.items.add(new File(['%PDF-1.4 %%EOF'], name, { type: 'application/pdf' }));
+        document.querySelector('lexxy-editor .lexxy-editor__content').dispatchEvent(new ClipboardEvent('paste', { clipboardData: files, bubbles: true, cancelable: true }));
+      JS
+      assert_selector "body[data-picker-uploads-held='#{filenames.size}']"
+      assert_selector "lexxy-editor figure progress", count: filenames.size
+    end
+
     def observe_source_requests
       page.execute_script(<<~JS)
         const original = window.fetch;
