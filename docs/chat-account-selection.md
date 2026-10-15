@@ -23,7 +23,7 @@ After the first message, the account is read-only. Start a new chat to use anoth
 
 Follow-up messages, chat controls, and MCP-session changes require both ownership and current membership. Overrides cannot reassign a saved chat. Source and MCP IDs are checked against the selected/saved account before message/chat writes; unknown or wrong-account references return 404 rather than being silently dropped.
 
-Unknown or unauthorized explicit account/chat contexts return 404. Chat entrypoints, creation, and citation lookup also reject array/hash account/chat contexts with 404. Source endpoints have remaining malformed-context exceptions noted under **Verification results**; callers must send scalar IDs. If no account is available, chat GETs show an empty state and creation returns 422. An invalid attachable SGID returns 400 after account authorization (invalid account context still returns 404).
+Unknown or unauthorized explicit account/chat contexts return 404. Account/chat context IDs must be scalar: arrays, hashes (including empty collections), and booleans return 404 before source writes or blank-context fallback. Missing, nil, or blank scalar new-chat contexts retain their default; matching saved-account overrides are allowed, but conflicting ones return 404. If no account is available, chat GETs show an empty state and creation returns 422. An invalid attachable SGID returns 400 after account authorization (invalid account context still returns 404).
 
 Background generation and form rendering use the persisted chat account, without a request session or `Current.account`. Web requests check current membership; immediately revoking an already-running generation is outside this change's scope.
 
@@ -37,6 +37,7 @@ There is no schema/migration, global account preference, public completion API c
 - Source coordination uses public Lexxy events, serialized `value` for attachment SGIDs, and progress-figure DOM observation. Deleting an uploading attachment can abort without `upload-end`; observing its removal releases that pending operation. Detached source publishers are pruned and listeners/requests are cleaned up on disconnect.
 - Direct-upload PDF registration is idempotent per account/blob under an account row lock. Multipart uploads optionally send `document[upload_id]`: one UUID per file intent, retained for retries. The account-local metadata key `dashboard_upload_id` provides retry lookup under the same lock, without a migration. Authorization precedes lookup; retries do not replace a saved file. Filename reservation occurs before batch validation to keep upload rows and cancellation independent.
 - New document indexing is published with `after_all_transactions_commit`; crawler enqueueing explicitly waits for transaction commit. Retries/rollbacks must not publish duplicate or uncommitted work. Resetting UI references never deletes already-persisted resources.
+- Optional source context IDs are shape-checked before `present?` or account comparison. Dashboard document creation applies the same guard before the existing filing-account helper; the generic helper's behavior on other source pages is unchanged.
 
 ## Verification
 
@@ -52,7 +53,8 @@ AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test \
   test/controllers/chat_account_access_test.rb \
   test/controllers/chat_account_tools_test.rb \
   test/controllers/chat_account_citations_test.rb \
-  test/jobs/crawl_website_url_job_transaction_test.rb
+  test/jobs/crawl_website_url_job_transaction_test.rb \
+  test/integration/composer_partials_render_test.rb
 
 # ARM64 environment: bypass the incompatible bundled Selenium Manager locally.
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec ruby -rselenium-webdriver -e 'Selenium::WebDriver::Chrome::Service.driver_path = "/usr/bin/chromedriver"; Selenium::WebDriver::Chrome.path = "/usr/bin/chromium"; load "bin/rails"' -- test test/system/chat_account_selection_test.rb
@@ -64,15 +66,15 @@ Use the direct browser test filename above, not `test:system TEST=...`: that sel
 
 ### Verification results (2026-10-15)
 
-- Focused backend: **86 runs, 666 assertions, no failures/errors/skips**. Feature browser suite: **44 runs, 679 assertions, no failures/errors/skips**.
-- Full suite: **553 runs, 2766 assertions, 2 failures, 2 errors, no skips**. The two `ComposerPartialsRenderTest` failures are old assertions for `data-composer-target` after source registration moved to `composer-sources`; these do not fail on the historical baseline. They remain unresolved, not counted as a green full suite.
-- Historical baseline `60a82909`: **467 runs, 2115 assertions, 0 failures, 1 error, no skips**. Both branches exhibit the `Chat::RequestOptionsTest` double missing `augmented_context`. The feature full run also encountered a network timeout fetching `example.com/robots.txt` in `Website::CrawlableTest`; the baseline full run did not reproduce that timeout.
-- Malformed-context diagnostics found unresolved gaps: `document[account_id]` as a nonempty array raises `NoMethodError` before writing; an empty array uses the existing fallback. `/chat_sources` with empty array/hash `chat_id` falls back and can create a first-account source. These require follow-up validation; they are not claims of cross-account authorization bypass or successful 404 handling.
-- Broad Ruby lint: **134 files, 4 offenses**, all outside changed files (`document/chunkable.rb`: two array-spacing offenses; `message/stream_buffer.rb` and `token_usage.rb`: missing final newlines). Separate lint of all **28 changed Ruby files: no offenses**. No unrelated formatting was applied.
+- Focused backend plus legacy composer rendering tests: **150 runs, 1131 assertions, no failures/errors/skips**. Feature browser suite: **44 runs, 679 assertions, no failures/errors/skips**.
+- Malformed-source regression run before controller changes: **76 runs, 485 assertions, 21 failures, 1 error**; after correction: **76 runs, 555 assertions, no failures/errors/skips**. Empty/nonempty arrays/hashes and booleans now return 404 for new/saved URL/PDF registration and dashboard uploads, without source/chat/message/link writes, generation-state changes, or jobs. Nil/blank scalar defaults and upload idempotency remain covered. The legacy composer structural assertions now follow `composer-sources` ownership while preserving hidden-field namespaces and editor checks.
+- Full suite: **615 runs, 3218 assertions, 0 failures, 1 error, no skips**. Its only error is the existing `Chat::RequestOptionsTest` double missing `augmented_context`; the full suite is not claimed green.
+- Historical baseline `60a82909`: **467 runs, 2115 assertions, 0 failures, 1 error, no skips**, with the same `augmented_context` error. An earlier feature run hit a network timeout fetching `example.com/robots.txt` in `Website::CrawlableTest`; neither the historical baseline nor the latest full run reproduced that timeout. Neither unrelated issue was changed.
+- Broad Ruby lint: **134 files, 4 offenses**, all outside changed files (`document/chunkable.rb`: two array-spacing offenses; `message/stream_buffer.rb` and `token_usage.rb`: missing final newlines). Separate lint of all **29 changed Ruby files: no offenses**. No unrelated formatting was applied.
 - `bin/brakeman --no-pager` stops at its latest-version gate (installed 8.0.4 versus 8.1.0). Using installed `bundle exec brakeman --no-pager` on both branches yields **3 identical warning fingerprints, 0 scan errors, no new warnings**: API-token mass assignment, Rails end-of-support, and inline text rendering. Dependencies and scanner configuration were not changed.
 - Scripted visual smoke: **2 runs, 102 assertions, no failures/errors/skips**, across both entrypoints with two account memberships. A one-page PDF was validated with `PDF::Reader`, uploaded through Lexxy's file chooser and pasted as real file bytes through Lexxy/Active Storage POST+PUT, and compared byte-for-byte with the saved blobs. URL paste, lost-registration-response retry, account-local rows/references, refreshed skills/tools, dashboard upload not automatically attached, read-only labels, and a fixture citation click were checked with no workers/providers performed. Light/dark footer screenshots at 390 × 844 and citation/failure screenshots were captured and read. This was automated browser smoke, not human testing or native OS clipboard testing.
 
-Local evidence is under `/tmp/opencode/task12-*`: focused/full/browser logs, baseline full log, lint JSON, baseline/feature Brakeman JSON, malformed-context probe, `task12_visual_smoke_test.rb`, per-entrypoint smoke JSON, and screenshots such as `task12-dashboard-dark-narrow.png`, `task12-new-light-narrow.png`, and `task12-new-citation.png`. The scratch smoke script runs with the same scoped Chrome paths:
+Latest verification logs and lint/security output use `/tmp/opencode/task12-correction-*`; retained historical baseline evidence uses `/tmp/opencode/task12-baseline-*`. The scratch smoke script is `/tmp/opencode/task12_visual_smoke_test.rb`, with per-entrypoint smoke JSON and screenshots such as `task12-dashboard-dark-narrow.png`, `task12-new-light-narrow.png`, and `task12-new-citation.png` in the same directory. The smoke was rerun after the controller corrections using the same scoped Chrome paths:
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec ruby -rselenium-webdriver -Itest -e 'Selenium::WebDriver::Chrome::Service.driver_path = "/usr/bin/chromedriver"; Selenium::WebDriver::Chrome.path = "/usr/bin/chromium"; load "/tmp/opencode/task12_visual_smoke_test.rb"'
