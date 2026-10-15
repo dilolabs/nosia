@@ -12,30 +12,41 @@ class ChatAccountTest < ActiveSupport::TestCase
     assert_equal @second.id, chat.reload.account_id
   end
 
-  test "source attributes normalize references and reject other accounts" do
+  test "source attributes normalize references and reject other accounts under another tenant" do
     chat = chats(:picker_second_chat)
-    own = websites(:picker_second_website)
+    own_id = websites(:picker_second_website).id
+    other_id = websites(:picker_first_website).id
 
-    assert_equal({ attached_website_ids: [ own.id.to_s ], attached_document_ids: [] },
-      chat.source_attributes(website_ids: [ "", own.id, own.id ], document_ids: []))
-    assert_raises(ActiveRecord::RecordNotFound) do
-      chat.source_attributes(website_ids: [ websites(:picker_first_website).id ], document_ids: [])
+    ActsAsTenant.with_tenant(@first) do
+      assert_equal({ attached_website_ids: [ own_id.to_s ], attached_document_ids: [] },
+        chat.source_attributes(website_ids: [ "", own_id, own_id ], document_ids: []))
+      assert_equal @first, ActsAsTenant.current_tenant
+      assert_raises(ActiveRecord::RecordNotFound) do
+        chat.source_attributes(website_ids: [ other_id ], document_ids: [])
+      end
+      assert_equal @first, ActsAsTenant.current_tenant
     end
+    assert_nil ActsAsTenant.current_tenant
   end
 
-  test "source attributes normalize document references and reject other accounts" do
+  test "source attributes normalize document references and reject other accounts under another tenant" do
     chat = chats(:picker_second_chat)
-    own, other = [ @second, @first ].map do |account|
+    own_id, other_id = [ @second, @first ].map do |account|
       account.documents.create!(title: "Reference", file: {
         io: StringIO.new("Reference"), filename: "reference.txt", content_type: "text/plain"
-      })
+      }).id
     end
 
-    assert_equal({ attached_website_ids: [], attached_document_ids: [ own.id.to_s ] },
-      chat.source_attributes(website_ids: nil, document_ids: [ nil, "", own.id, own.id.to_s ]))
-    assert_raises(ActiveRecord::RecordNotFound) do
-      chat.source_attributes(website_ids: [], document_ids: [ own.id, other.id ])
+    ActsAsTenant.with_tenant(@first) do
+      assert_equal({ attached_website_ids: [], attached_document_ids: [ own_id.to_s ] },
+        chat.source_attributes(website_ids: nil, document_ids: [ nil, "", own_id, own_id.to_s ]))
+      assert_equal @first, ActsAsTenant.current_tenant
+      assert_raises(ActiveRecord::RecordNotFound) do
+        chat.source_attributes(website_ids: [], document_ids: [ own_id, other_id ])
+      end
+      assert_equal @first, ActsAsTenant.current_tenant
     end
+    assert_nil ActsAsTenant.current_tenant
   end
 
   test "source attributes reject missing references instead of dropping them" do
