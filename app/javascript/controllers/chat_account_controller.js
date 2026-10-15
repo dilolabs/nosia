@@ -117,10 +117,8 @@ export default class extends Controller {
     document.addEventListener("turbo:fetch-request-error", event => {
       if (event.target !== document.documentElement || event.detail.request.url.href !== url.href) return
 
-      // Keep Turbo's full-page network-error fallback from discarding the draft.
-      event.preventDefault()
-      this.stopSwitching()
-      window.alert("Could not change account. Your draft is still in the previous account. Please try again.")
+      // The confirmed draft must not survive Turbo's full-page recovery.
+      this.resetDraft()
     }, { signal })
 
     this.syncControls()
@@ -146,6 +144,10 @@ export default class extends Controller {
   }
 
   beforeCache() {
+    this.resetDraft()
+  }
+
+  resetDraft() {
     if (!this.hasPickerTarget) return
 
     window.dispatchEvent(new CustomEvent("chat-account:reset", { detail: { root: this.element } }))

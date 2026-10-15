@@ -113,24 +113,57 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_not_includes draft_html, "Keep this canceled navigation draft"
   end
 
-  test "a failed account switch reports the error and restores the old account and draft for retry" do
-    write_draft("Keep this failed navigation draft")
+  test "a failed account switch uses Turbo recovery with a fresh intended account and no side effects" do
+    visit new_chat_url(model: "picker-test-model")
+    write_draft("Discard this confirmed navigation draft")
+    find("summary", text: /MCP Tools/).click
+    check "First tool"
+    page.execute_script(<<~JS, websites(:picker_first_website).id.to_s)
+      document.querySelector('[data-composer-sources-target="websiteIds"]').value = arguments[0]
+      document.querySelector('[data-composer-sources-target="documentIds"]').value = "draft-document"
+    JS
     hold_account_switch
+    counts = [ Chat.count, Message.count, Website.count, Document.count, Text.count ]
 
     accept_confirm(/clears your unsent message/) { select "Research team", from: "Account" }
     assert_selector "body[data-account-switch-held=true]"
 
-    accept_alert(/Could not change account/) { page.execute_script("window.failAccountSwitch()") }
+    page.execute_script("window.failAccountSwitch()")
 
-    assert_selector "select[name='chat[account_id]']:not([disabled])"
-    assert_equal @first.id.to_s, find("select[name='chat[account_id]']").value
-    assert_includes draft_html, "Keep this failed navigation draft"
-    assert_selector "button[aria-label='Send']:not([disabled])"
-    assert_current_path user_root_path
-
-    accept_confirm(/clears your unsent message/) { select "Research team", from: "Account" }
     assert_selector "select option[selected][value='#{@second.id}']"
-    assert_not_includes draft_html, "Keep this failed navigation draft"
+    assert_selector "select[name='chat[account_id]']:not([disabled])"
+    assert_selector "lexxy-editor .lexxy-editor__content"
+    assert_not_includes draft_html, "Discard this confirmed navigation draft"
+    assert_no_selector "input[name='mcp_server_ids[]']:checked", visible: :all
+    assert_equal "", find("[data-composer-sources-target='websiteIds']", visible: :all).value
+    assert_equal "", find("[data-composer-sources-target='documentIds']", visible: :all).value
+    assert_selector "button[aria-label='Send']:not([disabled])"
+    assert_current_path new_chat_path, ignore_query: true
+    assert_equal({ "model" => "picker-test-model", "account_id" => @second.id.to_s }, URI.decode_www_form(URI.parse(current_url).query).to_h)
+    assert_selector "input[name='chat[model]'][value='picker-test-model']", visible: :all
+    assert_no_selector "html[aria-busy='true']"
+    assert_no_selector ".turbo-progress-bar", visible: :all
+    assert_equal counts, [ Chat.count, Message.count, Website.count, Document.count, Text.count ]
+    assert_equal @first.id, websites(:picker_first_website).reload.account_id
+    assert_no_enqueued_jobs only: ChatResponseJob
+
+    page.go_back
+
+    assert_selector "select option[selected][value='#{@first.id}']"
+    assert_selector "lexxy-editor .lexxy-editor__content"
+    assert_not_includes draft_html, "Discard this confirmed navigation draft"
+    assert_no_selector "input[name='mcp_server_ids[]']:checked", visible: :all
+    assert_equal "", find("[data-composer-sources-target='websiteIds']", visible: :all).value
+    assert_equal "", find("[data-composer-sources-target='documentIds']", visible: :all).value
+
+    page.go_forward
+
+    assert_selector "select option[selected][value='#{@second.id}']"
+    select "First team", from: "Account"
+    assert_selector "select option[selected][value='#{@first.id}']"
+    assert_no_selector "html[aria-busy='true']"
+    assert_no_selector ".turbo-progress-bar", visible: :all
+    assert_equal counts, [ Chat.count, Message.count, Website.count, Document.count, Text.count ]
   end
 
   test "Turbo history does not restore unsent text references or tool choices" do
