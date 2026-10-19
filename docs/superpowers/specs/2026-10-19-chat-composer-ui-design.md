@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-19
 
-**Status:** Detailed design approved in conversation; written specification awaiting user review. Application implementation has not started.
+**Status:** Detailed design and written specification approved; implementation planning authorized. Application implementation has not started.
 
 ## Goal
 
@@ -15,6 +15,7 @@ Simplify and rethink `app/views/chats/_form.html.erb` without losing existing ac
 - "A" — choose the recommended single-block direction: writing area and compact action row share one surface, with the account always visible and tools disclosed on demand.
 - "Aussi au compositeur des conversations existantes oui" — apply the same presentation to the new-chat and saved-conversation composers so sending the first message does not introduce a different interface.
 - "Oui" to the detailed design — approve the shared single-surface presentation, compact action row, visible account, on-demand tools, Stop action during generation, secondary help, visible errors, and preservation of existing safeguards. Rationale: the simplification must remain consistent and usable throughout a conversation.
+- "Ok" after the committed specification was presented for review — approve this written design and authorize the implementation-plan step, not an unplanned application change.
 
 ## Selected visual direction
 
@@ -112,4 +113,4 @@ The mockup is a design reference, not working application code. The requirements
 
 ## Review and execution gate
 
-The user approved the visual direction, scope, and detailed design in conversation. Review this written specification before implementation planning. Once its review is approved, use `writing-plans` to create the test-first implementation plan; do not treat design approval as permission to skip planning or test gates.
+The user approved the visual direction, scope, detailed design, and committed written specification in conversation. The `writing-plans` skill has been invoked to create the test-first implementation plan. Application execution remains subject to its workflow selection and failing-test gates.
