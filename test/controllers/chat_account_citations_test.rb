@@ -6,6 +6,23 @@ class ChatAccountCitationsTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_picker_user }
 
+  test "document citations render the source PDF preview" do
+    document = @second.documents.new(title: "Cited PDF")
+    document.file.attach(io: StringIO.new("%PDF-1.4\n%%EOF"), filename: "cited.pdf", content_type: "application/pdf")
+    document.save!
+    width = Chunk.columns_hash.fetch("embedding").limit
+    chunk = insert_picker_chunk(@second, document, "Document evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+
+    get chunk_url(chunk), params: { chat_id: chats(:picker_second_chat).id }
+
+    assert_response :success
+    assert_select "blockquote", text: /Document evidence/
+    assert_select "##{dom_id(document)} h2", text: "Cited PDF"
+    assert_select "##{dom_id(document)} iframe[src*='active_storage']"
+    assert_select "##{dom_id(document)} object", count: 0
+    assert_includes response.headers["Content-Security-Policy"], "object-src 'none'"
+  end
+
   test "citation lookup uses an owned chat account and preserves the old default" do
     width = Chunk.columns_hash.fetch("embedding").limit
     vector = [ 1.0 ] + Array.new(width - 1, 0.0)
