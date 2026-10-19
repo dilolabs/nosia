@@ -204,6 +204,44 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     page.current_window.resize_to(1400, 1400)
   end
 
+  [ 375, 640, 768, 820, 1024, 1400 ].each do |width|
+    test "Tools stays contained and keyboard accessible at #{width}px in both themes" do
+      @first.update!(name: "Research team with a deliberately long account name")
+      @second.update!(name: "Research team with a deliberately long account name")
+      mcp_servers(:picker_first_tool).update!(name: "Alpha research sources #{'with detailed document references ' * 16}")
+      mcp_servers(:picker_second_tool).update!(name: "Zebra research sources #{'long-unbroken-reference-' * 24}")
+
+      [ false, true ].each do |dark|
+        [ user_root_url(account_id: @first.id), new_chat_url(account_id: @second.id) ].each do |url|
+          visit url
+          assert_selector "lexxy-editor[connected]"
+          page.current_window.resize_to(width, 844)
+          if page.evaluate_script("window.innerWidth") != width
+            page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 844, deviceScaleFactor: 1, mobile: false)
+          end
+          assert_equal width, page.evaluate_script("window.innerWidth")
+          set_theme(dark)
+          assert_no_selector ".n-composer-tools-panel"
+
+          find("[data-composer-tools] summary").send_keys(:enter)
+          assert_selector "[data-composer-tools][open] summary:focus-visible"
+          page.driver.browser.action.send_keys(:tab).perform
+          assert_selector ".n-composer-tools-panel input:focus-visible"
+          assert_tools_panel_geometry
+
+          page.driver.browser.action.send_keys(:space).perform
+          assert_selector ".n-composer-tools-panel input:checked:focus-visible"
+          assert_selector "#mcp-selected-count", text: "1"
+          find("[data-composer-tools] summary").send_keys(:enter)
+          assert_no_selector ".n-composer-tools-panel"
+        end
+      end
+    ensure
+      page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+      page.current_window.resize_to(1400, 1400)
+    end
+  end
+
   test "normal help and primary controls meet text contrast in both themes" do
     [ false, true ].each do |dark|
       set_theme(dark)
@@ -235,6 +273,57 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def assert_tools_panel_geometry
+      layout = page.evaluate_script(<<~JS)
+        (() => {
+          const panel = document.querySelector('.n-composer-tools-panel');
+          const bounds = panel.getBoundingClientRect();
+          const focus = document.activeElement;
+          const focusStyle = getComputedStyle(focus);
+          const outline = parseFloat(focusStyle.outlineWidth) + Math.max(0, parseFloat(focusStyle.outlineOffset));
+          const rect = focus.getBoundingClientRect();
+          const box = element => {
+            const { left, right, width, height } = element.getBoundingClientRect();
+            return { left, right, width, height };
+          };
+          return {
+            panel: box(panel), surface: box(document.querySelector('.n-composer-surface')),
+            trigger: box(document.querySelector('[data-composer-tools] summary')), focus: box(focus),
+            viewportWidth: window.innerWidth, overflowY: getComputedStyle(panel).overflowY,
+            horizontalOverflow: panel.scrollWidth - panel.clientWidth,
+            verticalOverflow: panel.scrollHeight - panel.clientHeight,
+            outlineWidth: parseFloat(focusStyle.outlineWidth),
+            focusFits: rect.left - outline >= bounds.left + panel.clientLeft && rect.right + outline <= bounds.left + panel.clientLeft + panel.clientWidth && rect.top - outline >= bounds.top + panel.clientTop && rect.bottom + outline <= bounds.top + panel.clientTop + panel.clientHeight,
+            focusInViewport: rect.left - outline >= 0 && rect.right + outline <= window.innerWidth && rect.top - outline >= 0 && rect.bottom + outline <= window.innerHeight,
+            labels: Array.from(panel.querySelectorAll('.n-composer-tool-option span'), label => {
+              const range = document.createRange();
+              range.selectNodeContents(label);
+              const lines = Array.from(range.getClientRects());
+              return { lines: lines.length, fits: label.scrollWidth <= label.clientWidth && label.scrollHeight <= label.clientHeight && lines.every(line => line.left >= bounds.left + panel.clientLeft && line.right <= bounds.left + panel.clientLeft + panel.clientWidth) };
+            })
+          };
+        })()
+      JS
+      assert_operator layout.fetch("panel").fetch("left"), :>=, layout.fetch("surface").fetch("left")
+      assert_operator layout.fetch("panel").fetch("right"), :<=, layout.fetch("surface").fetch("right")
+      assert_operator layout.fetch("panel").fetch("left"), :>=, 0
+      assert_operator layout.fetch("panel").fetch("right"), :<=, layout.fetch("viewportWidth")
+      assert_equal 0, layout.fetch("horizontalOverflow")
+      assert_operator layout.fetch("verticalOverflow"), :>, 0
+      assert_includes [ "auto", "scroll" ], layout.fetch("overflowY")
+      assert_operator layout.fetch("trigger").fetch("width"), :>=, 40
+      assert_operator layout.fetch("trigger").fetch("height"), :>=, 36
+      assert_operator layout.fetch("focus").fetch("width"), :>, 0
+      assert_operator layout.fetch("focus").fetch("height"), :>, 0
+      assert_operator layout.fetch("outlineWidth"), :>, 0
+      assert layout.fetch("focusFits"), "The focused checkbox and its outline must fit inside the menu scrollport"
+      assert layout.fetch("focusInViewport"), "The focused checkbox and its outline must remain in the viewport"
+      layout.fetch("labels").each do |label|
+        assert_operator label.fetch("lines"), :>, 1
+        assert label.fetch("fits"), "The complete tool name must wrap without horizontal clipping"
+      end
+    end
+
     def set_theme(dark)
       page.evaluate_async_script(<<~JS, dark)
         const done = arguments[arguments.length - 1];
