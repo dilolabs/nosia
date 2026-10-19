@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 import { Turbo } from "@hotwired/turbo-rails"
 
 export default class extends Controller {
-  static targets = ["picker", "form", "send"]
+  static targets = ["picker", "form", "send", "editingTools"]
   static values = { accountId: String }
 
   initialize() {
@@ -33,6 +33,10 @@ export default class extends Controller {
   }
 
   sendTargetConnected() {
+    this.syncControls()
+  }
+
+  editingToolsTargetConnected() {
     this.syncControls()
   }
 
@@ -88,6 +92,12 @@ export default class extends Controller {
       if (editor) {
         editor.toggleAttribute("disabled", editorLocked)
         editor.inert = editorLocked
+      }
+
+      for (const group of this.editingToolsTargets) {
+        group.inert = editorLocked
+        group.setAttribute("aria-disabled", String(editorLocked))
+        for (const button of group.querySelectorAll("button")) button.disabled = editorLocked
       }
 
       if (this.hasSendTarget) {
