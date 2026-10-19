@@ -720,7 +720,14 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
   test "submission prevents real toolbar formatting and restores it when submission ends" do
     write_draft("Keep this formatting")
     find("lexxy-editor .lexxy-editor__content").send_keys([ :control, "a" ])
+    page.execute_script(<<~JS)
+      document.querySelector('.n-composer-formatting').addEventListener('toggle', event => {
+        document.body.dataset.formattingToggleOpen = event.target.open;
+      }, { once: true });
+    JS
     find("summary[aria-label=Formatting]").send_keys(:enter)
+    assert_selector "body[data-formatting-toggle-open=true]"
+    assert_selector "lexxy-editor lexxy-toolbar"
     page.execute_script("document.querySelector('#chat-form').dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true }))")
     before = draft_html
 
