@@ -76,6 +76,9 @@ export default class extends Controller {
   // key so Enter doesn't also send). The controller may be attached to the
   // <form> or to a wrapper div inside it, so resolve the form before submitting.
   handleKeys(event) {
+    const content = event.target.closest(".lexxy-editor__content")
+    if (!content || !this.editorTarget.contains(content)) return
+
     if (this.paletteOpen) {
       if (event.key === "ArrowDown") { event.preventDefault(); event.stopImmediatePropagation(); this.movePalette(1); return }
       if (event.key === "ArrowUp") { event.preventDefault(); event.stopImmediatePropagation(); this.movePalette(-1); return }

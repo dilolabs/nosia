@@ -11,7 +11,9 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     fill_in "email", with: @user.email
     fill_in "password", with: ChatAccountFixtures::PASSWORD
     click_on "Sign in"
+    assert_selector "select[name='chat[account_id]']"
     visit new_chat_url(model: "picker-test-model")
+    assert_current_path new_chat_path, ignore_query: true
     assert_selector "lexxy-editor[connected]"
   end
 
@@ -45,6 +47,91 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     find("lexxy-editor .lexxy-editor__content").send_keys(:escape)
     assert_no_selector ".n-chat-composer[data-formatting-open]"
     assert_selector "summary[aria-label=Formatting]:focus"
+  end
+
+  test "keyboard Enter on the native Bold button formats without sending" do
+    counts = [ Chat.count, Message.count ]
+    content = find("lexxy-editor .lexxy-editor__content")
+    content.send_keys("Keyboard bold", [ :control, "a" ])
+    find("summary[aria-label=Formatting]").send_keys(:enter)
+    assert_selector "lexxy-toolbar button[data-command=uploadFile]:focus"
+
+    page.driver.browser.action.send_keys(:arrow_right).perform
+    assert_selector "lexxy-toolbar button[name=bold]:focus"
+    page.driver.browser.action.send_keys(:enter).perform
+
+    assert_selector "lexxy-editor strong", text: "Keyboard bold"
+    assert_current_path new_chat_path, ignore_query: true
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "keyboard Enter in the native link URL field inserts a link without sending" do
+    counts = [ Chat.count, Message.count ]
+    content = find("lexxy-editor .lexxy-editor__content")
+    content.send_keys("Keyboard link", [ :control, "a" ], [ :control, "k" ])
+    assert_selector "lexxy-link-dropdown [data-dropdown-panel]:not([hidden]) input[type=url]:focus"
+
+    find("lexxy-link-dropdown input[type=url]").send_keys("https://keyboard-link.example/reference", :enter)
+
+    assert_selector "lexxy-editor .lexxy-editor__content a[href='https://keyboard-link.example/reference']", text: "Keyboard link"
+    assert_no_selector "lexxy-link-dropdown [data-dropdown-panel]:not([hidden])"
+    assert_current_path new_chat_path, ignore_query: true
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "plain Enter in editable content still sends a real message" do
+    counts = [ Chat.count, Message.count ]
+    content = find("lexxy-editor .lexxy-editor__content")
+    content.send_keys("Send from editable content")
+
+    assert_enqueued_jobs 1, only: ChatResponseJob do
+      content.send_keys(:enter)
+      assert_selector "form[data-generation-busy=true] lexxy-editor[disabled]"
+    end
+
+    chat = @user.chats.order(:id).last
+    assert_current_path chat_path(chat)
+    assert_equal [ counts.first + 1, counts.last + 1 ], [ Chat.count, Message.count ]
+    assert_equal "Send from editable content", chat.messages.user.last.content.strip
+    assert_predicate chat, :generating?
+  end
+
+  test "modified Enter in editable content keeps editing without sending" do
+    counts = [ Chat.count, Message.count ]
+    content = find("lexxy-editor .lexxy-editor__content")
+    content.send_keys("First line", [ :shift, :enter ], "Second line")
+    assert_selector "lexxy-editor .lexxy-editor__content br", visible: :all
+    assert_equal [ "First line", "Second line" ], content.text.lines.map(&:strip)
+
+    [ :control, :meta ].each do |modifier|
+      content.send_keys([ modifier, :enter ], "More text")
+      assert_selector "lexxy-editor:not([disabled]) .lexxy-editor__content", text: "More text"
+    end
+
+    assert_current_path new_chat_path, ignore_query: true
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "palette arrow keys and Enter select a skill without sending" do
+    counts = [ Chat.count, Message.count ]
+    content = find("lexxy-editor .lexxy-editor__content")
+    content.send_keys("/")
+    assert_selector "[role=listbox] [role=option][aria-selected=true]", text: "/first-skill", visible: :all
+
+    [ :arrow_down, :arrow_up ].each do |key|
+      content.send_keys(key)
+      assert_selector "[role=listbox] [role=option][aria-selected=true]", text: "/first-skill", visible: :all
+    end
+    content.send_keys(:enter)
+
+    assert_selector "lexxy-editor .lexxy-editor__content", text: "/first-skill"
+    assert_no_selector "[role=listbox]:not(.hidden)"
+    assert_current_path new_chat_path, ignore_query: true
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
   end
 
   test "submission locks the compact actions and restores real formatting afterwards" do
