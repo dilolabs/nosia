@@ -100,6 +100,7 @@
 }
 
 .n-chat-composer summary::-webkit-details-marker { display: none; }
+.n-chat-composer details[open] > summary { margin-bottom: 0; }
 .n-chat-composer .n-composer-control:hover:not(:disabled) { background: var(--composer-hover); color: var(--composer-text); }
 .n-chat-composer .n-composer-icon { width: 1.125rem; height: 1.125rem; flex-shrink: 0; }
 
@@ -120,13 +121,14 @@
 .n-chat-composer button:disabled, .n-chat-composer select:disabled { cursor: not-allowed; opacity: 0.5; }
 .n-chat-composer :is(button, summary, select):focus-visible { outline: 2px solid var(--composer-accent); outline-offset: 3px; }
 .n-chat-composer .n-composer-count { border-radius: 0.25rem; padding: 0 0.3rem; background: var(--composer-hover); color: var(--composer-text); }
-/* Anchor the menu to the action row, not the trigger's changing flex position. */
+/* The action row bounds the menu; composer-chrome aligns it above its trigger. */
 .n-chat-composer .n-composer-tools { position: static; min-width: 0; }
 
 .n-chat-composer .n-composer-tools-panel {
   position: absolute;
   bottom: calc(100% + 0.5rem);
-  right: 0.75rem;
+  left: 0.75rem;
+  visibility: hidden;
   z-index: 30;
   width: 16rem;
   max-width: calc(100% - 1.5rem);
@@ -151,7 +153,6 @@
 @media (max-width: 639px) {
   .n-chat-composer .n-composer-account { order: -1; flex-basis: 100%; }
   .n-chat-composer .n-composer-account select { max-width: calc(100% - 4rem); }
-  .n-chat-composer .n-composer-tools-panel { left: 0.75rem; right: 0.75rem; width: auto; max-width: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

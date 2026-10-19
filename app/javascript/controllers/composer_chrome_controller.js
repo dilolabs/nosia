@@ -26,6 +26,7 @@ export default class extends Controller {
     } else {
       this.toolbar?.closeDropdowns({})
     }
+    this.positionTools()
   }
 
   formattingKey(event) {
@@ -56,10 +57,27 @@ export default class extends Controller {
   }
 
   toolsToggled(event) {
+    event.currentTarget.querySelector(".n-composer-tools-panel").style.visibility = "hidden"
     if (event.currentTarget.open) {
       this.formattingTarget.open = false
       this.syncFormatting()
     }
+  }
+
+  positionTools() {
+    const tools = this.element.querySelector("[data-composer-tools][open]")
+    if (!tools) return
+
+    const panel = tools.querySelector(".n-composer-tools-panel")
+    const trigger = tools.querySelector("summary").getBoundingClientRect()
+    const row = tools.closest(".n-composer-actions").getBoundingClientRect()
+    const minimum = Math.max(row.left + 12, 12)
+    const maximum = Math.min(row.right - 12, window.innerWidth - 12) - panel.getBoundingClientRect().width
+    const left = Math.min(Math.max(trigger.left, minimum), maximum)
+
+    panel.style.left = `${left - row.left}px`
+    panel.style.bottom = `${row.bottom - trigger.top + 8}px`
+    panel.style.visibility = "visible"
   }
 
   escape(event) {

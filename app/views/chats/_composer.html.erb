@@ -6,7 +6,7 @@
      data-composer-skills-value="<%= skills.to_json %>"
      data-composer-sources-account-id-value="<%= chat.account_id %>"
      data-composer-sources-chat-id-value="<%= chat.id if chat.persisted? %>"
-     data-action="chat-account:reset@window->composer-sources#reset chat-account:reset@window->composer-chrome#reset keydown.esc->composer-chrome#escape keydown->composer-chrome#linkShortcut:capture click@document->composer-chrome#outside">
+     data-action="chat-account:reset@window->composer-sources#reset chat-account:reset@window->composer-chrome#reset keydown.esc->composer-chrome#escape keydown->composer-chrome#linkShortcut:capture click@document->composer-chrome#outside resize@window->composer-chrome#positionTools">
   <div class="n-composer-surface">
     <%= form.label field, "Message", class: "sr-only" %>
     <%= form.lexxy_rich_text_area field, id: editor_id,

@@ -49,6 +49,35 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     assert_selector "summary[aria-label=Formatting]:focus"
   end
 
+  [ 375, 1400 ].each do |width|
+    %w[dashboard new saved].each do |entry|
+      test "Formatting mouse trigger stays stationary on #{entry} at #{width}px" do
+        urls = { "dashboard" => user_root_url(account_id: @second.id), "new" => new_chat_url(account_id: @second.id), "saved" => chat_url(chats(:picker_second_chat)) }
+        visit urls.fetch(entry)
+        assert_selector "lexxy-editor[connected]"
+        resize_composer_viewport(width)
+
+        [ false, true ].each do |dark|
+          set_theme(dark)
+          before = action_control_geometry
+          find("summary[aria-label=Formatting]").click
+          assert_selector ".n-chat-composer[data-formatting-open] lexxy-toolbar"
+          settle_composer_layout
+          opened = action_control_geometry
+          assert_stationary_controls before, opened
+
+          find("summary[aria-label=Formatting]").click
+          assert_no_selector ".n-chat-composer[data-formatting-open]"
+          assert_no_selector ".n-chat-composer lexxy-toolbar"
+          settle_composer_layout
+          assert_stationary_controls before, action_control_geometry
+        end
+      ensure
+        restore_composer_viewport
+      end
+    end
+  end
+
   test "keyboard Enter on the native Bold button formats without sending" do
     counts = [ Chat.count, Message.count ]
     content = find("lexxy-editor .lexxy-editor__content")
@@ -223,8 +252,16 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
           set_theme(dark)
           assert_no_selector ".n-composer-tools-panel"
 
+          find("[data-composer-tools] summary").click
+          assert_selector "[data-composer-tools][open]"
+          settle_composer_layout
+          assert_tools_panel_attachment
+          find("[data-composer-tools] summary").click
+          assert_no_selector ".n-composer-tools-panel"
+
           find("[data-composer-tools] summary").send_keys(:enter)
           assert_selector "[data-composer-tools][open] summary:focus-visible"
+          assert_selector ".n-composer-tools-panel"
           page.driver.browser.action.send_keys(:tab).perform
           assert_selector ".n-composer-tools-panel input:focus-visible"
           assert_tools_panel_geometry
@@ -240,6 +277,61 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
       page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
       page.current_window.resize_to(1400, 1400)
     end
+  end
+
+  test "Tools follows its trigger through open resize formatting and Turbo replacements" do
+    [ false, true ].each do |dark|
+      visit user_root_url(account_id: @first.id)
+      assert_selector "lexxy-editor[connected]"
+      set_theme(dark)
+      find("[data-composer-tools] summary").click
+      assert_selector "[data-composer-tools][open]"
+
+      [ 375, 640, 768, 820, 1024, 1400 ].each do |width|
+        resize_composer_viewport(width)
+        assert_tools_panel_attachment
+      end
+
+      find("[data-composer-tools] summary").click
+      assert_no_selector "[data-composer-tools][open]"
+      find("summary[aria-label=Formatting]").click
+      assert_selector ".n-chat-composer[data-formatting-open] lexxy-toolbar"
+      find("[data-composer-tools] summary").click
+      assert_no_selector ".n-chat-composer[data-formatting-open]"
+      settle_composer_layout
+      assert_tools_panel_attachment
+      find("[data-composer-tools] summary").click
+      assert_no_selector "[data-composer-tools][open]"
+      find("summary[aria-label=Formatting]").click
+      assert_selector ".n-chat-composer[data-formatting-open] lexxy-toolbar"
+      find("summary[aria-label=Formatting]").click
+      assert_no_selector ".n-chat-composer[data-formatting-open]"
+      find("[data-composer-tools] summary").click
+      assert_selector ".n-composer-tools-panel"
+      settle_composer_layout
+      assert_tools_panel_attachment
+      find("[data-composer-tools] summary").click
+      assert_no_selector "[data-composer-tools][open]"
+
+      select "Research team", from: "Account"
+      assert_selector "select option[selected][value='#{@second.id}']"
+      assert_selector "lexxy-editor[connected]"
+      find("[data-composer-tools] summary").click
+      assert_selector ".n-composer-tools-panel", text: "Second tool"
+      settle_composer_layout
+      assert_tools_panel_attachment
+
+      click_link "New Chat"
+      assert_current_path new_chat_path, ignore_query: true
+      assert_selector "lexxy-editor[connected]"
+      assert_no_selector "[data-composer-tools][open]"
+      find("[data-composer-tools] summary").click
+      assert_selector ".n-composer-tools-panel", text: "First tool"
+      settle_composer_layout
+      assert_tools_panel_attachment
+    end
+  ensure
+    restore_composer_viewport
   end
 
   test "normal help and primary controls meet text contrast in both themes" do
@@ -356,7 +448,71 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def resize_composer_viewport(width)
+      page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+      page.current_window.resize_to(width, 844)
+      if page.evaluate_script("window.innerWidth") != width
+        page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 844, deviceScaleFactor: 1, mobile: false)
+      end
+      assert_equal width, page.evaluate_script("window.innerWidth")
+      settle_composer_layout
+    end
+
+    def restore_composer_viewport
+      page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+      page.current_window.resize_to(1400, 1400)
+    end
+
+    def settle_composer_layout
+      page.evaluate_async_script("const done = arguments[arguments.length - 1]; requestAnimationFrame(() => requestAnimationFrame(done));")
+    end
+
+    def action_control_geometry
+      page.evaluate_script(<<~JS)
+        (() => Object.fromEntries(['summary[aria-label=Formatting]', '[aria-label="Attach PDF"]', '.n-composer-account', '.n-composer-tools > summary, .n-composer-tools-trigger', '.n-composer-send'].map(selector => {
+          const element = document.querySelector(selector);
+          const { left, top, width, height } = element.getBoundingClientRect();
+          return [selector, { left, top, width, height, marginBottom: getComputedStyle(element).marginBottom }];
+        })))()
+      JS
+    end
+
+    def assert_stationary_controls(before, after)
+      before.each do |selector, rect|
+        %w[left top width height].each do |dimension|
+          assert_in_delta rect.fetch(dimension), after.fetch(selector).fetch(dimension), 1,
+            "#{selector} #{dimension} moved: #{before.to_json} -> #{after.to_json}"
+        end
+      end
+    end
+
+    def assert_tools_panel_attachment
+      layout = page.evaluate_script(<<~JS)
+        (() => {
+          const box = selector => {
+            const { left, right, top, bottom, width } = document.querySelector(selector).getBoundingClientRect();
+            return { left, right, top, bottom, width };
+          };
+          return { panel: box('.n-composer-tools-panel'), trigger: box('[data-composer-tools] summary'), actions: box('.n-composer-actions'), surface: box('.n-composer-surface'), viewportWidth: innerWidth, viewportHeight: innerHeight };
+        })()
+      JS
+      panel, trigger, actions = layout.values_at("panel", "trigger", "actions")
+      minimum = [ actions.fetch("left") + 12, 12 ].max
+      maximum = [ actions.fetch("right") - 12, layout.fetch("viewportWidth") - 12 ].min - panel.fetch("width")
+      expected_left = [ [ trigger.fetch("left"), minimum ].max, maximum ].min
+      assert_in_delta expected_left, panel.fetch("left"), 1, "Tools must align with its trigger, clamped only as needed: #{layout.to_json}"
+      assert_in_delta 8, trigger.fetch("top") - panel.fetch("bottom"), 1, "Tools must sit 8px above its trigger: #{layout.to_json}"
+      assert_operator panel.fetch("left"), :>=, layout.fetch("surface").fetch("left")
+      assert_operator panel.fetch("right"), :<=, layout.fetch("surface").fetch("right")
+      assert_operator panel.fetch("left"), :>=, 0
+      assert_operator panel.fetch("right"), :<=, layout.fetch("viewportWidth")
+      assert_operator panel.fetch("top"), :>=, 0
+      assert_operator panel.fetch("bottom"), :<=, layout.fetch("viewportHeight")
+    end
+
     def assert_tools_panel_geometry
+      settle_composer_layout
+      assert_tools_panel_attachment
       layout = page.evaluate_script(<<~JS)
         (() => {
           const panel = document.querySelector('.n-composer-tools-panel');
