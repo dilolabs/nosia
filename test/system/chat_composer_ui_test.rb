@@ -298,6 +298,10 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     chat = @user.chats.order(:id).last
     assert_equal [ mcp_servers(:picker_first_tool).id ], chat.chat_mcp_sessions.pluck(:mcp_server_id)
     click_button "Stop generating", enable_aria_label: true
+    assert_selector "button[aria-label=Send]:not([disabled])"
+    assert_no_selector "button[aria-label='Stop generating']"
+    assert_selector "form[data-generation-busy=false]"
+    assert_selector "[data-chat-account-readonly]", text: "Account: #{@first.name}"
     find(".n-composer-tools-trigger").click
     assert_selector "#mcp-selector-modal:not(.hidden)", text: "First tool"
   ensure
