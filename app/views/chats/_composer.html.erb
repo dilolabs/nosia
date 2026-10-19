@@ -1,0 +1,50 @@
+<%# locals: (form:, chat:, field:, skills:, generating:, stop_form_id:) %>
+<% editor_id = form.field_id(field) %>
+<% validation_id = "#{editor_id}_validation" %>
+<% source_errors_id = "#{editor_id}_sources" %>
+<div class="n-chat-composer" data-controller="composer composer-sources"
+     data-composer-skills-value="<%= skills.to_json %>"
+     data-composer-sources-account-id-value="<%= chat.account_id %>"
+     data-composer-sources-chat-id-value="<%= chat.id if chat.persisted? %>"
+     data-action="chat-account:reset@window->composer-sources#reset">
+  <div class="n-composer-surface">
+    <%= form.label field, "Message", class: "sr-only" %>
+    <%= form.lexxy_rich_text_area field, id: editor_id,
+      permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}',
+      autofocus: !generating, placeholder: generating ? "Generating…" : "Ask anything…",
+      disabled: generating, aria: { describedby: [source_errors_id, (validation_id if form.object.errors.any?)].compact.join(" ") },
+      data: { composer_target: "editor", composer_sources_target: "editor" },
+      class: "n-composer-editor" %>
+    <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_sources_target: "websiteIds" } %>
+    <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_sources_target: "documentIds" } %>
+    <div class="n-skill-menu hidden" role="listbox" aria-label="Available skills" data-composer-target="menu"></div>
+    <ul id="<%= source_errors_id %>" hidden role="alert" class="n-composer-errors" data-composer-sources-target="errors"></ul>
+    <% if form.object.errors.any? %>
+      <ul id="<%= validation_id %>" class="n-composer-errors n-composer-validation" role="alert" aria-label="Message errors">
+        <% form.object.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    <% end %>
+    <div class="n-composer-actions">
+      <%= render "chats/account", chat: chat, form: form %>
+      <%= render "chats/tools", chat: chat %>
+      <% if generating %>
+        <%= form.button type: :submit, form: stop_form_id, class: "n-composer-send n-composer-stop",
+              aria: { label: "Stop generating" }, title: "Stop generating" do %>
+          <svg class="n-composer-icon" width="16" height="16" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+        <% end %>
+      <% else %>
+        <%= form.button type: :submit, class: "n-composer-send", aria: { label: "Send" }, title: "Send",
+              data: { chat_account_target: "send" } do %>
+          <svg class="n-composer-icon" width="16" height="16" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m-6 6 6-6 6 6"/></svg>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+  <div class="n-composer-meta">
+    <span id="chat-account-help">Searches and attachments use this account.</span>
+    <span class="n-composer-hints">Enter to send · Shift+Enter for a line break<%= " · / for skills" if skills.any? %></span>
+  </div>
+  <p class="n-composer-notice">NOSIA can make mistakes. Check important information.</p>
+</div>

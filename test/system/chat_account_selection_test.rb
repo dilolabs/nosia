@@ -293,7 +293,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
   test "a failed account switch uses Turbo recovery with a fresh intended account and no side effects" do
     visit new_chat_url(model: "picker-test-model")
     write_draft("Discard this confirmed navigation draft")
-    find("summary", text: /MCP Tools/).click
+    find("[data-composer-tools] summary").click
     check "First tool"
     page.execute_script(<<~JS, websites(:picker_first_website).id.to_s)
       document.querySelector('[data-composer-sources-target="websiteIds"]').value = arguments[0]
@@ -345,7 +345,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
 
   test "Turbo history does not restore unsent text references or tool choices" do
     write_draft("Do not cache this draft")
-    find("summary", text: /MCP Tools/).click
+    find("[data-composer-tools] summary").click
     check "First tool"
     page.execute_script(<<~JS, websites(:picker_first_website).id.to_s)
       document.querySelector('[data-composer-sources-target="websiteIds"]').value = arguments[0]
@@ -374,7 +374,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
 
   test "Turbo Back and Forward never restore cross-account references or tool choices" do
     write_draft("Discard this first-account draft")
-    find("summary", text: /MCP Tools/).click
+    find("[data-composer-tools] summary").click
     check "First tool"
     dispatch_link("https://history-first.example/reference")
     assert_selector "input[name='chat[attached_website_ids][]']", count: 2, visible: :all

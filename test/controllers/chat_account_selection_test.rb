@@ -3,6 +3,7 @@ require_relative "../support/chat_account_fixtures"
 
 class ChatAccountSelectionTest < ActionDispatch::IntegrationTest
   include ChatAccountFixtures
+  include ActionView::RecordIdentifier
 
   setup { sign_in_picker_user }
 
@@ -67,7 +68,7 @@ class ChatAccountSelectionTest < ActionDispatch::IntegrationTest
     assert_select "select[name='chat[account_id]']", count: 0
     assert_select "#mcp-selector-modal", text: /Second tool/
     assert_select "#mcp-selector-modal", text: /First tool/, count: 0
-    assert_select "button", text: /MCP \(1\)/
+    assert_select "button.n-composer-tools-trigger", text: /Tools\s+1/
     assert_select "[data-controller~=chat-reconnect][data-controller~=chat-account][data-chat-account-account-id-value='#{@second.id}']"
     assert_select "[data-controller~=composer-sources][data-composer-sources-account-id-value='#{@second.id}'][data-composer-sources-chat-id-value='#{chat.id}']"
     assert_select "form[data-chat-account-target=form][data-generation-busy=false][data-action='submit->chat-account#guard']"
@@ -90,7 +91,8 @@ class ChatAccountSelectionTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-controller~=chat-reconnect][data-chat-reconnect-generating-value=true]"
     assert_select "form[data-chat-account-target=form][data-generation-busy=true]"
-    assert_select "button[type=submit][aria-label=Send][data-chat-account-target=send][disabled]"
+    assert_select "button[aria-label=Send]", count: 0
+    assert_select "button[type=submit][aria-label='Stop generating'][form='#{dom_id(chat, :composer_stop)}']"
     assert_select "[data-chat-account-readonly]", text: /Research team/
   end
 
