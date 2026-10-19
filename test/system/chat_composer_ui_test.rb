@@ -272,6 +272,85 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
   end
 
+  test "tools remain account-specific and their panel fits a narrow viewport" do
+    page.current_window.resize_to(375, 844)
+    if page.evaluate_script("window.innerWidth") != 375
+      page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 844, deviceScaleFactor: 1, mobile: false)
+    end
+    assert_equal 375, page.evaluate_script("window.innerWidth")
+    find("[data-composer-tools] summary").send_keys(:enter)
+    assert_selector "[data-composer-tools][open]"
+    assert_text "First tool"
+    assert_no_text "Second tool"
+    find("input[name='mcp_server_ids[]']").check
+    assert_selector "#mcp-selected-count", text: "1"
+    rect = page.evaluate_script("(() => { const r = document.querySelector('.n-composer-tools-panel').getBoundingClientRect(); return [r.left, r.right, innerWidth]; })()")
+    assert_operator rect[0], :>=, 0
+    assert_operator rect[1], :<=, rect[2]
+    find("[data-composer-tools] summary").send_keys(:escape)
+    assert_no_selector "[data-composer-tools][open]"
+    assert_selector "[data-composer-tools] summary:focus"
+    find("lexxy-editor .lexxy-editor__content").send_keys("Tools question")
+    assert_enqueued_jobs 1, only: ChatResponseJob do
+      click_button "Send", enable_aria_label: true
+      assert_selector "[data-chat-account-readonly]"
+    end
+    chat = @user.chats.order(:id).last
+    assert_equal [ mcp_servers(:picker_first_tool).id ], chat.chat_mcp_sessions.pluck(:mcp_server_id)
+    click_button "Stop generating", enable_aria_label: true
+    find(".n-composer-tools-trigger").click
+    assert_selector "#mcp-selector-modal:not(.hidden)", text: "First tool"
+  ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+    page.current_window.resize_to(1400, 1400)
+  end
+
+  test "skill selection retains priority over sending and pasted URLs keep chat context" do
+    find("lexxy-editor .lexxy-editor__content").send_keys("/first")
+    assert_selector ".n-skill-item-active", text: "/first-skill"
+    count = @user.chats.count
+    find("lexxy-editor .lexxy-editor__content").send_keys(:enter)
+    assert_no_selector ".n-skill-menu:not(.hidden)"
+    assert_includes page.evaluate_script("document.querySelector('lexxy-editor').value"), "/first-skill"
+    assert_equal count, @user.chats.count
+    assert_no_enqueued_jobs only: ChatResponseJob
+    visit chat_url(chats(:picker_second_chat))
+    assert_selector "lexxy-editor[connected]"
+    page.execute_script("document.querySelector('lexxy-editor').dispatchEvent(new CustomEvent('lexxy:insert-link', { detail: { url: 'https://composer-saved.example/reference' }, bubbles: true }))")
+    assert_selector "input[name='message[attached_website_ids][]']", count: 2, visible: :all
+    assert @second.websites.exists?(url: "https://composer-saved.example/reference")
+    assert_not @first.websites.exists?(url: "https://composer-saved.example/reference")
+  end
+
+  test "saved PDF action registers a real native upload in the stored account" do
+    visit chat_url(chats(:picker_second_chat))
+    assert_selector "lexxy-editor[connected]"
+    with_pdf do |path|
+      assert_enqueued_jobs 1, only: AddDocumentJob do
+        attach_file(path) { click_button "Attach PDF", enable_aria_label: true }
+        assert_selector "input[name='message[attached_document_ids][]']", count: 2, visible: :all
+      end
+      document = @second.documents.joins(file_attachment: :blob).find_by!(active_storage_blobs: { filename: File.basename(path) })
+      assert_equal File.binread(path), document.file.download
+      assert_not @first.documents.joins(file_attachment: :blob).exists?(active_storage_blobs: { filename: File.basename(path) })
+    end
+  end
+
+  test "an unlock replacement keeps the same shared surface without a request session" do
+    chat = chats(:picker_second_chat)
+    chat.start_generation!
+    visit chat_url(chat)
+    assert_selector "button[aria-label='Stop generating']"
+    Current.reset
+    chat.finish_generation!
+    # Visit verifies recovery if cable delivery is missed; the integration test captures the actual broadcast.
+    visit chat_url(chat)
+    assert_selector "turbo-frame##{dom_id(chat)}_message_form .n-chat-composer", count: 1
+    assert_selector "button[aria-label=Send]:not([disabled])"
+    assert_selector "[data-chat-account-readonly]", text: /Research team/
+    assert_no_selector "form form"
+  end
+
   private
     def assert_tools_panel_geometry
       layout = page.evaluate_script(<<~JS)

@@ -1,9 +1,11 @@
 require "test_helper"
+require "turbo/broadcastable/test_helper"
 require_relative "../support/chat_account_fixtures"
 
 class ChatComposerUiTest < ActionDispatch::IntegrationTest
   include ChatAccountFixtures
   include ActionView::RecordIdentifier
+  include Turbo::Broadcastable::TestHelper
 
   setup { sign_in_picker_user }
 
@@ -75,6 +77,23 @@ class ChatComposerUiTest < ActionDispatch::IntegrationTest
     assert_select fragment, "[data-chat-account-readonly]", text: /Research team/
     assert_select fragment, "button[aria-label=Send][data-chat-account-target=send]", count: 1
     assert_select fragment, "select[name='chat[account_id]']", count: 0
+  end
+
+  test "background unlock broadcast uses the shared saved presentation" do
+    chat = chats(:picker_second_chat)
+    chat.start_generation!
+    Current.reset
+
+    streams = capture_turbo_stream_broadcasts([ chat, "messages" ]) { chat.finish_generation! }
+    replacement = streams.find { |stream| stream["target"] == "#{dom_id(chat)}_message_form" }
+
+    assert replacement
+    fragment = Nokogiri::HTML.fragment(replacement.inner_html)
+    assert_select fragment, ".n-chat-composer", count: 1
+    assert_select fragment, "button[aria-label=Send]:not([disabled])"
+    assert_select fragment, "lexxy-editor:not([disabled])"
+    assert_select fragment, "[data-chat-account-target=editingTools][aria-disabled=false]:not([inert])"
+    assert_select fragment, "[data-chat-account-readonly]", text: /Research team/
   end
 
   test "composer validation errors are announced and escaped" do
