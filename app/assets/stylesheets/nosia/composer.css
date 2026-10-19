@@ -1,0 +1,160 @@
+.n-chat-composer {
+  --composer-paper: var(--color-white);
+  --composer-text: var(--color-neutral-900);
+  --composer-muted: var(--color-neutral-600);
+  --composer-border: var(--color-neutral-300);
+  --composer-hover: var(--color-neutral-100);
+  --composer-accent: var(--color-green-700);
+  --composer-on-accent: var(--color-white);
+  --composer-danger: var(--color-red-700);
+  position: relative;
+  color: var(--composer-text);
+  font-size: 0.875rem;
+  min-width: 0;
+}
+
+.dark .n-chat-composer {
+  --composer-paper: var(--color-neutral-800);
+  --composer-text: var(--color-neutral-100);
+  --composer-muted: var(--color-neutral-300);
+  --composer-border: var(--color-neutral-600);
+  --composer-hover: var(--color-neutral-700);
+  --composer-accent: var(--color-green-300);
+  --composer-on-accent: var(--color-neutral-900);
+  --composer-danger: var(--color-red-300);
+}
+
+.n-chat-composer .n-composer-surface {
+  border: 1px solid var(--composer-border);
+  border-radius: 1rem;
+  background: var(--composer-paper);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.03);
+  overflow: visible;
+}
+
+.n-chat-composer .n-composer-editor {
+  border: 0;
+  border-radius: 1rem;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+  color: var(--composer-text);
+  --lexxy-editor-rows: 3lh;
+}
+
+.n-chat-composer .n-composer-editor .lexxy-editor__content {
+  padding: 1rem;
+  min-block-size: 7rem;
+}
+
+.n-chat-composer:not([data-formatting-open]) lexxy-toolbar { display: none; }
+.n-chat-composer lexxy-toolbar { border-radius: 1rem 1rem 0 0; }
+
+.n-chat-composer .n-composer-actions,
+.n-chat-composer .n-composer-editing-tools,
+.n-chat-composer .n-composer-account {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.375rem;
+}
+
+.n-chat-composer .n-composer-actions { flex-wrap: wrap; padding: 0.5rem 0.75rem 0.75rem; }
+.n-chat-composer .n-composer-editing-tools { flex-shrink: 0; }
+.n-chat-composer .n-composer-editing-tools[inert] { opacity: 0.5; }
+.n-chat-composer .n-composer-account { flex: 0 1 auto; max-width: 100%; }
+.n-chat-composer .n-composer-account label { font-size: 0.75rem; color: var(--composer-muted); flex-shrink: 0; }
+.n-chat-composer .n-composer-account [data-chat-account-readonly] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; }
+
+.n-chat-composer .n-composer-account select {
+  min-height: 36px;
+  min-width: 0;
+  max-width: min(16rem, 100%);
+  padding: 0.375rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--composer-paper);
+  color: var(--composer-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.n-chat-composer .n-composer-control,
+.n-chat-composer .n-composer-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0.375rem 0.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--composer-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+  transition: background-color 150ms, color 150ms;
+}
+
+.n-chat-composer summary::-webkit-details-marker { display: none; }
+.n-chat-composer .n-composer-control:hover:not(:disabled) { background: var(--composer-hover); color: var(--composer-text); }
+.n-chat-composer .n-composer-icon { width: 1.125rem; height: 1.125rem; flex-shrink: 0; }
+
+.n-chat-composer .n-composer-send {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 0.625rem;
+  background: var(--composer-accent);
+  color: var(--composer-on-accent);
+  transform: none;
+}
+
+.n-chat-composer .n-composer-send:hover:not(:disabled) { filter: brightness(0.95); }
+.n-chat-composer .n-composer-stop { background: var(--composer-danger); }
+.n-chat-composer button:disabled, .n-chat-composer select:disabled { cursor: not-allowed; opacity: 0.5; }
+.n-chat-composer :is(button, summary, select):focus-visible { outline: 2px solid var(--composer-accent); outline-offset: 3px; }
+.n-chat-composer .n-composer-count { border-radius: 0.25rem; padding: 0 0.3rem; background: var(--composer-hover); color: var(--composer-text); }
+.n-chat-composer .n-composer-tools { position: relative; min-width: 0; }
+
+.n-chat-composer .n-composer-tools-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 30;
+  width: 16rem;
+  max-width: calc(100vw - 4rem);
+  max-height: min(16rem, 45dvh);
+  overflow: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--composer-border);
+  border-radius: 0.75rem;
+  background: var(--composer-paper);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+.n-chat-composer .n-composer-tools-heading { padding: 0.25rem; color: var(--composer-muted); font-size: 0.75rem; }
+.n-chat-composer .n-composer-tool-option { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.25rem; cursor: pointer; }
+.n-chat-composer .n-composer-tool-option input { flex-shrink: 0; accent-color: var(--composer-accent); }
+.n-chat-composer .n-composer-tool-option span { min-width: 0; overflow-wrap: anywhere; }
+.n-chat-composer .n-composer-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.375rem 1rem; padding: 0.5rem 0.25rem 0; color: var(--composer-muted); font-size: 0.75rem; }
+.n-chat-composer .n-composer-notice { margin: 0.75rem 0 0; color: var(--composer-muted); font-size: 0.75rem; text-align: center; }
+.n-chat-composer .n-composer-errors { list-style: none; margin: 0.5rem 1rem; padding: 0; color: var(--composer-danger); font-size: 0.875rem; }
+.n-chat-composer .n-composer-errors button { margin-left: 0.5rem; text-decoration: underline; }
+
+@media (max-width: 639px) {
+  .n-chat-composer .n-composer-account { order: -1; flex-basis: 100%; }
+  .n-chat-composer .n-composer-account select { max-width: calc(100% - 4rem); }
+  .n-chat-composer .n-composer-tools { position: static; }
+  .n-chat-composer .n-composer-actions { position: relative; }
+  .n-chat-composer .n-composer-tools-panel { left: 0.75rem; right: 0.75rem; width: auto; max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-chat-composer *, .n-chat-composer *::before, .n-chat-composer *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+}

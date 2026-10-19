@@ -4,7 +4,7 @@
      data-chat-account-account-id-value="<%= @chat.account_id %>"
      data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture">
   <section class="w-full max-w-4xl mx-auto">
-    <div class="mx-auto pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-neutral-200 dark:ring-neutral-700 p-4">
+    <div class="mx-auto pointer-events-auto">
       <%= render "form", chat: @chat %>
     </div>
   </section>

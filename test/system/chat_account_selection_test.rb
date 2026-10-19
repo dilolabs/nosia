@@ -720,6 +720,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
   test "submission prevents real toolbar formatting and restores it when submission ends" do
     write_draft("Keep this formatting")
     find("lexxy-editor .lexxy-editor__content").send_keys([ :control, "a" ])
+    find("summary[aria-label=Formatting]").send_keys(:enter)
     page.execute_script("document.querySelector('#chat-form').dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true }))")
     before = draft_html
 

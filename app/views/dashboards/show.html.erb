@@ -31,10 +31,8 @@
     <% end %>
   </section>
   <section class="w-full max-w-4xl mx-auto">
-    <div class="pointer-events-auto rounded-2xl bg-white dark:bg-neutral-800 shadow-xl ring-1 ring-neutral-200 dark:ring-neutral-700">
-      <div class="px-3 sm:px-4 py-3 sm:py-4">
-        <%= render "chats/form", chat: @chat %>
-      </div>
+    <div class="mx-auto pointer-events-auto">
+      <%= render "chats/form", chat: @chat %>
     </div>
   </section>
   <%# MCP Selector Modal %>

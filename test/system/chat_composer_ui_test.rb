@@ -167,7 +167,84 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "the shared surface fits narrow screens with long account names in both themes" do
+    @second.update!(name: "Research team with a deliberately long account name")
+    [ false, true ].each do |dark|
+      [ new_chat_url(account_id: @second.id), chat_url(chats(:picker_second_chat)) ].each do |url|
+        visit url
+        page.current_window.resize_to(375, 844)
+        if page.evaluate_script("window.innerWidth") != 375
+          page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 844, deviceScaleFactor: 1, mobile: false)
+        end
+        assert_equal 375, page.evaluate_script("window.innerWidth")
+        set_theme(dark)
+        assert_selector ".n-chat-composer"
+        bounds = page.evaluate_script(<<~JS)
+          (() => {
+            const selectors = ['.n-composer-surface', '.n-composer-account', '.n-composer-send'];
+            return selectors.map(selector => {
+              const rect = document.querySelector(selector).getBoundingClientRect();
+              return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+            });
+          })()
+        JS
+        bounds.each do |rect|
+          assert_operator rect.fetch("left"), :>=, 0
+          assert_operator rect.fetch("right"), :<=, page.evaluate_script("window.innerWidth")
+        end
+        assert_operator bounds.last.fetch("width"), :>=, 40
+        assert_operator bounds.last.fetch("height"), :>=, 40
+        assert_no_selector "lexxy-editor lexxy-toolbar"
+        assert_equal "none", page.evaluate_script("getComputedStyle(document.querySelector('.n-composer-editor')).boxShadow")
+        assert_equal 0, page.evaluate_script("parseFloat(getComputedStyle(document.querySelector('.n-composer-editor')).borderTopWidth)")
+      end
+    end
+  ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+    page.current_window.resize_to(1400, 1400)
+  end
+
+  test "normal help and primary controls meet text contrast in both themes" do
+    [ false, true ].each do |dark|
+      set_theme(dark)
+      ratios = page.evaluate_script(<<~JS)
+        (() => {
+          const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          const rgb = color => { context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1); return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3); };
+          const luminance = values => values.map(value => { const v = value / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((sum, value, i) => sum + value * [.2126, .7152, .0722][i], 0);
+          const ratio = (a, b) => { const x = luminance(rgb(a)); const y = luminance(rgb(b)); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+          const surface = getComputedStyle(document.querySelector('.n-composer-surface')).backgroundColor;
+          const help = getComputedStyle(document.querySelector('.n-composer-meta'));
+          const pageBackground = getComputedStyle(document.body).backgroundColor;
+          const send = getComputedStyle(document.querySelector('.n-composer-send'));
+          return { help: ratio(help.color, pageBackground), send: ratio(send.color, send.backgroundColor), control: ratio(getComputedStyle(document.querySelector('.n-composer-control')).color, surface) };
+        })()
+      JS
+      ratios.each_value { |value| assert_operator value, :>=, 4.5 }
+    end
+  end
+
+  test "reduced motion and hovering Send do not rotate the primary action" do
+    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "prefers-reduced-motion", value: "reduce" } ])
+    find("button[aria-label=Send]").hover
+    assert_equal "none", page.evaluate_script("getComputedStyle(document.querySelector('.n-composer-send')).transform")
+    assert_equal "0s", page.evaluate_script("getComputedStyle(document.querySelector('.n-composer-send')).transitionDuration")
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
+  end
+
   private
+    def set_theme(dark)
+      page.evaluate_async_script(<<~JS, dark)
+        const done = arguments[arguments.length - 1];
+        document.documentElement.classList.toggle('dark', arguments[0]);
+        getComputedStyle(document.body).backgroundColor;
+        const transitions = document.getAnimations().filter(animation => animation instanceof CSSTransition);
+        Promise.all(transitions.map(animation => animation.finished.catch(() => {}))).then(done);
+      JS
+    end
+
     def with_pdf
       stream = "BT /F1 12 Tf 40 100 Td (Composer PDF) Tj ET\n"
       objects = [
