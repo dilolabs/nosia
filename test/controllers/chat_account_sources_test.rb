@@ -1,0 +1,291 @@
+require "test_helper"
+require_relative "../support/chat_account_fixtures"
+
+class ChatAccountSourcesTest < ActionDispatch::IntegrationTest
+  include ChatAccountFixtures
+
+  setup { sign_in_picker_user }
+
+  test "new and saved chat URL registrations use explicit context" do
+    [ { account_id: @second.id }, { chat_id: chats(:picker_second_chat).id } ].each_with_index do |context, index|
+      url = "https://context-#{index}.example/reference"
+
+      post chat_sources_url, params: context.merge(url: url), as: :json
+
+      assert_response :success
+      assert_equal @second.id, Website.find(response.parsed_body.fetch("id")).account_id
+    end
+  end
+
+  test "conflicting saved-chat context is rejected before creating a source" do
+    assert_no_difference "Website.count" do
+      post chat_sources_url, params: { chat_id: chats(:picker_second_chat).id,
+        account_id: @first.id, url: "https://conflict.example" }, as: :json
+    end
+
+    assert_response :not_found
+  end
+
+  test "PDF registration and dashboard upload use the second account" do
+    blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
+      filename: "account.pdf", content_type: "application/pdf")
+
+    post chat_sources_url, params: { account_id: @second.id, attachable_sgid: blob.attachable_sgid }, as: :json
+
+    assert_response :success
+    assert_equal @second.id, Document.find(response.parsed_body.fetch("id")).account_id
+
+    post sources_documents_url, params: { document: { account_id: @second.id,
+      title: "Dashboard upload", file: blob.signed_id } }, as: :json
+
+    assert_response :created
+    assert_equal @second.id, Document.find(response.parsed_body.fetch("id")).account_id
+  end
+
+  test "saved chat PDF registration accepts matching account context" do
+    blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
+      filename: "saved.pdf", content_type: "application/pdf")
+
+    post chat_sources_url, params: { chat_id: chats(:picker_second_chat).id,
+      account_id: @second.id, attachable_sgid: blob.attachable_sgid }, as: :json
+
+    assert_response :success
+    assert_equal @second.id, Document.find(response.parsed_body.fetch("id")).account_id
+  end
+
+  test "multipart dashboard retries reuse one document and indexing job within the filing account" do
+    upload_id = SecureRandom.uuid
+    ids = []
+
+    assert_difference "Document.count", 1 do
+      assert_enqueued_jobs 1, only: AddDocumentJob do
+        2.times do
+          post sources_documents_url, params: { document: { account_id: @second.id,
+            upload_id: upload_id, title: "Retry upload", file: picker_multipart_pdf } }, headers: { "Accept" => "application/json" }
+
+          assert_response :created
+          ids << response.parsed_body.fetch("id")
+        end
+      end
+    end
+
+    assert_equal 1, ids.uniq.size
+    assert_equal @second.id, Document.find(ids.first).account_id
+  end
+
+  test "multipart upload operation IDs cannot reuse another accounts document" do
+    upload_id = SecureRandom.uuid
+    ids = []
+    [ @first, @second ].each do |account|
+      post sources_documents_url, params: { document: { account_id: account.id,
+        upload_id: upload_id, file: picker_multipart_pdf } }, headers: { "Accept" => "application/json" }
+
+      assert_response :created
+      ids << response.parsed_body.fetch("id")
+      assert_equal account.id, Document.find(ids.last).account_id
+    end
+    assert_equal 2, ids.uniq.size
+
+    assert_no_difference "Document.count" do
+      assert_no_enqueued_jobs only: AddDocumentJob do
+        post sources_documents_url, params: { document: { account_id: @foreign.id,
+          upload_id: upload_id, file: picker_multipart_pdf } }, headers: { "Accept" => "application/json" }
+      end
+    end
+    assert_response :not_found
+  end
+
+  test "HTML and non-token multipart uploads retain defaults and validation errors" do
+    assert_difference "Document.count", 2 do
+      2.times do
+        post sources_documents_url, params: { document: { title: "Default upload", file: picker_multipart_pdf } }
+        assert_response :redirect
+        assert_redirected_to sources_document_url(@first.documents.order(:id).last)
+      end
+    end
+
+    [ nil, SecureRandom.uuid ].each do |upload_id|
+      assert_no_difference "Document.count" do
+        assert_no_enqueued_jobs only: AddDocumentJob do
+          post sources_documents_url, params: { document: { title: "Missing file", upload_id: upload_id } },
+            headers: { "Accept" => "application/json" }
+        end
+      end
+      assert_response :unprocessable_entity
+      assert_includes response.parsed_body.fetch("file"), "can't be blank"
+    end
+  end
+
+  test "unavailable source context remains not found before SGID validation" do
+    contexts = [
+      { account_id: @foreign.id },
+      { chat_id: chats(:picker_foreign_chat).id },
+      { chat_id: chats(:picker_second_chat).id, account_id: @first.id }
+    ]
+
+    contexts.each do |context|
+      assert_no_difference "Document.count" do
+        post chat_sources_url, params: context.merge(attachable_sgid: "invalid"), as: :json
+      end
+
+      assert_response :not_found
+    end
+  end
+
+  test "unavailable explicit source accounts never fall back to the first account" do
+    assert_no_difference "Website.count" do
+      post chat_sources_url, params: { account_id: @foreign.id, url: "https://foreign.example" }, as: :json
+    end
+
+    assert_response :not_found
+  end
+
+  test "follow-up URLs and references use the saved account and ignore overrides" do
+    chat = chats(:picker_second_chat)
+    own = websites(:picker_second_website)
+
+    post chat_messages_url(chat), params: { message: { account_id: @first.id,
+      content: "https://follow-up.example/reference", attached_website_ids: [ own.id ] } }
+
+    assert_response :redirect
+    assert_equal @second.id, chat.reload.account_id
+    assert @second.websites.exists?(url: "https://follow-up.example/reference")
+    assert_includes chat.messages.user.last.attached_website_ids, own.id.to_s
+
+    assert_no_difference "Message.count" do
+      assert_no_enqueued_jobs only: ChatResponseJob do
+        post chat_messages_url(chat), params: { message: { content: "Wrong account",
+          attached_website_ids: [ websites(:picker_first_website).id ] } }
+      end
+    end
+
+    assert_response :not_found
+  end
+
+  test "PDF references cannot come from another account" do
+    document = @first.documents.new(title: "First account PDF")
+    document.file.attach(io: StringIO.new("%PDF-1.4\n%%EOF"), filename: "first.pdf", content_type: "application/pdf")
+    document.save!
+    counts = [ Chat.count, Message.count ]
+
+    assert_no_enqueued_jobs only: ChatResponseJob do
+      post chats_url, params: { chat: { account_id: @second.id, prompt: "Wrong PDF",
+        model: "picker-test-model", attached_document_ids: [ document.id ] } }
+    end
+
+    assert_response :not_found
+    assert_equal counts, [ Chat.count, Message.count ]
+  end
+
+  test "malformed SGIDs retain a 400 response" do
+    post chat_sources_url, params: { account_id: @second.id, attachable_sgid: "invalid" }, as: :json
+
+    assert_response :bad_request
+  end
+
+  {
+    "empty array" => ->(id) { [] },
+    "empty hash" => ->(id) { {} },
+    "array" => ->(id) { [ id ] },
+    "hash" => ->(id) { { id: id } },
+    "false" => ->(id) { false },
+    "true" => ->(id) { true }
+  }.each do |shape, malformed|
+    %w[URL PDF invalid-SGID].each do |source|
+      test "#{source} registration rejects #{shape} chat context before writes or SGID validation" do
+        payload = source_payload(source).merge(chat_id: malformed.call(chats(:picker_second_chat).id))
+
+        assert_rejected_without_source_writes do
+          post chat_sources_url, params: payload, as: :json
+        end
+      end
+
+      %w[new saved].each do |context|
+        test "#{source} registration rejects #{shape} account context for #{context} chats" do
+          payload = source_payload(source).merge(account_id: malformed.call(@second.id))
+          payload[:chat_id] = chats(:picker_second_chat).id if context == "saved"
+
+          assert_rejected_without_source_writes do
+            post chat_sources_url, params: payload, as: :json
+          end
+        end
+      end
+    end
+
+    test "dashboard rejects #{shape} account context for JSON and HTML before writes" do
+      blob = source_blob
+      [ "application/json", "text/html" ].each do |format|
+        assert_rejected_without_source_writes do
+          post sources_documents_url, params: { document: { account_id: malformed.call(@second.id),
+            title: "Malformed filing account", file: blob.signed_id, upload_id: SecureRandom.uuid } },
+            as: :json, headers: { "Accept" => format }
+        end
+      end
+    end
+  end
+
+  test "missing nil and blank scalar new-source contexts retain the first-account fallback" do
+    contexts = [ {}, { account_id: nil }, { account_id: "" }, { account_id: " " },
+      { chat_id: nil }, { chat_id: "" }, { chat_id: " ", account_id: " " } ]
+    blob = source_blob
+
+    contexts.each_with_index do |context, index|
+      post chat_sources_url, params: context.merge(url: "https://fallback-#{index}.example/reference"), as: :json
+
+      assert_response :success
+      assert_equal @first.id, Website.find(response.parsed_body.fetch("id")).account_id
+
+      post chat_sources_url, params: context.merge(attachable_sgid: blob.attachable_sgid), as: :json
+
+      assert_response :success
+      assert_equal @first.id, Document.find(response.parsed_body.fetch("id")).account_id
+    end
+    assert_equal 1, @first.documents.count
+    assert_enqueued_jobs 1, only: AddDocumentJob
+  end
+
+  test "nil and blank scalar dashboard accounts retain default filing and validation errors" do
+    blob = source_blob
+    [ nil, "", " " ].each do |account_id|
+      post sources_documents_url, params: { document: { account_id: account_id, file: blob.signed_id } }, as: :json
+
+      assert_response :created
+      assert_equal @first.id, Document.find(response.parsed_body.fetch("id")).account_id
+
+      post sources_documents_url, params: { document: { account_id: account_id, title: "Missing file" } }, as: :json
+
+      assert_response :unprocessable_entity
+      assert_includes response.parsed_body.fetch("file"), "can't be blank"
+    end
+  end
+
+  private
+    def source_payload(kind)
+      case kind
+      when "URL" then { url: "https://malformed-context.example/reference" }
+      when "PDF" then { attachable_sgid: source_blob.attachable_sgid }
+      when "invalid-SGID" then { attachable_sgid: "invalid" }
+      end
+    end
+
+    def source_blob
+      ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
+        filename: "context.pdf", content_type: "application/pdf")
+    end
+
+    def assert_rejected_without_source_writes
+      models = [ Website, Document, Chat, Message, ChatMcpSession, ActiveStorage::Attachment, ActiveStorage::Blob ]
+      counts = models.map(&:count)
+      chat_state = Chat.order(:id).map(&:attributes)
+
+      assert_no_enqueued_jobs { yield }
+
+      assert_equal counts, models.map(&:count), "Rejected contexts must not create sources, chats, messages, or links"
+      assert_equal chat_state, Chat.order(:id).map(&:attributes), "Rejected contexts must not change chat or generation state"
+      assert_response :not_found
+    end
+
+    def picker_multipart_pdf
+      Rack::Test::UploadedFile.new(StringIO.new("%PDF-1.4\n%%EOF"), "application/pdf", original_filename: "dashboard.pdf")
+    end
+end

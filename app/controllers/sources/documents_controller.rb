@@ -1,5 +1,7 @@
 module Sources
   class DocumentsController < ApplicationController
+    include ChatAccountScoped
+
     before_action :set_document, only: %i[ show edit update destroy ]
 
     # GET /documents or /documents.json
@@ -22,11 +24,13 @@ module Sources
 
     # POST /documents or /documents.json
     def create
-      @document = filing_account(:document).documents.new(document_params)
+      validate_chat_context_id(params.dig(:document, :account_id))
+      account = filing_account(:document) || raise(ChatAccountScoped::MissingAccount)
+      upload_id = params.require(:document).permit(:upload_id)[:upload_id]
+      @document = Document.create_from_upload(account, document_params, upload_id: upload_id)
 
       respond_to do |format|
-        if @document.save
-          AddDocumentJob.perform_later(@document.id)
+        if @document.persisted?
           format.html { redirect_to sources_document_url(@document), notice: "Document was successfully created." }
           format.json { render :show, status: :created, location: sources_document_url(@document) }
         else

@@ -1,0 +1,11 @@
+<% %w[first second].each do |name| %>
+picker_<%= name %>_skill:
+  account: picker_<%= name %>
+  name: <%= name %>-skill
+  description: <%= name.capitalize %> account skill
+  skill_content: Account-specific test instructions
+  execution_mode: llm
+  trigger_mode: explicit
+  enabled: true
+  metadata: {}
+<% end %>

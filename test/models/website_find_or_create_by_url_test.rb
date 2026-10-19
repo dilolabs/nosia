@@ -53,6 +53,17 @@ class WebsiteFindOrCreateByUrlTest < ActiveSupport::TestCase
     end
   end
 
+  test "rejects a blank URL without saving or publishing a crawl" do
+    assert_no_difference -> { @account.websites.count } do
+      assert_no_enqueued_jobs only: CrawlWebsiteUrlJob do
+        error = assert_raises ActiveRecord::RecordInvalid do
+          Website.find_or_create_by_url!(@account, "")
+        end
+        assert error.record.errors.where(:url, :blank).any?
+      end
+    end
+  end
+
   test "rejects a duplicate (account_id, url) at the model level" do
     @account.websites.create!(url: "https://dup-val.example")
     dup = @account.websites.new(url: "https://dup-val.example")
@@ -67,13 +78,8 @@ class WebsiteFindOrCreateByUrlTest < ActiveSupport::TestCase
     assert unique.unique
   end
 
-  # Race recovery (the `rescue ActiveRecord::RecordNotUnique` branch in
-  # find_or_create_by_url!) is not unit-tested here: this suite loads neither
-  # minitest/mock (no Object#stub) nor Mocha, and stubbing the association
-  # proxy's find_or_initialize_by / find_by! via define_singleton_method is
-  # fiddly. The DB unique index (asserted above) is the race-safety guard; the
-  # rescue simply re-fetches the winner's row (already pending + enqueued by
-  # the winner) and returns it without re-enqueuing.
+  # ChatAccountUrlRaceTest exercises real competing inserts both inside the
+  # chat transaction and outside it, including a later outer rollback.
 
   test "the dedup migration cleans up orphaned chunks of discarded duplicate rows" do
     # Simulate a pre-existing (account_id, url) race: two rows, the older one

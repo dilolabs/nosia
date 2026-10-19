@@ -1,4 +1,6 @@
 class ChatsController < ApplicationController
+  include ChatAccountScoped
+
   before_action :set_chat, only: [ :show, :destroy, :stop ]
 
   def show
@@ -14,45 +16,31 @@ class ChatsController < ApplicationController
   end
 
   def new
-    @chat = Current.user.chats.new
+    @chat = Current.user.chats.new(account: selected_chat_account(params[:account_id]))
     @selected_model = params[:model]
   end
 
   def create
+    account = required_chat_account(params.dig(:chat, :account_id))
     return unless prompt.present?
 
-    @chat = Current.user.chats.create!(account: Current.account, model: model, provider: :openai, assume_model_exists: true)
+    @chat = Current.user.chats.new(account: account, model: model,
+      provider: :openai, assume_model_exists: true)
+    sources = @chat.source_attributes(
+      website_ids: params.dig(:chat, :attached_website_ids),
+      document_ids: params.dig(:chat, :attached_document_ids)
+    )
+    servers = @chat.selected_mcp_servers(params[:mcp_server_ids])
 
-    # Attach selected MCP servers to the chat
-    if params[:mcp_server_ids].present?
-      mcp_server_ids = params[:mcp_server_ids].reject(&:blank?)
-      mcp_server_ids.each do |server_id|
-        mcp_server = Current.account.mcp_servers.find_by(id: server_id)
-        @chat.add_mcp_server(mcp_server) if mcp_server
-      end
+    Chat.transaction do
+      @chat.save!
+      servers.each { |server| @chat.add_mcp_server(server) }
+      @user_message = @chat.messages.create!(sources.merge(role: "user", content: prompt))
+      @user_message.attach_website_sources_from_content!(@chat.account)
+      @chat.start_generation!
     end
 
-    # Create the user message immediately for instant display, stamping any
-    # sources attached in the composer so the indexing gate can wait on them.
-    @user_message = @chat.messages.create!(
-      role: "user",
-      content: prompt,
-      attached_website_ids: Array(params[:chat][:attached_website_ids]).compact_blank,
-      attached_document_ids: Array(params[:chat][:attached_document_ids]).compact_blank
-    )
-
-    # Lexxy emits lexxy:insert-link only on paste, so a typed URL never reaches
-    # /chat_sources. Extract http(s) URLs from the saved content and attach them
-    # as Website sources before completion runs — the indexing gate waits on them.
-    @user_message.attach_website_sources_from_content!(Current.account)
-
-    # Lock the composer for the duration of this generation. The redirect lands on the
-    # show page with generating already persisted, so the composer renders busy; the
-    # job's ensure clears it.
-    @chat.start_generation!
-
     ChatResponseJob.perform_later(@chat.id, @user_message.content, @user_message.id)
-
     redirect_to @chat
   end
 
@@ -64,7 +52,7 @@ class ChatsController < ApplicationController
   private
 
   def set_chat
-    @chat = Current.user.chats.find(params[:id])
+    @chat = authorized_chat(params[:id])
   end
 
   def model

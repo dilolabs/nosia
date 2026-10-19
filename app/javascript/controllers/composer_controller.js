@@ -1,10 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
-import { post } from "@rails/request.js"
 
 // Replaces chat_input_controller + skill_autocomplete_controller for the Lexxy
-// editor. Enter-to-send, URL→Website interception, PDF→Document interception,
-// accumulation of attached source ids into hidden form fields, and the /skill
-// command palette.
+// editor. Enter-to-send and the /skill command palette. Source registration is
+// handled separately by composer-sources.
 //
 // CAVEAT (Task 13, highest-risk): the palette reads the editor's plain text via
 // the element's `value` getter and inserts via `value=` — the plan-sanctioned
@@ -18,24 +16,19 @@ import { post } from "@rails/request.js"
 //   3. `value=` replacing the whole document is acceptable for the
 //      "content is just /partial" case (matches the old textarea behavior).
 export default class extends Controller {
-  static targets = ["editor", "websiteIds", "documentIds", "menu"]
+  static targets = ["editor", "menu"]
   static values = { skills: Array }
 
   connect() {
-    this.boundInsertLink = this.onInsertLink.bind(this)
-    this.boundUploadEnd = this.onUploadEnd.bind(this)
     this.boundHandleKeys = this.handleKeys.bind(this)
     this.boundChange = this.onChange.bind(this)
     this.boundSubmitStart = this.submitStart.bind(this)
-    this.sentSgids = new Set()
     this.paletteOpen = false
     this.activeIndex = -1
     this.items = []
     this.contentStyled = false
 
     this.styleContent()
-    this.editorTarget.addEventListener("lexxy:insert-link", this.boundInsertLink)
-    this.editorTarget.addEventListener("lexxy:upload-end", this.boundUploadEnd)
     this.editorTarget.addEventListener("lexxy:change", this.boundChange)
     this.editorTarget.addEventListener("keydown", this.boundHandleKeys)
     this.form = this.element.tagName === "FORM" ? this.element : this.element.closest("form")
@@ -45,8 +38,6 @@ export default class extends Controller {
 
   disconnect() {
     this.closePalette()
-    this.editorTarget.removeEventListener("lexxy:insert-link", this.boundInsertLink)
-    this.editorTarget.removeEventListener("lexxy:upload-end", this.boundUploadEnd)
     this.editorTarget.removeEventListener("lexxy:change", this.boundChange)
     this.editorTarget.removeEventListener("keydown", this.boundHandleKeys)
     if (this.form) this.form.removeEventListener("turbo:submit-start", this.boundSubmitStart)
@@ -85,6 +76,9 @@ export default class extends Controller {
   // key so Enter doesn't also send). The controller may be attached to the
   // <form> or to a wrapper div inside it, so resolve the form before submitting.
   handleKeys(event) {
+    const content = event.target.closest(".lexxy-editor__content")
+    if (!content || !this.editorTarget.contains(content)) return
+
     if (this.paletteOpen) {
       if (event.key === "ArrowDown") { event.preventDefault(); event.stopImmediatePropagation(); this.movePalette(1); return }
       if (event.key === "ArrowUp") { event.preventDefault(); event.stopImmediatePropagation(); this.movePalette(-1); return }
@@ -97,95 +91,6 @@ export default class extends Controller {
       const form = this.element.tagName === "FORM" ? this.element : this.element.closest("form")
       if (form) form.requestSubmit()
     }
-  }
-
-  // Lexxy dispatches lexxy:insert-link on the editor with detail.url when a URL
-  // is pasted/linked. Record a Website for it; Lexxy keeps its own <a href>.
-  async onInsertLink(event) {
-    const url = event.detail.url
-    if (!url) return
-
-    const response = await post("/chat_sources", {
-      body: JSON.stringify({ url }),
-      headers: { "Content-Type": "application/json", "Accept": "application/json" }
-    })
-    if (response.ok) {
-      const data = await response.json
-      this.addId(this.websiteIdsTarget, data.id)
-    }
-  }
-
-  // Lexxy dispatches lexxy:upload-end with { file, error } — the blob's
-  // attachable sgid is NOT in the event. It lands on the embedded
-  // <action-text-attachment sgid="..."> node a tick later, once editor.update()
-  // commits the replacement. Poll for an unregistered sgid, then record a
-  // Document for it. (One PDF per paste is the common case; the sentSgids guard
-  // keeps us from double-registering on re-fire.)
-  async onUploadEnd(event) {
-    if (event.detail.error) return
-
-    const sgid = await this.nextUnsentAttachmentSgid()
-    if (!sgid) return
-    this.sentSgids.add(sgid)
-
-    const response = await post("/chat_sources", {
-      body: JSON.stringify({ attachable_sgid: sgid }),
-      headers: { "Content-Type": "application/json", "Accept": "application/json" }
-    })
-    if (response.ok) {
-      const data = await response.json
-      this.addId(this.documentIdsTarget, data.id)
-    }
-  }
-
-  nextUnsentAttachmentSgid() {
-    return new Promise(resolve => {
-      let attempts = 0
-      const check = () => {
-        const sgid = this.unsentSgidFromEditorValue()
-        if (sgid) return resolve(sgid)
-        if (++attempts > 20) {
-          console.warn("[composer] lexxy:upload-end fired but no action-text-attachment sgid appeared in time; PDF not registered.")
-          return resolve(null)
-        }
-        requestAnimationFrame(check)
-      }
-      check()
-    })
-  }
-
-  // Lexxy renders the LIVE <action-text-attachment> figure via createDOM(), which
-  // sets only content-type / data-lexxy-decorator / draggable / data-lexical-node-key
-  // — the blob's attachable sgid is NOT an attribute on the live DOM node. It lives on
-  // the Lexical node and is emitted only through exportDOM() (the editor's serialized
-  // value). So the sgid must be read from `editorTarget.value` (the same serialized
-  // HTML Message#html_to_markdown parses), not from querySelectorAll on the live DOM.
-  // The value cache is cleared on every editor update, so after $showUploadedAttachment
-  // commits the node the next `.value` read re-exports fresh HTML carrying the sgid.
-  unsentSgidFromEditorValue() {
-    const html = this.editorTarget.value || ""
-    const tmp = document.createElement("div")
-    tmp.innerHTML = html
-    for (const node of tmp.querySelectorAll("action-text-attachment")) {
-      const sgid = node.getAttribute("sgid")
-      if (sgid && !this.sentSgids.has(sgid)) return sgid
-    }
-    return null
-  }
-
-  // Clone the target hidden input's name so ids submit in the right params
-  // namespace (chat[attached_website_ids][] vs message[attached_website_ids][]).
-  addId(target, id) {
-    if (!id) return
-    if (!target.name) {
-      console.warn("[composer] hidden id target has no name attribute; attachment not submitted.")
-      return
-    }
-    const input = document.createElement("input")
-    input.type = "hidden"
-    input.name = target.name
-    input.value = id
-    target.parentNode.appendChild(input)
   }
 
   // --- /skill command palette (ported from skill_autocomplete_controller) ---

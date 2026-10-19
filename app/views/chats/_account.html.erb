@@ -1,0 +1,11 @@
+<div class="n-composer-account">
+  <% if chat.persisted? %>
+    <span data-chat-account-readonly title="<%= chat.account.name %>">Account: <%= chat.account.name %></span>
+  <% else %>
+    <%= form.label :account_id, "Account" %>
+    <%= form.collection_select :account_id, Current.user.accounts.order(:name), :id, :name,
+      { selected: chat.account_id, prompt: "Select an account" },
+      { required: true, aria: { describedby: "chat-account-help" },
+        data: { chat_account_target: "picker", action: "change->chat-account#change" } } %>
+  <% end %>
+</div>

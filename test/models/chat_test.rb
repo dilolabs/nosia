@@ -168,7 +168,10 @@ class ChatTest < ActiveSupport::TestCase
 
     form = streams.find { |s| s["action"] == "replace" && s["target"] == "#{dom_id(@chat)}_message_form" }
     assert form, "finish_generation! must broadcast the composer form replace in the job context"
-    assert_not_includes form.inner_html, "disabled",
-      "the broadcast form must be unlocked so the submit button is usable again"
+    fragment = Nokogiri::HTML.fragment(form.inner_html)
+    assert_equal 1, fragment.css("button[aria-label=Send]:not([disabled])").size
+    assert_equal 1, fragment.css("lexxy-editor:not([disabled]):not([inert])").size
+    assert_equal 1, fragment.css("[data-chat-account-target=editingTools][aria-disabled=false]:not([inert])").size
+    assert_equal 0, fragment.css("button[aria-label='Stop generating']").size
   end
 end

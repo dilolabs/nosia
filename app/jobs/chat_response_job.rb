@@ -7,6 +7,11 @@ class ChatResponseJob < ApplicationJob
   retry_on Faraday::TimeoutError, Faraday::ConnectionFailed,
     wait: :polynomially_longer, attempts: 3
 
+  around_perform do |job, operation|
+    chat = Chat.find(job.arguments.first)
+    ActsAsTenant.with_tenant(chat.account) { operation.call }
+  end
+
   def perform(chat_id, content, user_message_id = nil)
     Rails.logger.info "=== ChatResponseJob started for chat ##{chat_id} ==="
     chat = Chat.find(chat_id)

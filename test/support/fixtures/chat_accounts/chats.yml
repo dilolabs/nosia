@@ -1,0 +1,8 @@
+picker_second_chat:
+  account: picker_second
+  user: picker_owner
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:picker_model) %>
+picker_foreign_chat:
+  account: picker_foreign
+  user: picker_outsider
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:picker_model) %>

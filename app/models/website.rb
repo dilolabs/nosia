@@ -21,7 +21,8 @@ class Website < ApplicationRecord
 
     if website.new_record?
       begin
-        website.save!
+        # Keep a duplicate insert from aborting the enclosing chat transaction.
+        transaction(requires_new: true) { website.save! }
         CrawlWebsiteUrlJob.perform_later(website.id)
       rescue ActiveRecord::RecordNotUnique
         # A concurrent paste won the race; reuse its row (already enqueued).

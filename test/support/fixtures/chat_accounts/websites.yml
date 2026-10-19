@@ -1,0 +1,7 @@
+<% %w[first second foreign].each do |name| %>
+picker_<%= name %>_website:
+  account: picker_<%= name %>
+  url: https://<%= name %>.example/reference
+  data: "# <%= name.capitalize %> source"
+  index_status: 10
+<% end %>

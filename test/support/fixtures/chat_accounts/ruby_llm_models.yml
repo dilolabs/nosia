@@ -1,0 +1,4 @@
+picker_model:
+  model_id: picker-test-model
+  provider: openai
+  name: Picker test model
