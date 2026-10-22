@@ -486,6 +486,11 @@ download_caddy_trust_helper() {
     return 0
   fi
 
+  if ! command -v link >/dev/null 2>&1; then
+    echo "$caddy_trust_warning" >&2
+    return 0
+  fi
+
   if ! mkdir -p bin; then
     echo "$caddy_trust_warning" >&2
     return 0
@@ -496,9 +501,10 @@ download_caddy_trust_helper() {
     return 0
   fi
 
+  # link uses the exact target path, never descending into a racing directory.
   if curl -fsSL -o "$caddy_trust_staged" https://raw.githubusercontent.com/dilolabs/nosia/main/bin/trust-caddy &&
       [ -s "$caddy_trust_staged" ] && chmod +x "$caddy_trust_staged" &&
-      ln "$caddy_trust_staged" "$caddy_trust_target"; then
+      link "$caddy_trust_staged" "$caddy_trust_target"; then
     :
   else
     echo "$caddy_trust_warning" >&2

@@ -169,7 +169,7 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
     end
   end
 
-  %w[ mkdir mktemp chmod ln ].each do |tool|
+  %w[ mkdir mktemp chmod link ].each do |tool|
     define_method("test_#{tool}_failure_is_nonfatal_and_cleans_only_its_stage") do
       keep_unrelated_stage
       output, status = run_downloader("FAIL_TOOL" => tool)
@@ -178,6 +178,15 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
       refute File.exist?(@target)
       assert_empty calls if %w[ mkdir mktemp ].include?(tool)
     end
+  end
+
+  def test_missing_link_warns_without_downloading_or_installing_a_dependency
+    File.unlink(File.join(@environment.fetch("PATH"), "link"))
+    output, status = run_downloader
+
+    assert_warning(output, status)
+    assert_empty calls
+    refute File.exist?(@target)
   end
 
   def test_bin_file_prevents_staging_without_being_replaced
@@ -204,6 +213,25 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
     end
   end
 
+  %w[ race_directory race_directory_symlink ].each do |mode|
+    define_method("test_#{mode}_at_publication_never_descends_into_the_callers_directory") do
+      keep_unrelated_stage
+      directory = mode == "race_directory" ? @target : File.join(@project, "caller owned directory")
+      if mode == "race_directory_symlink"
+        FileUtils.mkdir_p(directory)
+        File.write(File.join(directory, "keep.txt"), "caller data")
+      end
+      output, status = run_downloader("MODE" => mode, "RACE_DIRECTORY" => directory)
+
+      assert_equal [ "keep.txt" ], Dir.children(directory), "publication left a hidden helper in the caller's directory"
+      assert_equal "caller data", File.read(File.join(directory, "keep.txt"))
+      refute File.executable?(File.join(directory, "keep.txt"))
+      assert_warning(output, status)
+      refute File.file?(@target), "a racing directory must not be reported as a published helper"
+      assert_equal directory, File.readlink(@target) if mode == "race_directory_symlink"
+    end
+  end
+
   def test_fake_payload_really_records_execution_if_invoked
     _, _, status = Open3.capture3(@environment, "/bin/sh", @payload)
 
@@ -216,7 +244,7 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
       tools = File.join(@sandbox, "guard tools")
       FileUtils.mkdir_p(tools)
       # An allowlisted PATH prevents network/dependency/Docker/trust commands escaping.
-      %w[ mkdir mktemp chmod ln rm cat cp ].each do |name|
+      %w[ mkdir mktemp chmod ln link rm cat cp ].each do |name|
         executable = ENV.fetch("PATH").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, name) }.find { |path| File.executable?(path) && !File.directory?(path) }
         refute_nil executable, "missing sandbox tool #{name}"
         path = File.join(tools, name)
@@ -224,7 +252,7 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
           #!/bin/sh
           [ "$FAIL_TOOL" != '#{name}' ] || exit 1
           #{name == 'chmod' ? 'printf "CHMOD\\n" >> "$CALLS"' : ''}
-          #{name == 'ln' ? '[ "$1" = -s ] || printf "PUBLISH\\n" >> "$CALLS"' : ''}
+          #{%w[ ln link ].include?(name) ? publication_race : ''}
           exec '#{executable}' "$@"
         SH
         FileUtils.chmod(0755, path)
@@ -251,6 +279,21 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
       SH
       FileUtils.chmod(0755, File.join(tools, "curl"))
       @environment["PATH"] = tools
+    end
+
+    def publication_race
+      <<~'SH'
+        if [ "$1" != -s ]; then
+          printf 'PUBLISH\n' >> "$CALLS"
+          # Inject after any downloader checks, immediately before the real utility.
+          case "$MODE" in
+            race_directory)
+              mkdir "$2"
+              printf 'caller data' > "$2/keep.txt" ;;
+            race_directory_symlink) ln -s "$RACE_DIRECTORY" "$2" ;;
+          esac
+        fi
+      SH
     end
 
     def run_downloader(environment = {})
