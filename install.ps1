@@ -455,6 +455,35 @@ function Setup-Windows {
     exit 1
 }
 
+function Download-CaddyTrustHelper {
+    $staged = $null
+    try {
+        $bin = Join-Path (Get-Location).Path "bin"
+        $target = Join-Path $bin "trust-caddy.ps1"
+        if ($null -ne (Get-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue)) {
+            return
+        }
+
+        [void][IO.Directory]::CreateDirectory($bin)
+        $staged = Join-Path $bin (".trust-caddy." + [Guid]::NewGuid().ToString("N"))
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dilolabs/nosia/main/bin/trust-caddy.ps1" -OutFile $staged -ErrorAction Stop
+        if ((Get-Item -LiteralPath $staged -Force -ErrorAction Stop).Length -eq 0) {
+            throw "The optional Caddy trust helper download was empty."
+        }
+        [IO.File]::Move($staged, $target)
+    } catch {
+        Write-Host "Warning: Could not download optional Caddy trust helper - $_. See https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md"
+    } finally {
+        if ($null -ne $staged -and [IO.File]::Exists($staged)) {
+            try {
+                [IO.File]::Delete($staged)
+            } catch {
+                Write-Host "Warning: Could not remove Caddy trust helper staging file - $_. See https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md"
+            }
+        }
+    }
+}
+
 # Main installation
 function Do-Install {
     # Detect system resources
@@ -483,8 +512,15 @@ function Do-Install {
     Write-Host "Pulling latest Docker images..."
     docker compose pull
     Write-Host "Docker images pulled successfully."
-    
+
+    Download-CaddyTrustHelper
+
     Write-Host "Setup complete. Start with: docker compose up -d"
+    if (Test-Path -LiteralPath ".\bin\trust-caddy.ps1" -PathType Leaf) {
+        Write-Host "After startup, optionally run: .\bin\trust-caddy.ps1"
+    } else {
+        Write-Host "For optional local HTTPS trust, see https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md"
+    }
 }
 
 # Run installation
