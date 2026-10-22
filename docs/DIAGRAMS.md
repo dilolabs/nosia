@@ -37,7 +37,7 @@ This document contains ASCII diagrams that complement the [ARCHITECTURE.md](ARCH
 │ • Action Cable   │                        │                  │
 │ • Real-time UI   │                        │ Job Types:       │
 │                  │                        │ • AddDocument    │
-│ Puma + Thruster  │                        │ • AddText        │
+│ Puma (port 3000) │                        │ • AddText        │
 └────────┬─────────┘                        │ • ChatResponse   │
          │                                  │ • CrawlWebsite   │
          │                                  └────────┬─────────┘

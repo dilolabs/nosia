@@ -810,7 +810,6 @@ end
 **web** (Rails):
 - Main application server
 - Puma web server
-- Thruster HTTP/2 proxy
 - Health check endpoint: `/up`
 
 **solidq** (Background Worker):
