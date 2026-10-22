@@ -260,3 +260,32 @@ Confirm only the displayed exact item. Removing Windows machine trust does not r
 - The installers **download but never execute** the optional helper and print a separate post-start command. Existing helpers are preserved rather than overwritten: review and replace them explicitly when updating. POSIX publication needs the standard `link` utility; if missing, the installer warns and points here rather than installing it. It publishes a complete download with owner execute permission, not a partially downloaded executable.
 - If the helper download fails, application startup remains usable; use the manual guide/export or obtain and review the matching helper from a trusted release. Missing dependencies and unsupported layouts fail with guidance, not automatic dependency installation or silent privileged actions.
 - Native macOS and Windows trust-store/browser behavior still requires verification on those platforms. Portable packaging tests do not establish that every native client trusts the root.
+
+## Maintainer verification
+
+Observed **2026-10-22**, implementation revision `3a6f3cf`, on Debian GNU/Linux 13, Linux `6.12.113+deb13-arm64` (aarch64), Ruby **4.0.7**, Rails **8.0.5.1**, OpenSSL **3.5.7**, and portable PowerShell **7.4.6 Core**. These are the actual verification runtimes, not native macOS/Windows results.
+
+Standalone commands were `ruby test/packaging/<name>.rb`, individually, with `CADDY_TEST_POWERSHELL=/tmp/opencode/pwsh-7.4.6/pwsh`. Counts below are **runs / assertions / failures / errors / skips**:
+
+| Check | Observed result | Exit |
+| --- | --- | --- |
+| `caddy_puma.rb` | 33 / 310 / 0 / 0 / 0 | 0 |
+| `caddy_trust_posix.rb` | 82 / 1105 / 0 / 0 / 0 | 0 |
+| `caddy_trust_windows.rb` | 51 / 53 / 0 / 0 / 48 | 0 |
+| `caddy_trust_installers.rb` | 63 / 762 / 0 / 0 / 20 | 0 |
+| `ruby_llm_path_dependency.rb` | 2 / 8 / 0 / 0 / 0 | 0 |
+| `bin/rails test test/models/message/stream_buffer_test.rb test/integration/chat_composer_ui_test.rb` | 12 / 120 / 0 / 0 / 0 | 0 |
+| `bin/rails test` | 626 / 3405 / 0 / 1 / 0; known provider error below | 1 |
+| `sh -n bin/trust-caddy`; `sh -n install.sh` | Both syntax checks passed; no entrypoint execution | 0 each |
+| PowerShell `Parser.ParseFile` for helper and installer; static import-child template parsing | Passed without executing either script or child; installer tests also parsed their generated mock fragments | 0 |
+| `bin/rubocop` | FAILED: 361 files, 317 offenses (98 autocorrectable), including Ruby 2.7 parser errors | 1 |
+| `bundle exec brakeman --no-pager` (installed scanner, offline) | 79 checks; 3 security warnings, 0 scan errors | 3 |
+| `git diff --check` | Passed | 0 |
+
+Packaging totals: **231 runs, 2238 assertions, 0 failures/errors, 68 native-Windows skips**. Portable PowerShell exercised only parser/filesystem/HTTP-mock installer checks; Windows crypt32, ACL, UAC, and machine-store behavior were not executed.
+
+Rails used ephemeral test-only encryption/model settings, PostgreSQL, and `AI_BASE_URL=http://127.0.0.1:9/v1`, not real provider credentials. The full suite reproduced the accepted baseline error in `Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts`: embedding generation raised `Faraday::ConnectionFailed` at unavailable loopback port 9. No additional Rails failures/errors were observed. All 33 RuboCop offense files are unchanged from pre-Caddy revision `f18fffa`. Brakeman reported `account_id` mass assignment, inline rendering, and Rails 8.0 end-of-support; the flagged application sources and Rails version are likewise unchanged. **`bin/brakeman --no-pager` was NOT RUN** because its forced `--ensure-latest` contacts the RubyGems API, outside this verification's no-API constraint; the offline scan above does not verify scanner freshness.
+
+Source inspection plus mocked boundary checks found no new Caddy trust-boundary regression: only the current project's public root is copied once; strict CA/current-validity/self-signature validation rejects multiple objects and keys; confirmed bytes/fingerprints are retained without refetching; literal terminal `yes` gates imports; exact machine-store deduplication includes macOS admin trust; Windows elevates only the fixed DER import child; Linux anchors are fingerprint-qualified; partial failures identify exact recovery targets; cleanup stays within owned temporary paths; optional helper distribution neither executes downloads nor replaces existing helper paths. Public ACME, job startup, and migration commands remain preserved. This is not native-store or end-to-end proof.
+
+**NOT RUN / pending:** native macOS execution and Windows PowerShell 5.1/7 execution (CI matrix added but not triggered here); disposable-machine image build, HTTP redirect, HTTPS/health/static assets/chat streaming, native trust import/repeat/removal, and browser/runtime trust checks. No disposable machine was provided, so no real Docker/container operations, elevation, or host trust changes were performed. Session command logs are `/tmp/opencode/nosia-caddy-final-*.log` (not committed). These platform/provider/lint/security gaps remain open.
