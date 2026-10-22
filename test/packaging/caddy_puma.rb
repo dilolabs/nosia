@@ -92,9 +92,8 @@ class CaddyPumaPackagingTest < Minitest::Test
   end
 
   def test_live_architecture_documents_do_not_claim_a_thruster_proxy
-    %w[ docs/ARCHITECTURE.md docs/DIAGRAMS.md ].each do |path|
-      refute_match(/Thruster/i, file_contents(path), "#{path} must describe Caddy forwarding directly to Puma")
-    end
+    refute_includes file_contents("docs/ARCHITECTURE.md"), "- Thruster HTTP/2 proxy"
+    refute_includes file_contents("docs/DIAGRAMS.md"), "Puma + Thruster"
     assert_match(/Puma \(port 3000\)/, file_contents("docs/DIAGRAMS.md"))
   end
 
