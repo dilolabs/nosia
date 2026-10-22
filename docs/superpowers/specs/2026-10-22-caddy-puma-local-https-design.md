@@ -25,6 +25,7 @@ Success means users on supported Linux, macOS, and Windows hosts can explicitly 
 - **“Remove it (Recommended).”** Remove Thruster and its startup wiring so Caddy is the only HTTP proxy and Puma remains the application server.
 - **“Approve this section” — architecture and setup.** Keep Puma on internal port 3000, preserve Caddy's automatic local/public certificate selection and persisted CA, and provide explicit helpers that export only the public root, display identity and fingerprint, and require confirmation before trust installation.
 - **“Approve this section” — platform, safety, installer, and testing scope.** Use native machine-level trust stores on supported Linux distributions, macOS, and Windows; distribute helpers without executing them; document verification and exact-certificate removal; test without altering real host trust stores.
+- **“Go” after the written-spec review request.** Approve the committed written specification and proceed to implementation planning, not implementation.
 
 ## Approaches considered
 
@@ -130,8 +131,8 @@ Update `README.md`, `CONTRIBUTING.md`, and the relevant local HTTPS sections of 
 - [x] Present the design and obtain approval.
 - [x] Finalize and commit the design document.
 - [x] Self-review the written specification; fresh-context review also approved with no issues.
-- [ ] Obtain the user's review of the written specification.
-- [ ] Invoke writing-plans to prepare the implementation plan.
+- [x] Obtain the user's review of the written specification.
+- [x] Invoke writing-plans to prepare the implementation plan.
 
 ## References
 
