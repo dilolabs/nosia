@@ -129,7 +129,7 @@ Update `README.md`, `CONTRIBUTING.md`, and the relevant local HTTPS sections of 
 - [x] Propose two or three approaches with trade-offs and a recommendation.
 - [x] Present the design and obtain approval.
 - [x] Finalize and commit the design document.
-- [ ] Self-review the written specification.
+- [x] Self-review the written specification; fresh-context review also approved with no issues.
 - [ ] Obtain the user's review of the written specification.
 - [ ] Invoke writing-plans to prepare the implementation plan.
 
