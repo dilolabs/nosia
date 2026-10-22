@@ -51,6 +51,7 @@ select_store() {
       directory_exists /Library/Keychains || fail 'Unsupported macOS system keychain layout.'
       keychain=/Library/Keychains/System.keychain
       require_command security
+      require_command plutil
       ;;
     *) fail "Unsupported operating system: $platform." ;;
   esac
@@ -111,6 +112,57 @@ pem_present() {
   '
 }
 
+mac_admin_trusted() {
+  admin_settings=$temp_dir/admin-trust.plist
+  security trust-settings-export -d "$admin_settings" >/dev/null 2>&1 ||
+    fail 'Cannot export admin trust settings; no system trust changes were requested.'
+  trust_version=$(plist_value trustVersion integer) || return 1
+  [ "$trust_version" = 1 ] || return 1
+  plist_value trustList dictionary >/dev/null || return 1
+  # Apple's TrustSettingsSchema.h keys trustList by uppercase certificate SHA1.
+  # Exact public certificate presence is checked separately, not by this key.
+  admin_hash=$(printf '%s' "$sha1" | tr '[:lower:]' '[:upper:]')
+  admin_cert=trustList.$admin_hash
+  admin_keys=$(plist_value "$admin_cert" dictionary) || return 1
+  for metadata in issuerName serialNumber; do
+    admin_data=$(plist_value "$admin_cert.$metadata" data) || return 1
+    [ -n "$admin_data" ] || return 1
+  done
+  plist_value "$admin_cert.modDate" date >/dev/null || return 1
+  # An existing record with absent/empty trustSettings is Apple's unrestricted
+  # trustRoot default (including add-trusted-cert -d -r trustRoot).
+  case "$admin_keys" in
+    'issuerName
+modDate
+serialNumber') return 0 ;;
+    'issuerName
+modDate
+serialNumber
+trustSettings') ;;
+    *) return 1 ;;
+  esac
+  trust_count=$(plist_value "$admin_cert.trustSettings" array) || return 1
+  case "$trust_count" in
+    0) return 0 ;;
+    1)
+      setting_keys=$(plist_value "$admin_cert.trustSettings.0" dictionary) || return 1
+      case "$setting_keys" in
+        '') return 0 ;;
+        kSecTrustSettingsResult)
+          trust_result=$(plist_value "$admin_cert.trustSettings.0.kSecTrustSettingsResult" integer) || return 1
+          [ "$trust_result" = 1 ]
+          ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+plist_value() {
+  plutil -extract "$1" raw -expect "$2" -o - "$admin_settings" 2>/dev/null
+}
+
 root_trusted() {
   case "$platform" in
     Linux)
@@ -122,6 +174,8 @@ root_trusted() {
     Darwin)
       certificates=$(security find-certificate -a -p "$keychain" 2>/dev/null) || return 1
       pem_present "$certificates" || return 1
+      # verify-cert can inherit user-domain trust even with -k System.keychain.
+      mac_admin_trusted || return 1
       security verify-cert -c "$public_file" -p basic -l -L -k "$keychain" >/dev/null 2>&1
       ;;
   esac

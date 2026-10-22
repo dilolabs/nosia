@@ -4,6 +4,7 @@ require "tmpdir"
 require "fileutils"
 require "pty"
 require "timeout"
+require "rbconfig"
 require_relative "../support/caddy_certificate_fixtures"
 
 class CaddyTrustPosixTest < Minitest::Test
@@ -23,9 +24,11 @@ class CaddyTrustPosixTest < Minitest::Test
     @bundle = File.join(@sandbox, "machine-bundle.crt")
     @log = File.join(@sandbox, "calls.log")
     @installed = File.join(@sandbox, "installed.crt")
+    @admin_settings = File.join(@sandbox, "admin-settings.plist")
     File.write(@fixture, certificate_fixture)
     File.write(@bundle, "")
     File.write(@log, "")
+    File.write(@admin_settings, '<plist version="1.0"><dict><key>trustVersion</key><integer>1</integer><key>trustList</key><dict/></dict></plist>')
     guard_bin = File.join(@sandbox, "guard-bin")
     FileUtils.mkdir_p(guard_bin)
     %w[ docker sudo install security update-ca-certificates update-ca-trust ].each do |command|
@@ -33,12 +36,16 @@ class CaddyTrustPosixTest < Minitest::Test
       File.write(path, "#!/bin/sh\nprintf 'FORBIDDEN native command\\n' >&2\nexit 98\n")
       FileUtils.chmod(0755, path)
     end
+    File.write(File.join(@sandbox, "plutil.rb"), fake_plutil)
+    File.write(File.join(guard_bin, "plutil"), "#!/bin/sh\nexec \"$TEST_RUBY\" \"$TEST_DIR/plutil.rb\" \"$@\"\n")
+    FileUtils.chmod(0755, File.join(guard_bin, "plutil"))
     @environment = {
       "TEST_DIR" => @sandbox, "FIXTURE" => @fixture, "BUNDLE" => @bundle,
       "CALLS" => @log, "INSTALLED" => @installed, "TMPDIR" => @sandbox,
       "PLATFORM" => "Linux", "LAYOUT" => "debian", "DOCKER_CONTEXT" => "selected-remote",
       "COMPOSE_PROJECT_NAME" => "caller-project", "COMPOSE_FILE" => "caller-compose.yml",
-      "PATH" => "#{guard_bin}:#{ENV.fetch('PATH')}"
+      "PATH" => "#{guard_bin}:#{ENV.fetch('PATH')}", "TEST_RUBY" => RbConfig.ruby,
+      "ADMIN_SETTINGS" => @admin_settings
     }
   end
 
@@ -148,6 +155,18 @@ class CaddyTrustPosixTest < Minitest::Test
     assert_match(/TEMP_MODE 700/, calls)
   end
 
+  def test_permission_probe_does_not_require_gnu_stat
+    output, status = run_helper(body: <<~'SH')
+      stat() { printf 'UNEXPECTED_STAT\n' >> "$CALLS"; return 1; }
+      main
+    SH
+
+    assert status.success?, output
+    assert_includes calls, "TEMP_MODE 700"
+    refute_includes calls, "UNEXPECTED_STAT"
+    assert_temp_clean
+  end
+
   def test_import_uses_the_confirmed_snapshot_even_if_source_changes
     replacement = File.join(@sandbox, "replacement.crt")
     File.write(replacement, certificate_fixture(:future))
@@ -212,23 +231,130 @@ class CaddyTrustPosixTest < Minitest::Test
 
   def test_macos_already_trusted_requires_exact_presence_and_trust_query
     File.write(@bundle, certificate_fixture)
+    write_admin_settings
     output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
 
     assert status.success?, output
     assert_match(/already trusted/i, output)
     assert_match(%r{SECURITY verify-cert -c .*/public\.crt -p basic -l -L -k /Library/Keychains/System\.keychain}, calls)
+    assert_match(%r{SECURITY trust-settings-export -d #{@sandbox}/nosia-caddy\.[^/]+/admin-trust\.plist}, calls)
+    assert_includes calls, "PLUTIL -extract trustList.#{sha1.upcase} raw -expect dictionary"
+    assert_includes output, fingerprint
     refute_match(/CONFIRM|ADMIN/, calls)
+    assert_temp_clean
   end
 
   def test_macos_presence_without_trust_or_subject_only_match_does_not_skip_import
-    [ [ certificate_fixture, "1" ], [ certificate_fixture(:future), "" ], [ "", "" ] ].each do |pem, failure|
+    [ [ certificate_fixture, "1" ], [ certificate_fixture(:reissued_root), "" ], [ "", "" ] ].each do |pem, failure|
       File.write(@bundle, pem)
+      write_admin_settings
       File.write(@log, "")
       output, status = run_helper(environment: { "PLATFORM" => "Darwin", "NATIVE_VERIFY_FAIL" => failure })
 
       assert status.success?, output
       assert_includes calls, "ADMIN security add-trusted-cert"
     end
+  end
+
+  def test_macos_user_only_trust_cannot_grant_machine_deduplication
+    File.write(@bundle, certificate_fixture)
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
+
+    assert status.success?, output
+    refute_match(/already trusted/i, output)
+    assert_includes calls, "CONFIRM"
+    assert_includes calls, "ADMIN security add-trusted-cert"
+    assert_temp_clean
+  end
+
+  {
+    deny: "<array><dict><key>kSecTrustSettingsResult</key><integer>3</integer></dict></array>",
+    policy_restricted: "<array><dict><key>kSecTrustSettingsPolicy</key><data>KoZIhvdjZAED</data><key>kSecTrustSettingsResult</key><integer>1</integer></dict></array>",
+    application_restricted: "<array><dict><key>kSecTrustSettingsApplication</key><data>YW4gYXBwbGljYXRpb24=</data></dict></array>",
+    hostname_restricted: "<array><dict><key>kSecTrustSettingsPolicyString</key><string>nosia.localhost</string></dict></array>",
+    usage_restricted: "<array><dict><key>kSecTrustSettingsKeyUsage</key><integer>1</integer></dict></array>",
+    allowed_error: "<array><dict><key>kSecTrustSettingsAllowedError</key><integer>-2147409654</integer></dict></array>",
+    mixed_deny: "<array><dict/><dict><key>kSecTrustSettingsResult</key><integer>3</integer></dict></array>",
+    malformed_array: "<string>unrestricted</string>",
+    malformed_result: "<array><dict><key>kSecTrustSettingsResult</key><string>1</string></dict></array>",
+    trust_as_root: "<array><dict><key>kSecTrustSettingsResult</key><integer>2</integer></dict></array>"
+  }.each do |kind, settings|
+    define_method("test_macos_#{kind}_admin_settings_do_not_grant_deduplication") do
+      File.write(@bundle, certificate_fixture)
+      write_admin_settings(trust_settings: settings)
+      output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
+
+      assert status.success?, output
+      refute_match(/already trusted/i, output)
+      assert_includes calls, "CONFIRM"
+      assert_includes calls, "ADMIN security add-trusted-cert"
+      assert_temp_clean
+    end
+  end
+
+  def test_macos_explicit_unrestricted_admin_trust_deduplicates
+    [ "<array/>", "<array><dict/></array>", "<array><dict><key>kSecTrustSettingsResult</key><integer>1</integer></dict></array>" ].each do |settings|
+      File.write(@log, "")
+      File.write(@bundle, certificate_fixture)
+      write_admin_settings(trust_settings: settings)
+      output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
+
+      assert status.success?, output
+      assert_match(/already trusted/i, output)
+      refute_match(/CONFIRM|ADMIN/, calls)
+      assert_temp_clean
+    end
+  end
+
+  def test_macos_normal_import_admin_record_deduplicates_on_the_next_run
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
+    assert status.success?, output
+    assert_includes calls, "ADMIN security add-trusted-cert"
+
+    # Apple's default trustRoot export omits trustSettings for an unrestricted root.
+    File.write(@bundle, File.read(@installed))
+    write_admin_settings
+    File.write(@log, "")
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
+
+    assert status.success?, output
+    assert_match(/already trusted/i, output)
+    refute_match(/CONFIRM|ADMIN/, calls)
+    assert_temp_clean
+  end
+
+  def test_macos_admin_settings_for_a_different_fingerprint_do_not_grant_deduplication
+    File.write(@bundle, certificate_fixture)
+    write_admin_settings(key: OpenSSL::Digest::SHA1.hexdigest(der(certificate_fixture(:reissued_root))).upcase)
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
+
+    assert status.success?, output
+    assert_includes calls, "ADMIN security add-trusted-cert"
+    assert_temp_clean
+  end
+
+  def test_macos_unknown_or_malformed_admin_export_does_not_grant_deduplication
+    [ "<not-a-plist>", '<plist version="1.0"><dict><key>trustVersion</key><integer>2</integer></dict></plist>' ].each do |xml|
+      File.write(@log, "")
+      File.write(@bundle, certificate_fixture)
+      File.write(@admin_settings, xml)
+      output, status = run_helper(environment: { "PLATFORM" => "Darwin" })
+
+      assert status.success?, output
+      assert_includes calls, "ADMIN security add-trusted-cert"
+      assert_temp_clean
+    end
+  end
+
+  def test_macos_failed_admin_export_stops_without_confirmation_or_native_writes
+    File.write(@bundle, certificate_fixture)
+    write_admin_settings
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin", "ADMIN_EXPORT_FAIL" => "1" })
+
+    refute status.success?, output
+    assert_match(/admin.*export|export.*admin/i, output)
+    refute_match(/CONFIRM|ADMIN/, calls)
+    assert_temp_clean
   end
 
   [ "docker", "openssl", "sudo", "awk", "mktemp", "cmp", "install", "update-ca-certificates" ].each do |command|
@@ -249,6 +375,15 @@ class CaddyTrustPosixTest < Minitest::Test
     refute status.success?, output
     assert_includes output, "security"
     refute_match(/TEMP|ADMIN/, calls)
+  end
+
+  def test_missing_macos_plutil_fails_before_tempfiles
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin", "MISSING_COMMAND" => "plutil" })
+
+    refute status.success?, output
+    assert_includes output, "plutil"
+    refute_match(/TEMP|ADMIN/, calls)
+    assert_temp_clean
   end
 
   def test_unsupported_macos_keychain_layout_fails_before_writes
@@ -434,6 +569,81 @@ class CaddyTrustPosixTest < Minitest::Test
       OpenSSL::Digest::SHA1.hexdigest(der(certificate_fixture))
     end
 
+    def write_admin_settings(trust_settings: nil, key: sha1.upcase)
+      certificate = OpenSSL::X509::Certificate.new(certificate_fixture)
+      issuer = [ certificate.issuer.to_der ].pack("m0")
+      serial = [ certificate.serial.to_s(2) ].pack("m0")
+      settings = trust_settings ? "<key>trustSettings</key>#{trust_settings}" : ""
+      File.write(@admin_settings, <<~XML)
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0"><dict>
+          <key>trustVersion</key><integer>1</integer>
+          <key>trustList</key><dict><key>#{key}</key><dict>
+            <key>issuerName</key><data>#{issuer}</data>
+            <key>serialNumber</key><data>#{serial}</data>
+            <key>modDate</key><date>2026-10-22T00:00:00Z</date>
+            #{settings}
+          </dict></dict>
+        </dict></plist>
+      XML
+    end
+
+    def fake_plutil
+      <<~'RUBY'
+        require "rexml/document"
+        require "base64"
+        Node = Struct.new(:type, :value)
+
+        def parse(element)
+          case element.name
+          when "dict"
+            pairs = element.elements.to_a
+            raise "invalid dictionary" unless pairs.size.even?
+            values = pairs.each_slice(2).to_h do |key, value|
+              raise "invalid key" unless key.name == "key"
+              [ key.text.to_s, parse(value) ]
+            end
+            Node.new("dictionary", values)
+          when "array"
+            Node.new("array", element.elements.map { |child| parse(child) })
+          when "integer"
+            Node.new("integer", Integer(element.text, 10))
+          when "data"
+            Node.new("data", Base64.strict_encode64(Base64.strict_decode64(element.text.to_s.gsub(/\s/, ""))))
+          when "date", "string"
+            Node.new(element.name, element.text.to_s)
+          else
+            raise "unsupported plist type"
+          end
+        end
+
+        begin
+          File.open(ENV.fetch("CALLS"), "a") { |file| file.puts("PLUTIL #{ARGV.join(' ')}") }
+          operation, path, format, expect, type, output, destination, filename = ARGV
+          raise "unexpected command" unless [ operation, format, expect, output, destination ] == [ "-extract", "raw", "-expect", "-o", "-" ]
+          document = REXML::Document.new(File.read(filename))
+          raise "invalid plist" unless document.root.name == "plist" && document.root.elements.size == 1
+          node = parse(document.root.elements[1])
+          path.split(".").each do |key|
+            node = case node.type
+            when "dictionary" then node.value.fetch(key)
+            when "array" then node.value.fetch(Integer(key, 10))
+            else raise "missing key"
+            end
+          end
+          raise "wrong type" unless node.type == type
+          puts case type
+          when "dictionary" then node.value.keys.sort.join("\n")
+          when "array" then node.value.size
+          else node.value
+          end
+        rescue StandardError
+          exit 1
+        end
+      RUBY
+    end
+
     def calls
       File.read(@log)
     end
@@ -540,7 +750,7 @@ class CaddyTrustPosixTest < Minitest::Test
             'compose cp reverse-proxy:/data/caddy/pki/authorities/local/root.crt '*)
               [ "${DOCKER_FAILURE:-}" != cp ] || return 1
               [ "$#" = 4 ] || return 97
-              printf 'TEMP_MODE %s\n' "$(stat -c %a "${4%/*}")" >> "$CALLS"
+              printf 'TEMP_MODE %s\n' "$("$TEST_RUBY" -e 'printf "%o", File.stat(ARGV.fetch(0)).mode & 0777' "${4%/*}")" >> "$CALLS"
               case "${COPY_MODE:-}" in
                 symlink) ln -s "$FIXTURE" "$4" ;;
                 missing) : ;;
@@ -579,6 +789,10 @@ class CaddyTrustPosixTest < Minitest::Test
           case "$1" in
             find-certificate) command cat "$BUNDLE" ;;
             verify-cert) [ -z "${NATIVE_VERIFY_FAIL:-}" ] ;;
+            trust-settings-export)
+              [ "$#" = 3 ] && [ "$2" = -d ] || return 97
+              if [ -n "${ADMIN_EXPORT_FAIL:-}" ]; then printf 'partial export\n' > "$3"; return 1; fi
+              cp "$ADMIN_SETTINGS" "$3" ;;
             *) printf 'FORBIDDEN security write\n' >&2; exit 98 ;;
           esac
         }
