@@ -55,11 +55,6 @@ ARG OCI_SOURCE
 LABEL org.opencontainers.image.source="${OCI_SOURCE}"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Configure environment defaults
-ENV HTTP_IDLE_TIMEOUT=60
-ENV HTTP_READ_TIMEOUT=300
-ENV HTTP_WRITE_TIMEOUT=300
-
 # Copy built artifacts: gems, application
 COPY --from=build --chown=rails:rails /usr/local/bundle /usr/local/bundle
 COPY --from=build --chown=rails:rails /rails /rails
@@ -70,8 +65,8 @@ ENV APP_VERSION=$APP_VERSION
 ARG GIT_REVISION
 ENV GIT_REVISION=$GIT_REVISION
 
-# Expose ports for HTTP and HTTPS
-EXPOSE 80 443
+# Caddy forwards HTTP to Puma on the internal application port.
+EXPOSE 3000
 
 # Start the server by default, this can be overwritten at runtime
 CMD ["bin/boot"]
