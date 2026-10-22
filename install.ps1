@@ -516,7 +516,12 @@ function Do-Install {
     Download-CaddyTrustHelper
 
     Write-Host "Setup complete. Start with: docker compose up -d"
-    if (Test-Path -LiteralPath ".\bin\trust-caddy.ps1" -PathType Leaf) {
+    try {
+        $trustHelperAvailable = Test-Path -LiteralPath ".\bin\trust-caddy.ps1" -PathType Leaf -ErrorAction Stop
+    } catch {
+        $trustHelperAvailable = $false
+    }
+    if ($trustHelperAvailable) {
         Write-Host "After startup, optionally run: .\bin\trust-caddy.ps1"
     } else {
         Write-Host "For optional local HTTPS trust, see https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md"

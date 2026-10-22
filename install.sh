@@ -503,7 +503,7 @@ download_caddy_trust_helper() {
 
   # link uses the exact target path, never descending into a racing directory.
   if curl -fsSL -o "$caddy_trust_staged" https://raw.githubusercontent.com/dilolabs/nosia/main/bin/trust-caddy &&
-      [ -s "$caddy_trust_staged" ] && chmod +x "$caddy_trust_staged" &&
+      [ -s "$caddy_trust_staged" ] && chmod u+x "$caddy_trust_staged" &&
       link "$caddy_trust_staged" "$caddy_trust_target"; then
     :
   else

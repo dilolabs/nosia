@@ -45,6 +45,13 @@ module CaddyTrustInstallerFixtures
       definition
     end
 
+    # Run only the anchored final guidance, never Do-Install or its prerequisites.
+    def powershell_guidance
+      guidance = source("install.ps1")[/^(    Write-Host "Setup complete\. Start with: docker compose up -d"\n.*?)^\}\n\n# Run installation/m, 1]
+      refute_nil guidance, "missing isolated final PowerShell guidance"
+      guidance
+    end
+
     def calls
       File.read(@log).gsub("\r\n", "\n")
     end
@@ -97,7 +104,7 @@ class CaddyTrustInstallerPackagingTest < Minitest::Test
     assert_includes definition, UPSTREAM + "trust-caddy.ps1"
     refute_match(%r{#{Regexp.escape(UPSTREAM)}trust-caddy["']}, installer)
     assert_match(/docker compose pull.*?^    Download-CaddyTrustHelper\s*\n.*?Setup complete\. Start with: docker compose up -d/m, installer)
-    assert_match(/if \(Test-Path -LiteralPath ["']\.\\bin\\trust-caddy\.ps1["'] -PathType Leaf\) \{\s+Write-Host ["']After startup, optionally run: \.\\bin\\trust-caddy\.ps1["']\s+\} else \{\s+Write-Host "[^"]*#{Regexp.escape(GUIDE)}"/m, installer)
+    assert_match(/Test-Path -LiteralPath ["']\.\\bin\\trust-caddy\.ps1["'] -PathType Leaf/, powershell_guidance)
     assert_match(/\[IO\.File\]::Move\(\$\w+,\s*\$\w+\)/, definition)
     assert_distribution_only(definition, installer)
   end
@@ -135,6 +142,16 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
     assert_match(%r{^STAGED bin/\.trust-caddy\.[^/\n]+$}, calls)
     assert_operator calls.index("REQUEST"), :<, calls.index("CHMOD")
     assert_operator calls.index("CHMOD"), :<, calls.index("PUBLISH")
+  end
+
+  def test_restrictive_umask_still_publishes_an_owner_executable_helper_in_existing_bin
+    FileUtils.mkdir_p(File.dirname(@target))
+    output, status = run_downloader("TEST_UMASK" => "0111")
+
+    assert_usable(output, status)
+    assert File.file?(@target), output
+    assert_equal 0100, File.stat(@target).mode & 0100, "published helper is not owner executable"
+    assert_equal File.read(@payload), File.read(@target)
   end
 
   %w[ file empty_file directory symlink broken_symlink ].each do |kind|
@@ -297,7 +314,12 @@ class CaddyTrustShellDownloaderTest < Minitest::Test
     end
 
     def run_downloader(environment = {})
-      script = shell_definition + "\ndownload_caddy_trust_helper\nprintf 'INSTALLER_USABLE\\n'\n"
+      script = shell_definition + <<~'SH'
+
+        if [ -n "${TEST_UMASK:-}" ]; then umask "$TEST_UMASK"; fi
+        download_caddy_trust_helper
+        printf 'INSTALLER_USABLE\n'
+      SH
       output, error, status = Open3.capture3(@environment.merge(environment), "/bin/sh", "-e", "-c", script, chdir: @project)
       [ output + error, status ]
     end
@@ -328,6 +350,33 @@ module CaddyTrustPowerShellDownloaderChecks
     assert_equal 1, calls.lines.grep(/^REQUEST /).size
     assert_includes calls, "REQUEST #{CaddyTrustInstallerFixtures::UPSTREAM}trust-caddy.ps1\n"
     assert_match(%r{^STAGED .*[/\\]bin[/\\]\.trust-caddy\.[\da-f-]+$}i, calls)
+  end
+
+  %w[ present missing inaccessible ].each do |mode|
+    define_method("test_final_guidance_remains_usable_when_the_helper_is_#{mode}") do
+      output, status = run_guidance(mode)
+
+      assert_usable(output, status)
+      assert_includes output, "Setup complete. Start with: docker compose up -d"
+      assert_equal "PROBE .\\bin\\trust-caddy.ps1 Leaf\n", calls
+      if mode == "present"
+        assert_includes output, "After startup, optionally run: .\\bin\\trust-caddy.ps1"
+        refute_includes output, CaddyTrustInstallerFixtures::GUIDE
+      else
+        assert_includes output, CaddyTrustInstallerFixtures::GUIDE
+        refute_includes output, "After startup, optionally run:"
+      end
+    end
+  end
+
+  def test_failed_download_and_inaccessible_guidance_remain_nonfatal
+    output, status = run_guidance("inaccessible", download: true)
+
+    assert_warning(output, status)
+    assert_includes output, "Setup complete. Start with: docker compose up -d"
+    refute_includes output, "After startup, optionally run:"
+    assert_includes calls, "REQUEST #{CaddyTrustInstallerFixtures::UPSTREAM}trust-caddy.ps1\n"
+    assert_includes calls, "PROBE .\\bin\\trust-caddy.ps1 Leaf\n"
   end
 
   %w[ file empty_file directory symlink broken_symlink ].each do |kind|
@@ -411,6 +460,21 @@ module CaddyTrustPowerShellDownloaderChecks
 
     def run_downloader(environment = {})
       run_powershell("Download-CaddyTrustHelper\n'INSTALLER_USABLE'", environment: environment)
+    end
+
+    def run_guidance(mode, download: false)
+      run_powershell(<<~PS, environment: { "GUIDANCE_MODE" => mode, "MODE" => "failure" }, definition: download)
+        function Test-Path {
+          param($LiteralPath, $PathType, $ErrorAction)
+          if ($LiteralPath -cne '.\\bin\\trust-caddy.ps1' -or $PathType -ne 'Leaf') { throw 'Unexpected optional probe' }
+          [IO.File]::AppendAllText($env:CALLS, "PROBE $LiteralPath $PathType`n")
+          if ($env:GUIDANCE_MODE -eq 'inaccessible') { throw 'Mock permission denied probing inaccessible bin' }
+          $env:GUIDANCE_MODE -eq 'present'
+        }
+        #{download ? 'Download-CaddyTrustHelper' : ''}
+        #{powershell_guidance}
+        'INSTALLER_USABLE'
+      PS
     end
 
     def run_powershell(body, environment: {}, definition: true)
