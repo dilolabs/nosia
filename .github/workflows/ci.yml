@@ -6,6 +6,65 @@ on:
     branches: [ main ]
 
 jobs:
+  trust_helpers:
+    name: Caddy trust helpers (${{ matrix.os }}, ${{ matrix.engine }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            engine: posix
+          - os: macos-latest
+            engine: posix
+          - os: windows-latest
+            engine: powershell
+          - os: windows-latest
+            engine: pwsh
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up standalone Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: false
+
+      - name: Install standalone test dependencies
+        run: gem install minitest openssl --no-document
+
+      - name: Verify Unix trust helper contracts
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -e
+          if [ "$RUNNER_OS" = macOS ]; then
+            if ! openssl_prefix="$(brew --prefix openssl@3)" || [ ! -x "$openssl_prefix/bin/openssl" ]; then
+              echo "Missing preinstalled Homebrew openssl@3 CLI" >&2
+              exit 1
+            fi
+            export PATH="$openssl_prefix/bin:$PATH"
+          fi
+          openssl version
+          sh -n bin/trust-caddy
+          sh -n install.sh
+          ruby test/packaging/caddy_puma.rb
+          ruby test/packaging/caddy_trust_posix.rb
+          ruby test/packaging/caddy_trust_installers.rb
+
+      - name: Verify native Windows trust helper contracts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CADDY_TEST_POWERSHELL: ${{ matrix.engine }}
+        run: |
+          ruby test/packaging/caddy_trust_windows.rb
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ruby test/packaging/caddy_trust_installers.rb
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   scan_ruby:
     runs-on: ubuntu-latest
 

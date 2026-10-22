@@ -213,7 +213,76 @@ class CaddyPumaPackagingTest < Minitest::Test
     assert_match(/download.*fail/i, guide)
   end
 
+  def test_trust_helpers_ci_covers_all_native_platforms_and_powershell_engines
+    job = trust_helpers_job
+
+    assert_equal "Caddy trust helpers (${{ matrix.os }}, ${{ matrix.engine }})", job.fetch("name")
+    assert_equal "${{ matrix.os }}", job.fetch("runs-on")
+    assert_equal false, job.fetch("strategy").fetch("fail-fast")
+    assert_equal [
+      { "os" => "ubuntu-latest", "engine" => "posix" },
+      { "os" => "macos-latest", "engine" => "posix" },
+      { "os" => "windows-latest", "engine" => "powershell" },
+      { "os" => "windows-latest", "engine" => "pwsh" }
+    ], job.fetch("strategy").fetch("matrix").fetch("include")
+  end
+
+  def test_trust_helpers_ci_installs_only_standalone_ruby_test_dependencies
+    steps = trust_helpers_job.fetch("steps")
+
+    assert steps.any? { |step| step["uses"] == "actions/checkout@v6" }
+    setup = steps.find { |step| step["uses"] == "ruby/setup-ruby@v1" }
+    refute_nil setup, "trust_helpers must set up native Ruby without the application bundle"
+    assert_equal ".ruby-version", setup.fetch("with").fetch("ruby-version")
+    assert_equal false, setup.fetch("with").fetch("bundler-cache")
+    assert steps.any? { |step| step["run"] == "gem install minitest openssl --no-document" }
+  end
+
+  def test_trust_helpers_ci_runs_unix_syntax_and_standalone_tests_with_compatible_macos_openssl
+    step = trust_helpers_job.fetch("steps").find { |candidate| candidate["if"] == "runner.os != 'Windows'" }
+    refute_nil step, "trust_helpers must run the Unix contracts on Linux and macOS"
+    commands = step.fetch("run")
+
+    assert_equal "bash", step.fetch("shell")
+    assert_match(/^set -e$/, commands)
+    assert_match(/^\s*sh -n bin\/trust-caddy$/, commands)
+    assert_match(/^\s*sh -n install\.sh$/, commands)
+    %w[ caddy_puma caddy_trust_posix caddy_trust_installers ].each do |test|
+      assert_match(/^\s*ruby test\/packaging\/#{test}\.rb$/, commands)
+    end
+    assert_includes commands, '"$RUNNER_OS" = macOS'
+    assert_includes commands, "brew --prefix openssl@3"
+    assert_includes commands, 'export PATH="$openssl_prefix/bin:$PATH"'
+    assert_match(/Missing.*openssl@3/, commands)
+    assert_match(/^\s*exit 1$/, commands)
+  end
+
+  def test_trust_helpers_ci_runs_both_windows_harnesses_and_propagates_each_ruby_failure
+    step = trust_helpers_job.fetch("steps").find { |candidate| candidate["if"] == "runner.os == 'Windows'" }
+    refute_nil step, "trust_helpers must run native Windows harnesses"
+
+    assert_equal "pwsh", step.fetch("shell")
+    assert_equal "${{ matrix.engine }}", step.fetch("env").fetch("CADDY_TEST_POWERSHELL")
+    %w[ caddy_trust_windows caddy_trust_installers ].each do |test|
+      assert_match(/^\s*ruby test\/packaging\/#{test}\.rb\n\s*if \(\$LASTEXITCODE -ne 0\) \{ exit \$LASTEXITCODE \}$/, step.fetch("run"))
+    end
+  end
+
+  def test_trust_helpers_ci_never_runs_installers_or_native_trust_commands
+    commands = trust_helpers_job.fetch("steps").filter_map { |step| step["run"] }.join("\n")
+    commands = commands.lines.reject { |line| line.match?(/^\s*sh -n (?:bin\/trust-caddy|install\.sh)\s*$/) }.join
+
+    refute_match(/\b(?:bundle|sudo|docker|Import-Certificate|Start-Process|Set-ExecutionPolicy|update-ca-certificates|update-ca-trust)\b/i, commands)
+    refute_match(%r{bin[/\\](?:trust-caddy|rails)\b|\binstall\.(?:sh|ps1)\b|\bsecurity\s+(?:add|remove|delete)}, commands)
+  end
+
   private
+    def trust_helpers_job
+      jobs = YAML.safe_load(file_contents(".github/workflows/ci.yml")).fetch("jobs")
+      assert jobs.key?("trust_helpers"), "Missing standalone trust_helpers CI job"
+      jobs.fetch("trust_helpers")
+    end
+
     def local_https_guide
       assert File.file?(File.join(ROOT, "docs/LOCAL_HTTPS.md")), "Missing canonical local HTTPS guide"
       file_contents("docs/LOCAL_HTTPS.md")

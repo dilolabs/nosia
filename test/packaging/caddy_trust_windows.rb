@@ -54,6 +54,7 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
   include CaddyCertificateFixtures
 
   HELPER = CaddyTrustWindowsPackagingTest::HELPER
+  INSTALLER = File.expand_path("../../install.ps1", __dir__)
   GUIDE = "https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md"
 
   def setup
@@ -65,7 +66,8 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
     File.write(@fixture, certificate_fixture)
     File.write(@log, "")
     @environment = {
-      "CADDY_TEST_HELPER" => HELPER, "TEST_DIR" => @sandbox, "FIXTURE" => @fixture,
+      "CADDY_TEST_HELPER" => HELPER, "CADDY_TEST_INSTALLER" => INSTALLER,
+      "TEST_DIR" => @sandbox, "FIXTURE" => @fixture,
       "CALLS" => @log, "PAYLOAD" => @payload, "TEMP" => @sandbox, "TMP" => @sandbox,
       "DOCKER_CONTEXT" => "selected-remote", "COMPOSE_PROJECT_NAME" => "caller-project",
       "COMPOSE_FILE" => "caller-compose.yml"
@@ -76,17 +78,22 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
     FileUtils.remove_entry(@sandbox) if @sandbox
   end
 
-  def test_native_parser_accepts_the_helper_without_running_its_entrypoint
-    output, status = run_helper(body: <<~'PS', boundaries: false)
-      $tokens = $null
-      $errors = $null
-      [void][Management.Automation.Language.Parser]::ParseFile($env:CADDY_TEST_HELPER, [ref]$tokens, [ref]$errors)
-      if ($errors.Count -ne 0) { throw ($errors | Out-String) }
-      'PARSE_OK'
+  def test_native_parser_accepts_both_full_scripts_without_running_their_entrypoints
+    output, status = run_helper(body: <<~'PS', boundaries: false, source_helper: false)
+      foreach ($path in @($env:CADDY_TEST_HELPER, $env:CADDY_TEST_INSTALLER)) {
+        $tokens = $null
+        $errors = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+        if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+        if ($ast -isnot [Management.Automation.Language.ScriptBlockAst]) { throw "Missing script AST: $path" }
+        "PARSE_OK $path"
+      }
     PS
 
     assert status.success?, output
-    assert_includes output, "PARSE_OK"
+    assert_includes output, "PARSE_OK #{HELPER}"
+    assert_includes output, "PARSE_OK #{INSTALLER}"
+    assert_equal 2, output.lines.grep(/^PARSE_OK /).size
     assert_empty calls
   end
 
@@ -516,7 +523,7 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
       assert_empty Dir.glob(File.join(@sandbox, "*.tmp")), "child left its temporary public certificate"
     end
 
-    def run_helper(environment: {}, overrides: "", body: "Invoke-CaddyTrust", boundaries: true, real_confirm: false, input: "")
+    def run_helper(environment: {}, overrides: "", body: "Invoke-CaddyTrust", boundaries: true, real_confirm: false, input: "", source_helper: true)
       script = File.join(@sandbox, "harness.ps1")
       File.write(script, <<~PS)
         Set-StrictMode -Version Latest
@@ -526,7 +533,7 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
           function Start-Process { throw 'FORBIDDEN real UAC/Start-Process' }
           function Import-Certificate { throw 'FORBIDDEN real native import' }
           function docker { throw 'FORBIDDEN real Docker' }
-          . $env:CADDY_TEST_HELPER
+          #{source_helper ? '. $env:CADDY_TEST_HELPER' : ''}
           #{boundaries ? fake_boundaries : ''}
           #{real_confirm ? '' : fake_confirmation}
           #{overrides}
