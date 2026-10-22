@@ -114,8 +114,15 @@ pem_present() {
 
 mac_admin_trusted() {
   admin_settings=$temp_dir/admin-trust.plist
-  security trust-settings-export -d "$admin_settings" >/dev/null 2>&1 ||
+  if export_error=$(security trust-settings-export -d "$admin_settings" 2>&1); then
+    :
+  else
+    export_status=$?
+    if [ "$export_status" -eq 1 ] && mac_admin_settings_absent "$export_error"; then
+      return 1
+    fi
     fail 'Cannot export admin trust settings; no system trust changes were requested.'
+  fi
   trust_version=$(plist_value trustVersion integer) || return 1
   [ "$trust_version" = 1 ] || return 1
   plist_value trustList dictionary >/dev/null || return 1
@@ -154,6 +161,24 @@ trustSettings') ;;
           ;;
         *) return 1 ;;
       esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+mac_admin_settings_absent() {
+  # errSecNoTrustSettings is reported before Apple's exporter creates a file.
+  [ ! -e "$admin_settings" ] && [ ! -L "$admin_settings" ] || return 1
+  # security error also exits 1 on success. Both commands use cssmErrorString,
+  # so compare the exact native diagnostic without assuming an English locale.
+  if no_settings_error=$(security error -25263 2>/dev/null); then
+    return 1
+  else
+    [ "$?" -eq 1 ] || return 1
+  fi
+  case "$no_settings_error" in
+    'Error: 0xFFFF9D51 -25263 '?*)
+      [ "$1" = "SecTrustSettingsCreateExternalRepresentation: ${no_settings_error#Error: 0xFFFF9D51 -25263 }" ]
       ;;
     *) return 1 ;;
   esac

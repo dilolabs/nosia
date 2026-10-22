@@ -267,6 +267,67 @@ class CaddyTrustPosixTest < Minitest::Test
     assert_temp_clean
   end
 
+  def test_macos_absent_admin_domain_allows_first_machine_import_of_present_root
+    File.write(@bundle, certificate_fixture)
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin", "ADMIN_EXPORT_MODE" => "absent" })
+
+    assert status.success?, output
+    refute_match(/already trusted/i, output)
+    assert_includes calls, "SECURITY error -25263"
+    assert_operator calls.index("CONFIRM"), :<, calls.index("ADMIN security add-trusted-cert")
+    assert_equal der(certificate_fixture), der(File.read(@installed))
+    assert_equal 1, calls.lines.grep(/SECURITY trust-settings-export /).size
+    refute_includes calls, "PLUTIL"
+    assert_temp_clean
+  end
+
+  def test_macos_absent_admin_domain_uses_native_localized_error_description
+    File.write(@bundle, certificate_fixture)
+    output, status = run_helper(environment: {
+      "PLATFORM" => "Darwin", "ADMIN_EXPORT_MODE" => "absent",
+      "NO_SETTINGS_MESSAGE" => "Aucun réglage de confiance trouvé."
+    })
+
+    assert status.success?, output
+    assert_includes calls, "SECURITY error -25263"
+    assert_includes calls, "ADMIN security add-trusted-cert"
+    assert_temp_clean
+  end
+
+  def test_macos_absent_admin_domain_still_requires_confirmation
+    File.write(@bundle, certificate_fixture)
+    output, status = run_helper(environment: { "PLATFORM" => "Darwin", "ADMIN_EXPORT_MODE" => "absent", "CANCEL" => "1" })
+
+    refute status.success?, output
+    assert_match(/cancel/i, output)
+    assert_includes calls, "CONFIRM"
+    refute_includes calls, "ADMIN security add-trusted-cert"
+    assert_temp_clean
+  end
+
+  [ "permission", "lookalike", "partial_absent" ].each do |mode|
+    define_method("test_macos_#{mode}_export_error_cannot_be_treated_as_absent_admin_settings") do
+      File.write(@bundle, certificate_fixture)
+      output, status = run_helper(environment: { "PLATFORM" => "Darwin", "ADMIN_EXPORT_MODE" => mode })
+
+      refute status.success?, output
+      assert_match(/export.*admin|admin.*export/i, output)
+      refute_match(/CONFIRM|ADMIN/, calls)
+      assert_temp_clean
+    end
+  end
+
+  def test_macos_absence_requires_a_confirmed_native_error_code_description
+    File.write(@bundle, certificate_fixture)
+    output, status = run_helper(environment: {
+      "PLATFORM" => "Darwin", "ADMIN_EXPORT_MODE" => "absent", "ERROR_LOOKUP_FAIL" => "1"
+    })
+
+    refute status.success?, output
+    refute_match(/CONFIRM|ADMIN/, calls)
+    assert_temp_clean
+  end
+
   {
     deny: "<array><dict><key>kSecTrustSettingsResult</key><integer>3</integer></dict></array>",
     policy_restricted: "<array><dict><key>kSecTrustSettingsPolicy</key><data>KoZIhvdjZAED</data><key>kSecTrustSettingsResult</key><integer>1</integer></dict></array>",
@@ -792,7 +853,24 @@ class CaddyTrustPosixTest < Minitest::Test
             trust-settings-export)
               [ "$#" = 3 ] && [ "$2" = -d ] || return 97
               if [ -n "${ADMIN_EXPORT_FAIL:-}" ]; then printf 'partial export\n' > "$3"; return 1; fi
+              case "${ADMIN_EXPORT_MODE:-}" in
+                absent|partial_absent)
+                  if [ "$ADMIN_EXPORT_MODE" = partial_absent ]; then printf 'partial export\n' > "$3"; fi
+                  printf 'SecTrustSettingsCreateExternalRepresentation: %s\n' "${NO_SETTINGS_MESSAGE:-No Trust Settings were found.}" >&2
+                  return 1 ;;
+                permission)
+                  printf 'SecTrustSettingsCreateExternalRepresentation: User interaction is not allowed.\n' >&2
+                  return 1 ;;
+                lookalike)
+                  printf 'SecTrustSettingsCreateExternalRepresentation: No Trust Settings were found. Permission denied.\n' >&2
+                  return 1 ;;
+              esac
               cp "$ADMIN_SETTINGS" "$3" ;;
+            error)
+              [ "$#" = 2 ] && [ "$2" = -25263 ] || return 97
+              [ -z "${ERROR_LOOKUP_FAIL:-}" ] || return 2
+              printf 'Error: 0xFFFF9D51 -25263 %s\n' "${NO_SETTINGS_MESSAGE:-No Trust Settings were found.}"
+              return 1 ;;
             *) printf 'FORBIDDEN security write\n' >&2; exit 98 ;;
           esac
         }
