@@ -156,7 +156,14 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
     assert_includes child, fingerprint
     refute_includes child, @sandbox
     refute_match(/docker|trust-caddy|root\.key|PRIVATE KEY|Read-Host|Start-Process/i, child)
-    assert_equal 1, calls.lines.grep(/ compose cp /).size
+    copies = calls.lines.grep(/ compose cp /)
+    assert_equal 1, copies.size
+    exported_path = copies.first.match(/compose cp reverse-proxy:\/data\/caddy\/pki\/authorities\/local\/root\.crt (.+)\n/)[1]
+    refute_equal @fixture, exported_path
+    assert_includes calls, "REPLACED_EXPORTED_ROOT #{exported_path} changed after confirmation"
+    assert_operator calls.index("CONFIRM"), :<, calls.index("REPLACED_EXPORTED_ROOT")
+    assert_operator calls.index("REPLACED_EXPORTED_ROOT"), :<, calls.index("IMPORT")
+    assert_equal certificate_fixture, File.read(@fixture)
     assert_temp_clean
   end
 
@@ -539,7 +546,10 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
       <<~'PS'
         function Confirm-CaddyTrust {
           Add-Call 'CONFIRM'
-          if ($env:REPLACE_ON_CONFIRM -eq '1') { [IO.File]::WriteAllText($env:FIXTURE, 'changed after confirmation') }
+          if ($env:REPLACE_ON_CONFIRM -eq '1') {
+            [IO.File]::WriteAllText($script:copiedRootPath, 'changed after confirmation')
+            Add-Call "REPLACED_EXPORTED_ROOT $script:copiedRootPath $([IO.File]::ReadAllText($script:copiedRootPath))"
+          }
           $env:CANCEL -ne '1'
         }
       PS
@@ -581,6 +591,7 @@ class CaddyTrustWindowsNativeTest < Minitest::Test
             }
           }
           [IO.File]::Copy($env:FIXTURE, $destination)
+          $script:copiedRootPath = $destination
         }
         function Get-CaddyRootCertificates { @() }
         function Invoke-CaddyElevatedImport {
