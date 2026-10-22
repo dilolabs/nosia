@@ -642,6 +642,27 @@ docker compose logs postgres-db
 docker compose exec web bin/rails runner "ActiveRecord::Base.connection.execute('SELECT 1')"
 ```
 
+**Migration fails with `expected 768 dimensions, not 4096`:**
+
+Older Compose files pass `EMBEDDING_DIMENSIONS` to `web` and `solidq`, but not
+`db-migrate`. The migration then defaults to 768 even when the existing model and
+stored vectors use 4096. A value in `.env` is not automatically passed into every
+container.
+
+If you have not changed embedding models, keep the correct existing
+`EMBEDDING_DIMENSIONS` in `.env` and add this entry under
+`services.db-migrate.environment` in your deployed `docker-compose.yml`:
+
+```yaml
+- EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS}
+```
+
+Then run `docker compose up -d` to recreate the migration container with the
+correct setting and resume startup. No embedding rebuild is needed for this
+configuration fix. Do not delete the database volume or clear embeddings to
+bypass the error. An intentional model/dimension change requires a separate
+re-indexing procedure.
+
 #### Document Processing Issues
 
 **Documents not processing:**
