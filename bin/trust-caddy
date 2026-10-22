@@ -63,15 +63,19 @@ validate_root() {
     { sub(/\r$/, "") }
     /^-----BEGIN CERTIFICATE-----$/ { if (state != 0) exit 1; state = 1; count++; next }
     /^-----END CERTIFICATE-----$/ { if (state != 1) exit 1; state = 2; next }
-    state == 1 { if ($0 !~ /^[A-Za-z0-9+\/=]+$/) exit 1; next }
+    state == 1 { if ($0 !~ /^[A-Za-z0-9+\/=]+$/) exit 1; print; next }
     /^[[:space:]]*$/ { next }
     { exit 1 }
     END { if (count != 1 || state != 2) exit 1 }
-  ' "$1" || fail 'Expected exactly one CERTIFICATE PEM block and whitespace only; no keys or other material.'
+  ' "$1" > "$temp_dir/input.base64" || fail 'Expected exactly one CERTIFICATE PEM block and whitespace only; no keys or other material.'
 
+  openssl base64 -d -in "$temp_dir/input.base64" -out "$temp_dir/input.der" || fail 'Cannot decode certificate PEM.'
   public_pem=$(openssl x509 -in "$1" -outform PEM) || fail 'Malformed X.509 certificate.'
   public_file=$temp_dir/public.crt
   printf '%s\n' "$public_pem" > "$public_file" || fail 'Cannot save the canonical public certificate.'
+  openssl x509 -in "$public_file" -outform DER -out "$temp_dir/public.der" || fail 'Cannot encode the canonical certificate DER.'
+  # x509 silently ignores bytes after the first DER object inside a PEM block.
+  cmp -s "$temp_dir/input.der" "$temp_dir/public.der" || fail 'Decoded certificate PEM contains trailing data or multiple certificates.'
   constraints=$(openssl x509 -in "$public_file" -noout -ext basicConstraints) || fail 'Cannot read CA basic constraints.'
   printf '%s\n' "$constraints" | awk '
     /^[[:space:]]*X509v3 Basic Constraints:/ { extension = 1; next }
@@ -135,10 +139,9 @@ confirm() {
 
 cleanup() {
   if [ -n "$temp_dir" ]; then
-    rm -f "$temp_dir/root.crt" "$temp_dir/public.crt" 2>/dev/null || :
-    # A failed Docker copy might leave an empty directory instead of a file.
-    rmdir "$temp_dir/root.crt" 2>/dev/null || :
-    rmdir "$temp_dir" 2>/dev/null || :
+    # Only the exact private mktemp directory, without a trailing slash; rm does
+    # not follow symlinks, including any left by an unexpected Docker copy.
+    rm -rf -- "$temp_dir" 2>/dev/null || :
   fi
 }
 
@@ -165,7 +168,7 @@ install_root() {
 
 main() {
   [ "$#" -eq 0 ] || fail 'Usage: bin/trust-caddy (no arguments or unattended flags).'
-  for required in docker openssl sudo uname awk tr cat mktemp rm rmdir; do
+  for required in docker openssl sudo uname awk tr cat mktemp rm cmp; do
     require_command "$required"
   done
   verify_help=$(openssl verify -help 2>&1) || :

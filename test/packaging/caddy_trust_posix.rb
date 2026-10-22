@@ -75,7 +75,7 @@ class CaddyTrustPosixTest < Minitest::Test
   end
 
   [ :leaf, :expired, :future, :bad_self_signature, :other_issuer, :no_basic_constraints,
-    :multiple, :private_key, :malformed, :trailing_text ].each do |kind|
+    :multiple, :private_key, :malformed, :trailing_text, :concatenated_der, :trailing_der_junk ].each do |kind|
     define_method("test_rejects_#{kind}_before_confirmation_or_admin") do
       File.write(@fixture, certificate_fixture(kind))
       output, status = run_helper
@@ -96,6 +96,21 @@ class CaddyTrustPosixTest < Minitest::Test
       assert_temp_clean
       assert File.file?(@fixture), "cleanup must not follow the copied symlink"
     end
+  end
+
+  def test_cleanup_removes_nested_copy_directory_without_following_external_symlinks
+    outside = File.join(@sandbox, "outside")
+    FileUtils.mkdir_p(outside)
+    sentinel = File.join(outside, "keep.txt")
+    File.write(sentinel, "caller data")
+    output, status = run_helper(environment: { "COPY_MODE" => "nested_directory" })
+
+    refute status.success?, output
+    assert_match(/regular.*file/, output)
+    refute_match(/CONFIRM|ADMIN/, calls)
+    assert_equal "caller data", File.read(sentinel)
+    assert_equal certificate_fixture, File.read(@fixture)
+    assert_temp_clean
   end
 
   ANCHORS.each do |layout, (anchor, updater, bundle)|
@@ -216,7 +231,7 @@ class CaddyTrustPosixTest < Minitest::Test
     end
   end
 
-  [ "docker", "openssl", "sudo", "awk", "mktemp", "install", "update-ca-certificates" ].each do |command|
+  [ "docker", "openssl", "sudo", "awk", "mktemp", "cmp", "install", "update-ca-certificates" ].each do |command|
     define_method("test_missing_#{command.tr('-', '_')}_fails_before_tempfiles") do
       output, status = run_helper(environment: { "MISSING_COMMAND" => command })
 
@@ -530,6 +545,11 @@ class CaddyTrustPosixTest < Minitest::Test
                 symlink) ln -s "$FIXTURE" "$4" ;;
                 missing) : ;;
                 directory) mkdir "$4" ;;
+                nested_directory)
+                  mkdir -p "$4/nested/inner"
+                  printf 'unexpected copy\n' > "$4/nested/inner/file"
+                  ln -s "$TEST_DIR/outside" "$4/external-directory"
+                  ln -s "$FIXTURE" "$4/nested/external-certificate" ;;
                 *) cp "$FIXTURE" "$4" ;;
               esac ;;
             *) printf 'Unexpected Docker invocation: %s\n' "$*" >&2; return 97 ;;

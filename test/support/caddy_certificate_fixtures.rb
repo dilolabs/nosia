@@ -14,6 +14,13 @@ module CaddyCertificateFixtures
         @certificate_fixtures.fetch(:reissued_root)
       when :multiple
         certificate_fixture(:root) + certificate_fixture(:leaf)
+      when :concatenated_der
+        root = OpenSSL::X509::Certificate.new(certificate_fixture(:root)).to_der
+        leaf = OpenSSL::X509::Certificate.new(certificate_fixture(:leaf)).to_der
+        pem_from_der(root + leaf)
+      when :trailing_der_junk
+        root = OpenSSL::X509::Certificate.new(certificate_fixture(:root)).to_der
+        pem_from_der(root + "\x00\xfftrailing decoded junk".b)
       when :private_key
         certificate_fixture(:root) + "-----BEGIN PRIVATE KEY-----\nNOT A REAL KEY\n-----END PRIVATE KEY-----\n"
       when :malformed
@@ -23,6 +30,10 @@ module CaddyCertificateFixtures
       else
         build_certificate(kind).to_pem
       end
+    end
+
+    def pem_from_der(der)
+      "-----BEGIN CERTIFICATE-----\n#{[ der ].pack('m')}-----END CERTIFICATE-----\n"
     end
 
     def build_certificate(kind)
