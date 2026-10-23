@@ -22,6 +22,44 @@ class AccountOverviewTest < ActiveSupport::TestCase
     assert rows.all? { |chat| chat.account_id == @second.id && chat.user_id == @user.id && chat.chat_id.nil? }
   end
 
+  test "nonempty directory summaries use exactly five grouped queries regardless of account count" do
+    [ [ @second ], [ @first, @second, @empty ] ].each do |accounts|
+      statements = []
+      subscriber = ->(_name, _start, _finish, _id, payload) { statements << payload[:sql] unless payload[:cached] || payload[:name] == "SCHEMA" }
+      Account.uncached do
+        ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") { Account.overview_counts_for(accounts, user: @user) }
+      end
+
+      selects = statements.grep(/\ASELECT\b/i)
+      assert_equal 5, selects.size
+      assert_equal %w[chats documents qnas texts websites], selects.map { |sql| sql[/\bFROM\s+["`]?([a-z_]+)/i, 1] }.sort
+      selects.each { |sql| assert_match(/COUNT\(.*GROUP BY/im, sql) }
+    end
+  end
+
+  test "chat activity ties use descending numeric IDs independently of message titles" do
+    first = experience(:chats, :overview_second_chat_0)
+    second = experience(:chats, :overview_second_chat_1)
+    timestamp = Time.utc(2030, 1, 1)
+    first.update_columns(updated_at: timestamp)
+    second.update_columns(updated_at: timestamp)
+
+    assert_equal [ first.id, second.id ].sort.reverse, @second.conversations_for(@user).limit(2).map(&:id)
+    experience(:messages, :overview_second_question_0).update_columns(content: nil)
+    assert_nil Chat.first_questions_for([ first ]).fetch(first.id)
+    assert_empty Chat.first_questions_for([])
+  end
+
+  test "first user messages with equal timestamps use ascending numeric message IDs" do
+    chat = experience(:chats, :overview_second_chat_0)
+    first = experience(:messages, :overview_second_question_0)
+    second = experience(:messages, :overview_second_question_1)
+    second.update_columns(chat_id: chat.id, created_at: first.created_at)
+    expected = [ first, second ].min_by(&:id).content
+
+    assert_equal expected, Chat.first_questions_for([ chat ]).fetch(chat.id)
+  end
+
   test "first questions are fetched in one query and preserve first-user-message semantics" do
     rows = @second.conversations_for(@user).limit(5).to_a
     statements = []

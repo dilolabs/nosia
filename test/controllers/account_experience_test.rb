@@ -180,13 +180,21 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
   end
 
   test "directory bounds accounts and provides separate navigation actions" do
-    accounts = Account.insert_all!(23.times.map { |index| { name: "Additional account #{index}", owner_id: @user.id } })
-    AccountUser.insert_all!(accounts.rows.map { |row| { account_id: row.first, user_id: @user.id } })
+    25.times do |index|
+      Account.create!(name: "Additional account #{index}", owner: @user).account_users.grant_to(@user)
+    end
     expected_ids = @user.accounts.order(:name, :id).pluck(:id).map(&:to_s)
+    statements = []
+    subscriber = ->(_name, _start, _finish, _id, payload) { statements << payload[:sql] unless payload[:cached] || payload[:name] == "SCHEMA" }
 
-    get accounts_path
+    Account.uncached do
+      ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") { get accounts_path }
+    end
 
     assert_response :success
+    source_queries = statements.grep(/\ASELECT\b.*\bFROM\s+["`]?\b(documents|texts|qnas|websites)\b["`]?/im)
+    assert_equal 4, source_queries.size
+    source_queries.each { |sql| assert_match(/COUNT\(.*GROUP BY/im, sql) }
     assert_select "[data-account-id]", count: 24
     assert_equal expected_ids.first(24), css_select("[data-account-id]").map { |row| row["data-account-id"] }
     assert_select "a[rel=next][href='#{accounts_path(page: 2)}']"
@@ -195,7 +203,7 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
     get accounts_path(page: 2)
 
     assert_response :success
-    assert_select "[data-account-id]", count: 2
+    assert_select "[data-account-id]", count: 4
     assert_equal expected_ids.drop(24), css_select("[data-account-id]").map { |row| row["data-account-id"] }
     assert_select "a[rel=prev][href='#{accounts_path(page: 1)}']"
     assert_select "a[rel=next]", count: 0
@@ -215,9 +223,25 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "oversized directory pages normalize before calculating the SQL offset" do
+    get accounts_path, params: { page: "999999999999999999999999999999" }
+
+    assert_response :success
+    assert_select "[data-account-id]", count: 3
+    assert_select "a[rel=prev]", count: 0
+  end
+
+  test "oversized history pages normalize before calculating the SQL offset" do
+    get account_chats_path(@second), params: { page: "999999999999999999999999999999" }
+
+    assert_response :success
+    assert_select "[data-conversation-id]", count: 25
+    assert_select "a[rel=prev]", count: 0
+  end
+
   test "history ties use descending IDs and pages beyond the end remain actionable" do
     @second.conversations_for(@user).update_all(updated_at: Time.utc(2026, 1, 4))
-    expected_ids = @second.conversations_for(@user).pluck(:id).map(&:to_s)
+    expected_ids = 28.times.map { |index| experience(:chats, "overview_second_chat_#{index}").id }.sort.reverse.map(&:to_s)
 
     get account_chats_path(@second)
     assert_response :success
@@ -275,7 +299,7 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
   end
 
   test "directory empty state offers account creation without global conversation drawers" do
-    @user.account_users.delete_all
+    sign_in_overview(experience(:users, :overview_no_account))
 
     get accounts_path
 
@@ -288,11 +312,15 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
 
   test "French account overview and history translate navigation and privacy labels" do
     headers = { "Accept-Language" => "fr" }
+    prompt = experience(:prompts, :overview_second_shared).attributes
+    memberships = @user.account_users.order(:id).map(&:attributes)
 
     get accounts_path, headers: headers
     assert_response :success
+    assert_equal "fr", response.headers["Content-Language"]
     assert_select "h1", text: "Comptes"
     assert_select "a", text: "Voir le compte", count: 3
+    refute_match(/translation missing|missing translation/i, response.body)
 
     get account_path(@second), headers: headers
     assert_response :success
@@ -300,12 +328,24 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
     assert_select "p", text: "Seules vos conversations sont affichées."
     assert_select "p", text: "Depuis la création · tous les membres du compte"
     assert_select 'main svg:not([aria-hidden="true"])', count: 0
+    refute_match(/translation missing|missing translation/i, response.body)
 
     get account_chats_path(@second), headers: headers
     assert_response :success
     assert_select "h2", text: "Vos conversations"
     assert_select "a[rel=next]", text: "Suivant"
     assert_select 'nav[aria-label="Pagination"]'
+    refute_match(/translation missing|missing translation/i, response.body)
+
+    get account_path(@empty), headers: headers
+    assert_response :success
+    assert_select "p", text: "Ajoutez des sources pour enrichir les connaissances de ce compte. Vous pouvez déjà démarrer une conversation."
+    assert_select "p", text: "Votre historique privé de conversations apparaîtra ici."
+    refute_match(/translation missing|missing translation/i, response.body)
+    assert_equal prompt, experience(:prompts, :overview_second_shared).reload.attributes
+    assert_equal memberships, @user.account_users.order(:id).map(&:attributes)
+    assert_equal @first, @user.first_account
+    assert_nil cookies[:locale]
   end
 
   test "invalid account creation renders submitted details with 422" do
