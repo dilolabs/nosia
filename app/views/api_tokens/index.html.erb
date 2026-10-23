@@ -38,15 +38,17 @@
   <% end %>
 
   <% @api_tokens.each do |api_token| %>
-    <div class="n-card n-main-border lg:col-span-2">
-      <div class="mt-6 ml-6 mr-4 flex gap-4 justify-between">
-        <h2 class="n-card-title"><%= api_token.name %> <span class="text-sm upercase">(<%= api_token.account.name %>)</span></h2>
-        <%= button_to api_token, method: :delete, data: { turbo_confirm: t("nosia.actions.confirm_delete") }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
-          <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "mx-auto w-6 h-6" %>
-          <span class="sr-only"><%= t("nosia.tokens.delete") %></span>
-        <% end %>
+    <div class="n-card n-api-token-card n-main-border lg:col-span-2">
+      <div class="n-card-content min-w-0">
+        <div class="flex items-start gap-4 justify-between">
+          <h2 class="n-card-title"><%= api_token.name %> <span class="text-sm upercase">(<%= api_token.account.name %>)</span></h2>
+          <%= button_to api_token, method: :delete, form_class: "shrink-0", data: { turbo_confirm: t("nosia.actions.confirm_delete") }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+            <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "mx-auto w-6 h-6" %>
+            <span class="sr-only"><%= t("nosia.tokens.delete") %></span>
+          <% end %>
+        </div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400"><%= t("nosia.tokens.security_help") %></p>
       </div>
-      <p class="mb-6 ml-6 text-sm text-neutral-600 dark:text-neutral-400"><%= t("nosia.tokens.security_help") %></p>
     </div>
   <% end %>
 </div>

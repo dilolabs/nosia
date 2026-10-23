@@ -18,3 +18,11 @@
     @apply text-sm md:text-base truncate
   text-neutral-700 dark:text-neutral-400;
 }
+
+.n-card.n-api-token-card {
+    @apply min-w-0 grid-cols-1 whitespace-normal;
+}
+
+.n-api-token-card .n-card-title {
+    @apply min-w-0 whitespace-normal wrap-anywhere;
+}
