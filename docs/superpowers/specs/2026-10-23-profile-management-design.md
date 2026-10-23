@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23
 
-**Status:** Written specification approved; implementation planning authorized. Application implementation has not started.
+**Status:** Implemented on `feature/profile-management`; source/spec/quality reviews approved. Focused verification passes; broader-suite baseline classification is being finalized. Not merged.
 
 ## Goal
 
@@ -18,6 +18,7 @@ Allow signed-in users to manage their own login email and password at `/profile`
 - “Good” for Design 1/2 (page and behavior) — approve the stacked cards, immediate password-authorized email updates with sessions unchanged, password confirmation and minimum length, revocation of other browsers after password changes, accessible feedback, and the stated scope exclusions.
 - “Good” for Design 2/2 (architecture and verification) — approve separate REST update endpoints scoped to `Current.user`, model-owned credential changes, transactional password/session updates, safe responses, existing Rails/Hotwire components, and the stated test coverage.
 - “Go” after the committed specification was presented for review — approve this written specification and authorize the implementation-plan step.
+- “1” for the implementation-plan execution choice — use fresh implementation agents with separate spec-compliance and code-quality reviews for each task.
 
 ## Existing context and boundaries
 
@@ -122,4 +123,4 @@ Email verification/delivery, forgotten-password recovery, passkeys/magic links, 
 
 ## Workflow status
 
-Both presented design sections and the committed written specification are approved. The `writing-plans` step is authorized; application implementation waits for the plan's execution handoff.
+The user approved both design sections, the committed written specification, and subagent-driven execution. Implementation and source reviews are complete. Keep the feature branch/worktree intact; broader verification must not be described as passing while unrelated suite failures remain, and no merge or PR is authorized automatically.

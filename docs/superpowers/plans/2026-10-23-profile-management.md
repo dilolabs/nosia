@@ -1099,6 +1099,49 @@ Use the Task 0 database/environment prefix on every Rails command. Expected: pas
 
 ## Execution handoff
 
-Choose `subagent-driven-development` for fresh task agents with reviews, or
-`executing-plans` for inline batches with checkpoints. No application files
-have been changed while writing this plan.
+The user selected option **1 — subagent-driven development**. Each implementation
+task receives a fresh implementer and separate spec-compliance and code-quality
+reviews. The steps above preserve the original implementation instructions;
+current progress is recorded below.
+
+| Task | Execution status |
+| --- | --- |
+| 0. Baseline | Passed after generating the existing ignored Tailwind output; 12 tests, 132 assertions. |
+| 1. Model changes | Implemented and both reviews approved; includes reused-instance blank-password and safe-error-rendering regressions. |
+| 2. Cards/localization | Implemented and both reviews approved; explicit partial paths tested across controller prefixes. |
+| 3. Update endpoints | Implemented and both reviews approved; includes shared counter, safe malformed-root/CSRF handling. |
+| 4. Browser behavior | Implemented and both reviews approved; mobile bottom-navigation focus clearance and dark border contrast corrected with regressions. |
+| 5. Security/docs | Implemented in `7c1c79a`; source/docs approved by both reviewers and final cross-feature review. Broader-suite baseline classification is being finalized. |
+
+No merge, push, or worktree removal is authorized by execution alone. Actual
+third-party password-manager integration remains untested; native autocomplete,
+simulated autofill preservation, and clipboard paste have been verified.
+
+### Verification evidence
+
+- Fresh combined profile/model/request/authentication/localization/browser check:
+  **86 tests, 1,132 assertions, zero failures/errors/skips**, seed `47716`.
+- Profile system tests: **13 tests, 350 assertions**, passing independently.
+- Full system directory: **115 tests, zero failures, two errors**, seed `47945`.
+  Both errors are unchanged login setup in `sources_dropzone_test.rb` and
+  `chat_waiting_ux_test.rb`; an independent run on detached base `e722cd8`
+  reproduced both exact `Unable to find field "Email"` errors.
+- Full Rails suite: **860 tests, 15 failures, 37 errors**, seed `17661`.
+  Detached base `e722cd8` reproduces all reported groups/counts in **799 tests**;
+  exact per-case comparison is being completed before making a broader claim.
+- Brakeman: three warning fingerprints/types/paths/messages exactly match the
+  detached base; zero added warnings and no suppressions. Existing warnings are
+  in API-token mass assignment, source-text XSS, and Rails end-of-support.
+- Tailwind compilation, Zeitwerk, scoped nine-file RuboCop (runtime Ruby 4
+  setting), and whitespace checks pass.
+- Native keyboard traversal across all 11 controls remains unobscured by mobile
+  navigation in both locales/themes; desktop 200% zoom, reduced motion, contrast,
+  native no-JavaScript updates, paste, and history cleanup were exercised.
+
+Use the isolated test database and explicit driver in this environment. The
+`SE_CHROMEDRIVER` environment variable alone does not bypass Rails' eager driver
+discovery; this runtime-only wrapper does, without changing the shared harness:
+
+```bash
+DATABASE_URL=postgresql:///nosia_profile_management_test PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- ruby -rselenium-webdriver -e 'Selenium::WebDriver::Chrome::Service.driver_path = "/usr/bin/chromedriver"; load "bin/rails"' -- test test/models/user_credentials_test.rb test/controllers/profiles_controller_test.rb test/controllers/profiles/credential_updates_test.rb test/integration/authentication_lifecycle_test.rb test/controllers/language_preferences_controller_test.rb test/system/profile_management_test.rb
+```
