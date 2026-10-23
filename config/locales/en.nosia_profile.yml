@@ -1,0 +1,42 @@
+en:
+  nosia:
+    profile:
+      title: Your profile
+      introduction: Manage your sign-in details securely.
+      email_title: Email address
+      email_description: Use this address to sign in to Nosia.
+      email_hint: Your new email works immediately after saving. No confirmation email is sent.
+      email_submit: Update email
+      email_pending: Updating email…
+      email_success: Your email address has been updated.
+      password_title: Password
+      password_description: Choose a strong password you don’t use elsewhere.
+      password_hint: At least 12 characters.
+      sessions_hint: Other browsers will be signed out. You’ll stay signed in here. API tokens stay active.
+      password_submit: Update password
+      password_pending: Updating password…
+      password_success: Your password has been updated. Other browsers have been signed out.
+      errors_title: There is a problem
+      show: Show
+      hide: Hide
+      show_label: Show %{field}
+      hide_label: Hide %{field}
+      fields:
+        email: Email address
+        current_password: Current password
+        password: New password
+        password_confirmation: Confirm new password
+  activerecord:
+    attributes:
+      user:
+        current_password: Current password
+    errors:
+      models:
+        user:
+          attributes:
+            current_password:
+              invalid: is incorrect
+            password:
+              password_too_long: must be 72 bytes or fewer
+            base:
+              profile_rate_limited: Too many attempts. Try again in a few minutes.
