@@ -32,6 +32,20 @@ class HeaderNavigationTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the application importmap omits the removed search dependency" do
+    get root_url
+
+    assert_response :success
+    assert_select "script[type=importmap]", count: 1 do |scripts|
+      imports = JSON.parse(scripts.first.content).fetch("imports")
+
+      refute imports.key?("@tailwindplus/elements")
+      %w[application @hotwired/turbo-rails @hotwired/stimulus flowbite lexxy].each do |name|
+        assert imports.key?(name), "Expected shared import #{name} to remain"
+      end
+    end
+  end
+
   private
     def assert_header_without_search(locale:, signed_in:)
       assert_response :success
