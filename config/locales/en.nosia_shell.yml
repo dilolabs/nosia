@@ -1,0 +1,9 @@
+en:
+  nosia:
+    language:
+      label: "Language"
+      automatic: "Automatic"
+      english: "English"
+      french: "Français"
+      apply: "Apply"
+      invalid: "Invalid language preference."

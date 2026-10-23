@@ -1,0 +1,9 @@
+fr:
+  nosia:
+    language:
+      label: "Langue"
+      automatic: "Automatique"
+      english: "English"
+      french: "Français"
+      apply: "Appliquer"
+      invalid: "Préférence de langue non valide."

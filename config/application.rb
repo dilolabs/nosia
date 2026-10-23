@@ -25,6 +25,10 @@ module Nosia
     # config.eager_load_paths << Rails.root.join("extras")
 
     # Nosia configuration
+    config.i18n.available_locales = [ :en, :fr ]
+    config.i18n.default_locale = :en
+    config.i18n.fallbacks = [ :en ]
+
     config.active_job.queue_adapter = :solid_queue
     config.mission_control.jobs.http_basic_auth_enabled = false
     config.active_record.encryption.primary_key = ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"]
