@@ -4,40 +4,40 @@
       <%= render "status", server: server %>
 
       <div class="flex items-center gap-1">
-        <%= link_to mcp_server_path(server), title: "Show server", class: "n-btn-icon n-main-hover n-main-focus" do %>
-          <%= inline_svg_tag "svg/eye.svg", title: "Show", alt: "Eye", class: "mx-auto w-5 h-5" %>
-          <span class="sr-only">Show server</span>
+        <%= link_to mcp_server_path(server), title: t("nosia.mcp.show"), class: "n-btn-icon n-main-hover n-main-focus" do %>
+          <%= inline_svg_tag "svg/eye.svg", aria: { hidden: true }, class: "mx-auto w-5 h-5" %>
+          <span class="sr-only"><%= t("nosia.mcp.show") %></span>
         <% end %>
 
-        <%= link_to edit_mcp_server_path(server), title: "Edit server", class: "n-btn-icon n-main-hover n-main-focus" do %>
-          <%= inline_svg_tag "svg/edit.svg", title: "Edit", alt: "Edit", class: "mx-auto w-5 h-5" %>
-          <span class="sr-only">Edit server</span>
+        <%= link_to edit_mcp_server_path(server), title: t("nosia.mcp.edit"), class: "n-btn-icon n-main-hover n-main-focus" do %>
+          <%= inline_svg_tag "svg/edit.svg", aria: { hidden: true }, class: "mx-auto w-5 h-5" %>
+          <span class="sr-only"><%= t("nosia.mcp.edit") %></span>
         <% end %>
 
         <% if server.status_ready? %>
           <%= button_to disconnect_mcp_server_path(server), method: :post,
-              title: "Disconnect server",
+              title: t("nosia.mcp.disconnect_server"),
               class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger",
               form: { data: { turbo: false } } do %>
-            <%= inline_svg_tag "svg/power.svg", title: "Disconnect", alt: "Power", class: "mx-auto w-5 h-5" %>
-            <span class="sr-only">Disconnect server</span>
+            <%= inline_svg_tag "svg/power.svg", aria: { hidden: true }, class: "mx-auto w-5 h-5" %>
+            <span class="sr-only"><%= t("nosia.mcp.disconnect_server") %></span>
           <% end %>
         <% else %>
           <%= button_to connect_mcp_server_path(server), method: :post,
-              title: "Connect server",
+              title: t("nosia.mcp.connect_server"),
               class: "text-green-600 dark:text-green-400 n-btn-icon n-main-hover n-main-focus",
               form: { data: { turbo: false } } do %>
-            <%= inline_svg_tag "svg/power.svg", title: "Connect", alt: "Power", class: "mx-auto w-5 h-5" %>
-            <span class="sr-only">Connect server</span>
+            <%= inline_svg_tag "svg/power.svg", aria: { hidden: true }, class: "mx-auto w-5 h-5" %>
+            <span class="sr-only"><%= t("nosia.mcp.connect_server") %></span>
           <% end %>
         <% end %>
 
         <%= button_to mcp_server_path(server), method: :delete,
-            data: { turbo_confirm: "Delete this MCP server? Chats using it will lose access." },
-            title: "Delete server",
+            data: { turbo_confirm: t("nosia.mcp.delete_confirm") },
+            title: t("nosia.mcp.delete"),
             class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
-          <%= inline_svg_tag "svg/trash-bin.svg", title: "Delete", alt: "Delete", class: "mx-auto w-5 h-5" %>
-          <span class="sr-only">Delete server</span>
+          <%= inline_svg_tag "svg/trash-bin.svg", aria: { hidden: true }, class: "mx-auto w-5 h-5" %>
+          <span class="sr-only"><%= t("nosia.mcp.delete") %></span>
         <% end %>
       </div>
     </div>
@@ -47,9 +47,9 @@
         <%= link_to server.name, mcp_server_path(server), class: "n-main-focus text-wrap" %>
       </h5>
       <div class="flex flex-wrap items-center gap-2 mt-1">
-        <span class="n-tag n-tag-disconnected"><%= server.transport_type.upcase %></span>
+        <span class="n-tag n-tag-disconnected"><%= t("nosia.mcp.transport.#{server.transport_type}_short") %></span>
         <% if server.latency_ms %>
-          <span class="text-sm text-neutral-500 dark:text-neutral-400"><%= server.latency_ms %>ms</span>
+          <span class="text-sm text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms)) %></span>
         <% end %>
       </div>
     </div>
@@ -60,7 +60,7 @@
 
     <% if server.tags.present? %>
       <p class="text-sm text-neutral-500 dark:text-neutral-400 text-wrap">
-        <span class="font-medium">Tags:</span> <%= server.tags %>
+        <span class="font-medium"><%= t("nosia.mcp.tags_label") %></span> <%= server.tags %>
       </p>
     <% end %>
   </div>

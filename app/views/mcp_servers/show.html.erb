@@ -1,9 +1,9 @@
 <% content_for :navbar do %>
-  <li class="flex items-center"><%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %></li>
+  <li class="flex items-center"><%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %></li>
 
-  <li class="flex items-center"><%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %><%= link_to "MCP servers", mcp_servers_path, class:"n-ariane n-main-focus" %></li>
+  <li class="flex items-center"><%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %><%= link_to t("nosia.mcp.breadcrumb"), mcp_servers_path, class:"n-ariane n-main-focus" %></li>
 
-  <li class="flex items-center"><%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %><%= link_to @mcp_server.name, mcp_server_path(@mcp_server), class:"n-ariane n-main-focus" %></li>
+  <li class="flex items-center"><%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %><%= link_to @mcp_server.name, mcp_server_path(@mcp_server), class:"n-ariane n-main-focus" %></li>
 <% end %>
 
 <div data-controller="mcp-server">
@@ -15,29 +15,29 @@
         <%= render "status", server: @mcp_server %>
 
         <% if @mcp_server.latency_ms %>
-          <span class="text-sm text-neutral-500 dark:text-neutral-400"><%= @mcp_server.latency_ms %>ms</span>
+          <span class="text-sm text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.latency", milliseconds: number_with_delimiter(@mcp_server.latency_ms)) %></span>
         <% end %>
       </div>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <%= link_to "Edit", edit_mcp_server_path(@mcp_server), class: "n-btn-primary" %>
+      <%= link_to t("nosia.actions.edit"), edit_mcp_server_path(@mcp_server), class: "n-btn-primary" %>
 
       <% if @mcp_server.status_ready? %>
-        <%= button_to "Disconnect", disconnect_mcp_server_path(@mcp_server), method: :post, class: "n-btn border n-main-border n-main-hover-danger n-main-focus-danger" %>
+        <%= button_to t("nosia.mcp.disconnect"), disconnect_mcp_server_path(@mcp_server), method: :post, class: "n-btn border n-main-border n-main-hover-danger n-main-focus-danger" %>
       <% else %>
-        <%= button_to "Connect", connect_mcp_server_path(@mcp_server), method: :post, class: "n-btn border n-main-border n-main-hover n-main-focus" %>
+        <%= button_to t("nosia.mcp.connect"), connect_mcp_server_path(@mcp_server), method: :post, class: "n-btn border n-main-border n-main-hover n-main-focus" %>
       <% end %>
 
-      <%= button_to "Test connection", test_connection_mcp_server_path(@mcp_server), method: :post, data: { turbo: false }, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+      <%= button_to t("nosia.mcp.test_connection_short"), test_connection_mcp_server_path(@mcp_server), method: :post, data: { turbo: false }, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
 
-      <%= link_to "Delete", mcp_server_path(@mcp_server), data: { turbo_method: :delete, turbo_confirm: "Delete this MCP server? Chats using it will lose access." }, class: "n-btn-danger" %>
+      <%= link_to t("nosia.actions.delete"), mcp_server_path(@mcp_server), data: { turbo_method: :delete, turbo_confirm: t("nosia.mcp.delete_confirm") }, class: "n-btn-danger" %>
     </div>
   </div>
 
   <% if @mcp_server.last_error.present? %>
     <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/10">
-      <p class="text-sm font-medium text-red-800 dark:text-red-400">Last error:</p>
+      <p class="text-sm font-medium text-red-800 dark:text-red-400"><%= t("nosia.mcp.last_error") %></p>
       <p class="mt-1 text-sm text-red-700 dark:text-red-300"><%= @mcp_server.last_error %></p>
     </div>
   <% end %>
@@ -45,19 +45,19 @@
   <div class="border-b n-main-border mb-6">
     <nav class="-mb-px grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
       <a href="#overview" data-action="click->mcp-server#showTab" data-tab="overview" class="mcp-tab n-tab-active n-main-focus active rounded-t-lg">
-        Overview
+        <%= t("nosia.mcp.overview") %>
       </a>
 
       <a href="#tools" data-action="click->mcp-server#showTab" data-tab="tools" class="mcp-tab n-tab n-main-focus rounded-t-lg">
-        Tools <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @tools.size %></span>
+        <%= t("nosia.mcp.tools") %> <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @tools.size %></span>
       </a>
 
       <a href="#prompts" data-action="click->mcp-server#showTab" data-tab="prompts" class="mcp-tab n-tab n-main-focus rounded-t-lg">
-        Prompts <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @prompts.size %></span>
+        <%= t("nosia.mcp.prompts") %> <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @prompts.size %></span>
       </a>
 
       <a href="#resources" data-action="click->mcp-server#showTab" data-tab="resources" class="mcp-tab n-tab n-main-focus rounded-t-lg">
-        Resources <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @resources.size %></span>
+        <%= t("nosia.mcp.resources") %> <span class="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"><%= @resources.size %></span>
       </a>
     </nav>
   </div>
@@ -69,25 +69,25 @@
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div class="n-card n-main-border">
           <div class="m-6">
-            <h3 class="mb-4 text-lg font-semibold">Configuration</h3>
+            <h3 class="mb-4 text-lg font-semibold"><%= t("nosia.mcp.configuration") %></h3>
             <dl class="space-y-3">
               <div>
-                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Transport Type</dt>
-                <dd class="mt-1 text-sm"><%= @mcp_server.transport_type.upcase %></dd>
+                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.transport_type") %></dt>
+                <dd class="mt-1 text-sm"><%= t("nosia.mcp.transport.#{@mcp_server.transport_type}_short") %></dd>
               </div>
               <div>
-                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Endpoint</dt>
+                <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.endpoint") %></dt>
                 <dd class="mt-1 text-sm break-all"><%= @mcp_server.endpoint || @mcp_server.command %></dd>
               </div>
               <% if @mcp_server.last_connected_at %>
                 <div>
-                  <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Last Connected</dt>
-                  <dd class="mt-1 text-sm"><%= time_ago_in_words(@mcp_server.last_connected_at) %> ago</dd>
+                  <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.last_connected") %></dt>
+                  <dd class="mt-1 text-sm"><%= t("nosia.time.ago", duration: time_ago_in_words(@mcp_server.last_connected_at)) %></dd>
                 </div>
               <% end %>
               <% if @mcp_server.tags.present? %>
                 <div>
-                  <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Tags</dt>
+                  <dt class="text-sm font-medium text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.tags") %></dt>
                   <dd class="mt-1 flex flex-wrap gap-2">
                     <% @mcp_server.tags.split(',').each do |tag| %>
                       <span class="n-tag n-tag-disconnected"><%= tag.strip %></span>
@@ -102,7 +102,7 @@
         <% if @mcp_server.notes.present? %>
           <div class="n-card n-main-border">
             <div class="m-6">
-              <h3 class="mb-4 text-lg font-semibold">Notes</h3>
+              <h3 class="mb-4 text-lg font-semibold"><%= t("nosia.mcp.notes") %></h3>
               <p class="text-sm whitespace-pre-wrap text-neutral-600 dark:text-neutral-400"><%= @mcp_server.notes %></p>
             </div>
           </div>
@@ -122,19 +122,19 @@
                   <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"><%= tool.description %></p>
                   <% if tool.respond_to?(:input_schema) && tool.input_schema %>
                     <div class="mt-4">
-                      <p class="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">Parameters:</p>
+                      <p class="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.parameters") %></p>
                       <pre class="overflow-x-auto rounded-lg bg-neutral-50 p-3 text-xs dark:bg-neutral-900"><%= JSON.pretty_generate(tool.input_schema) %></pre>
                     </div>
                   <% end %>
                 </div>
-                <button class="n-btn-primary">Test</button>
+                <button class="n-btn-primary"><%= t("nosia.mcp.test") %></button>
               </div>
             </div>
           <% end %>
         </div>
       <% else %>
         <div class="py-12 text-center text-neutral-500 dark:text-neutral-400">
-          <p>No tools available</p>
+          <p><%= t("nosia.mcp.no_tools") %></p>
         </div>
       <% end %>
     </div>
@@ -151,7 +151,7 @@
                   <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"><%= prompt.description %></p>
                   <% if prompt.respond_to?(:arguments) && prompt.arguments&.any? %>
                     <div class="mt-4">
-                      <p class="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">Variables:</p>
+                      <p class="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.variables") %></p>
                       <div class="space-y-1">
                         <% prompt.arguments.each do |arg| %>
                           <div class="text-xs">
@@ -166,14 +166,14 @@
                     </div>
                   <% end %>
                 </div>
-                <button class="n-btn-primary">Test</button>
+                <button class="n-btn-primary"><%= t("nosia.mcp.test") %></button>
               </div>
             </div>
           <% end %>
         </div>
       <% else %>
         <div class="py-12 text-center text-neutral-500 dark:text-neutral-400">
-          <p>No prompts available</p>
+          <p><%= t("nosia.mcp.no_prompts") %></p>
         </div>
       <% end %>
     </div>
@@ -188,7 +188,7 @@
                 <h4 class="text-lg font-semibold break-all"><%= resource.uri %></h4>
                 <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"><%= resource.description %></p>
                 <% if resource.respond_to?(:mime_type) %>
-                  <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Type: <%= resource.mime_type %></p>
+                  <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.mime_type", type: resource.mime_type) %></p>
                 <% end %>
               </div>
             </div>
@@ -196,10 +196,9 @@
         </div>
       <% else %>
         <div class="py-12 text-center text-neutral-500 dark:text-neutral-400">
-          <p>No resources available</p>
+          <p><%= t("nosia.mcp.no_resources") %></p>
         </div>
       <% end %>
     </div>
   </div>
 </div>
-

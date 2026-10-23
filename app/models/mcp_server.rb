@@ -144,11 +144,11 @@ class McpServer < ApplicationRecord
   # @param arguments [Hash] JSON object, never attachment paths or model attributes
   # @return [Hash] success/result or the existing error wrapper
   def execute_tool(tool_name, arguments = {})
-    return { error: "Server not ready" } unless status_ready?
+    return { error: I18n.t("nosia.mcp.not_ready") } unless status_ready?
 
     begin
       tool = tools.find { |t| t.name == tool_name }
-      return { error: "Tool not found: #{tool_name}" } unless tool
+      return { error: I18n.t("nosia.mcp.tool_not_found", name: tool_name) } unless tool
 
       result = tool.call(**arguments.to_h.transform_keys(&:to_s))
       { success: true, result: result }

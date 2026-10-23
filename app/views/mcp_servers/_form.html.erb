@@ -2,7 +2,7 @@
   <% if mcp_server.errors.any? %>
     <div class="rounded-lg bg-red-50 dark:bg-red-900/10 p-4">
       <h3 class="text-sm font-medium text-red-800 dark:text-red-400 mb-2">
-        <%= pluralize(mcp_server.errors.count, "error") %>:
+        <%= t("nosia.mcp.errors", count: mcp_server.errors.count) %>
       </h3>
       <ul class="list-disc list-inside text-sm text-red-700 dark:text-red-300">
         <% mcp_server.errors.full_messages.each do |message| %>
@@ -15,21 +15,21 @@
   <div class="grid sm:grid-cols-2 gap-4">
     <%# Basic Information %>
     <div class="n-card content-start n-main-border p-4">
-      <h3 class="text-lg font-semibold mb-2">Basic Information</h3>
+      <h3 class="text-lg font-semibold mb-2"><%= t("nosia.mcp.basic") %></h3>
       <div class="space-y-4">
         <div class="n-form-field">
-          <%= form.label :name, "Name *", class: "n-label" %>
+          <%= form.label :name, t("nosia.mcp.name"), class: "n-label" %>
           <%= form.text_field :name, required: true, class: "n-field" %>
-          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Unique name to identify this MCP server</p>
+          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.name_help") %></p>
         </div>
 
         <div class="n-form-field">
-          <%= form.label :transport_type, "Connection Type *", class: "n-label" %>
+          <%= form.label :transport_type, t("nosia.mcp.connection_type"), class: "n-label" %>
           <%= form.select :transport_type,
             [
-              ["Streamable HTTP (recommended)", "streamable"],
-              ["Server-Sent Events (SSE)", "sse"],
-              ["STDIO (local process)", "stdio"]
+              [t("nosia.mcp.transport.streamable"), "streamable"],
+              [t("nosia.mcp.transport.sse"), "sse"],
+              [t("nosia.mcp.transport.stdio"), "stdio"]
             ],
             {},
             {
@@ -40,60 +40,61 @@
         </div>
 
         <div class="n-form-field" data-mcp-form-target="httpFields">
-          <%= form.label :endpoint, "Server URL *", class: "n-label" %>
+          <%= form.label :endpoint, t("nosia.mcp.url"), class: "n-label" %>
           <%= form.text_field :endpoint, placeholder: "https://your-mcp-server.com/mcp", class: "n-field" %>
         </div>
 
         <div data-mcp-form-target="stdioFields" class="hidden space-y-4">
           <div class="n-form-field">
-            <%= form.label :command, "Command *", class: "n-label" %>
-            <%= form.text_field :command, placeholder: "bunx or python", class: "n-field" %>
+            <%= form.label :command, t("nosia.mcp.command"), class: "n-label" %>
+            <%= form.text_field :command, placeholder: t("nosia.mcp.command_hint"), class: "n-field" %>
           </div>
 
           <div class="n-form-field">
-            <%= form.label :args, "Arguments (one per line)", class: "n-label" %>
-            <%= form.text_area :args, rows: 3, placeholder: "@modelcontextprotocol/server-filesystem\n/path/to/directory", class: "n-textarea" %>
+            <%= form.label :args, t("nosia.mcp.arguments"), class: "n-label" %>
+            <%= form.text_area :args, rows: 3, placeholder: "@modelcontextprotocol/server-filesystem
+/path/to/directory", class: "n-textarea" %>
           </div>
         </div>
 
         <div class="n-form-field flex items-center gap-2">
           <%= form.check_box :enabled, class: "rounded border-neutral-300 dark:border-neutral-700 text-green-600 focus:ring-green-500" %>
-          <%= form.label :enabled, "Server enabled", class: "n-label mb-0" %>
+          <%= form.label :enabled, t("nosia.mcp.enabled"), class: "n-label mb-0" %>
         </div>
       </div>
     </div>
 
     <%# Authentication %>
     <div class="n-card content-start n-main-border p-4">
-      <h3 class="text-lg font-semibold mb-2">Authentication (optional)</h3>
+      <h3 class="text-lg font-semibold mb-2"><%= t("nosia.mcp.authentication") %></h3>
       <div class="space-y-4">
         <div class="n-form-field">
-          <%= form.label :token, "Bearer Token", class: "n-label" %>
+          <%= form.label :token, t("nosia.mcp.bearer_token"), class: "n-label" %>
           <%= form.password_field :token, placeholder: "your-bearer-token", autocomplete: "off", class: "n-field" %>
-          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Will be used as "Authorization: Bearer token"</p>
+          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.bearer_help") %></p>
         </div>
 
         <div class="n-form-field">
-          <%= form.label :api_key, "API Key", class: "n-label" %>
+          <%= form.label :api_key, t("nosia.mcp.api_key"), class: "n-label" %>
           <%= form.password_field :api_key, placeholder: "your-api-key", autocomplete: "off", class: "n-field" %>
-          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Will be used as "X-API-Key: key"</p>
+          <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400"><%= t("nosia.mcp.api_key_help") %></p>
         </div>
       </div>
     </div>
 
     <%# Notes and tags %>
     <div class="n-card content-start n-main-border p-4">
-      <h3 class="text-lg font-semibold mb-2">Metadata</h3>
+      <h3 class="text-lg font-semibold mb-2"><%= t("nosia.mcp.metadata") %></h3>
 
       <div class="space-y-4">
         <div class="n-form-field">
-          <%= form.label :tags, "Tags (comma separated)", class: "n-label" %>
-          <%= form.text_field :tags, placeholder: "production, filesystem, important", class: "n-field" %>
+          <%= form.label :tags, t("nosia.mcp.tags_input"), class: "n-label" %>
+          <%= form.text_field :tags, placeholder: t("nosia.mcp.tags_hint"), class: "n-field" %>
         </div>
 
         <div class="n-form-field">
-          <%= form.label :notes, "Notes", class: "n-label" %>
-          <%= form.text_area :notes, rows: 4, placeholder: "Notes about this MCP server...", class: "n-textarea" %>
+          <%= form.label :notes, t("nosia.mcp.notes"), class: "n-label" %>
+          <%= form.text_area :notes, rows: 4, placeholder: t("nosia.mcp.notes_hint"), class: "n-textarea" %>
         </div>
       </div>
     </div>
@@ -101,12 +102,12 @@
     <%# Actions %>
     <div class="sm:col-span-2 n-form-actions">
       <div class="flex gap-2 items-center">
-        <%= form.submit "Save", class: "n-btn-primary" %>
-        <%= link_to "Cancel", mcp_servers_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+        <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
+        <%= link_to t("nosia.actions.cancel"), mcp_servers_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
       </div>
       <div class="flex gap-2 items-center">
         <% if mcp_server.persisted? %>
-          <%= button_to "Test Connection",
+          <%= button_to t("nosia.mcp.test_connection"),
             test_connection_mcp_server_path(mcp_server),
             method: :post,
             data: { turbo: false },

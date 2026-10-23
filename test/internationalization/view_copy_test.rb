@@ -24,6 +24,10 @@ class ViewCopyTest < ActiveSupport::TestCase
     assert_localized_view_sources Dir.glob(Rails.root.join("app/views/{accounts,settings,api_tokens,system_prompts,models}/**/*.erb"))
   end
 
+  test "MCP management and catalog screens have no uncatalogued UI literals" do
+    assert_localized_view_sources Dir.glob(Rails.root.join("app/views/{mcp_servers,mcp_catalog}/**/*.erb"))
+  end
+
   {
     "original sign in submit" => [ "Sign in", '<%= form.submit "Sign in", class: "n-btn-primary" %>' ],
     "original sign up submit" => [ "Sign up", '<%= form.submit "Sign up", class: "n-btn-primary" %>' ],

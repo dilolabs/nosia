@@ -5,6 +5,230 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   include ChatAccountFixtures
   include ActionView::RecordIdentifier
 
+  test "French MCP creation translates transport labels without changing form wiring" do
+    sign_in_picker_user
+
+    get new_mcp_server_url, headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select "h2", text: "Nouveau serveur MCP"
+    assert_select 'option[value="stdio"]', text: "STDIO (processus local)"
+    assert_select '[data-controller~="mcp-form"]'
+    assert_select '[data-mcp-form-target="httpFields"]'
+    assert_select '[data-mcp-form-target="stdioFields"]'
+  end
+
+  test "French MCP catalog translates its heading and help without changing cached metadata" do
+    sign_in_picker_user
+    original = Marshal.dump([ McpCatalog.all, McpCatalog.categories ])
+
+    get mcp_catalog_index_url, headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select "h2", text: "Catalogue MCP"
+    assert_select "p", text: "Activez des serveurs MCP prédéfinis en un clic."
+    assert_select "p", text: "Consultez les messages récents de kChat et publiez des messages."
+    assert_equal original, Marshal.dump([ McpCatalog.all, McpCatalog.categories ])
+  end
+
+  test "French catalog configuration translates owned fields without rewriting identifiers or metadata" do
+    sign_in_picker_user
+    original = Marshal.dump(McpCatalog.all)
+
+    get mcp_catalog_url("kchat"), headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select "h3", text: "Configuration requise"
+    assert_select "label", text: /Jeton kChat/
+    assert_select 'input[type="hidden"][name="id"][value="kchat"]'
+    assert_select 'input[type="password"][name="config[kchat_token]"]'
+    assert_select 'input[type="password"][name="config[kchat_team_name]"]'
+    assert_select 'input[type="submit"][value="Activer Infomaniak kChat"]'
+    assert_select "p", text: /https:\/\/your-team.kchat.infomaniak.com\/your-team\/channels\/town-square/
+    assert_select 'main svg:not([aria-hidden="true"])', count: 0
+    assert_equal original, Marshal.dump(McpCatalog.all)
+  end
+
+  test "French MCP management formats latency and time while preserving authored data" do
+    sign_in_picker_user
+    server = mcp_servers(:picker_first_tool)
+    server.update_columns(latency_ms: 1234, last_connected_at: 2.hours.ago, notes: "Original English notes", tags: "production,original", last_error: "<script>Provider error</script>")
+    original = server.reload.attributes
+    headers = { "Accept-Language" => "fr" }
+
+    get mcp_servers_url, headers: headers
+    assert_response :success
+    assert_select 'option[value="ready"]', text: "Prêt"
+    assert_select 'option[value="streamable"]', text: "HTTP en flux"
+    assert_select "span.sr-only", text: "Supprimer le serveur"
+    assert_select ".n-tag-ready", text: "Prêt"
+    assert_match(/1[ \u00a0\u202f]234[ \u00a0\u202f]ms/, response.body)
+
+    get mcp_server_url(server), headers: headers
+    assert_response :success
+    assert_select "a[data-tab=tools]", text: /Outils/
+    assert_select "dt", text: "Dernière connexion"
+    assert_select "dd", text: /il y a environ 2 heures/
+    assert_select "p", text: "Original English notes"
+    assert_select "p", text: "<script>Provider error</script>"
+    assert_select "main script", count: 0
+    assert_match(/1[ \u00a0\u202f]234[ \u00a0\u202f]ms/, response.body)
+
+    get edit_mcp_server_url(server), headers: headers
+    assert_response :success
+    assert_select "h2", text: "Modifier #{server.name}"
+    assert_select 'textarea[name="mcp_server[notes]"]', text: "Original English notes"
+    assert_select 'input[type="submit"][value="Enregistrer"]'
+    assert_select 'main svg:not([aria-hidden="true"])', count: 0
+    assert_equal original, server.reload.attributes
+  end
+
+  test "French MCP tool wrappers translate without changing status response keys or provider results" do
+    sign_in_picker_user
+    server = mcp_servers(:picker_first_tool)
+    headers = { "Accept-Language" => "fr" }
+
+    post execute_tool_mcp_server_url(server), params: { tool_name: "unknown", arguments: [] }, headers: headers, as: :json
+    assert_response :bad_request
+    assert_equal({ "error" => "Les arguments de l’outil doivent être un objet JSON" }, response.parsed_body)
+
+    server.update_columns(status: "disconnected")
+    post execute_tool_mcp_server_url(server), params: { tool_name: "unknown", arguments: {} }, headers: headers, as: :json
+    assert_response :success
+    assert_equal({ "error" => "Le serveur n’est pas prêt" }, response.parsed_body)
+
+    server.update_columns(status: "ready")
+    post execute_tool_mcp_server_url(server), params: { tool_name: "unknown", arguments: {} }, headers: headers, as: :json
+    assert_response :success
+    assert_equal({ "error" => "Outil introuvable : unknown" }, response.parsed_body)
+  end
+
+  test "French MCP CRUD notices preserve saved names and notes" do
+    sign_in_picker_user
+    headers = { "Accept-Language" => "fr" }
+
+    post mcp_servers_url, params: { mcp_server: { name: "Original MCP name", transport_type: "local", notes: "Original notes" } }, headers: headers
+    assert_response :redirect
+    assert_equal "Le serveur MCP a été créé.", flash[:notice]
+    server = @first.mcp_servers.find_by!(name: "Original MCP name")
+    assert_equal "Original notes", server.notes
+
+    patch mcp_server_url(server), params: { mcp_server: { notes: "Edited original notes" } }, headers: headers
+    assert_redirected_to mcp_server_url(server)
+    assert_equal "Le serveur MCP a été mis à jour.", flash[:notice]
+    assert_equal "Edited original notes", server.reload.notes
+
+    delete mcp_server_url(server), headers: headers
+    assert_redirected_to mcp_servers_url
+    assert_equal "Le serveur MCP a été supprimé.", flash[:notice]
+  end
+
+  test "French MCP validation headings pluralize as complete sentences" do
+    sign_in_picker_user
+
+    post mcp_servers_url, params: { mcp_server: { name: "", transport_type: "local" } }, headers: { "Accept-Language" => "fr" }
+
+    assert_response :unprocessable_entity
+    assert_select "h3", text: "1 erreur :"
+  end
+
+  test "French MCP connection feedback preserves machine statuses latency and diagnostics" do
+    sign_in_picker_user
+    server = mcp_servers(:picker_first_tool)
+    server.update_columns(transport_type: "streamable", endpoint: "https://mcp.example.invalid/mcp")
+    stub_url_resolver([ "93.184.216.34" ])
+    client = Struct.new(:tools).new([])
+    headers = { "Accept-Language" => "fr" }
+
+    with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { client }) do
+      post test_connection_mcp_server_url(server), headers: headers
+      assert_response :success
+      assert_equal %w[latency message status success], response.parsed_body.keys.sort
+      assert_equal true, response.parsed_body["success"]
+      assert_equal "ready", response.parsed_body["status"]
+      assert_kind_of Integer, response.parsed_body["latency"]
+      assert_equal "Connexion établie", response.parsed_body["message"]
+
+      post connect_mcp_server_url(server), headers: headers
+      assert_redirected_to mcp_server_url(server)
+      assert_equal "Connecté au serveur MCP.", flash[:notice]
+
+      post disconnect_mcp_server_url(server), headers: headers
+      assert_redirected_to mcp_server_url(server)
+      assert_equal "Déconnecté du serveur MCP.", flash[:notice]
+
+      client.define_singleton_method(:tools) { raise "Original provider failure" }
+      post test_connection_mcp_server_url(server), headers: headers
+      assert_response :unprocessable_entity
+      assert_equal({ "success" => false, "status" => "error", "error" => "Original provider failure", "message" => "Échec de la connexion" }, response.parsed_body)
+
+      post connect_mcp_server_url(server), headers: headers
+      assert_redirected_to mcp_server_url(server)
+      assert_equal "Échec de la connexion : Original provider failure.", flash[:alert]
+    end
+  ensure
+    unstub_url_resolver
+  end
+
+  test "French MCP detail leaves runtime descriptions schemas and results escaped and untranslated" do
+    sign_in_picker_user
+    server = mcp_servers(:picker_first_tool)
+    server.update_columns(transport_type: "streamable", endpoint: "https://mcp.example.invalid/mcp")
+    tool = Struct.new(:name, :description, :input_schema).new("runtime_tool", "<script>Original tool description</script>", { "query" => "Original schema" })
+    tool.define_singleton_method(:call) { |**| "Original tool result" }
+    prompt = Struct.new(:name, :description, :arguments).new("runtime_prompt", "Original prompt description", [ { name: "query", description: "Original variable", required: true } ])
+    resource = Struct.new(:uri, :description, :mime_type).new("file:///original", "Original resource description", "text/plain")
+    client = Struct.new(:tools, :prompts, :resources).new([ tool ], [ prompt ], [ resource ])
+    headers = { "Accept-Language" => "fr" }
+
+    with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { client }) do
+      get mcp_server_url(server), headers: headers
+      assert_response :success
+      assert_select "p", text: "<script>Original tool description</script>"
+      assert_select "p", text: "Original prompt description"
+      assert_select "p", text: "Original resource description"
+      assert_select "p", text: "Paramètres :"
+      assert_select "p", text: "Variables :"
+      assert_select "p", text: "Type : text/plain"
+      assert_select "pre", text: /Original schema/
+      assert_select "span", text: "- Original variable"
+      assert_select "main script", count: 0
+
+      post execute_tool_mcp_server_url(server), params: { tool_name: "runtime_tool", arguments: {} }, headers: headers, as: :json
+      assert_response :success
+      assert_equal({ "success" => true, "result" => "Original tool result" }, response.parsed_body)
+
+      tool.define_singleton_method(:call) { |**| raise "Original runtime diagnostic" }
+      post execute_tool_mcp_server_url(server), params: { tool_name: "runtime_tool", arguments: {} }, headers: headers, as: :json
+      assert_response :success
+      assert_equal({ "error" => "Original runtime diagnostic" }, response.parsed_body)
+    end
+  end
+
+  test "French catalog feedback localizes wrappers without activating servers" do
+    sign_in_picker_user
+    headers = { "Accept-Language" => "fr" }
+
+    get mcp_catalog_url("unknown"), headers: headers
+    assert_redirected_to mcp_catalog_index_url
+    assert_equal "Serveur introuvable.", flash[:alert]
+
+    server = mcp_servers(:picker_first_tool)
+    assert_no_difference "McpServer.count" do
+      with_singleton_replacement(McpCatalog, :activate_for_account, ->(*) { server }) do
+        post mcp_catalog_index_url, params: { id: "kchat" }, headers: headers
+      end
+      assert_redirected_to mcp_server_url(server)
+      assert_equal "Infomaniak kChat a été activé.", flash[:notice]
+
+      with_singleton_replacement(McpCatalog, :activate_for_account, ->(*) { raise "Original provider diagnostic" }) do
+        post mcp_catalog_index_url, params: { id: "kchat" }, headers: headers
+      end
+      assert_redirected_to mcp_catalog_index_url
+      assert_equal "Erreur d’activation : Original provider diagnostic.", flash[:alert]
+    end
+  end
+
   {
     accounts: "Comptes", new_account: "Nouveau compte", settings: "Paramètres",
     api_tokens: "Jetons API", system_prompts: "Instructions système", models: "Modèles"
