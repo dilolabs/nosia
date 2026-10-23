@@ -90,7 +90,7 @@ class MessageTest < ActiveSupport::TestCase
     message = @chat.messages.create!(role: :assistant, content: "")
     message.ruby_llm_tool_calls.create!(tool_call_id: "call_hidden", name: "search", arguments: {})
 
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       message.broadcast_created
     end
 
@@ -199,7 +199,7 @@ class MessageTest < ActiveSupport::TestCase
 
   test "broadcast_streamed_content broadcasts a replace of the content div with rendered HTML" do
     message = @chat.messages.create!(role: "assistant", content: "")
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       message.broadcast_streamed_content("# Title\n\n**bold**")
     end
     assert_equal 1, streams.size
@@ -215,7 +215,7 @@ class MessageTest < ActiveSupport::TestCase
     # Creating the user message legitimately broadcasts the bubble + thinking
     # animation, so assert specifically that broadcast_streamed_content emits no
     # content-div replace (its only possible broadcast) for a non-assistant message.
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       message.broadcast_streamed_content("anything")
     end
     assert streams.none? { |s| s["target"] == dom_id(message, :content) },
@@ -227,7 +227,7 @@ class MessageTest < ActiveSupport::TestCase
   # response, but other tabs only receive it through the [chat, "messages"]
   # broadcast — so creating a user message must broadcast-append it.
   test "creating a user message broadcasts it to the chat stream for other tabs" do
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.messages.create!(role: "user", content: "hello from tab A")
     end
 
@@ -239,7 +239,7 @@ class MessageTest < ActiveSupport::TestCase
   # Other tabs also need the waiting animation so the phase updates (which target
   # thinking_animation_content) have somewhere to land.
   test "creating a user message broadcasts the thinking animation to all tabs" do
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.messages.create!(role: "user", content: "hi")
     end
 
@@ -252,7 +252,7 @@ class MessageTest < ActiveSupport::TestCase
   test "a consecutive duplicate user message is not broadcast" do
     @chat.messages.create!(role: "user", content: "same question")
 
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.messages.create!(role: "user", content: "same question")
     end
 

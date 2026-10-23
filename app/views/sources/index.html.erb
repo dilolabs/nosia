@@ -1,8 +1,8 @@
-<%= turbo_stream_from Current.account, "sources" %>
+<%= turbo_stream_from Current.account, "sources", I18n.locale %>
 <%# New sources are prepended live to the matching filter view. Searched views
     opt out (a new row may not match the query) and refresh on reload. %>
 <% unless @query %>
-  <%= turbo_stream_from Current.account, "sources", "list:#{@type}:#{@status}" %>
+  <%= turbo_stream_from Current.account, "sources", "list:#{@type}:#{@status}", I18n.locale %>
 <% end %>
 
 <div class="n-main-title-container">

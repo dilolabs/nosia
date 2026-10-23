@@ -10,7 +10,7 @@ class ChatAccountTest < ActiveSupport::TestCase
     chat = chats(:picker_second_chat)
     Current.reset
 
-    streams = capture_turbo_stream_broadcasts([ chat, "messages" ]) { chat.finish_generation! }
+    streams = capture_turbo_stream_broadcasts([ chat, "messages", :en ]) { chat.finish_generation! }
     form = streams.find { |stream| stream["target"] == "chat_#{chat.id}_message_form" }
 
     assert form

@@ -106,7 +106,7 @@ class ChatResponseJobTest < ActiveJob::TestCase
     original_find = Chat.method(:find)
     Chat.define_singleton_method(:find) { |*args| args.first == chat_ref.id ? chat_ref : original_find.call(*args) }
 
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       ChatResponseJob.perform_now(@chat.id, user_msg.content, user_msg.id)
     end
 

@@ -1,0 +1,7 @@
+localized_chat_usage:
+  account: picker_second
+  chat: picker_second_chat
+  kind: completion
+  model_id: picker-test-model
+  input_tokens: 1234
+  output_tokens: 12

@@ -4,6 +4,7 @@
 # override #display_title. Requires Indexable (index_status) to be included too.
 module Sourceable
   extend ActiveSupport::Concern
+  include LocalizedBroadcasting
 
   included do
     after_create_commit :broadcast_source_created
@@ -51,7 +52,7 @@ module Sourceable
   # uploads rely on this to appear without a reload.
   def broadcast_source_created
     created_list_scopes.each do |scope|
-      broadcast_prepend_to [ account, "sources", "list:#{scope}" ],
+      broadcast_localized_to :prepend, [ account, "sources", "list:#{scope}" ],
         target: "sources_list",
         partial: "sources/source",
         locals: { row: SourceRow.new(self, chunks_count: chunks.count) }
@@ -60,7 +61,7 @@ module Sourceable
   end
 
   def broadcast_source_status_change
-    broadcast_replace_to [ account, "sources" ],
+    broadcast_localized_to :replace, [ account, "sources" ],
       target: ActionView::RecordIdentifier.dom_id(self, :source_row),
       partial: "sources/source",
       locals: { row: SourceRow.new(self, chunks_count: chunks.count) }
@@ -68,7 +69,7 @@ module Sourceable
   end
 
   def broadcast_source_removed
-    broadcast_remove_to [ account, "sources" ],
+    broadcast_localized_to :remove, [ account, "sources" ],
       target: ActionView::RecordIdentifier.dom_id(self, :source_row)
     broadcast_source_counts
   end
@@ -87,7 +88,7 @@ module Sourceable
     # nav links -- which keeps each viewer's active-filter highlight intact.
     def broadcast_source_counts
       count_badges(SourceRow.counts_for(account)).each do |key, value, variant|
-        broadcast_replace_to [ account, "sources" ],
+        broadcast_localized_to :replace, [ account, "sources" ],
           target: "source_count_#{key}",
           partial: "sources/counts",
           locals: { key:, value:, variant: }
