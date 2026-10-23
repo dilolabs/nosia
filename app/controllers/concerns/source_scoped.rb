@@ -32,6 +32,12 @@ module SourceScoped
       end
     end
 
+    def require_scoped_source_html
+      if @scoped_source_account && !request.negotiate_mime([ Mime[:html] ])
+        head :not_acceptable
+      end
+    end
+
     def source_filing_account(root)
       if @scoped_source_account
         source_account

@@ -4,6 +4,7 @@ module Sources
 
     before_action :verify_scoped_source_account, only: %i[ create update ]
     before_action :set_text, only: %i[ show edit update destroy ]
+    before_action :require_scoped_source_html, only: %i[ create update ]
 
     # GET /texts or /texts.json
     def index

@@ -227,9 +227,9 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
           assert_response :not_found
           get public_send("edit_account_sources_#{type}_path", @second, source)
           assert_response :not_found
-          post public_send("account_sources_#{type.to_s.pluralize}_path", @second), params: { type => attributes_for_source(type) }
+          post public_send("account_sources_#{type.to_s.pluralize}_path", @second), params: { type => attributes_for_source(type) }, as: :json
           assert_response :not_found
-          patch path, params: { type => attributes_for_source(type) }
+          patch path, params: { type => attributes_for_source(type) }, as: :json
           assert_response :not_found
           delete path
           assert_response :not_found
@@ -238,6 +238,77 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
         end
       end
       assert_equal original_sources, model.order(:id).map(&:attributes)
+    end
+  end
+
+  TYPES.except(:document).each do |type, model|
+    %i[ json xml ].each do |format|
+      %i[ create update ].each do |operation|
+        test "#{type} scoped #{operation} rejects #{format} without writes or jobs" do
+          source = experience(type.to_s.pluralize, "overview_second_#{type}")
+          path = if operation == :create
+            public_send("account_sources_#{type.to_s.pluralize}_path", @second)
+          else
+            public_send("account_sources_#{type}_path", @second, source)
+          end
+          method = operation == :create ? :post : :patch
+          options = format == :json ? { as: :json } : {}
+
+          assert_no_difference [ -> { model.count }, "ActiveStorage::Blob.count", "ActiveStorage::Attachment.count" ] do
+            assert_no_changes -> { model.order(:id).map(&:attributes) } do
+              assert_no_enqueued_jobs do
+                public_send method, path, params: { type => attributes_for_source(type) },
+                  headers: { "Accept" => Mime[format].to_s }, **options
+              end
+            end
+          end
+          assert_response :not_acceptable
+        end
+      end
+    end
+
+    {
+      html: { headers: { "Accept" => "text/html" } },
+      turbo: { headers: { "Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml" } },
+      json_body_html_response: { as: :json, headers: { "Accept" => "text/html" } }
+    }.each do |format, options|
+      test "ordinary members can create and update scoped #{type} with #{format}" do
+        sign_in_overview(@member)
+        attributes = attributes_for_source(type).merge(account_id: @second.id)
+        created_attributes = attributes.dup
+        created_attributes[:url] = "https://member-created.example/reference" if type == :website
+        source = experience(type.to_s.pluralize, "overview_second_#{type}")
+        path = public_send("account_sources_#{type}_path", @second, source)
+
+        assert_difference -> { model.where(account: @second).count }, 1 do
+          assert_enqueued_jobs 1, only: INGESTION_JOBS do
+            post public_send("account_sources_#{type.to_s.pluralize}_path", @second), params: { type => created_attributes }, **options
+          end
+        end
+        created = model.where(account: @second).order(:id).last
+        assert_redirected_to public_send("account_sources_#{type}_path", @second, created)
+        assert_enqueued_with job: ingestion_job(type), args: [ created.id ]
+
+        clear_enqueued_jobs
+        assert_enqueued_jobs 1, only: INGESTION_JOBS do
+          patch path, params: { type => attributes }, **options
+        end
+        assert_redirected_to path
+        assert_equal attributes.stringify_keys, source.reload.attributes.slice(*attributes.keys.map(&:to_s))
+        assert_enqueued_with job: ingestion_job(type), args: [ source.id ]
+      end
+    end
+
+    test "#{type} scoped JSON update checks record authority before rejecting its format" do
+      source = experience(type.to_s.pluralize, "overview_second_#{type}")
+
+      assert_no_changes -> { model.order(:id).map(&:attributes) } do
+        assert_no_enqueued_jobs do
+          patch public_send("account_sources_#{type}_path", @first, source),
+            params: { type => attributes_for_source(type) }, as: :json
+        end
+      end
+      assert_response :not_found
     end
   end
 
@@ -311,6 +382,25 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal account_sources_document_path(@second, document, format: :json), response.parsed_body.fetch("url")
     assert_equal document.title, response.parsed_body.fetch("title")
+  end
+
+  test "ordinary members can upload a scoped document with the dropzone JSON response contract" do
+    sign_in_overview(@member)
+
+    assert_difference [ -> { Document.where(account: @second).count }, "ActiveStorage::Blob.count", "ActiveStorage::Attachment.count" ], 1 do
+      assert_enqueued_jobs 1, only: INGESTION_JOBS do
+        post account_sources_documents_path(@second),
+          params: { document: attributes_for_source(:document).merge(account_id: @second.id) },
+          headers: { "Accept" => "application/json" }
+      end
+    end
+    assert_response :created
+    document = Document.find(response.parsed_body.fetch("id"))
+    assert_equal @second.id, document.account_id
+    assert_equal "Uploaded evidence", response.parsed_body.fetch("title")
+    assert_equal account_sources_document_path(@second, document, format: :json), response.parsed_body.fetch("url")
+    assert_equal account_sources_document_path(@second, document), response.location
+    assert_enqueued_with job: AddDocumentJob, args: [ document.id ]
   end
 
   test "validation summaries escape messages and omit an empty error list" do
