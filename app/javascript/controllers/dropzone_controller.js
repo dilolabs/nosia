@@ -201,7 +201,7 @@ export default class extends Controller {
 
     const message = document.createElement("span");
     message.setAttribute("role", "alert");
-    message.textContent = this.messagesValue.invalid.replaceAll("%{name}", file.name);
+    message.textContent = this.messagesValue.invalid.replaceAll("%{name}", () => file.name);
     li.appendChild(message);
 
     const removeBtn = document.createElement("button");

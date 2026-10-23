@@ -17,20 +17,26 @@ class LocalizationSystemTest < ApplicationSystemTestCase
     visit user_root_url(account_id: @second.id)
     assert_selector "lexxy-editor[connected]"
 
-    page.execute_script <<~JS
-      const root = document.querySelector('[data-controller~="dropzone"]')
-      const controller = window.Stimulus.getControllerForElementAndIdentifier(root, "dropzone")
-      controller._processFiles([new File([new Uint8Array(51 * 1024 * 1024)], "huge.pdf", { type: "application/pdf" })])
-    JS
+    filenames = [ "huge.pdf", "cost$&.pdf", "cost$$.pdf", "cost$`.pdf", "cost$'.pdf" ]
+    messages = filenames.map do |filename|
+      page.execute_script <<~JS, filename
+        const root = document.querySelector('[data-controller~="dropzone"]')
+        const controller = window.Stimulus.getControllerForElementAndIdentifier(root, "dropzone")
+        controller._processFiles([new File([new Uint8Array(51 * 1024 * 1024)], arguments[0], { type: "application/pdf" })])
+      JS
 
-    assert_selector '[role="alert"]', text: "Fichier non valide : huge.pdf"
-    assert_button "Retirer le fichier"
-    assert_selector "button[aria-label=Envoyer][disabled]"
+      message = find('[data-dropzone-target="list"] [role="alert"]').text
+      assert_button "Retirer le fichier"
+      assert_selector "button[aria-label=Envoyer][disabled]"
 
-    click_button "Retirer le fichier"
+      click_button "Retirer le fichier"
 
-    assert_no_selector '[role="alert"]', text: "Fichier non valide : huge.pdf"
-    assert_selector "button[aria-label=Envoyer]:not([disabled])"
+      assert_no_selector '[data-dropzone-target="list"] [role="alert"]'
+      assert_selector "button[aria-label=Envoyer]:not([disabled])"
+      message
+    end
+
+    assert_equal filenames.map { |filename| "Fichier non valide : #{filename}" }, messages
   end
 
   test "French composer feedback uses the server dictionary and resets failed sources" do
