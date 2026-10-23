@@ -1,0 +1,11 @@
+<% %w[first second empty].each do |account| %>
+overview_owner_<%= account %>:
+  account: overview_<%= account %>
+  user: overview_owner
+<% end %>
+overview_member_second:
+  account: overview_second
+  user: overview_member
+overview_outsider_foreign:
+  account: overview_foreign
+  user: overview_outsider

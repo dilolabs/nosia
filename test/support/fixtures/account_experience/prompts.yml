@@ -1,0 +1,9 @@
+overview_second_shared:
+  account: overview_second
+  name: system_prompt
+  content: Shared research instructions
+overview_second_personal:
+  account: overview_second
+  user: overview_member
+  name: system_prompt
+  content: Personal research override
