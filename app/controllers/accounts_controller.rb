@@ -54,7 +54,8 @@ class AccountsController < ApplicationController
   private
     def positive_page
       value = params[:page]
-      value.is_a?(String) || value.is_a?(Numeric) ? [ value.to_i, 1 ].max : 1
+      page = value.is_a?(String) || value.is_a?(Numeric) ? value.to_i : 1
+      page.between?(1, (2**63 - 1) / PAGE_SIZE) ? page : 1
     end
 
     def set_account
