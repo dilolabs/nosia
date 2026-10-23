@@ -1,7 +1,7 @@
 # Account index and account detail experience
 
 **Date:** 2026-10-23
-**Status:** Design approved; awaiting user review of the committed specification.
+**Status:** Written specification approved by the user (“Go”); implementation planning authorized.
 
 ## Requested outcome
 
@@ -296,3 +296,5 @@ actions are not broadly refactored; new resources follow REST conventions.
   summaries/lists, accessibility including browser zoom, verification coverage,
   and scope boundaries; proceed to a committed written specification for review,
   not directly to implementation.
+- **“Go” after the committed-spec review request.** The written specification is
+  approved; proceed to implementation planning and its execution handoff.
