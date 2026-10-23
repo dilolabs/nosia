@@ -105,15 +105,6 @@
         <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
         <%= link_to t("nosia.actions.cancel"), mcp_servers_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
       </div>
-      <div class="flex gap-2 items-center">
-        <% if mcp_server.persisted? %>
-          <%= button_to t("nosia.mcp.test_connection"),
-            test_connection_mcp_server_path(mcp_server),
-            method: :post,
-            data: { turbo: false },
-            class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
-        <% end %>
-      </div>
     </div>
   </div>
 <% end %>

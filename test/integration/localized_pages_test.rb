@@ -338,7 +338,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     headers = { "Accept-Language" => "fr" }
 
     with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { client }) do
-      post test_connection_mcp_server_url(server), headers: headers
+      post test_connection_mcp_server_url(server), headers: headers, as: :json
       assert_response :success
       assert_equal %w[latency message status success], response.parsed_body.keys.sort
       assert_equal true, response.parsed_body["success"]
@@ -355,7 +355,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       assert_equal "Déconnecté du serveur MCP.", flash[:notice]
 
       client.define_singleton_method(:tools) { raise "Original provider failure" }
-      post test_connection_mcp_server_url(server), headers: headers
+      post test_connection_mcp_server_url(server), headers: headers, as: :json
       assert_response :unprocessable_entity
       assert_equal({ "success" => false, "status" => "error", "error" => "Original provider failure", "message" => "Échec de la connexion" }, response.parsed_body)
 
