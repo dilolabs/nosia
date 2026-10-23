@@ -5,6 +5,13 @@ require_relative "../support/localized_view_assertions"
 class ViewCopyTest < ActiveSupport::TestCase
   include LocalizedViewAssertions
 
+  test "the entire view tree has no uncatalogued UI literals except the machine PWA manifest" do
+    paths = Dir.glob(Rails.root.join("app/views/**/*.erb"))
+    paths.delete(Rails.root.join("app/views/pwa/manifest.json.erb").to_s)
+
+    assert_localized_view_sources paths
+  end
+
   test "shell and authentication sources have no uncatalogued UI literals" do
     assert_localized_view_sources Dir.glob(Rails.root.join("app/views/{application,layouts,static,sessions,users,first_runs}/**/*.erb"))
   end
