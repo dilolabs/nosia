@@ -10,6 +10,58 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
   setup { sign_in_overview }
 
   TYPES.each do |type, model|
+    test "#{type} scoped edit keeps fixed account identity and a nested form action" do
+      source = experience(type.to_s.pluralize, "overview_second_#{type}")
+      path = public_send("account_sources_#{type}_path", @second, source)
+
+      get public_send("edit_account_sources_#{type}_path", @second, source)
+      assert_response :success
+      assert_select "form[action='#{path}']" do
+        assert_select "input[name='_method'][value='patch']"
+        assert_select "input[type='hidden'][name='#{type}[account_id]'][value='#{@second.id}']"
+        assert_select "select[name='#{type}[account_id]']", count: 0
+        assert_select "label[for='#{type}_account_id']", count: 0
+        assert_select "p", text: @second.name
+        assert_select "a[href='#{path}']", text: I18n.t("nosia.actions.cancel")
+
+        case type
+        when :document
+          assert_select "input[name='document[title]'][value='#{source.title}']"
+          assert_select "input[type='file'][name='document[file]']"
+        when :text, :qna, :website
+          field = type == :qna ? :answer : :data
+          value = type == :website ? source.to_html : Commonmarker.to_html(source.public_send(field).to_s.encode("UTF-8"))
+          assert_select "lexxy-editor[name='#{type}[#{field}]'][attachments='false']" do |editors|
+            assert_equal value, editors.first["value"]
+          end
+        end
+      end
+    end
+
+    test "#{type} new edit and show links retain the route account" do
+      source = experience(type.to_s.pluralize, "overview_second_#{type}")
+      path = public_send("account_sources_#{type}_path", @second, source)
+      index_path = account_sources_path(@second, type: type.to_s)
+      edit_path = public_send("edit_account_sources_#{type}_path", @second, source)
+
+      get public_send("new_account_sources_#{type}_path", @second)
+      assert_response :success
+      assert_select "a[href='#{index_path}'] .sr-only", text: I18n.t("nosia.actions.back")
+      assert_select "form a[href='#{account_sources_path(@second)}']", text: I18n.t("nosia.actions.cancel")
+
+      get edit_path
+      assert_response :success
+      assert_select "a[href='#{path}'] .sr-only", text: I18n.t("nosia.actions.back")
+      assert_select "form a[href='#{path}']", text: I18n.t("nosia.actions.cancel")
+
+      get path
+      assert_response :success
+      assert_select "a[href='#{index_path}'] .sr-only", text: I18n.t("nosia.actions.back")
+      assert_select "a[href='#{edit_path}'] .sr-only", text: I18n.t("nosia.sources.#{type.to_s.pluralize}.edit_action")
+      assert_select "a[href='#{path}'][data-turbo-method='delete'][data-turbo-confirm] .sr-only",
+        text: I18n.t("nosia.sources.#{type.to_s.pluralize}.delete_action")
+    end
+
     test "#{type} creation uses the route account and rejects conflicting or malformed filing accounts" do
       path = public_send("account_sources_#{type.to_s.pluralize}_path", @second)
 
@@ -187,6 +239,92 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
       end
       assert_equal original_sources, model.order(:id).map(&:attributes)
     end
+  end
+
+  test "all scoped forms have fixed account identity and nested form actions" do
+    TYPES.each_key do |type|
+      get public_send("new_account_sources_#{type}_path", @second)
+      assert_response :success
+      assert_select "form[action='#{public_send("account_sources_#{type.to_s.pluralize}_path", @second)}']"
+      assert_select "input[type='hidden'][name='#{type}[account_id]'][value='#{@second.id}']"
+      assert_select "select[name='#{type}[account_id]']", count: 0
+      assert_select "label[for='#{type}_account_id']", count: 0
+      assert_select "form p", text: @second.name
+    end
+  end
+
+  test "invalid document and website retain account and visible errors" do
+    post account_sources_documents_path(@second), params: { document: { title: "Keep this title" } }
+    assert_response :unprocessable_entity
+    assert_select "[role='alert'] li", minimum: 1
+    assert_select "input[name='document[title]'][value='Keep this title']"
+    assert_select "input[type='hidden'][name='document[account_id]'][value='#{@second.id}']"
+    assert_select "form[action='#{account_sources_documents_path(@second)}']"
+
+    post account_sources_websites_path(@second), params: { website: { url: "", data: "Keep this content" } }
+    assert_response :unprocessable_entity
+    assert_select "[role='alert'] li", minimum: 1
+    assert_select "input[type='hidden'][name='website[account_id]'][value='#{@second.id}']"
+    assert_select "form[action='#{account_sources_websites_path(@second)}']"
+    assert_select "lexxy-editor[name='website[data]'][attachments='false']" do |editors|
+      assert_equal Commonmarker.to_html("Keep this content"), editors.first["value"]
+    end
+  end
+
+  test "invalid website edit retains rich text account and nested action" do
+    website = experience(:websites, :overview_second_website)
+    path = account_sources_website_path(@second, website)
+
+    assert_no_enqueued_jobs only: INGESTION_JOBS do
+      patch path, params: { website: { url: "", data: "Keep **edited** content" } }
+    end
+    assert_response :unprocessable_entity
+    assert_select "[role='alert'] li", text: "Url can't be blank"
+    assert_select "form[action='#{path}']"
+    assert_select "input[type='hidden'][name='website[account_id]'][value='#{@second.id}']"
+    assert_select "lexxy-editor[name='website[data]'][attachments='false']" do |editors|
+      assert_equal Commonmarker.to_html("Keep **edited** content"), editors.first["value"]
+    end
+    assert_select "form a[href='#{path}']", text: I18n.t("nosia.actions.cancel")
+  end
+
+  test "legacy new forms retain labeled membership selectors and global form actions" do
+    TYPES.each_key do |type|
+      get public_send("new_sources_#{type}_path")
+      assert_response :success
+      assert_select "form[action='#{public_send("sources_#{type.to_s.pluralize}_path")}']" do
+        assert_select "label[for='#{type}_account_id']", text: I18n.t("nosia.sources.account_label")
+        assert_select "select[name='#{type}[account_id]']" do
+          assert_select "option[value='#{@first.id}'][selected]"
+          assert_select "option[value='#{@second.id}']"
+          assert_select "option[value='#{@foreign.id}']", count: 0
+        end
+        assert_select "input[type='hidden'][name='#{type}[account_id]']", count: 0
+      end
+    end
+  end
+
+  test "document JSON advertises its canonical account URL" do
+    document = experience(:documents, :overview_second_document)
+
+    get account_sources_document_path(@second, document, format: :json)
+    assert_response :success
+    assert_equal account_sources_document_path(@second, document, format: :json), response.parsed_body.fetch("url")
+    assert_equal document.title, response.parsed_body.fetch("title")
+  end
+
+  test "validation summaries escape messages and omit an empty error list" do
+    source = experience(:texts, :overview_second_text)
+    message = "<script>alert('unsafe')</script>"
+    source.errors.add(:base, message)
+
+    html = ApplicationController.render(partial: "application/validation_errors", locals: { record: source })
+    fragment = Nokogiri::HTML.fragment(html)
+    assert_select fragment, "[role='alert'] li", text: message
+    assert_select fragment, "script", count: 0
+
+    source.errors.clear
+    assert_empty ApplicationController.render(partial: "application/validation_errors", locals: { record: source }).strip
   end
 
   test "scoped source operations do not change the legacy first-account context" do

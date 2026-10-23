@@ -1,4 +1,5 @@
-<%= form_with(model: [:sources, website]) do |form| %>
+<%= form_with(model: source_form_model(website)) do |form| %>
+  <%= render "application/validation_errors", record: website %>
   <div class="n-form-field">
     <%= form.label :url, t("nosia.sources.url_label"), class: "n-label" %>
     <%= form.url_field :url, class: "n-field" %>
@@ -19,17 +20,10 @@
           attachments: "false" %>
   </div>
 
-  <div class="n-form-field">
-    <%= form.label :account_id, t("nosia.sources.account_label"), class: "n-label" %>
-    <%= form.collection_select :account_id,
-                           Current.user.accounts,
-                           :id,
-                           :name,
-                           { prompt: true, selected: Current.account, required: true },
-                           { class: "n-select" } %>
-  </div>
+  <%= render "sources/account_field", form: form %>
 
   <div class="n-form-actions">
     <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
+    <%= link_to t("nosia.actions.cancel"), website.persisted? ? source_show_path(website) : source_index_path, class: "n-btn-secondary" %>
   </div>
 <% end %>

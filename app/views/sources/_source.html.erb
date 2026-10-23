@@ -7,7 +7,7 @@
   <div class="min-w-0">
     <%# Stretched link: ::after covers the whole row so the entire line is
         clickable. Action buttons below opt out with relative z-10. %>
-    <%= link_to source_show_path(row.to_model), class: "block truncate font-medium after:absolute after:inset-0 after:content-['']" do %>
+    <%= link_to source_show_path(row.to_model), class: "n-main-focus block truncate font-medium after:absolute after:inset-0 after:content-['']" do %>
       <%= row.display_title %>
     <% end %>
     <p class="truncate text-xs text-neutral-500 dark:text-neutral-400"><%= row.source_subtitle %></p>
@@ -25,12 +25,18 @@
       clickable, while staying below the toolbar's z-10 add-source dropdown. %>
   <div class="relative z-[1] flex gap-2 justify-end">
     <% if row.to_model.failed? %>
-      <%= button_to source_retry_path(row.to_model), method: :post, title: t("nosia.actions.retry"), class: "n-btn-icon n-main-hover-tertiary text-orange-600 dark:text-orange-300", form: { data: { turbo_confirm: false } } do %>
-        <span class="text-lg leading-none">↻</span>
+      <%= button_to source_retry_path(row.to_model), method: :post,
+            title: t("nosia.actions.retry"), aria: { label: t("nosia.actions.retry") },
+            class: "n-btn-icon n-main-hover-tertiary n-main-focus-tertiary text-orange-600 dark:text-orange-300",
+            form: { data: { turbo_confirm: false } } do %>
+        <span aria-hidden="true" class="text-lg leading-none">↻</span>
       <% end %>
     <% end %>
-    <%= link_to source_show_path(row.to_model), title: t("nosia.actions.delete"), data: { turbo_method: :delete, turbo_confirm: t("nosia.actions.confirm_delete") }, class: "n-btn-icon n-main-hover-danger text-red-600 dark:text-red-300" do %>
-      <%= inline_svg "svg/trash-bin.svg", class: "w-5 h-5" %>
+    <%= link_to source_show_path(row.to_model), title: t("nosia.actions.delete"),
+          aria: { label: t("nosia.actions.delete") },
+          data: { turbo_method: :delete, turbo_confirm: t("nosia.actions.confirm_delete") },
+          class: "n-btn-icon n-main-hover-danger n-main-focus-danger text-red-600 dark:text-red-300" do %>
+      <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "w-5 h-5" %>
     <% end %>
   </div>
 </div>

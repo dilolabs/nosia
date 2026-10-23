@@ -1,4 +1,5 @@
-<%= form_with(model: [:sources, qna]) do |form| %>
+<%= form_with(model: source_form_model(qna)) do |form| %>
+  <%= render "application/validation_errors", record: qna %>
   <div class="n-form-field">
     <%= form.label :question, t("nosia.sources.question_label"), class: "n-label" %>
     <%= form.text_field :question, class: "n-field" %>
@@ -14,17 +15,10 @@
           attachments: "false" %>
   </div>
 
-  <div class="n-form-field">
-    <%= form.label :account_id, t("nosia.sources.account_label"), class: "n-label" %>
-    <%= form.collection_select :account_id,
-                           Current.user.accounts,
-                           :id,
-                           :name,
-                           { prompt: true, selected: Current.account, required: true },
-                           { class: "n-select" } %>
-  </div>
+  <%= render "sources/account_field", form: form %>
 
   <div class="n-form-actions">
     <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
+    <%= link_to t("nosia.actions.cancel"), qna.persisted? ? source_show_path(qna) : source_index_path, class: "n-btn-secondary" %>
   </div>
 <% end %>
