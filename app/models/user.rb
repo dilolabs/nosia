@@ -1,6 +1,10 @@
 class User < ApplicationRecord
   has_secure_password
 
+  # Supports validation error rendering without retaining the authorization password.
+  # @return [nil] An unset attribute used only to render credential validation errors.
+  attr_reader :current_password
+
   has_many :account_users, dependent: :destroy
   has_many :accounts, through: :account_users
   has_many :api_tokens, dependent: :destroy

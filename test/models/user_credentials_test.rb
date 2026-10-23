@@ -18,6 +18,7 @@ class UserCredentialsTest < ActiveSupport::TestCase
 
   test "changing email encrypts the new address without changing passwords or browser sessions" do
     assert @user.change_email(email: "replacement@example.com", current_password: PASSWORD)
+    assert_nil @user.current_password
 
     @user.reload
     assert_equal "replacement@example.com", @user.email
@@ -78,6 +79,7 @@ class UserCredentialsTest < ActiveSupport::TestCase
 
     assert @user.change_password(password: REPLACEMENT, password_confirmation: REPLACEMENT,
       current_password: PASSWORD, session: @current_session)
+    assert_nil @user.current_password
 
     @user.reload
     refute_equal @original_attributes["password_digest"], @user.password_digest
@@ -118,6 +120,25 @@ class UserCredentialsTest < ActiveSupport::TestCase
 
       assert @user.errors.of_kind?(:current_password, :invalid)
       assert_credentials_unchanged
+    end
+  end
+
+  %i[en fr].each do |locale|
+    test "current password errors render safely in #{locale} without retaining the secret" do
+      submitted_secret = "never-retain-this-current-password"
+
+      I18n.with_locale(locale) do
+        refute @user.change_password(password: REPLACEMENT, password_confirmation: REPLACEMENT,
+          current_password: submitted_secret, session: @current_session)
+
+        error = @user.errors.where(:current_password, :invalid).first
+        assert_kind_of String, error.message
+        refute_empty error.message
+        assert_equal [ error.full_message ], @user.errors.full_messages
+        refute_includes @user.errors.full_messages.join, submitted_secret
+        assert_nil @user.current_password
+        refute @user.respond_to?(:current_password=)
+      end
     end
   end
 
