@@ -89,7 +89,7 @@ MCP connections, or external indexing workers. The focused coverage uses opt-in
 localization/chat-account fixtures:
 
 ```sh
-AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 TMPDIR=/tmp/opencode bin/rails test test/models/language_preference_test.rb test/controllers/language_preferences_controller_test.rb test/controllers/localization_test.rb test/internationalization test/integration/localized_pages_test.rb test/integration/localized_cache_test.rb test/integration/localized_broadcasts_test.rb test/helpers/mcp_catalog_helper_test.rb
+AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/models/language_preference_test.rb test/controllers/language_preferences_controller_test.rb test/controllers/localization_test.rb test/internationalization test/integration/localized_pages_test.rb test/integration/localized_cache_test.rb test/integration/localized_broadcasts_test.rb test/helpers/mcp_catalog_helper_test.rb
 bundle exec ruby test/packaging/bilingual_error_pages_test.rb
 RAILS_ENV=test AI_API_KEY=nosia-test-key bin/rails tailwindcss:build
 ```
@@ -98,7 +98,7 @@ With Chromium and ChromeDriver installed at the paths below, bypass Selenium
 Manager's architecture detection explicitly (adjust paths for another host):
 
 ```sh
-AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 TMPDIR=/tmp/opencode bundle exec ruby -rselenium-webdriver -e 'Selenium::WebDriver::Chrome::Service.driver_path = "/usr/bin/chromedriver"; Selenium::WebDriver::Chrome.path = "/usr/bin/chromium"; load "bin/rails"' -- test test/system/localization_test.rb test/system/chat_account_selection_test.rb test/system/chat_composer_ui_test.rb test/system/sources_dropzone_test.rb
+AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec ruby -rselenium-webdriver -e 'Selenium::WebDriver::Chrome::Service.driver_path = "/usr/bin/chromedriver"; Selenium::WebDriver::Chrome.path = "/usr/bin/chromium"; load "bin/rails"' -- test test/system/localization_test.rb test/system/chat_account_selection_test.rb test/system/chat_composer_ui_test.rb test/system/sources_dropzone_test.rb
 ```
 
 The localization system tests use separate English/French Chrome sessions and

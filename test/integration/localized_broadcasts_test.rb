@@ -204,6 +204,19 @@ class LocalizedBroadcastsTest < ActiveSupport::TestCase
     assert_equal :en, I18n.locale
   end
 
+  test "a synchronous render exception restores the public helper caller locale" do
+    chat = chats(:picker_second_chat)
+
+    I18n.with_locale(:fr) do
+      assert_raises ActionView::MissingTemplate do
+        chat.broadcast_localized_to(:replace, chat, :messages,
+          target: "synchronous_locale_probe", partial: "messages/nonexistent_locale_probe", locals: { chat: chat })
+      end
+      assert_equal :fr, I18n.locale
+    end
+    assert_equal :en, I18n.locale
+  end
+
   test "automatic message lifecycle jobs render both languages with unchanged targets" do
     message = messages(:localized_assistant).dup
     message.content = ""
