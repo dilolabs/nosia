@@ -1,6 +1,50 @@
 en:
+  date:
+    formats:
+      dataset_snapshot: "%-d %B %Y"
   nosia:
     usage:
+      title: "Token usage & environmental impact"
+      input: "Input"
+      output: "Output"
+      total: "Total"
+      energy: "Energy"
+      tokens_title: "Tokens"
+      short_tokens: "tok"
+      per_model: "Per model (top 5)"
+      per_kind: "Per kind"
+      none: "No usage yet."
+      last_30_days: "Last 30 days"
+      fallback_note: "* estimated using a fallback energy coefficient (model not in the Comparia dataset)."
+      kinds:
+        completion: "completion"
+        embedding: "embedding"
+        agent_skill: "agent_skill"
+      input_output_tooltip: "Input / output tokens"
+      energy_tooltip: "Energy estimate (kWh)"
+      co2_tooltip: "CO2e estimate"
+      fallback_tooltip: "estimate — model absent from the Comparia benchmark"
+      total_tooltip: "Total energy & CO₂e — Ecologits methodology"
+      total_fallback_tooltip: "Total energy & CO₂e — Ecologits methodology (incl. fallback estimate)"
+      methodology: "Methodology"
+      expand: "Expand"
+      methodology_question: "How is the energy impact of models calculated?"
+      methodology_caveat: "Methodologies for assessing the environmental impact of AI are still under development."
+      data_source: "Data source"
+      dataset_name: "Comparia model-energy dataset"
+      methodology_intro_html: >-
+        Nosia uses the methodology developed by %{ecologits} (GenAI Impact) — the same one powering %{comparia} — to estimate the energy balance of generative-AI model inference. This lets you compare the environmental impact of different models for the same request. Transparency is essential to encourage the development and adoption of more eco-responsible AI models.
+      methodology_lifecycle_html: >-
+        Ecologits applies life-cycle assessment (LCA) principles following the <strong class="text-neutral-700 dark:text-neutral-300">ISO 14044</strong> standard, focusing for now on the impact of <em>inference</em> (using models to answer requests) and the manufacturing of graphics cards (resource extraction, manufacturing, and transport).
+      methodology_measurement_html: >-
+        The model's electricity consumption is estimated from parameters such as the size and architecture of the model, the location of the servers where the models are deployed, and the number of output tokens. The climate-change potential indicator, expressed in <strong class="text-neutral-700 dark:text-neutral-300">CO₂-equivalent</strong>, is derived from the electricity-consumption measurement.
+      dataset_source_html: >-
+        Per-model consumption (mWh per 1000 tokens) from the %{dataset} — <span class="font-medium">licence Etalab 2.0</span>, snapshot dated <span class="font-medium">%{date}</span>.
+      dataset_fallback_html: >-
+        Models absent from the dataset (notably most API-only models, whose consumption is reported as <code class="px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 text-pink-600 dark:text-pink-400 font-mono">N/A</code>) use a fallback coefficient — marked with <span class="font-medium">*</span> in the breakdowns above.
+      token_unit:
+        one: "token"
+        other: "tokens"
       token_quantity:
         one: "%{formatted_count} token"
         other: "%{formatted_count} tokens"

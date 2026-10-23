@@ -5,6 +5,77 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   include ChatAccountFixtures
   include ActionView::RecordIdentifier
 
+  test "French usage dashboard translates kinds methodology and the fixed dataset snapshot" do
+    sign_in_picker_user
+    TokenUsage.create!(account: @first, kind: :completion, model_id: "<script>Original model</script>", input_tokens: 1234, output_tokens: 2)
+    TokenUsage.create!(account: @first, kind: :embedding, input_tokens: 1, output_tokens: 0)
+    TokenUsage.create!(account: @first, kind: :agent_skill, input_tokens: 2, output_tokens: 0)
+    original = @first.token_usages.order(:id).pluck(:kind, :model_id, :input_tokens, :output_tokens)
+
+    get token_usage_url, headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select "title", text: /Utilisation des jetons et impact environnemental/
+    assert_select "h2", text: "Utilisation des jetons et impact environnemental"
+    [ "Entrée", "Sortie", "Total", "Énergie", "Par modèle (les 5 premiers)", "Par type", "Les 30 derniers jours" ].each do |label|
+      assert_select "section", text: /#{Regexp.escape(label)}/
+    end
+    [ "génération", "vectorisation", "compétence d’agent" ].each do |kind|
+      assert_select "li span.capitalize", text: kind
+    end
+    assert_select "li", text: /1[ \u00a0\u202f]236 jetons/
+    assert_select "li", text: /0,\d{6} kWh\*/
+    assert_select "section p", text: /kWh · \d+,\d{2} gCO₂e/
+    assert_select "section p", text: "* estimation à l’aide d’un coefficient énergétique de repli (modèle absent du jeu de données Comparia)."
+    assert_select "details summary", text: /Comment l’impact énergétique des modèles est-il calculé \?/
+    assert_select "details p", text: /Nosia utilise la méthode développée par Ecologits \(GenAI Impact\), également utilisée par compar:IA/
+    assert_select "details strong", text: "ISO 14044"
+    assert_select "details strong", text: "équivalent CO₂"
+    assert_select "details", text: /licence Etalab 2\.0.*2 juillet 2026/m
+    assert_select "details code", text: "N/A"
+    assert_select 'details a[href="https://ecologits.ai"][target="_blank"][rel="noopener"]', text: "Ecologits"
+    assert_select 'details a[href="https://comparia.beta.gouv.fr"][target="_blank"][rel="noopener"]', text: "compar:IA"
+    assert_select 'details a[href="https://comparia.beta.gouv.fr/ranking"][target="_blank"][rel="noopener"]', text: "Jeu de données Comparia sur l’énergie des modèles"
+    assert_select "main script", count: 0
+    assert_select "li span", text: "<script>Original model</script>"
+    css_select("[style]").each { |element| assert_match(/\Awidth: \d+%\z/, element["style"]) }
+    css_select("polygon, polyline").each { |element| assert_match(/\A\d+(?:\.\d+)?,\d+(?:\.\d+)?(?: \d+(?:\.\d+)?,\d+(?:\.\d+)?)*\z/, element["points"]) }
+    assert_equal original, @first.token_usages.order(:id).pluck(:kind, :model_id, :input_tokens, :output_tokens)
+  end
+
+  test "usage display units pluralize native zero singular and plural counts" do
+    Current.session = @user.sessions.create!
+
+    { en: { 0 => "tokens", 1 => "token", 2 => "tokens" }, fr: { 0 => "jeton", 1 => "jeton", 2 => "jetons" } }.each do |locale, units|
+      units.each do |count, unit|
+        html = I18n.with_locale(locale) do
+          ApplicationController.render(partial: "token_usages/summary", locals: {
+            token_totals: { input: count, output: 0 },
+            green_summary: { models: [ { model_id: "Original model", tokens: count, kwh: 0.1234567, fallback: false } ], kwh: 0.1234567, co2e_g: 12.345, fallback_used: false },
+            tokens_by_kind: { "completion" => count }, tokens_by_day: {}
+          })
+        end
+        fragment = Nokogiri::HTML.fragment(html)
+
+        assert_select fragment, "div.grid > div:first-child > p:last-child", text: unit
+        assert_select fragment, "li span", text: "#{count} #{unit}", count: 2
+        assert_select fragment, "p", text: locale == :fr ? "0,123457" : "0.123457"
+        assert_select fragment, "p", text: locale == :fr ? "kWh · 12,35 gCO₂e" : "kWh · 12.35 gCO₂e"
+      end
+    end
+  end
+
+  test "usage dashboard empty states translate in both locales" do
+    sign_in_picker_user
+
+    { en: "No usage yet.", fr: "Aucune utilisation pour le moment." }.each do |locale, sentence|
+      get token_usage_url, headers: { "Accept-Language" => locale.to_s }
+
+      assert_response :success
+      assert_select "section li", text: sentence, count: 2
+    end
+  end
+
   test "French skill creation translates labels without changing machine values or field names" do
     sign_in_picker_user
 

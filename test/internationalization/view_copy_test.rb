@@ -10,10 +10,16 @@ class ViewCopyTest < ActiveSupport::TestCase
   end
 
   test "chat sources have no uncatalogued UI literals" do
-    usage_partials = %w[app/views/chats/_token_totals.html.erb app/views/messages/_token_footer.html.erb].map { |path| Rails.root.join(path).to_s }
     paths = Dir.glob(Rails.root.join("app/views/{chats,messages,chat_mcp_sessions,dashboards,chunks}/**/*.erb"))
 
-    assert_localized_view_sources paths - usage_partials
+    assert_localized_view_sources paths
+  end
+
+  test "all usage screens and chat usage partials have no uncatalogued UI literals" do
+    paths = Dir.glob(Rails.root.join("app/views/token_usages/**/*.erb"))
+    paths += %w[app/views/chats/_token_totals.html.erb app/views/messages/_token_footer.html.erb].map { |path| Rails.root.join(path).to_s }
+
+    assert_localized_view_sources paths
   end
 
   test "source workflows have no uncatalogued UI literals" do
@@ -56,7 +62,10 @@ class ViewCopyTest < ActiveSupport::TestCase
     "page title" => [ "Sign in", '<% content_for :title, "Sign in" %>' ],
     "raw submit value" => [ "Sign in", '<input type="submit" value="Sign in">' ],
     "raw button value" => [ "Save", '<input type="button" value="Save">' ],
-    "raw reset value" => [ "Reset", '<input type="reset" value="Reset">' ]
+    "raw reset value" => [ "Reset", '<input type="reset" value="Reset">' ],
+    "usage heading" => [ "Energy", "<div>Energy</div>" ],
+    "usage methodology" => [ "Methodologies for assessing", "<p>Methodologies for assessing the environmental impact of AI are still under development.</p>" ],
+    "usage footer tooltip" => [ "Input / output tokens", '<span title="Input / output tokens">↑ <%= number_with_delimiter(total_in) %></span>' ]
   }.each do |name, (copy, source)|
     test "audit rejects #{name}" do
       with_view_source(source) do |path|
