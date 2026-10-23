@@ -12,6 +12,11 @@ en:
       english: "English"
       french: "Français"
       apply: "Apply"
+      short:
+        automatic: "Auto"
+        french: "FR"
+        english: "EN"
+      auto_switch_hint: "Changing language reloads this page automatically. Save unsent work first."
       invalid: "Invalid language preference."
     actions:
       save: "Save"

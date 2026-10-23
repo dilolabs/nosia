@@ -48,8 +48,7 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
 
   test "results fit small and large screens in both themes and languages" do
     [ "en", "fr" ].each do |locale|
-      select(locale == "en" ? "English" : "Français", from: "language_preference_locale")
-      click_button "Apply"
+      select(locale.upcase, from: "language_preference_locale")
       assert_selector "html[lang=#{locale}]"
 
       [ 375, 768, 1400 ].each do |width|
