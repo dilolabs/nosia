@@ -1,0 +1,47 @@
+.n-profile {
+  @apply mx-auto w-full min-w-0 max-w-2xl space-y-6 pb-24 lg:pb-8;
+}
+
+main:has(> .n-profile) {
+  @apply scroll-pb-24 lg:scroll-pb-0;
+}
+
+.n-profile-card {
+  @apply min-w-0 rounded-xl border border-neutral-300 bg-white p-5 dark:border-neutral-600 dark:bg-neutral-800 sm:p-6;
+}
+
+.n-profile-help {
+  @apply break-words text-sm leading-relaxed text-neutral-600 dark:text-neutral-300;
+}
+
+.n-profile .n-field {
+  @apply min-h-11 min-w-0 border-neutral-500 text-neutral-900 focus:outline-green-700 dark:border-neutral-400 dark:text-neutral-100 dark:focus:outline-green-400;
+}
+
+.n-profile-secret {
+  @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2;
+}
+
+.n-profile-visibility {
+  @apply min-h-11 min-w-11 cursor-pointer rounded-lg px-2 text-sm font-medium text-green-800 hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:text-green-200 dark:hover:bg-green-900 dark:focus:outline-green-400;
+}
+
+.n-profile-actions {
+  @apply mt-5 flex justify-end;
+}
+
+.n-profile-submit {
+  @apply min-h-11 cursor-pointer rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 disabled:cursor-wait dark:focus:outline-green-400;
+}
+
+.n-profile-note {
+  @apply mt-4 rounded-lg bg-green-50 p-3 text-sm leading-relaxed text-green-900 dark:bg-green-950 dark:text-green-100;
+}
+
+.n-profile-errors {
+  @apply my-4 break-words rounded-lg border border-red-700 p-3 text-sm text-red-800 focus:outline-2 focus:outline-offset-2 focus:outline-red-700 dark:border-red-400 dark:text-red-200 dark:focus:outline-red-300;
+}
+
+.n-profile-error {
+  @apply text-sm text-red-700 dark:text-red-300;
+}

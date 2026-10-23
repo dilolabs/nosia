@@ -1,0 +1,14 @@
+<% if errors&.any? %>
+  <div id="profile_<%= section %>_errors" class="n-profile-errors" role="alert" tabindex="-1"
+       aria-labelledby="profile_<%= section %>_errors_title" data-credential-form-target="errors">
+    <h3 id="profile_<%= section %>_errors_title" class="font-semibold"><%= t("nosia.profile.errors_title") %></h3>
+    <ul>
+      <% errors.each do |error| %>
+        <li>
+          <%= link_to error.full_message, "##{error.attribute == :base ? section : "profile_#{section}_#{error.attribute}"}",
+                class: "underline rounded-sm focus:outline-2 focus:outline-offset-2" %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

@@ -3,6 +3,7 @@
 @import "../stylesheets/nosia/button.css" layer(utilities);
 @import "../stylesheets/nosia/card.css" layer(utilities);
 @import "../stylesheets/nosia/form.css" layer(utilities);
+@import "../stylesheets/nosia/profile.css" layer(utilities);
 /* Match Lexxy's unlayered chrome without changing editor styles elsewhere. */
 @import "../stylesheets/nosia/composer.css";
 @import "../stylesheets/nosia/main.css" layer(utilities);

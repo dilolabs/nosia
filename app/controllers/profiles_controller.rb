@@ -1,5 +1,4 @@
-class ProfilesController < ApplicationController
+class ProfilesController < Profiles::BaseController
   def show
-    @user = Current.user
   end
 end

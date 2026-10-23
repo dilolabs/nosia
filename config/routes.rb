@@ -62,7 +62,12 @@ Rails.application.routes.draw do
         post :refresh
       end
     end
-    resource :profile, only: [ :show ]
+    resource :profile, only: :show do
+      scope module: :profiles do
+        resource :email, only: :update
+        resource :password, only: :update
+      end
+    end
     resources :system_prompts, only: [ :index, :show, :edit, :update, :destroy ]
     resource :settings, only: [ :show ]
     resources :sources, only: [ :index ]
