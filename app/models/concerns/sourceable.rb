@@ -14,7 +14,7 @@ module Sourceable
   # Human label + url-safe key, derived from the class name by default and
   # overridable per model (Qna -> "Q&A").
   def source_type_label
-    model_name.human
+    I18n.t("nosia.sources.types.#{source_type_key}", count: 1)
   end
 
   def source_type_key

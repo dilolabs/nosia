@@ -27,7 +27,7 @@ module Sources
       respond_to do |format|
         if @qna.save
           AddQnaJob.perform_later(@qna.id)
-          format.html { redirect_to sources_qna_url(@qna), notice: "Q&A was successfully created." }
+          format.html { redirect_to sources_qna_url(@qna), notice: t("nosia.sources.qnas.created") }
           format.json { render :show, status: :created, location: sources_qna_url(@qna) }
         else
           format.html { render :new, status: :unprocessable_entity }
@@ -41,7 +41,7 @@ module Sources
       respond_to do |format|
         if @qna.update(qna_params)
           AddQnaJob.perform_later(@qna.id)
-          format.html { redirect_to sources_qna_url(@qna), notice: "Q&A was successfully updated." }
+          format.html { redirect_to sources_qna_url(@qna), notice: t("nosia.sources.qnas.updated") }
           format.json { render :show, status: :ok, location: sources_qna_url(@qna) }
         else
           format.html { render :edit, status: :unprocessable_entity }
@@ -55,7 +55,7 @@ module Sources
       qna = Current.account.qnas.find(params[:id])
       qna.mark_pending!
       AddQnaJob.perform_later(qna.id)
-      redirect_to sources_path(type: "qna"), notice: "Re-indexing Q&A."
+      redirect_to sources_path(type: "qna"), notice: t("nosia.sources.qnas.retrying")
     end
 
     # DELETE /qnas/1 or /qnas/1.json
@@ -63,7 +63,7 @@ module Sources
       @qna.destroy!
 
       respond_to do |format|
-        format.html { redirect_to sources_qnas_url, notice: "Q&A was successfully destroyed." }
+        format.html { redirect_to sources_qnas_url, notice: t("nosia.sources.qnas.destroyed") }
         format.json { head :no_content }
       end
     end

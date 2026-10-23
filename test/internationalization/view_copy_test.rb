@@ -16,6 +16,10 @@ class ViewCopyTest < ActiveSupport::TestCase
     assert_localized_view_sources paths - usage_partials
   end
 
+  test "source workflows have no uncatalogued UI literals" do
+    assert_localized_view_sources Dir.glob(Rails.root.join("app/views/sources/**/*.erb"))
+  end
+
   {
     "original sign in submit" => [ "Sign in", '<%= form.submit "Sign in", class: "n-btn-primary" %>' ],
     "original sign up submit" => [ "Sign up", '<%= form.submit "Sign up", class: "n-btn-primary" %>' ],

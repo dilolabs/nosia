@@ -17,7 +17,7 @@ class Qna < ApplicationRecord
   end
 
   def source_type_label
-    "Q&A"
+    I18n.t("nosia.sources.types.qna", count: 1)
   end
 
   def display_title
@@ -25,6 +25,6 @@ class Qna < ApplicationRecord
   end
 
   def source_subtitle
-    "A: #{answer.to_s.strip.first(60)}"
+    I18n.t("nosia.sources.answer_preview", answer: answer.to_s.strip.first(60))
   end
 end

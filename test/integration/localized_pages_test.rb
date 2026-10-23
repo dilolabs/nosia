@@ -5,6 +5,129 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   include ChatAccountFixtures
   include ActionView::RecordIdentifier
 
+  test "French sources translate search sorting type filters and upload messages" do
+    sign_in_picker_user
+
+    get sources_url, headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select 'input[name="q"][placeholder="Rechercher des sources…"]'
+    assert_select 'option[value="recent"]', text: "Ajout récent"
+    assert_select 'a[href*="type=document"]', text: /Documents/
+    assert_select "[data-controller~=dropzone][data-dropzone-messages-value]" do |roots|
+      messages = JSON.parse(roots.first["data-dropzone-messages-value"])
+      assert_equal "Fichier non valide : %{name}", messages.fetch("invalid")
+    end
+  end
+
+  test "French Q&A creation retains its rich answer editor" do
+    sign_in_picker_user
+
+    get new_sources_qna_url, headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select "h2", text: "Nouvelle question-réponse"
+    assert_select "label", text: "Réponse"
+    assert_select 'lexxy-editor[name="qna[answer]"]'
+    assert_select 'textarea[name="qna[answer]"]', count: 0
+    assert_select 'input[type="submit"][value="Enregistrer"]'
+  end
+
+  test "French pasted text subtitles pluralize at presentation time" do
+    text = texts(:picker_second_text)
+
+    I18n.with_locale(:fr) do
+      { "bonjour" => "Texte collé · 1 mot", "bonjour monde" => "Texte collé · 2 mots" }.each do |data, subtitle|
+        text.data = data
+
+        assert_equal subtitle, text.source_subtitle
+        assert_equal data, text.data
+      end
+    end
+  end
+
+  test "French source presentation translates labels and statuses without changing type keys" do
+    sign_in_picker_user
+
+    I18n.with_locale(:fr) do
+      [ [ @second.documents.new, "Document", "document" ],
+        [ texts(:picker_second_text), "Texte", "text" ],
+        [ @second.qnas.new(answer: "  Original answer  "), "Question-réponse", "qna" ],
+        [ websites(:picker_second_website), "Site web", "website" ] ].each do |source, label, key|
+        assert_equal label, source.source_type_label
+        assert_equal key, source.source_type_key
+      end
+
+      document = @second.documents.new
+      assert_equal "Document sans titre", document.display_title
+      assert_equal "R : Original answer", @second.qnas.new(answer: "  Original answer  ").source_subtitle
+
+      text = texts(:picker_second_text)
+      { "indexed" => "Indexé", "failed" => "En échec", "pending" => "Traitement…" }.each do |status, label|
+        text.index_status = status
+        assert_equal label, ApplicationController.helpers.source_status_display(text).last
+      end
+      website = websites(:picker_second_website)
+      website.index_status = "pending"
+      assert_equal "Exploration…", ApplicationController.helpers.source_status_display(website).last
+    end
+  end
+
+  test "French empty source states use complete sentences and escape the query" do
+    sign_in_picker_user
+
+    I18n.with_locale(:fr) do
+      { "document" => [ "Aucun document pour le moment", "Ajouter un document" ],
+        "text" => [ "Aucun texte pour le moment", "Ajouter un texte" ],
+        "qna" => [ "Aucune question-réponse pour le moment", "Ajouter une question-réponse" ],
+        "website" => [ "Aucun site web pour le moment", "Ajouter un site web" ] }.each do |type, (sentence, action)|
+        html = ApplicationController.render(partial: "sources/empty", locals: { type: type, status: "all", query: nil })
+        fragment = Nokogiri::HTML.fragment(html)
+        assert_select fragment, "h3", text: sentence
+        assert_select fragment, "a", text: action
+      end
+    end
+
+    get sources_url(q: '<script>alert("query")</script>'), headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select ".sources-empty", text: /Aucune source ne correspond à « <script>/
+    assert_select ".sources-empty script", count: 0
+  end
+
+  test "French source HTML notices translate creation updates retries and deletion" do
+    sign_in_picker_user
+    headers = { "Accept-Language" => "fr" }
+    blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4 test"), filename: "original.pdf", content_type: "application/pdf")
+    resources = [
+      [ :texts, { data: "Original text" }, "Le texte", "créé", "mis", "supprimé", "Nouvelle indexation du texte." ],
+      [ :qnas, { question: "Original question?", answer: "Original answer" }, "La question-réponse", "créée", "mise", "supprimée", "Nouvelle indexation de la question-réponse." ],
+      [ :websites, { url: "https://example.invalid/task6" }, "Le site web", "créé", "mis", "supprimé", "Nouvelle exploration du site web." ],
+      [ :documents, { title: "Original document", file: blob.signed_id }, "Le document", "créé", "mis", "supprimé", "Nouvelle indexation du document." ]
+    ]
+
+    resources.each do |type, attributes, label, created, updated, destroyed, retrying|
+      model = type.to_s.classify.constantize
+      key = model.model_name.element
+      post polymorphic_url([ :sources, model ]), params: { key => attributes.merge(account_id: @first.id) }, headers: headers
+      assert_response :redirect
+      assert_equal "#{label} a été #{created}.", flash[:notice]
+      source = @first.public_send(type).order(:created_at).last
+
+      patch polymorphic_url([ :sources, source ]), params: { key => attributes.except(:file) }, headers: headers
+      assert_response :redirect
+      assert_equal "#{label} a été #{updated} à jour.", flash[:notice]
+
+      post public_send("retry_sources_#{key}_url", source), headers: headers
+      assert_response :redirect
+      assert_equal retrying, flash[:notice]
+
+      delete polymorphic_url([ :sources, source ]), headers: headers
+      assert_response :redirect
+      assert_equal "#{label} a été #{destroyed}.", flash[:notice]
+    end
+  end
+
   test "French new chat keeps the selected account and translates the composer" do
     sign_in_picker_user
 

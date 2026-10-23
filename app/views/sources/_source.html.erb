@@ -17,19 +17,19 @@
 
   <span class="hidden md:block"><%= render "sources/status", row: row %></span>
 
-  <span class="hidden md:block text-sm text-neutral-600 dark:text-neutral-300"><%= row.chunks_count.zero? ? "—" : row.chunks_count %></span>
+  <span class="hidden md:block text-sm text-neutral-600 dark:text-neutral-300"><%= row.chunks_count.zero? ? "—" : number_with_delimiter(row.chunks_count) %></span>
 
-  <span class="hidden md:block text-xs text-neutral-400"><%= time_ago_in_words(row.created_at) %> ago</span>
+  <span class="hidden md:block text-xs text-neutral-400"><%= t("nosia.time.ago", duration: time_ago_in_words(row.created_at)) %></span>
 
   <%# z-[1] lifts the actions above the stretched link's ::after so they stay
       clickable, while staying below the toolbar's z-10 add-source dropdown. %>
   <div class="relative z-[1] flex gap-2 justify-end">
     <% if row.to_model.failed? %>
-      <%= button_to source_retry_path(row.to_model), method: :post, title: "Retry", class: "n-btn-icon n-main-hover-tertiary text-orange-600 dark:text-orange-300", form: { data: { turbo_confirm: false } } do %>
+      <%= button_to source_retry_path(row.to_model), method: :post, title: t("nosia.actions.retry"), class: "n-btn-icon n-main-hover-tertiary text-orange-600 dark:text-orange-300", form: { data: { turbo_confirm: false } } do %>
         <span class="text-lg leading-none">↻</span>
       <% end %>
     <% end %>
-    <%= link_to source_show_path(row.to_model), title: "Delete", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" }, class: "n-btn-icon n-main-hover-danger text-red-600 dark:text-red-300" do %>
+    <%= link_to source_show_path(row.to_model), title: t("nosia.actions.delete"), data: { turbo_method: :delete, turbo_confirm: t("nosia.actions.confirm_delete") }, class: "n-btn-icon n-main-hover-danger text-red-600 dark:text-red-300" do %>
       <%= inline_svg "svg/trash-bin.svg", class: "w-5 h-5" %>
     <% end %>
   </div>
