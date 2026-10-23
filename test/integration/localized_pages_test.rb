@@ -465,6 +465,10 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       account_account_users_url(@second), account_system_prompt_url(@second), edit_account_system_prompt_url(@second),
       settings_url, api_tokens_url, system_prompts_url, system_prompt_url(prompt), edit_system_prompt_url(prompt) ].each do |url|
       get url, headers: { "Accept-Language" => "fr" }
+      if url == account_settings_url(@second)
+        assert_redirected_to account_url(@second)
+        follow_redirect!(headers: { "Accept-Language" => "fr" })
+      end
       assert_response :success
       assert_select 'main svg:not([aria-hidden="true"])', count: 0
     end
@@ -481,9 +485,11 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     assert_select "h2 script", count: 0
 
     get account_settings_url(@second), headers: headers
+    assert_redirected_to account_url(@second)
+    follow_redirect!(headers: headers)
     assert_response :success
-    assert_select "h2", text: "Paramètres du compte #{@second.name}"
-    assert_select "h2 script", count: 0
+    assert_select "h1", text: @second.name
+    assert_select "h1 script", count: 0
   end
 
   test "French prompt read pages preserve prompt IDs content and full names" do

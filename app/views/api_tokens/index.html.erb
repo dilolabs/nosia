@@ -1,3 +1,5 @@
+<% content_for :account_tool_title, t("nosia.account_experience.api_tokens") if @account %>
+
 <% content_for :navbar do %>
   <li class="flex items-center">
     <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>

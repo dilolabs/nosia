@@ -8,6 +8,64 @@ class Accounts::AdministrationTest < ActionDispatch::IntegrationTest
     sign_in_overview(@member)
   end
 
+  test "member prompt read page has neither membership navigation nor edit controls" do
+    get account_system_prompt_path(@second)
+    assert_response :success
+    assert_select "a[href='#{edit_account_system_prompt_path(@second)}']", count: 0
+    assert_select "a[href='#{account_account_users_path(@second)}']", count: 0
+    assert_includes response.body, "Shared research instructions"
+    assert_select "p", text: "Account default · Personal overrides may apply"
+    assert_select "nav[aria-label='Breadcrumb'] a[href='#{account_path(@second)}']"
+    shared = experience(:prompts, :overview_second_shared)
+    get system_prompt_path(shared)
+    assert_response :success
+    assert_select "a[href='#{edit_system_prompt_path(shared)}']", count: 0
+  end
+
+  test "missing shared prompt edit submits PATCH and failed saving creates no default" do
+    sign_in_overview
+    get edit_account_system_prompt_path(@empty)
+    assert_response :success
+    assert_select "form[action='#{account_system_prompt_path(@empty)}'] input[name='_method'][value='patch']"
+    assert_no_difference "Prompt.count" do
+      patch account_system_prompt_path(@empty), params: { prompt: { content: "" } }
+      assert_response :unprocessable_entity
+    end
+    assert_select "form [role='alert'] li", text: /Content/
+    assert_select "form a[href='#{account_system_prompt_path(@empty)}']", text: "Cancel"
+  end
+
+  test "legacy shared prompt read controls are hidden from members but personal controls remain" do
+    shared = experience(:prompts, :overview_second_shared)
+    get system_prompt_path(shared)
+    assert_response :success
+    assert_select "a[href='#{edit_system_prompt_path(shared)}']", count: 0
+    assert_includes response.body, shared.content
+
+    personal = experience(:prompts, :overview_second_personal)
+    get system_prompt_path(personal)
+    assert_response :success
+    assert_select "a[href='#{edit_system_prompt_path(personal)}']", count: 2
+
+    sign_in_overview
+    get system_prompt_path(shared)
+    assert_response :success
+    assert_select "a[href='#{edit_system_prompt_path(shared)}']", count: 2
+  end
+
+  test "owner prompt page retains membership and both edit controls" do
+    sign_in_overview
+    get account_system_prompt_path(@second)
+    assert_response :success
+    assert_select "a[href='#{edit_account_system_prompt_path(@second)}']", count: 2
+    assert_select "a[href='#{account_account_users_path(@second)}']", count: 1
+
+    get edit_account_system_prompt_path(@second)
+    assert_response :success
+    assert_select "nav[aria-label='Breadcrumb'] [aria-current='page']", text: "System prompt"
+    assert_select "form[action='#{account_system_prompt_path(@second)}'] input[name='_method'][value='patch']"
+  end
+
   test "member cannot edit account details or manage membership" do
     get edit_account_path(@second)
     assert_response :forbidden

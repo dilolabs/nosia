@@ -8,6 +8,88 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
     sign_in_overview
   end
 
+  test "settings and account editing return to the hub with useful breadcrumbs" do
+    get account_settings_path(@second)
+    assert_redirected_to account_path(@second)
+    get edit_account_path(@second)
+    assert_response :success
+    assert_select "a[href='#{account_path(@second)}']", minimum: 1
+    patch account_path(@second), params: { account: { name: "Research renamed", uid: "research-renamed" } }
+    assert_redirected_to account_path(@second)
+    [ account_sources_path(@second), account_chats_path(@second), account_api_tokens_path(@second),
+      account_token_usage_path(@second), account_system_prompt_path(@second), account_account_users_path(@second) ].each do |path|
+      get path
+      assert_response :success
+      assert_select "nav[aria-label='Breadcrumb'] a[href='#{account_path(@second)}']"
+      assert_select "#accordion-right-actions", count: 0
+      assert_select "#drawer-right", count: 0
+    end
+  end
+
+  test "every scoped source editor and detail page has a hub breadcrumb" do
+    SourceRow::TYPES.each do |type|
+      source = experience(type.pluralize, "overview_second_#{type}")
+      [ public_send("new_account_sources_#{type}_path", @second),
+        public_send("edit_account_sources_#{type}_path", @second, source),
+        public_send("account_sources_#{type}_path", @second, source) ].each do |path|
+        get path
+        assert_response :success
+        assert_select "nav[aria-label='Breadcrumb']" do
+          assert_select "a[href='#{accounts_path}']", text: "Accounts"
+          assert_select "a[href='#{account_path(@second)}']", text: @second.name
+          assert_select "[aria-current='page']", text: "Knowledge sources"
+        end
+        assert_select "#accordion-right-actions, #drawer-right", count: 0
+      end
+    end
+  end
+
+  test "hub and account form breadcrumbs escape names and keep cancel context" do
+    @second.update_columns(name: "<script>Account name</script>")
+
+    get account_path(@second)
+    assert_response :success
+    assert_select "nav[aria-label='Breadcrumb'] [aria-current='page']", text: @second.name
+    assert_select "nav[aria-label='Breadcrumb'] a[href='#{account_path(@second)}']", count: 0
+    assert_select "nav script", count: 0
+
+    get edit_account_path(@second)
+    assert_response :success
+    assert_select "nav[aria-label='Breadcrumb'] a[href='#{account_path(@second)}']", text: @second.name
+    assert_select "nav[aria-label='Breadcrumb'] [aria-current='page']", text: "Edit account"
+    assert_select "form a[href='#{account_path(@second)}']", text: "Cancel"
+    assert_select "nav script", count: 0
+
+    get new_account_path
+    assert_response :success
+    assert_select "nav[aria-label='Breadcrumb']", count: 0
+    assert_select "form a[href='#{accounts_path}']", text: "Cancel"
+  end
+
+  test "global tools retain their navbar and conversation drawers" do
+    [ sources_path, new_sources_text_path, api_tokens_path, token_usage_path,
+      system_prompt_path(experience(:prompts, :overview_second_shared)) ].each do |path|
+      get path
+      assert_response :success
+      assert_select "nav[aria-label='Breadcrumb']", count: 0
+      assert_select "#accordion-right-actions, #drawer-right", count: 2
+    end
+  end
+
+  test "settings alias requires route membership without requiring ownership" do
+    sign_in_overview(@member)
+    get account_settings_path(@second)
+    assert_redirected_to account_path(@second)
+
+    get account_settings_path(@foreign), params: { account_id: @second.id }
+    assert_response :not_found
+
+    sign_in_overview
+    experience(:account_users, :overview_owner_second).destroy!
+    get account_settings_path(@second)
+    assert_response :not_found
+  end
+
   test "directory exposes accessible account and new-conversation links" do
     get accounts_path
 
@@ -238,6 +320,8 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_select "input[name='account[name]'][value='Rejected account']"
+    assert_select "form [role='alert'] li", text: /Name/
+    assert_select "form a[href='#{accounts_path}']", text: "Cancel"
   end
 
   test "unrelated prompt validation errors are not rescued as account input errors" do

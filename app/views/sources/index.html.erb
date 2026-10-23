@@ -1,3 +1,5 @@
+<% content_for :account_tool_title, t("nosia.account_experience.sources") if @scoped_source_account %>
+
 <%= turbo_stream_from source_account, "sources", I18n.locale %>
 <%# New sources are prepended live to the matching filter view. Searched views
     opt out (a new row may not match the query) and refresh on reload. %>
