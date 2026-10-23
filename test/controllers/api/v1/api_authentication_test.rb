@@ -74,6 +74,22 @@ module Api
         assert_response :unauthorized
       end
 
+      test "French header and cookie preserve English skill validation and authentication contracts" do
+        patch "/language_preference", params: { locale: "fr" }
+        headers = auth_header(@token.plain_token).merge("Accept-Language" => "fr")
+
+        post "/api/v1/agent_skills", params: { agent_skill: { name: "1bad", execution_mode: "llm", trigger_mode: "explicit", skill_content: "Original instructions" } }, headers: headers, as: :json
+
+        assert_response :unprocessable_entity
+        assert_equal "en", response.headers["Content-Language"]
+        assert_equal({ "errors" => [ "Name must start with a letter and contain only alphanumeric, underscore, and hyphen" ] }, response.parsed_body)
+
+        get "/api/v1/agent_skills", headers: auth_header("bogus").merge("Accept-Language" => "fr")
+        assert_response :unauthorized
+        assert_equal "en", response.headers["Content-Language"]
+        assert_equal "Unauthorized", response.parsed_body["error"]
+      end
+
       # Per-IP ceiling on the machine boundary: a valid token can otherwise
       # drive unbounded LLM spend and crawling. Uses its own remote_addr so the
       # counter never bleeds into the other examples in this file.

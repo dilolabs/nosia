@@ -7,7 +7,7 @@
     <% unless Current.user %>
       <%= render "sessions/form", user: User.new %>
       <% if registrations_allowed? %>
-        <p class="text-center text-neutral-500 font-medium tracking-wide uppercase">or sign up</p>
+        <p class="text-center text-neutral-500 font-medium tracking-wide uppercase"><%= t("nosia.auth.or_sign_up") %></p>
         <%= render "users/form", user: User.new %>
       <% end %>
     <% end %>

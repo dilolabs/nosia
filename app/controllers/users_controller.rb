@@ -8,7 +8,7 @@ class UsersController < ApplicationController
   # registration is closed — a redirecting before_action halts the chain.
   rate_limit to: 5, within: 1.minute, by: -> { request.remote_ip },
     store: RATE_LIMIT_STORE,
-    with: -> { redirect_to root_path, alert: "Try again later." }
+    with: -> { redirect_to root_path, alert: I18n.t("nosia.auth.try_later") }
   before_action :check_allowed_registrations
 
   def new
@@ -27,7 +27,7 @@ class UsersController < ApplicationController
   private
 
   def check_allowed_registrations
-    redirect_to root_path, alert: "Registrations are closed." unless ActiveModel::Type::Boolean.new.cast(ENV["REGISTRATIONS_ALLOWED"])
+    redirect_to root_path, alert: I18n.t("nosia.auth.registrations_closed") unless ActiveModel::Type::Boolean.new.cast(ENV["REGISTRATIONS_ALLOWED"])
   end
 
   def user_params

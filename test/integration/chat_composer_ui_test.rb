@@ -84,7 +84,7 @@ class ChatComposerUiTest < ActionDispatch::IntegrationTest
     chat.start_generation!
     Current.reset
 
-    streams = capture_turbo_stream_broadcasts([ chat, "messages" ]) { chat.finish_generation! }
+    streams = capture_turbo_stream_broadcasts([ chat, "messages", :en ]) { chat.finish_generation! }
     replacement = streams.find { |stream| stream["target"] == "#{dom_id(chat)}_message_form" }
 
     assert replacement

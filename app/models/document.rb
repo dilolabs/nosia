@@ -90,11 +90,11 @@ class Document < ApplicationRecord
   end
 
   def display_title
-    title.presence || file.filename.to_s.presence || "Untitled document"
+    title.presence || file.filename.to_s.presence || I18n.t("nosia.sources.untitled_document")
   end
 
   def source_subtitle
     return "" unless file.attached?
-    "#{ActiveSupport::NumberHelper.number_to_human_size(file.byte_size)} · #{file.filename.extension.to_s.upcase.presence || 'FILE'}"
+    "#{ActiveSupport::NumberHelper.number_to_human_size(file.byte_size)} · #{file.filename.extension.to_s.upcase.presence || I18n.t('nosia.sources.file_type')}"
   end
 end

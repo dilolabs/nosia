@@ -8,11 +8,11 @@ module SourcesHelper
   # Returns [css_classes, label] for a source's status chip.
   def source_status_display(record)
     if record.indexed?
-      [ "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300", "Indexed" ]
+      [ "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300", t("nosia.sources.status.indexed") ]
     elsif record.failed?
-      [ "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300", "Failed" ]
+      [ "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300", t("nosia.sources.status.failed") ]
     else
-      label = record.is_a?(Website) ? "Crawling…" : "Processing…"
+      label = t(record.is_a?(Website) ? "nosia.sources.status.crawling" : "nosia.sources.status.processing")
       [ "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300", label ]
     end
   end

@@ -1,16 +1,16 @@
 <tr id="model_<%= Digest::SHA256.hexdigest([model.provider, model.id].to_json) %>">
   <td><%= model.provider %></td>
   <td><%= model.name %></td>
-  <td><%= number_with_delimiter(model.context_window) if model.context_window %></td>
+  <td><%= model.context_window.nil? ? "—" : t("nosia.usage.token_quantity", count: model.context_window, formatted_count: number_with_delimiter(model.context_window)) %></td>
   <td>
     <% input = model.price(:input) %>
     <% output = model.price(:output) %>
-    <%= input.nil? ? "—" : format("$%.2f", input) %> / <%= output.nil? ? "—" : format("$%.2f", output) %>
+    <%= input.nil? ? "—" : number_to_currency(input, unit: "$", precision: 2) %> / <%= output.nil? ? "—" : number_to_currency(output, unit: "$", precision: 2) %>
   </td>
   <td>
     <% mwh = GreenIt.dataset_mwh_per_1000_tokens(model.id) %>
     <%= mwh ? number_with_delimiter(mwh.to_i) : "—" %>
   </td>
-  <td><%= link_to "Show", model_path("model", model_id: model.id, provider: model.provider) %></td>
-  <td><%= link_to "Start chat", new_chat_path(model: model.id) %></td>
+  <td><%= link_to t("nosia.actions.show"), model_path("model", model_id: model.id, provider: model.provider) %></td>
+  <td><%= link_to t("nosia.models.start_chat"), new_chat_path(model: model.id) %></td>
 </tr>

@@ -478,6 +478,44 @@ setup_windows() {
   exit 1
 }
 
+download_caddy_trust_helper() {
+  caddy_trust_target=bin/trust-caddy
+  caddy_trust_warning="Warning: Could not download optional Caddy trust helper. See https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md"
+
+  if [ -e "$caddy_trust_target" ] || [ -L "$caddy_trust_target" ]; then
+    return 0
+  fi
+
+  if ! command -v link >/dev/null 2>&1; then
+    echo "$caddy_trust_warning" >&2
+    return 0
+  fi
+
+  if ! mkdir -p bin; then
+    echo "$caddy_trust_warning" >&2
+    return 0
+  fi
+
+  if ! caddy_trust_staged=$(mktemp bin/.trust-caddy.XXXXXXXX); then
+    echo "$caddy_trust_warning" >&2
+    return 0
+  fi
+
+  # link uses the exact target path, never descending into a racing directory.
+  if curl -fsSL -o "$caddy_trust_staged" https://raw.githubusercontent.com/dilolabs/nosia/main/bin/trust-caddy &&
+      [ -s "$caddy_trust_staged" ] && chmod u+x "$caddy_trust_staged" &&
+      link "$caddy_trust_staged" "$caddy_trust_target"; then
+    :
+  else
+    echo "$caddy_trust_warning" >&2
+  fi
+
+  if ! rm -f "$caddy_trust_staged"; then
+    echo "$caddy_trust_warning" >&2
+  fi
+  return 0
+}
+
 # Main installation
 do_install() {
   # Detect system resources
@@ -506,7 +544,14 @@ do_install() {
   docker compose pull
   echo "Docker images pulled successfully."
 
+  download_caddy_trust_helper
+
   echo "Setup complete. Start with: docker compose up -d"
+  if [ -f bin/trust-caddy ]; then
+    echo "After startup, optionally run: bin/trust-caddy"
+  else
+    echo "For optional local HTTPS trust, see https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md"
+  fi
 }
 
 # Run installation

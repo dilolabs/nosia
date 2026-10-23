@@ -12,9 +12,9 @@
   asterisk = fallback ? "*" : ""
 %>
 <footer class="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-2 flex-wrap">
-  <span title="Input / output tokens">↑ <%= number_with_delimiter(total_in) %> ↓ <%= number_with_delimiter(total_out) %></span>
+  <span title="<%= t("nosia.usage.input_output_tooltip") %>">↑ <%= number_with_delimiter(total_in) %> ↓ <%= number_with_delimiter(total_out) %></span>
   <span aria-hidden="true">·</span>
-  <span title="Energy estimate (kWh)"><%= number_with_precision(kwh, precision: 6) %> kWh</span>
+  <span title="<%= t("nosia.usage.energy_tooltip") %>"><%= number_with_precision(kwh, precision: 6) %> kWh</span>
   <span aria-hidden="true">·</span>
-  <span title="<%= fallback ? 'estimation — modèle absent du benchmark Comparia' : 'CO2e estimate' %>"><%= number_with_precision(co2e, precision: 2) %> gCO2e<%= asterisk %></span>
+  <span title="<%= t(fallback ? "nosia.usage.fallback_tooltip" : "nosia.usage.co2_tooltip") %>"><%= number_with_precision(co2e, precision: 2) %> gCO2e<%= asterisk %></span>
 </footer>

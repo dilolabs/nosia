@@ -10,7 +10,7 @@ class ChatAccountTest < ActiveSupport::TestCase
     chat = chats(:picker_second_chat)
     Current.reset
 
-    streams = capture_turbo_stream_broadcasts([ chat, "messages" ]) { chat.finish_generation! }
+    streams = capture_turbo_stream_broadcasts([ chat, "messages", :en ]) { chat.finish_generation! }
     form = streams.find { |stream| stream["target"] == "chat_#{chat.id}_message_form" }
 
     assert form
@@ -23,6 +23,17 @@ class ChatAccountTest < ActiveSupport::TestCase
 
     assert_not chat.update(account: @first)
     assert_includes chat.errors[:account], "cannot be changed after creation"
+    assert_equal @second.id, chat.reload.account_id
+  end
+
+  test "French immutable account validation preserves the saved chat account" do
+    chat = chats(:picker_second_chat)
+
+    I18n.with_locale(:fr) do
+      refute chat.update(account: @first)
+      assert_includes chat.errors[:account], "ne peut pas être modifié après la création"
+      assert_includes chat.errors.full_messages, "Compte ne peut pas être modifié après la création"
+    end
     assert_equal @second.id, chat.reload.account_id
   end
 

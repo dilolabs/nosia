@@ -4,4 +4,4 @@
 options:
   cache: true
   postgresql: true
-  thruster: true
+  thruster: false

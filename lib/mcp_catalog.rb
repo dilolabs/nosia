@@ -100,7 +100,7 @@ class McpCatalog
       return if missing.empty?
 
       record = McpServer.new(name: template[:name])
-      record.errors.add(:base, "Missing required config: #{missing.map { |f| f[:name] }.join(", ")}")
+      record.errors.add(:base, :missing_required_config, fields: missing.map { |field| field[:name] }.join(", "))
       raise ActiveRecord::RecordInvalid.new(record)
     end
 

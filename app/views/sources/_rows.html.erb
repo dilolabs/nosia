@@ -8,7 +8,7 @@
   <% end %>
   <% if has_more %>
     <div id="sources_load_more" class="py-4 text-center">
-      <%= link_to "Load more",
+      <%= link_to t("nosia.sources.load_more"),
             sources_path(type: type, status: status, sort: sort, q: query, page: page + 1, format: :turbo_stream),
             data: { turbo_stream: true }, class: "n-btn-secondary" %>
     </div>

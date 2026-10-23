@@ -31,7 +31,7 @@ module Sources
 
       respond_to do |format|
         if @document.persisted?
-          format.html { redirect_to sources_document_url(@document), notice: "Document was successfully created." }
+          format.html { redirect_to sources_document_url(@document), notice: t("nosia.sources.documents.created") }
           format.json { render :show, status: :created, location: sources_document_url(@document) }
         else
           format.html { render :new, status: :unprocessable_entity }
@@ -45,7 +45,7 @@ module Sources
       respond_to do |format|
         if @document.update(document_params)
           AddDocumentJob.perform_later(@document.id)
-          format.html { redirect_to sources_document_url(@document), notice: "Document was successfully updated." }
+          format.html { redirect_to sources_document_url(@document), notice: t("nosia.sources.documents.updated") }
           format.json { render :show, status: :ok, location: sources_document_url(@document) }
         else
           format.html { render :edit, status: :unprocessable_entity }
@@ -59,7 +59,7 @@ module Sources
       document = Current.account.documents.find(params[:id])
       document.mark_pending!
       AddDocumentJob.perform_later(document.id)
-      redirect_to sources_path(type: "document"), notice: "Re-indexing document."
+      redirect_to sources_path(type: "document"), notice: t("nosia.sources.documents.retrying")
     end
 
     # DELETE /documents/1 or /documents/1.json
@@ -67,7 +67,7 @@ module Sources
       @document.destroy!
 
       respond_to do |format|
-        format.html { redirect_to sources_url, notice: "Document was successfully destroyed." }
+        format.html { redirect_to sources_url, notice: t("nosia.sources.documents.destroyed") }
         format.json { head :no_content }
       end
     end

@@ -179,23 +179,21 @@ This document tracks known technical debt in the Nosia codebase, including the n
 
 ### 9. Internationalization (i18n)
 
-**Issue**: Limited internationalization support
+**Status**: Resolved for the Nosia-owned English/French interface.
 
-**Impact**:
-- English-only interface
-- Limited global accessibility
-- Harder to localize
+Rails i18n catalogs, browser language negotiation, a signed pre-login language
+selector, localized validation/Stimulus feedback, locale-qualified caches and
+live broadcasts, and bilingual static recovery pages are implemented. Focused
+request/catalog/cache/broadcast tests and real English/French browser navigation,
+two-session Cable delivery, and narrow-screen keyboard checks verify this scope.
+See [Internationalization](internationalization.md) for rollout and verification
+details, including unrelated existing suite failures.
 
-**Location**:
-- View templates
-- Error messages
-- UI text
-
-**Resolution Plan**:
-- Implement Rails i18n
-- Extract strings for translation
-- Add locale switching
-- Support RTL languages
+**Remaining scope**:
+- Additional languages and RTL layouts are not implemented.
+- Upstream Lexxy dialogs, Mission Control internals, and external MCP content
+  are not guaranteed translated.
+- Human French review remains necessary as interface copy evolves.
 
 **Priority**: Low
 
@@ -251,7 +249,7 @@ This document tracks known technical debt in the Nosia codebase, including the n
 4. **Enhance mobile UI** - Better accessibility
 
 #### Phase 3: Long-term Enhancements (Future)
-1. **Add internationalization** - Global accessibility
+1. **Extend internationalization beyond English/French** - Additional languages and RTL layouts
 2. **Expand documentation** - Better onboarding
 3. **Implement advanced features** - Competitive advantage
 

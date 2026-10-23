@@ -145,7 +145,7 @@ Once started, access Nosia at:
 - **Web Interface:** `https://nosia.localhost`
 - **API Endpoint:** `https://nosia.localhost/v1`
 
-> **Note:** The default installation uses a self-signed SSL certificate. Your browser will show a security warning on first access. For production deployments, see the [Deployment Guide](docs/DEPLOYMENT.md) for proper SSL certificate configuration.
+> **Local HTTPS (optional):** Caddy issues local certificates from its own CA. After startup, review the helper and run `bin/trust-caddy` on Linux/macOS or `.\bin\trust-caddy.ps1` in native Windows PowerShell to opt into machine trust. Read [Local HTTPS](docs/LOCAL_HTTPS.md) first for prerequisites, fingerprint verification, browser/runtime stores, and exact removal. Installers download but do not run the helper. For public-domain production HTTPS, see the [Deployment Guide](docs/DEPLOYMENT.md); no local CA import is needed.
 
 > **Windows Note:** You may need to add `nosia.localhost` to your hosts file pointing to `127.0.0.1`.
 
@@ -549,8 +549,8 @@ Verify Nosia is running correctly:
 # Check service status
 docker compose ps
 
-# Check web application health
-curl -k https://nosia.localhost/up
+# Check web application health after configuring local HTTPS trust
+curl --fail https://nosia.localhost/up
 
 # Check background jobs
 docker compose exec web bin/rails runner "puts SolidQueue::Job.count"
@@ -626,8 +626,8 @@ docker compose ps
 # Verify reverse-proxy is healthy
 docker compose logs reverse-proxy
 
-# Test connectivity
-curl -k https://nosia.localhost/up
+# Verify HTTPS and application health (see Local HTTPS for trust setup)
+curl --fail https://nosia.localhost/up
 ```
 
 **Database connection errors:**

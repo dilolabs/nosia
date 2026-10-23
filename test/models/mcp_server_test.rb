@@ -1,4 +1,5 @@
 require "test_helper"
+require_relative "../support/chat_account_fixtures"
 
 class McpServerTest < ActiveSupport::TestCase
   class KeywordTool < RubyLLM::Tool
@@ -107,5 +108,36 @@ class McpServerTest < ActiveSupport::TestCase
     ensure
       RubyLLM::MCP.define_singleton_method(:client, original_client)
     end
+  end
+end
+
+class LocalizedMcpServerValidationTest < ActiveSupport::TestCase
+  include ChatAccountFixtures
+
+  teardown { unstub_url_resolver }
+
+  test "French public host validation retains the SSRF rule" do
+    stub_url_resolver([ "127.0.0.1" ])
+    server = mcp_servers(:picker_second_tool)
+    server.assign_attributes(transport_type: "streamable", endpoint: "http://internal.example.invalid/mcp")
+
+    I18n.with_locale(:fr) do
+      refute server.valid?
+      assert_includes server.errors[:endpoint], "doit désigner un hôte accessible publiquement"
+      assert_includes server.errors.full_messages, "Adresse du serveur doit désigner un hôte accessible publiquement"
+    end
+  end
+
+  test "French stdio validation retains the deployment restriction" do
+    previous_stdio_env = ENV.delete("MCP_STDIO_ENABLED")
+    server = mcp_servers(:picker_second_tool)
+    server.transport_type = "stdio"
+
+    I18n.with_locale(:fr) do
+      refute server.valid?
+      assert_includes server.errors[:transport_type], "stdio nécessite MCP_STDIO_ENABLED sur ce déploiement"
+    end
+  ensure
+    ENV["MCP_STDIO_ENABLED"] = previous_stdio_env
   end
 end

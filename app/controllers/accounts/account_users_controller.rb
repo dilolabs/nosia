@@ -16,19 +16,19 @@ module Accounts
       @account_user = @account.account_users.new(user: @user)
 
       if @account_user.save
-        redirect_to account_account_users_path(@account), notice: "User was successfully added."
+        redirect_to account_account_users_path(@account), notice: t("nosia.accounts.user_added")
       else
-        redirect_to account_account_users_path(@account), alert: "Failed to add user."
+        redirect_to account_account_users_path(@account), alert: t("nosia.accounts.user_add_failed")
       end
     end
 
     def destroy
       if @account_user.user_id == @account.owner_id
-        redirect_to account_account_users_path(@account), alert: "The account owner cannot be removed."
+        redirect_to account_account_users_path(@account), alert: t("nosia.accounts.owner_cannot_remove")
       else
         @account_user.destroy!
 
-        redirect_to account_account_users_path(@account), notice: "User was successfully removed."
+        redirect_to account_account_users_path(@account), notice: t("nosia.accounts.user_removed")
       end
     end
 
@@ -38,7 +38,7 @@ module Accounts
     def require_owner
       return if @account.owner_id == Current.user.id
 
-      redirect_to account_account_users_path(@account), alert: "Only the account owner can manage members."
+      redirect_to account_account_users_path(@account), alert: t("nosia.accounts.owner_only")
     end
 
     def set_account
@@ -51,7 +51,7 @@ module Accounts
 
     def set_user
       @user = User.find_by(email: params[:account_user][:email])
-      redirect_to account_account_users_path(@account), alert: "User not found." unless @user
+      redirect_to account_account_users_path(@account), alert: t("nosia.accounts.user_not_found") unless @user
     end
   end
 end

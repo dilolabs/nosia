@@ -1,5 +1,6 @@
 class TokenUsage < ApplicationRecord
   include ActionView::RecordIdentifier
+  include LocalizedBroadcasting
 
   acts_as_tenant :account
 
@@ -47,7 +48,7 @@ class TokenUsage < ApplicationRecord
   end
 
   def broadcast_token_totals
-    broadcast_replace_to [ chat, :token_totals ],
+    broadcast_localized_to :replace, [ chat, :token_totals ],
       target: dom_id(chat, :token_totals),
       partial: "chats/token_totals",
       locals: { chat: chat }

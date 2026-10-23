@@ -21,7 +21,7 @@ class AccountsController < ApplicationController
 
   def update
     if @account.update(account_params)
-      redirect_to accounts_path, notice: "Account was successfully updated."
+      redirect_to accounts_path, notice: t("nosia.accounts.updated")
     else
       render :edit, status: :unprocessable_entity
     end

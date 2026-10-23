@@ -1,21 +1,21 @@
 <% content_for :navbar do %>
   <li class="flex items-center">
-    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
+    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
   </li>
   <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to "API Tokens", api_tokens_path, class:"n-ariane n-main-focus" %>
+    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
+    <%= link_to t("nosia.tokens.title"), api_tokens_path, class:"n-ariane n-main-focus" %>
   </li>
 <% end %>
 
 <div class="n-title-container">
-  <h2 class="n-main-title mt-0.5">API Tokens</h2>
+  <h2 class="n-main-title mt-0.5"><%= t("nosia.tokens.title") %></h2>
 </div>
 
 <div class="n-cards-grid">
   <div class="n-card n-main-border w-full row-span-2 lg:col-span-2">
     <div class="n-card-content">
-      <h2 class="n-card-title">New API token</h2>
+      <h2 class="n-card-title"><%= t("nosia.tokens.new") %></h2>
       <%= render "form", api_token: ApiToken.new %>
     </div>
   </div>
@@ -23,15 +23,15 @@
   <% if flash[:created_api_token].present? %>
     <div class="n-card n-main-border lg:col-span-2">
       <div class="mt-6 ml-6 mr-4">
-        <h2 class="n-card-title">Your new API token</h2>
-        <p class="text-sm text-neutral-600 dark:text-neutral-300 mt-1">Copy it now — it won't be shown again.</p>
+        <h2 class="n-card-title"><%= t("nosia.tokens.your_new") %></h2>
+        <p class="text-sm text-neutral-600 dark:text-neutral-300 mt-1"><%= t("nosia.tokens.copy_now") %></p>
       </div>
-      <div data-controller="clipboard" data-clipboard-success-content-value="Copied!" class="mb-6 ml-6 mr-4 grid grid-cols-5 gap-2 items-center">
+      <div data-controller="clipboard" data-clipboard-success-content-value="<%= t("nosia.tokens.copied") %>" class="mb-6 ml-6 mr-4 grid grid-cols-5 gap-2 items-center">
         <input type="text" readonly value="<%= flash[:created_api_token] %>" data-clipboard-target="source"
           class="col-span-4 w-full truncate p-2 rounded-lg bg-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-neutral-700 dark:placeholder-neutral-400 dark:focus:ring-green-500">
         <button type="button" data-action="clipboard#copy" data-clipboard-target="button" class="cursor-pointer n-btn-icon n-main-hover n-main-focus w-fit">
-          <%= inline_svg "svg/clipboard.svg", title:"Copy", alt:"Clipboard", class: "mx-auto w-6 h-6" %>
-          <span class="sr-only">Copy API token</span>
+          <%= inline_svg "svg/clipboard.svg", aria_hidden: true, class: "mx-auto w-6 h-6" %>
+          <span class="sr-only"><%= t("nosia.tokens.copy") %></span>
         </button>
       </div>
     </div>
@@ -41,12 +41,12 @@
     <div class="n-card n-main-border lg:col-span-2">
       <div class="mt-6 ml-6 mr-4 flex gap-4 justify-between">
         <h2 class="n-card-title"><%= api_token.name %> <span class="text-sm upercase">(<%= api_token.account.name %>)</span></h2>
-        <%= button_to api_token, method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
-          <%= inline_svg "svg/trash-bin.svg", title:"Delete", alt:"Trash bin", class: "mx-auto w-6 h-6" %>
-          <span class="sr-only">Delete API token</span>
+        <%= button_to api_token, method: :delete, data: { turbo_confirm: t("nosia.actions.confirm_delete") }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+          <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "mx-auto w-6 h-6" %>
+          <span class="sr-only"><%= t("nosia.tokens.delete") %></span>
         <% end %>
       </div>
-      <p class="mb-6 ml-6 text-sm text-neutral-600 dark:text-neutral-400">For security, this token is shown only once, right after creation.</p>
+      <p class="mb-6 ml-6 text-sm text-neutral-600 dark:text-neutral-400"><%= t("nosia.tokens.security_help") %></p>
     </div>
   <% end %>
 </div>

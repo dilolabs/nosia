@@ -321,7 +321,7 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
       settle_composer_layout
       assert_tools_panel_attachment
 
-      click_link "New Chat"
+      click_link "New chat"
       assert_current_path new_chat_path, ignore_query: true
       assert_selector "lexxy-editor[connected]"
       assert_no_selector "[data-composer-tools][open]"
@@ -418,17 +418,21 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     assert_not @first.websites.exists?(url: "https://composer-saved.example/reference")
   end
 
-  test "saved PDF action registers a real native upload in the stored account" do
-    visit chat_url(chats(:picker_second_chat))
-    assert_selector "lexxy-editor[connected]"
-    with_pdf do |path|
-      assert_enqueued_jobs 1, only: AddDocumentJob do
-        attach_file(path) { click_button "Attach PDF", enable_aria_label: true }
-        assert_selector "input[name='message[attached_document_ids][]']", count: 2, visible: :all
+  test "saved PDF action registers a real native upload in the stored account in English and French" do
+    { "English" => "Attach PDF", "Français" => "Joindre un PDF" }.each do |language, label|
+      visit chat_url(chats(:picker_second_chat))
+      select language, from: "language_preference_locale"
+      click_button "Apply"
+      assert_selector "lexxy-editor[connected]"
+      with_pdf do |path|
+        assert_enqueued_jobs 1, only: AddDocumentJob do
+          attach_file(path) { click_button label, enable_aria_label: true }
+          assert_selector "input[name='message[attached_document_ids][]']", count: 2, visible: :all
+        end
+        document = @second.documents.joins(file_attachment: :blob).find_by!(active_storage_blobs: { filename: File.basename(path) })
+        assert_equal File.binread(path), document.file.download
+        assert_not @first.documents.joins(file_attachment: :blob).exists?(active_storage_blobs: { filename: File.basename(path) })
       end
-      document = @second.documents.joins(file_attachment: :blob).find_by!(active_storage_blobs: { filename: File.basename(path) })
-      assert_equal File.binread(path), document.file.download
-      assert_not @first.documents.joins(file_attachment: :blob).exists?(active_storage_blobs: { filename: File.basename(path) })
     end
   end
 

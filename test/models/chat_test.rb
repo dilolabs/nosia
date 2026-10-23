@@ -39,7 +39,7 @@ class ChatTest < ActiveSupport::TestCase
   test "wait_for_attached_sources! broadcasts indexing only when there are sources" do
     # No sources -> early return, no indexing broadcast.
     user_msg = @chat.messages.create!(role: :user, content: "ask")
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.wait_for_attached_sources!(user_msg, timeout: 1.second, step: 0.1.second)
     end
     assert streams.none? { |s| s.inner_html.include?("Indexing") },
@@ -49,7 +49,7 @@ class ChatTest < ActiveSupport::TestCase
     w = @account.websites.create!(url: "https://i.example", index_status: :pending)
     user_msg2 = @chat.messages.create!(role: :user, content: "ask2", attached_website_ids: [ w.id ])
     t = Thread.new { sleep 0.2; w.reload.update!(index_status: :indexed, indexed_at: Time.current) }
-    streams2 = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams2 = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.wait_for_attached_sources!(user_msg2, timeout: 3.seconds, step: 0.1.second)
     end
     t.value
@@ -61,7 +61,7 @@ class ChatTest < ActiveSupport::TestCase
     @chat.start_generation!
     assert @chat.reload.generating, "start_generation! should set generating"
 
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.finish_generation!
     end
     assert_not @chat.reload.generating, "finish_generation! should clear generating"
@@ -162,7 +162,7 @@ class ChatTest < ActiveSupport::TestCase
   test "finish_generation! broadcasts the unlocked form even without Current (job context)" do
     Current.session = nil
 
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.finish_generation!
     end
 

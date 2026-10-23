@@ -1,6 +1,6 @@
 <%= form_with model: user, class: "flex flex-col space-y-2 rounded-lg drop-shadow-xl p-2.5 border border-neutral-300" do |form| %>
-  <%= form.email_field :email, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", value: params[:email], class: "n-form-field" %>
-  <%= form.password_field :password, required: true, autocomplete: "current-password", placeholder: "Enter your password", maxlength: 72, class: "n-field" %>
-  <%= form.password_field :password_confirmation, required: true, autocomplete: "current-password", placeholder: "Enter your password confirmation", maxlength: 72, class: "n-field" %>
-  <%= form.submit "Sign up", class: "n-btn-primary" %>
+  <%= form.email_field :email, required: true, autofocus: true, autocomplete: "username", placeholder: t("nosia.auth.email_placeholder"), value: params[:email], class: "n-form-field" %>
+  <%= form.password_field :password, required: true, autocomplete: "current-password", placeholder: t("nosia.auth.password_placeholder"), maxlength: 72, class: "n-field" %>
+  <%= form.password_field :password_confirmation, required: true, autocomplete: "current-password", placeholder: t("nosia.auth.confirmation_placeholder"), maxlength: 72, class: "n-field" %>
+  <%= form.submit t("nosia.auth.sign_up"), class: "n-btn-primary" %>
 <% end %>

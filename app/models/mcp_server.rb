@@ -144,11 +144,11 @@ class McpServer < ApplicationRecord
   # @param arguments [Hash] JSON object, never attachment paths or model attributes
   # @return [Hash] success/result or the existing error wrapper
   def execute_tool(tool_name, arguments = {})
-    return { error: "Server not ready" } unless status_ready?
+    return { error: I18n.t("nosia.mcp.not_ready") } unless status_ready?
 
     begin
       tool = tools.find { |t| t.name == tool_name }
-      return { error: "Tool not found: #{tool_name}" } unless tool
+      return { error: I18n.t("nosia.mcp.tool_not_found", name: tool_name) } unless tool
 
       result = tool.call(**arguments.to_h.transform_keys(&:to_s))
       { success: true, result: result }
@@ -173,12 +173,12 @@ class McpServer < ApplicationRecord
     return if endpoint.blank?
 
     candidate = endpoint.match?(%r{\Ahttps?://}i) ? endpoint : "https://#{endpoint}"
-    errors.add(:endpoint, "must point to a publicly routable host") unless UrlGuard.safe?(candidate)
+    errors.add(:endpoint, :public_host_required) unless UrlGuard.safe?(candidate)
   end
 
   def stdio_transport_enabled_for_deployment
     unless self.class.stdio_enabled?
-      errors.add(:transport_type, "stdio requires MCP_STDIO_ENABLED on this deployment")
+      errors.add(:transport_type, :stdio_disabled)
     end
   end
 

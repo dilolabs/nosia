@@ -59,4 +59,15 @@ class McpCatalogRegistryTest < ActiveSupport::TestCase
       McpCatalog.activate_for_account(@account, "demo", { "api_key" => "" })
     end
   end
+
+  test "French missing configuration validation preserves field identifiers and creates no server" do
+    I18n.with_locale(:fr) do
+      assert_no_difference "McpServer.count" do
+        error = assert_raises(ActiveRecord::RecordInvalid) do
+          McpCatalog.activate_for_account(@account, "demo", { "api_key" => "" })
+        end
+        assert_equal [ "Configuration requise manquante : api_key" ], error.record.errors[:base]
+      end
+    end
+  end
 end

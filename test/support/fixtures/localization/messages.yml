@@ -1,0 +1,6 @@
+localized_assistant:
+  chat: picker_second_chat
+  role: 10
+  content: Shared fixture answer
+  response_number: 1
+  done: false

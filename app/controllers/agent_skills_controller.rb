@@ -13,7 +13,7 @@ class AgentSkillsController < ApplicationController
   def create
     @agent_skill = @account.agent_skills.new(agent_skill_params)
     if @agent_skill.save
-      redirect_to agent_skills_path, notice: "Agent skill created successfully"
+      redirect_to agent_skills_path, notice: t("nosia.skills.created")
     else
       render :new, status: :unprocessable_entity
     end
@@ -27,7 +27,7 @@ class AgentSkillsController < ApplicationController
 
   def update
     if @agent_skill.update(agent_skill_params)
-      redirect_to agent_skills_path, notice: "Agent skill updated"
+      redirect_to agent_skills_path, notice: t("nosia.skills.updated")
     else
       render :edit, status: :unprocessable_entity
     end
@@ -35,12 +35,12 @@ class AgentSkillsController < ApplicationController
 
   def destroy
     @agent_skill.destroy
-    redirect_to agent_skills_path, notice: "Agent skill deleted"
+    redirect_to agent_skills_path, notice: t("nosia.skills.deleted")
   end
 
   def toggle
     @agent_skill.update!(enabled: !@agent_skill.enabled)
-    redirect_to agent_skills_path, notice: "Agent skill #{@agent_skill.enabled? ? 'enabled' : 'disabled'}"
+    redirect_to agent_skills_path, notice: t(@agent_skill.enabled? ? "nosia.skills.now_enabled" : "nosia.skills.now_disabled")
   end
 
   private

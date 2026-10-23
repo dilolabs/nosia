@@ -151,10 +151,12 @@ CHUNK_MIN_TOKENS=128
 
 ### 4. Configure Caddy (Reverse Proxy)
 
-Edit `Caddyfile`:
+The default Caddyfile serves `nosia.localhost` using Caddy's local CA; follow [Local HTTPS](LOCAL_HTTPS.md) for optional host trust, verification, and removal. Caddy terminates HTTPS and forwards private HTTP directly to Puma at `web:3000`.
+
+The example below is for a **real public domain**, not local setup. Configure its DNS/reachability and `TLS_EMAIL` for automatic public ACME certificates; no local CA import is needed. Do not force `tls internal` for all deployments. Edit `Caddyfile`, replacing the example hostname with your public domain:
 
 ```caddyfile
-{$NOSIA_URL:nosia.localhost} {
+nosia.yourdomain.com {
     # Enable automatic HTTPS
     tls {$TLS_EMAIL:admin@example.com}
     

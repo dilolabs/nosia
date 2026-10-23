@@ -1,0 +1,294 @@
+#!/bin/sh
+set -eu
+
+guide=https://github.com/dilolabs/nosia/blob/main/docs/LOCAL_HTTPS.md
+temp_dir=
+
+fail() {
+  printf 'Error: %s\nManual instructions: %s\n' "$*" "$guide" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1 (install it manually)."
+}
+
+platform_name() {
+  uname -s
+}
+
+directory_exists() {
+  [ -d "$1" ]
+}
+
+admin() {
+  sudo -- "$@"
+}
+
+select_store() {
+  platform=$(platform_name) || fail 'Cannot identify the operating system.'
+  case "$platform" in
+    Linux)
+      if directory_exists /usr/local/share/ca-certificates; then
+        anchor_dir=/usr/local/share/ca-certificates
+        updater=update-ca-certificates
+        bundle=/etc/ssl/certs/ca-certificates.crt
+      elif directory_exists /etc/pki/ca-trust/source/anchors; then
+        anchor_dir=/etc/pki/ca-trust/source/anchors
+        updater=update-ca-trust
+        bundle=/etc/pki/tls/certs/ca-bundle.crt
+      elif directory_exists /etc/ca-certificates/trust-source/anchors; then
+        anchor_dir=/etc/ca-certificates/trust-source/anchors
+        updater=update-ca-trust
+        bundle=/etc/ssl/certs/ca-certificates.crt
+      else
+        fail 'Unsupported Linux machine trust-store layout.'
+      fi
+      require_command install
+      require_command "$updater"
+      ;;
+    Darwin)
+      directory_exists /Library/Keychains || fail 'Unsupported macOS system keychain layout.'
+      keychain=/Library/Keychains/System.keychain
+      require_command security
+      require_command plutil
+      ;;
+    *) fail "Unsupported operating system: $platform." ;;
+  esac
+}
+
+validate_root() {
+  [ -f "$1" ] && [ ! -L "$1" ] || fail 'Caddy root certificate must be a regular, non-symlink file.'
+  # OpenSSL accepts trailing objects; require exactly one public PEM object first.
+  awk '
+    { sub(/\r$/, "") }
+    /^-----BEGIN CERTIFICATE-----$/ { if (state != 0) exit 1; state = 1; count++; next }
+    /^-----END CERTIFICATE-----$/ { if (state != 1) exit 1; state = 2; next }
+    state == 1 { if ($0 !~ /^[A-Za-z0-9+\/=]+$/) exit 1; print; next }
+    /^[[:space:]]*$/ { next }
+    { exit 1 }
+    END { if (count != 1 || state != 2) exit 1 }
+  ' "$1" > "$temp_dir/input.base64" || fail 'Expected exactly one CERTIFICATE PEM block and whitespace only; no keys or other material.'
+
+  openssl base64 -d -in "$temp_dir/input.base64" -out "$temp_dir/input.der" || fail 'Cannot decode certificate PEM.'
+  public_pem=$(openssl x509 -in "$1" -outform PEM) || fail 'Malformed X.509 certificate.'
+  public_file=$temp_dir/public.crt
+  printf '%s\n' "$public_pem" > "$public_file" || fail 'Cannot save the canonical public certificate.'
+  openssl x509 -in "$public_file" -outform DER -out "$temp_dir/public.der" || fail 'Cannot encode the canonical certificate DER.'
+  # x509 silently ignores bytes after the first DER object inside a PEM block.
+  cmp -s "$temp_dir/input.der" "$temp_dir/public.der" || fail 'Decoded certificate PEM contains trailing data or multiple certificates.'
+  constraints=$(openssl x509 -in "$public_file" -noout -ext basicConstraints) || fail 'Cannot read CA basic constraints.'
+  printf '%s\n' "$constraints" | awk '
+    /^[[:space:]]*X509v3 Basic Constraints:/ { extension = 1; next }
+    extension && /^[[:space:]]*CA:TRUE([[:space:]]*,|[[:space:]]*$)/ { ca = 1 }
+    END { exit !ca }
+  ' || fail 'Certificate must have X509v3 Basic Constraints CA:TRUE.'
+  subject=$(openssl x509 -in "$public_file" -noout -subject -nameopt RFC2253) || fail 'Cannot read certificate subject.'
+  issuer=$(openssl x509 -in "$public_file" -noout -issuer -nameopt RFC2253) || fail 'Cannot read certificate issuer.'
+  [ "${subject#subject=}" = "${issuer#issuer=}" ] || fail 'CA certificate issuer must equal its subject.'
+  openssl verify -check_ss_sig -CAfile "$public_file" "$public_file" >/dev/null 2>&1 ||
+    fail 'Root CA certificate is not currently valid or its self-signature is invalid.'
+  dates=$(openssl x509 -in "$public_file" -noout -dates) || fail 'Cannot read certificate validity dates.'
+  fingerprint=$(openssl x509 -in "$public_file" -noout -fingerprint -sha256) || fail 'Cannot compute SHA256 fingerprint.'
+  sha256=$(printf '%s' "${fingerprint#*=}" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+  printf '%s\n' "$sha256" | awk 'length != 64 || /[^0-9a-f]/ { exit 1 }' || fail 'Invalid SHA256 fingerprint.'
+  fingerprint=$(openssl x509 -in "$public_file" -noout -fingerprint -sha1) || fail 'Cannot compute SHA1 removal identifier.'
+  sha1=$(printf '%s' "${fingerprint#*=}" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+  printf '%s\n' "$sha1" | awk 'length != 40 || /[^0-9a-f]/ { exit 1 }' || fail 'Invalid SHA1 removal identifier.'
+}
+
+pem_present() {
+  # Compare complete public certificate bytes, not just a subject or signing key.
+  printf '%s\n' "$1" | awk -v expected="$public_pem" '
+    BEGIN { gsub(/[[:space:]]/, "", expected) }
+    /-----BEGIN CERTIFICATE-----/ { certificate = ""; inside = 1 }
+    inside { certificate = certificate $0 }
+    /-----END CERTIFICATE-----/ {
+      gsub(/[[:space:]]/, "", certificate)
+      if (certificate == expected) found = 1
+      inside = 0
+    }
+    END { exit !found }
+  '
+}
+
+mac_admin_trusted() {
+  admin_settings=$temp_dir/admin-trust.plist
+  if export_error=$(security trust-settings-export -d "$admin_settings" 2>&1); then
+    :
+  else
+    export_status=$?
+    if [ "$export_status" -eq 1 ] && mac_admin_settings_absent "$export_error"; then
+      return 1
+    fi
+    fail 'Cannot export admin trust settings; no system trust changes were requested.'
+  fi
+  trust_version=$(plist_value trustVersion integer) || return 1
+  [ "$trust_version" = 1 ] || return 1
+  plist_value trustList dictionary >/dev/null || return 1
+  # Apple's TrustSettingsSchema.h keys trustList by uppercase certificate SHA1.
+  # Exact public certificate presence is checked separately, not by this key.
+  admin_hash=$(printf '%s' "$sha1" | tr '[:lower:]' '[:upper:]')
+  admin_cert=trustList.$admin_hash
+  admin_keys=$(plist_value "$admin_cert" dictionary) || return 1
+  for metadata in issuerName serialNumber; do
+    admin_data=$(plist_value "$admin_cert.$metadata" data) || return 1
+    [ -n "$admin_data" ] || return 1
+  done
+  plist_value "$admin_cert.modDate" date >/dev/null || return 1
+  # An existing record with absent/empty trustSettings is Apple's unrestricted
+  # trustRoot default (including add-trusted-cert -d -r trustRoot).
+  case "$admin_keys" in
+    'issuerName
+modDate
+serialNumber') return 0 ;;
+    'issuerName
+modDate
+serialNumber
+trustSettings') ;;
+    *) return 1 ;;
+  esac
+  trust_count=$(plist_value "$admin_cert.trustSettings" array) || return 1
+  case "$trust_count" in
+    0) return 0 ;;
+    1)
+      setting_keys=$(plist_value "$admin_cert.trustSettings.0" dictionary) || return 1
+      case "$setting_keys" in
+        '') return 0 ;;
+        kSecTrustSettingsResult)
+          trust_result=$(plist_value "$admin_cert.trustSettings.0.kSecTrustSettingsResult" integer) || return 1
+          [ "$trust_result" = 1 ]
+          ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+mac_admin_settings_absent() {
+  # errSecNoTrustSettings is reported before Apple's exporter creates a file.
+  [ ! -e "$admin_settings" ] && [ ! -L "$admin_settings" ] || return 1
+  # security error also exits 1 on success. Both commands use cssmErrorString,
+  # so compare the exact native diagnostic without assuming an English locale.
+  if no_settings_error=$(security error -25263 2>/dev/null); then
+    return 1
+  else
+    [ "$?" -eq 1 ] || return 1
+  fi
+  case "$no_settings_error" in
+    'Error: 0xFFFF9D51 -25263 '?*)
+      [ "$1" = "SecTrustSettingsCreateExternalRepresentation: ${no_settings_error#Error: 0xFFFF9D51 -25263 }" ]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+plist_value() {
+  plutil -extract "$1" raw -expect "$2" -o - "$admin_settings" 2>/dev/null
+}
+
+root_trusted() {
+  case "$platform" in
+    Linux)
+      # Always use the selected machine bundle, never SSL_CERT_FILE or user trust.
+      openssl verify -check_ss_sig -CAfile "$bundle" "$public_file" >/dev/null 2>&1 || return 1
+      certificates=$(cat "$bundle" 2>/dev/null) || return 1
+      pem_present "$certificates"
+      ;;
+    Darwin)
+      certificates=$(security find-certificate -a -p "$keychain" 2>/dev/null) || return 1
+      pem_present "$certificates" || return 1
+      # verify-cert can inherit user-domain trust even with -k System.keychain.
+      mac_admin_trusted || return 1
+      security verify-cert -c "$public_file" -p basic -l -L -k "$keychain" >/dev/null 2>&1
+      ;;
+  esac
+}
+
+confirm() {
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    printf 'An interactive terminal (TTY) is required; redirected input is refused.\n' >&2
+    return 1
+  fi
+  printf 'Type literal yes to trust this root system-wide (anything else cancels): '
+  IFS= read -r answer || return 1
+  [ "$answer" = yes ]
+}
+
+cleanup() {
+  if [ -n "$temp_dir" ]; then
+    # Only the exact private mktemp directory, without a trailing slash; rm does
+    # not follow symlinks, including any left by an unexpected Docker copy.
+    rm -rf -- "$temp_dir" 2>/dev/null || :
+  fi
+}
+
+install_root() {
+  # Recreate only from the in-memory snapshot whose fingerprint was confirmed.
+  printf '%s\n' "$public_pem" > "$public_file" || fail 'Cannot save the confirmed public certificate.'
+  case "$platform" in
+    Linux)
+      anchor=$anchor_dir/nosia-caddy-$sha256.crt
+      if ! admin install -m 0644 "$public_file" "$anchor"; then
+        fail "Certificate install failed; partial state is possible. Inspect exact anchor: $anchor."
+      fi
+      if ! admin "$updater"; then
+        fail "Trust updater failed; the anchor was written: $anchor. To undo this import: sudo -- rm $anchor ; then sudo -- $updater."
+      fi
+      ;;
+    Darwin)
+      if ! admin security add-trusted-cert -d -r trustRoot -k "$keychain" "$public_file"; then
+        fail "Import failed; a partial native change is possible in $keychain. Inspect SHA1 removal identifier $sha1 before retrying or removing it."
+      fi
+      ;;
+  esac
+}
+
+main() {
+  [ "$#" -eq 0 ] || fail 'Usage: bin/trust-caddy (no arguments or unattended flags).'
+  for required in docker openssl sudo uname awk tr cat mktemp rm cmp; do
+    require_command "$required"
+  done
+  verify_help=$(openssl verify -help 2>&1) || :
+  printf '%s\n' "$verify_help" | awk '/check_ss_sig/ { supported = 1 } END { exit !supported }' ||
+    fail 'OpenSSL verify must support -check_ss_sig; install a supported OpenSSL manually.'
+  select_store
+  docker compose version >/dev/null 2>&1 || fail 'Docker Compose is unavailable; check Docker and Compose installation.'
+  context=$(docker context show) || fail 'Cannot read the selected Docker context; check Docker configuration.'
+  [ -n "$context" ] || fail 'Docker returned an empty context; check Docker configuration.'
+  printf 'Docker context: %s\nSource: reverse-proxy:/data/caddy/pki/authorities/local/root.crt\n' "$context"
+  running=$(docker compose ps --status running -q reverse-proxy) ||
+    fail 'Cannot inspect reverse-proxy. Check docker compose logs reverse-proxy and retry.'
+  [ -n "$running" ] || fail 'reverse-proxy is not running. Check docker compose logs reverse-proxy and retry.'
+
+  umask 077
+  temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/nosia-caddy.XXXXXXXX") || fail 'Cannot create a private temporary directory.'
+  trap cleanup 0
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  docker compose cp reverse-proxy:/data/caddy/pki/authorities/local/root.crt "$temp_dir/root.crt" ||
+    fail 'Caddy public root is not ready. Check docker compose logs reverse-proxy and retry.'
+  validate_root "$temp_dir/root.crt"
+
+  printf '\n%s\n%s\n%s\nSHA256: %s\nSHA1 removal identifier: %s\n' "$subject" "$issuer" "$dates" "$sha256" "$sha1"
+  if [ "$platform" = Linux ]; then
+    printf 'Machine anchor/removal path: %s/nosia-caddy-%s.crt\nUpdater: %s\n' "$anchor_dir" "$sha256" "$updater"
+  else
+    printf 'System keychain: %s\n' "$keychain"
+  fi
+  printf '\nWARNING: This root authority extends beyond nosia.localhost.\nProtect access to Docker and its Caddy CA volume; its private key can issue trusted certificates.\n'
+  if root_trusted; then
+    printf '\nThis exact root is already trusted by the selected machine store; no changes made.\n'
+  else
+    if ! confirm; then
+      fail 'Cancelled; no system trust changes were requested.'
+    fi
+    install_root
+    printf '\nSystem trust import succeeded.\n'
+  fi
+  printf '\nVerify the application separately: curl --fail https://nosia.localhost/up\nBrowser/runtime-specific trust and removal instructions: %s\n' "$guide"
+}
+
+main "$@"

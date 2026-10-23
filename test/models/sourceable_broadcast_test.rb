@@ -22,7 +22,7 @@ class SourceableBroadcastTest < ActiveSupport::TestCase
   test "mark_indexed! broadcasts the row and every count badge" do
     text = @account.texts.create!(data: "# Hi")
 
-    streams = capture_turbo_stream_broadcasts([ @account, "sources" ]) do
+    streams = capture_turbo_stream_broadcasts([ @account, "sources", :en ]) do
       text.mark_indexed!
     end
 
@@ -34,7 +34,7 @@ class SourceableBroadcastTest < ActiveSupport::TestCase
   test "mark_indexing_failed! also broadcasts (update_columns bypasses callbacks)" do
     text = @account.texts.create!(data: "# Hi")
 
-    streams = capture_turbo_stream_broadcasts([ @account, "sources" ]) do
+    streams = capture_turbo_stream_broadcasts([ @account, "sources", :en ]) do
       text.mark_indexing_failed!
     end
 
@@ -43,7 +43,7 @@ class SourceableBroadcastTest < ActiveSupport::TestCase
   end
 
   test "creating a source prepends its row to the 'all' list stream" do
-    streams = capture_turbo_stream_broadcasts([ @account, "sources", "list:all:all" ]) do
+    streams = capture_turbo_stream_broadcasts([ @account, "sources", "list:all:all", :en ]) do
       @account.texts.create!(data: "freshly added")
     end
 
@@ -52,7 +52,7 @@ class SourceableBroadcastTest < ActiveSupport::TestCase
   end
 
   test "creating a source prepends its row to the type-scoped list stream" do
-    streams = capture_turbo_stream_broadcasts([ @account, "sources", "list:text:all" ]) do
+    streams = capture_turbo_stream_broadcasts([ @account, "sources", "list:text:all", :en ]) do
       @account.texts.create!(data: "freshly added")
     end
 

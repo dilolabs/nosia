@@ -18,7 +18,7 @@ class ApiTokensController < ApplicationController
       # page load; only its digest is stored.
       redirect_to api_tokens_path, flash: { created_api_token: @api_token.plain_token }
     else
-      redirect_to api_tokens_path, alert: "An error occured."
+      redirect_to api_tokens_path, alert: t("nosia.tokens.error")
     end
   end
 

@@ -1,0 +1,50 @@
+fr:
+  date:
+    formats:
+      dataset_snapshot: "%-d %B %Y"
+  nosia:
+    usage:
+      title: "Utilisation des jetons et impact environnemental"
+      input: "Entrée"
+      output: "Sortie"
+      total: "Total"
+      energy: "Énergie"
+      tokens_title: "Jetons"
+      short_tokens: "jetons"
+      per_model: "Par modèle (les 5 premiers)"
+      per_kind: "Par type"
+      none: "Aucune utilisation pour le moment."
+      last_30_days: "Les 30 derniers jours"
+      fallback_note: "* estimation à l’aide d’un coefficient énergétique de repli (modèle absent du jeu de données Comparia)."
+      kinds:
+        completion: "génération"
+        embedding: "vectorisation"
+        agent_skill: "compétence d’agent"
+      input_output_tooltip: "Jetons d’entrée et de sortie"
+      energy_tooltip: "Estimation de l’énergie (kWh)"
+      co2_tooltip: "Estimation du CO2e"
+      fallback_tooltip: "estimation — modèle absent du benchmark Comparia"
+      total_tooltip: "Énergie et CO₂e totaux — méthode Ecologits"
+      total_fallback_tooltip: "Énergie et CO₂e totaux — méthode Ecologits (avec estimation de repli)"
+      methodology: "Méthode de calcul"
+      expand: "Développer"
+      methodology_question: "Comment l’impact énergétique des modèles est-il calculé ?"
+      methodology_caveat: "Les méthodes d’évaluation de l’impact environnemental de l’IA sont encore en cours de développement."
+      data_source: "Source des données"
+      dataset_name: "Jeu de données Comparia sur l’énergie des modèles"
+      methodology_intro_html: >-
+        Nosia utilise la méthode développée par %{ecologits} (GenAI Impact), également utilisée par %{comparia}, pour estimer le bilan énergétique de l’inférence des modèles d’IA générative. Vous pouvez ainsi comparer l’impact environnemental de différents modèles pour une même demande. La transparence est essentielle pour encourager le développement et l’adoption de modèles d’IA plus écoresponsables.
+      methodology_lifecycle_html: >-
+        Ecologits applique les principes de l’analyse du cycle de vie (ACV) selon la norme <strong class="text-neutral-700 dark:text-neutral-300">ISO 14044</strong>, en se concentrant actuellement sur l’impact de l’<em>inférence</em> (l’utilisation des modèles pour répondre aux demandes) et de la fabrication des cartes graphiques (extraction des ressources, fabrication et transport).
+      methodology_measurement_html: >-
+        La consommation d’électricité du modèle est estimée à partir de paramètres tels que sa taille et son architecture, l’emplacement des serveurs où il est déployé et le nombre de jetons de sortie. L’indicateur de potentiel de changement climatique, exprimé en <strong class="text-neutral-700 dark:text-neutral-300">équivalent CO₂</strong>, est dérivé de la mesure de consommation d’électricité.
+      dataset_source_html: >-
+        Consommation par modèle (mWh pour 1 000 jetons) issue du %{dataset}, sous <span class="font-medium">licence Etalab 2.0</span>, version du <span class="font-medium">%{date}</span>.
+      dataset_fallback_html: >-
+        Les modèles absents du jeu de données (notamment la plupart des modèles accessibles uniquement par API, dont la consommation est indiquée comme <code class="px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 text-pink-600 dark:text-pink-400 font-mono">N/A</code>) utilisent un coefficient de repli, signalé par <strong class="font-medium">*</strong> dans les détails ci-dessus.
+      token_unit:
+        one: "jeton"
+        other: "jetons"
+      token_quantity:
+        one: "%{formatted_count} jeton"
+        other: "%{formatted_count} jetons"

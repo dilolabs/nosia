@@ -3,15 +3,15 @@
   <button type="button" class="n-composer-control n-composer-tools-trigger"
           data-controller="modal-open" data-modal-open-target-value="mcp-selector-modal"
           data-action="click->modal-open#open" aria-controls="mcp-selector-modal">
-    Tools <span class="n-composer-count"><%= chat.chat_mcp_sessions.count %></span>
+    <%= t("nosia.chat.tools") %> <span class="n-composer-count"><%= chat.chat_mcp_sessions.count %></span>
   </button>
 <% else %>
   <% servers = ready_chat_mcp_servers(chat.account) %>
   <% if servers.any? %>
     <details class="n-composer-tools" data-composer-tools data-action="toggle->composer-chrome#toolsToggled">
-      <summary class="n-composer-control">Tools <span id="mcp-selected-count" class="n-composer-count">0</span></summary>
+      <summary class="n-composer-control"><%= t("nosia.chat.tools") %> <span id="mcp-selected-count" class="n-composer-count">0</span></summary>
       <div class="n-composer-tools-panel" data-controller="mcp-selection">
-        <p class="n-composer-tools-heading">Connected tools</p>
+        <p class="n-composer-tools-heading"><%= t("nosia.chat.connected_tools") %></p>
         <% servers.each do |server| %>
           <label class="n-composer-tool-option">
             <input type="checkbox" name="mcp_server_ids[]" value="<%= server.id %>" data-action="change->mcp-selection#updateCount">
