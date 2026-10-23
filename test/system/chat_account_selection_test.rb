@@ -357,7 +357,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
       document.querySelector("#mcp-server-hidden-fields").append(hiddenTool)
     JS
 
-    click_link "New Chat"
+    click_link "New chat"
     assert_current_path new_chat_path
     page.go_back
 

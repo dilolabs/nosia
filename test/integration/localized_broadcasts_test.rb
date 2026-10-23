@@ -165,6 +165,45 @@ class LocalizedBroadcastsTest < ActiveSupport::TestCase
     end
   end
 
+  test "deferred lifecycle jobs retain each publishing locale inside a French worker" do
+    chat = chats(:picker_second_chat)
+    Current.reset
+    assert_enqueued_jobs 2, only: Turbo::Streams::ActionBroadcastJob do
+      I18n.with_locale(:en) { chat.touch }
+    end
+
+    streams = I18n.with_locale(:fr) do
+      captured = capture_languages([ chat, :messages ]) do
+        perform_enqueued_jobs(only: Turbo::Streams::ActionBroadcastJob)
+      end
+      assert_equal :fr, I18n.locale
+      captured
+    end
+
+    { en: "Created", fr: "Création" }.each do |locale, label|
+      assert_equal 1, streams[locale].size
+      assert_equal "replace", streams[locale].first["action"]
+      assert_equal dom_id(chat), streams[locale].first["target"]
+      assert_includes streams[locale].first.text, label
+    end
+    assert_equal :en, I18n.locale
+  end
+
+  test "a deferred render exception restores the French worker and outer English locale" do
+    chat = chats(:picker_second_chat)
+    I18n.with_locale(:en) do
+      chat.broadcast_localized_to(:replace_later, chat, :messages, partial: "localization_missing_partial")
+    end
+
+    I18n.with_locale(:fr) do
+      assert_raises ActionView::MissingTemplate do
+        perform_enqueued_jobs(only: Turbo::Streams::ActionBroadcastJob)
+      end
+      assert_equal :fr, I18n.locale
+    end
+    assert_equal :en, I18n.locale
+  end
+
   test "automatic message lifecycle jobs render both languages with unchanged targets" do
     message = messages(:localized_assistant).dup
     message.content = ""
