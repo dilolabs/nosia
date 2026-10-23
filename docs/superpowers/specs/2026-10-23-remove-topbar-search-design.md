@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23
 
-**Status:** Design approved; written specification awaiting user review. Implementation has not started.
+**Status:** Design and written specification approved; implementation planning authorized. Application implementation has not started.
 
 ## Goal
 
@@ -14,6 +14,7 @@ Completely remove the existing topbar search button and search dialog. Do not im
 - "I'll implement a new search later" — replacement search is outside this change.
 - "Full cleanup (Recommended)" — remove verified search-only supporting dependencies, assets, translations, and helper code along with the button and dialog.
 - "Good" in response to the proposed design — approve full removal, preservation of the remaining header and backend behavior, and regression coverage before implementation.
+- "Go" after the committed specification was presented for review — approve the written specification and proceed to implementation planning.
 
 ## Current context
 
