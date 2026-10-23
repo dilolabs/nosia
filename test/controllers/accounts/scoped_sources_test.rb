@@ -59,6 +59,8 @@ class Accounts::ScopedSourcesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-source-id='#{experience(:texts, :overview_first_text).id}']"
     assert_select "[data-source-id='#{experience(:texts, :overview_second_text).id}']", count: 0
+    assert_select "[data-dropzone-url-value='#{sources_documents_path}']"
+    assert_select "[data-dropzone-account-id-value]", count: 0
   end
 
   test "members can read sources but revoked membership cannot" do
@@ -110,7 +112,8 @@ class Accounts::ScopedSourcesTest < ActionDispatch::IntegrationTest
     get sources_path
     assert_response :success
     assert_select "form[action='#{sources_path}'][method='get']", count: 2
-    assert_select "[data-dropzone-url-value='#{sources_documents_path}'][data-dropzone-account-id-value='#{@first.id}']"
+    assert_select "[data-dropzone-url-value='#{sources_documents_path}']"
+    assert_select "[data-dropzone-account-id-value]", count: 0
     SourceRow::TYPES.each do |type|
       assert_select "a[href='#{public_send("new_sources_#{type}_path")}']"
     end
