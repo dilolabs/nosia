@@ -6,20 +6,23 @@ Static recovery/error pages present both languages without requiring Rails.
 
 ## Choosing a language
 
-The header's **Language / Langue** selector is available before and after login:
+The header's compact **Auto / FR / EN** selector is available before and after
+login. Its **Language / Langue** label remains available to screen readers:
 
-- **Automatic / Automatique** uses the browser's `Accept-Language` header. Nosia
+- **Auto** uses the browser's `Accept-Language` header. Nosia
   chooses the supported concrete language range with the highest positive
   quality weight, preserving header order for ties. Regional ranges such as
   `fr-CA` and `en-GB` resolve to `fr` and `en`. Wildcards, unsupported languages,
   malformed ranges, and zero-weight ranges are ignored; English is the fallback.
-- **Français** or **English** sets a signed, browser-level cookie for one year.
-  It overrides the browser header and survives login/logout. Automatic deletes
+- **FR** (Français) or **EN** (English) sets a signed, browser-level cookie for one year.
+  It overrides the browser header and survives login/logout. Auto deletes
   that override. This is not an account preference and does not sync across
   devices or automatically update already-open tabs.
 
-Press **Apply / Appliquer** to change language. This performs a **full page
-reload of the current URL**, preserving its path, query, and selected account.
+Changing the selection immediately performs a **full page reload of the current
+URL**, preserving its path, query, and selected account. A tooltip and screen-reader
+hint announce this behavior; an **Apply / Appliquer** fallback appears only when
+JavaScript is disabled.
 **Save unsent work first:** the reload can discard a draft. It does not stop
 generation or indexing already running in the background. Other open tabs need
 their own reload to pick up the preference.

@@ -419,10 +419,10 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
   end
 
   test "saved PDF action registers a real native upload in the stored account in English and French" do
-    { "English" => "Attach PDF", "Français" => "Joindre un PDF" }.each do |language, label|
+    { "EN" => "Attach PDF", "FR" => "Joindre un PDF" }.each do |language, label|
       visit chat_url(chats(:picker_second_chat))
       select language, from: "language_preference_locale"
-      click_button "Apply"
+      assert_selector "html[lang=#{language.downcase}]"
       assert_selector "lexxy-editor[connected]"
       with_pdf do |path|
         assert_enqueued_jobs 1, only: AddDocumentJob do

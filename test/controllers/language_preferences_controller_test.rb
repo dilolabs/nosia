@@ -63,13 +63,15 @@ class LanguagePreferencesControllerTest < ActionDispatch::IntegrationTest
     get root_url, headers: { "Accept-Language" => "fr" }
 
     assert_select "html[lang=fr]"
-    assert_select "form[action='/language_preference'][data-turbo=false]" do
-      assert_select "label[for=language_preference_locale]", text: "Langue"
-      assert_select "select#language_preference_locale[name=locale]", count: 1
-      assert_select "option[value=auto][selected]", text: "Automatique"
-      assert_select "option[value=fr]", text: "Français"
-      assert_select "option[value=en]", text: "English"
-      assert_select "button[type=submit]", text: "Appliquer"
+    assert_select "form[action='/language_preference'][data-turbo=false][data-controller=auto-submit]" do
+      assert_select "label.sr-only[for=language_preference_locale]", text: "Langue"
+      assert_select "select#language_preference_locale[name=locale][data-action='change->auto-submit#submit'][aria-describedby=language_preference_hint]", count: 1
+      assert_select "option[value=auto][selected][aria-label=Automatique]", text: "Auto"
+      assert_select "option[value=fr][aria-label=Français]", text: "FR"
+      assert_select "option[value=en][aria-label=English]", text: "EN"
+      assert_select "#language_preference_hint.sr-only", text: /recharge automatiquement/
+      assert_select "> button", count: 0
+      assert_select "noscript button[type=submit]", text: "Appliquer"
     end
     assert_select "form form", count: 0
     assert_select "body.h-dvh.flex.flex-col"

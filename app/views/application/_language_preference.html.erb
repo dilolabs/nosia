@@ -1,11 +1,17 @@
 <%= form_with url: language_preference_path, method: :patch,
-      data: { turbo: false }, class: "flex flex-wrap items-center gap-1 text-xs" do %>
-  <%= label_tag :language_preference_locale, t("nosia.language.label"), class: "font-medium" %>
-  <%= select_tag :locale, options_for_select([
-        [t("nosia.language.automatic"), "auto"],
-        [t("nosia.language.french"), "fr"],
-        [t("nosia.language.english"), "en"]
-      ], language_preference_value), id: "language_preference_locale", class: "n-select w-auto text-xs" %>
+      data: { turbo: false, controller: "auto-submit" }, class: "n-language-preference flex shrink-0 items-center gap-2" do %>
+  <%= label_tag :language_preference_locale, t("nosia.language.label"), class: "sr-only" %>
+  <span id="language_preference_hint" class="sr-only"><%= t("nosia.language.auto_switch_hint") %></span>
+  <div class="relative">
+    <%= select_tag :locale, options_for_select([
+          [t("nosia.language.short.automatic"), "auto", { "aria-label" => t("nosia.language.automatic") }],
+          [t("nosia.language.short.french"), "fr", { "aria-label" => t("nosia.language.french") }],
+          [t("nosia.language.short.english"), "en", { "aria-label" => t("nosia.language.english") }]
+        ], language_preference_value), id: "language_preference_locale", class: "n-select",
+        data: { action: "change->auto-submit#submit" }, aria: { describedby: "language_preference_hint" },
+        title: t("nosia.language.auto_switch_hint") %>
+    <%= inline_svg "svg/chevron-down.svg", aria_hidden: true, class: "pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-500 dark:text-neutral-300" %>
+  </div>
   <%= hidden_field_tag :return_to, request.fullpath %>
-  <%= button_tag t("nosia.language.apply"), type: :submit, class: "n-btn n-main-focus text-xs" %>
+  <noscript><%= button_tag t("nosia.language.apply"), type: :submit, class: "n-btn-secondary" %></noscript>
 <% end %>
