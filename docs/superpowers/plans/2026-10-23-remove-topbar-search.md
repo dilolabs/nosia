@@ -8,7 +8,9 @@
 
 **Tech Stack:** Checked-in Ruby runtime (`.ruby-version`: 4), Rails 8.0, PostgreSQL, Minitest with existing fixtures, ERB, Hotwire, Importmap, Propshaft, and Tailwind CSS. Do not perform stack upgrades as part of this change.
 
-**Approved specification:** `docs/superpowers/specs/2026-10-23-remove-topbar-search-design.md`.
+**Approved specification:** `1874987:docs/superpowers/specs/2026-10-23-remove-topbar-search-design.md`. The subsequent upstream merge removed this file; preserve that removal and consult the approved version in Git history.
+
+**Execution status:** Implemented inline on branch `remove-topbar-search`; integration into `main` is not authorized and the full-suite check is blocked by an independently reproduced baseline error. The worktree was created from `aaba7c0`, after the unrelated language-switcher changes were committed, so no selective locale staging was necessary.
 
 ---
 
@@ -30,7 +32,7 @@ Preserve `app/views/application/_language_preference.html.erb`, all existing sty
 
 ## Task 0: Establish a safe baseline
 
-- [ ] **Step 1: Inspect the workspace and dependencies.**
+- [x] **Step 1: Inspect the workspace and dependencies.**
 
 Run these commands separately:
 
@@ -42,7 +44,7 @@ bundle check
 
 Use an isolated feature branch/worktree when executing if the current workspace cannot safely accommodate these changes. Do not reset, stash, discard, or absorb existing user work. Recheck scoped files for concurrent edits. If another task has staged changes, stop before staging this task's changes.
 
-- [ ] **Step 2: Check ownership of the code scheduled for removal.**
+- [x] **Step 2: Check ownership of the code scheduled for removal.**
 
 ```sh
 rg -n 'recent_chats|svg/search\.svg|<el-|@tailwindplus|nosia\.nav\.(search|search_placeholder|quick_actions|ask_question|jump_to|no_search_results)' app config test vendor/javascript --glob '!@tailwindplus--elements.js'
@@ -50,7 +52,7 @@ rg -n 'recent_chats|svg/search\.svg|<el-|@tailwindplus|nosia\.nav\.(search|searc
 
 Expected: runtime usage is limited to the existing search partial, header, helper, and dependency wiring. Inspect any newly introduced caller before deleting shared code; do not silently expand the removal scope. Historical documents are not runtime consumers.
 
-- [ ] **Step 3: Run the existing targeted regressions before modifying application code.**
+- [x] **Step 3: Run the existing targeted regressions before modifying application code.**
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/controllers/chat_account_access_test.rb test/controllers/localization_test.rb test/controllers/language_preferences_controller_test.rb
@@ -62,7 +64,7 @@ Expected: zero failures/errors. These processes use the configured PostgreSQL te
 
 **Files:** Create `test/integration/header_navigation_test.rb`; modify `app/views/application/_header.html.erb`, `app/models/user.rb`, and both shell locale files; delete `app/views/application/_search.html.erb` and `app/assets/images/svg/search.svg`.
 
-- [ ] **Step 1: Write the header regression tests.**
+- [x] **Step 1: Write the header regression tests.**
 
 Create `test/integration/header_navigation_test.rb` with this complete content:
 
@@ -125,7 +127,7 @@ end
 
 Keep these fixtures opt-in through `ChatAccountFixtures`. Do not add fixtures to `test/fixtures` or change `test/test_helper.rb`.
 
-- [ ] **Step 2: Run the new tests and confirm the behavioral failure.**
+- [x] **Step 2: Run the new tests and confirm the behavioral failure.**
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/header_navigation_test.rb
@@ -133,7 +135,7 @@ AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/hea
 
 Expected: the authenticated-with-account tests fail because `#toggleSidebarMobileSearch` is still present. Anonymous and no-account cases should already pass. Do not change application code until this intended failure has been observed.
 
-- [ ] **Step 3: Remove the search branch, helper, and files.**
+- [x] **Step 3: Remove the search branch, helper, and files.**
 
 Apply these exact removals without rewriting surrounding code:
 
@@ -175,7 +177,7 @@ Delete the complete files with the patch tool:
 
 Do not insert replacement markup, a disabled button, keyboard hooks, extra spacing, or a feature flag.
 
-- [ ] **Step 4: Remove the seven search-only translation keys.**
+- [x] **Step 4: Remove the seven search-only translation keys.**
 
 Apply only the deletions below, preserving all other entries and in-progress edits. This is also the exact selective-staging patch: save it as `/tmp/opencode/remove-topbar-search-locales.patch` using the patch tool, for Step 6. Its line numbers target the committed baseline; Git can match surrounding context when the working copy has extra language keys above it.
 
@@ -208,7 +210,7 @@ diff --git a/config/locales/fr.nosia_shell.yml b/config/locales/fr.nosia_shell.y
        dark_mode: "Mode sombre"
 ```
 
-- [ ] **Step 5: Run the new tests and the existing focused regressions.**
+- [x] **Step 5: Run the new tests and the existing focused regressions.**
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/header_navigation_test.rb test/controllers/chat_account_access_test.rb test/controllers/localization_test.rb test/controllers/language_preferences_controller_test.rb
@@ -216,7 +218,7 @@ AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/hea
 
 Expected: all tests pass, including six new header tests. Fix only removal-related failures; preserve account isolation and all existing localization assertions.
 
-- [ ] **Step 6: Inspect and commit only this task's changes.**
+- [x] **Step 6: Inspect and commit only this task's changes.**
 
 Only stage these complete files if Step 0 confirmed they had no pre-existing edits:
 
@@ -235,7 +237,7 @@ Run commands separately and inspect the staged diff before committing. If any cl
 
 **Files:** Modify `test/integration/header_navigation_test.rb`, `app/javascript/application.js`, and `config/importmap.rb`; delete `vendor/javascript/@tailwindplus--elements.js`.
 
-- [ ] **Step 1: Add a dependency regression test before `private` in `HeaderNavigationTest`.**
+- [x] **Step 1: Add a dependency regression test before `private` in `HeaderNavigationTest`.**
 
 ```ruby
   test "the application importmap omits the removed search dependency" do
@@ -253,7 +255,7 @@ Run commands separately and inspect the staged diff before committing. If any cl
   end
 ```
 
-- [ ] **Step 2: Run the new dependency test and observe the intended failure.**
+- [x] **Step 2: Run the new dependency test and observe the intended failure.**
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/header_navigation_test.rb -n /importmap/
@@ -261,7 +263,7 @@ AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/hea
 
 Expected: failure at the `refute` because Tailwind Plus Elements is still pinned. A parse/boot error is not the intended failure.
 
-- [ ] **Step 3: Remove the import, pin, and vendored file together.**
+- [x] **Step 3: Remove the import, pin, and vendored file together.**
 
 ```diff
 --- a/app/javascript/application.js
@@ -288,7 +290,7 @@ Expected: failure at the `refute` because Tailwind Plus Elements is still pinned
 
 Do not remove any other vendored package or change the Gemfile, lockfile, or shared imports.
 
-- [ ] **Step 4: Run all seven new header tests.**
+- [x] **Step 4: Run all seven new header tests.**
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/header_navigation_test.rb
@@ -296,7 +298,7 @@ AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/hea
 
 Expected: seven tests pass with no failures/errors.
 
-- [ ] **Step 5: Inspect and commit the dependency cleanup.**
+- [x] **Step 5: Inspect and commit the dependency cleanup.**
 
 ```sh
 git add -- test/integration/header_navigation_test.rb app/javascript/application.js config/importmap.rb vendor/javascript/@tailwindplus--elements.js
@@ -309,7 +311,7 @@ Apply the same pre-existing-edit safeguards as Task 1.
 
 ## Task 3: Verify the complete removal and review the scope
 
-- [ ] **Step 1: Check for dangling runtime references.**
+- [x] **Step 1: Check for dangling runtime references.**
 
 ```sh
 rg -n 'toggleSidebarMobileSearch|commandfor="dialog"|<el-|render "(application/)?search"|recent_chats|svg/search\.svg|@tailwindplus|nosia\.nav\.(search|search_placeholder|quick_actions|ask_question|jump_to|no_search_results)' app config vendor/javascript
@@ -317,7 +319,7 @@ rg -n 'toggleSidebarMobileSearch|commandfor="dialog"|<el-|render "(application/)
 
 Expected: no matches (ripgrep exit status 1). Test assertions and historical spec/plan text intentionally retain old names and are excluded. Confirm `app/assets/images/svg/file-search.svg` still exists and both navigation-menu uses remain.
 
-- [ ] **Step 2: Re-run the focused suite sequentially and lint changed Ruby.**
+- [x] **Step 2: Re-run the focused suite sequentially and lint changed Ruby.**
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/header_navigation_test.rb test/controllers/chat_account_access_test.rb test/controllers/localization_test.rb test/controllers/language_preferences_controller_test.rb test/integration/chat_composer_ui_test.rb
@@ -326,7 +328,7 @@ RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/models/user.rb config/im
 
 Expected: zero new failures/errors and no lint offenses. Record counts and exact blockers without rewriting unrelated tests or configuration. Test processes share a database; do not run them in parallel.
 
-- [ ] **Step 3: Validate production asset precompilation.**
+- [x] **Step 3: Validate production asset precompilation.**
 
 ```sh
 AI_API_KEY=nosia-test-key RAILS_ENV=production SECRET_KEY_BASE_DUMMY=1 bin/rails assets:precompile
@@ -334,11 +336,11 @@ AI_API_KEY=nosia-test-key RAILS_ENV=production SECRET_KEY_BASE_DUMMY=1 bin/rails
 
 Expected: successful Tailwind/Propshaft compilation without missing search SVG or Tailwind Plus Elements references. This may create ignored build artifacts; do not stage them, remove unrelated artifacts, or run broad cleanup commands. Report unavailable credentials/database/runtime setup as an explicit verification blocker, not as a pass.
 
-- [ ] **Step 4: Smoke-check remaining browser controls.**
+- [x] **Step 4: Smoke-check remaining browser controls.**
 
 Using the existing development environment, inspect an anonymous page, an account-owning user's chat page, and a no-account user's page. In English and French, at desktop and narrow mobile width, confirm there is no search button, empty placeholder, or search dialog. Confirm the language selector, theme toggle, home link, and authenticated user menu remain usable; verify both light and dark themes and no missing-import browser errors. Do not introduce a replacement control or change styles to make this check pass.
 
-- [ ] **Step 5: Review the final diff and report verified results.**
+- [x] **Step 5: Review the final diff and report verified results.**
 
 ```sh
 git status --short
@@ -349,3 +351,18 @@ git log -2 --oneline
 Review the two task commits against the approved specification: all seven translation keys removed in both locales, only `recent_chats` removed from `User`, all three obsolete files deleted, no backend search changes, no replacement UI, and no unrelated work staged or committed. No new public Ruby API was introduced, so new YARD documentation is not required. The approved spec/plan documents this removal; do not rewrite historical docs or advertise a replacement.
 
 Report the removal scope, actual test/lint/asset results, any browser verification performed, and exact outstanding blockers. Do not claim tests or browser interactions passed without running them. Do not merge, push, or open a PR without authorization.
+
+## Execution evidence
+
+- Baseline: 16 tests, 259 assertions, zero failures/errors/skips.
+- UI red phase: six header tests ran; the two authenticated-with-account cases failed on the existing trigger as intended. UI green phase and focused regressions: 22 tests, 443 assertions, zero failures/errors/skips.
+- Dependency red phase: the new importmap test failed because Tailwind Plus Elements was pinned. Dependency green phase: seven header tests, 192 assertions, zero failures/errors/skips.
+- Final focused regressions including composer rendering: 29 tests, 563 assertions, zero failures/errors/skips.
+- RuboCop: three changed Ruby files inspected, no offenses.
+- Production asset precompilation succeeded. Propshaft reported existing missing source-map comments for Flowbite and Mission Control's Bulma stylesheet; neither is a missing runtime import or search asset.
+- Temporary Selenium smoke harness at `/tmp/opencode/remove_topbar_search_smoke_test.rb`: three tests, 245 assertions, zero failures/errors/skips. Covered English/French, 375px/1400px, both themes, and anonymous/account/no-account users. Exercised language switching, theme toggling, home navigation, user menus, no horizontal overflow, and no missing-module/uncaught browser errors.
+- Runtime reference scan returned no matches; the shared `file-search.svg` and both menu references remain.
+- Full branch self-review found no scope, tenancy, or shared-dependency issues. No replacement UI or backend search changes were introduced; the main workspace's unrelated changes remain untouched.
+- Implementation commits: `5ad9945` (UI and application support) and `bff3bae` (dependency cleanup).
+- Additional full-suite check: `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test` reported `NoMethodError: undefined method 'augmented_context'` in `Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`, then exceeded the 120-second execution limit. It did not complete, so no full-suite pass is claimed.
+- Isolated reproduction: running `test/models/chat/request_options_test.rb` on both this branch and unchanged `main` produced six tests, 35 assertions, and the same one error. The test supplies a chunk struct without `augmented_context` while the existing environment enables augmented context. Neither the test nor completion code differs from the implementation baseline. This unrelated issue was not changed; merge/PR readiness remains blocked pending its resolution or further user direction.
