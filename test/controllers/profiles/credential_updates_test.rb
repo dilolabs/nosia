@@ -289,6 +289,77 @@ class ProfileCredentialUpdatesTest < ActionDispatch::IntegrationTest
     assert_equal @original_attributes, @user.reload.attributes
   end
 
+  test "configured parameter filters cover every credential field including the hidden email context" do
+    parameters = {
+      "email_change" => { "email" => "filtered-profile@example.com", "current_password" => PASSWORD },
+      "password_change" => {
+        "email" => @user.email, "current_password" => PASSWORD,
+        "password" => REPLACEMENT, "password_confirmation" => REPLACEMENT
+      }
+    }
+    filter = ActiveSupport::ParameterFilter.new(Rails.application.config.filter_parameters)
+
+    assert_equal parameters.transform_values { "[FILTERED]" }, filter.filter(parameters)
+    parameters.each_value do |credentials|
+      assert_equal credentials.transform_values { "[FILTERED]" }, filter.filter(credentials)
+    end
+
+    get profile_path
+
+    assert_response :success
+    assert_select "#profile-password-form input[type=hidden][name='password_change[email]'][autocomplete=username]"
+    assert_select ".n-profile input[name*='username']", count: 0
+  end
+
+  test "email and password changes preserve API token authentication and foreign user state" do
+    token = @user.api_tokens.create!(account: @first, name: "Profile regression")
+    plain_token = token.plain_token
+    token_attributes = token.attributes
+    foreign_attributes = @outsider.attributes
+    foreign_session = @outsider.sessions.create!
+    foreign_session_attributes = foreign_session.attributes
+
+    patch profile_email_path, params: {
+      email_change: { email: "token-profile@example.com", current_password: PASSWORD }
+    }
+
+    assert_response :see_other
+    assert_equal token_attributes, token.reload.attributes
+    assert_equal token, ApiToken.authenticate_token(plain_token)
+    assert_equal foreign_attributes, @outsider.reload.attributes
+    assert_equal foreign_session_attributes, foreign_session.reload.attributes
+
+    patch profile_password_path, params: {
+      password_change: { current_password: PASSWORD, password: REPLACEMENT, password_confirmation: REPLACEMENT }
+    }
+
+    assert_response :see_other
+    assert_equal token_attributes, token.reload.attributes
+    assert_equal token, ApiToken.authenticate_token(plain_token)
+    assert_equal foreign_attributes, @outsider.reload.attributes
+    assert_equal foreign_session_attributes, foreign_session.reload.attributes
+  end
+
+  test "script-like passwords with mismatched confirmation never appear in validation responses or flash" do
+    secret = "<script>profile-secret</script>"
+    confirmation = "different-confirmation-789"
+
+    patch profile_password_path, params: {
+      password_change: { current_password: PASSWORD, password: secret, password_confirmation: confirmation }
+    }
+
+    assert_response :unprocessable_entity
+    assert_no_store
+    assert_select "#profile_password_errors[role=alert][tabindex='-1']" do
+      assert_select "a[href='#profile_password_password_confirmation']"
+    end
+    assert_select "#profile_password_password_confirmation[aria-invalid=true]"
+    assert_select "#profile_email_errors", count: 0
+    assert_select "#profile-email-form [aria-invalid=true]", count: 0
+    assert_secrets_absent(PASSWORD, secret, ERB::Util.html_escape(secret), confirmation)
+    assert_equal @original_attributes, @user.reload.attributes
+  end
+
   private
     def signed_in_browser(user)
       open_session do |browser|

@@ -74,6 +74,29 @@ class UserCredentialsTest < ActiveSupport::TestCase
     assert_credentials_unchanged
   end
 
+  test "a PostgreSQL email uniqueness violation rolls back its savepoint without poisoning the transaction" do
+    original_save = @user.method(:save)
+    uniqueness_error = nil
+    replacement = ->(*) do
+      original_save.call(validate: false)
+    rescue ActiveRecord::RecordNotUnique => error
+      uniqueness_error = error
+      raise
+    end
+
+    with_singleton_replacement(@user, :save, replacement) do
+      refute @user.change_email(email: @outsider.email, current_password: PASSWORD)
+    end
+
+    assert_kind_of ActiveRecord::RecordNotUnique, uniqueness_error
+    assert_kind_of PG::UniqueViolation, uniqueness_error.cause
+    assert_match(/UPDATE "users"/, uniqueness_error.sql)
+    assert @user.errors.of_kind?(:email, :taken)
+    assert User.connection.transaction_open?
+    assert_equal 1, User.connection.select_value("SELECT 1")
+    assert_credentials_unchanged
+  end
+
   test "changing password retains only the submitting browser and other users' sessions" do
     @user.sessions.create!
 
