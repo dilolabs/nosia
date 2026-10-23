@@ -1,6 +1,8 @@
 # Nosia French and English Internationalization Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` (recommended) or `executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution status:** Tasks 0–13 are complete, with independent specification and quality gates approved, including follow-up `cb2c557`. The final whole-feature review approved `4480db3..cb2c557` with no findings. Full-project checks are **not all green**; see the execution summary below.
+
+> **Checklist convention:** Checked steps mean executed/reviewed, including verification with recorded baseline exceptions—not that every originally expected GREEN result was achieved. Instructions, copy tables, and code examples below preserve the historical plan; execution correction notes take precedence. They are not a fresh verification run.
 
 **Goal:** Translate all Nosia-owned web UI into English and French, select the browser language by default with English fallback, and provide a persistent browser override.
 
@@ -12,16 +14,81 @@
 
 ## Approval, scope, and execution rules
 
-Read `docs/superpowers/specs/2026-10-23-nosia-internationalization-design.md` first. The user approved its three design sections and approved the committed written specification with **"Go"**. That authorizes this plan, not an unreviewed implementation.
+Read `docs/superpowers/specs/2026-10-23-nosia-internationalization-design.md` first. The user approved its three design sections and the committed written specification with **"Go"**, authorizing planning. They subsequently chose execution option **1** (subagent-driven), then **"Proceed unchanged (Recommended)"** after the Task 0 baseline, authorizing implementation while preserving/reporting the unrelated baseline error. Execution and review are now complete; integration requires a separate user choice.
 
 - Preserve the spec's Decisions: entire Nosia-owned UI; browser default plus Automatic/Français/English switch; unchanged URLs; French **vous**; localized numbers/dates; request/cache/live-update isolation; bilingual emergency pages.
 - Do not translate or rewrite persisted conversation prose, user documents, prompts, AI requests/replies, external tool/provider descriptions, protocol identifiers, enum values, URLs, or API contracts. Stored relevance warnings remain transcript content.
 - Do not fork Lexxy or Mission Control. Translate Nosia's controls around them, not unsupported upstream internals.
-- No application tests were run while writing this plan. Establish a fresh baseline during execution; historical failures are not current verification.
+- No application tests were run while writing the original plan. Task 0 subsequently established the execution baseline; recorded historical results below are not new verification of later commits.
 - Planning found unrelated work in `Procfile.dev`, two untracked upgrade/waiting-UX plans, an untracked upgrade spec, and `test/packaging/embedding_dimensions.rb`. Never stage, modify, or remove these for this feature.
 - Use `patch` for edits. Every behavior starts with its test, a real RED run, and only then implementation. Tables below are literal copy/catalog specifications, not permission to skip tests.
 - Test processes must run sequentially because they share PostgreSQL. Keep `ChatAccountFixtures` opt-in; do not move those fixtures into global `test/fixtures` or change `test/test_helper.rb` to load them.
 - Finish each task with its GREEN run and a focused Conventional Commit. Stage only the task's named files; do not use `git add .`.
+
+## Execution summary
+
+Latest reviewed code HEAD: `cb2c557` on `feat/nosia-internationalization`.
+Specification `6566504` and plan/approval `4480db3` preceded execution. All
+Tasks 0–13 completed their independent specification and code-quality gates;
+the grouped commits include review corrections:
+
+| Task | Completed work | Commit(s) |
+| --- | --- | --- |
+| 0 | Safe workspace and baseline; user approved proceeding unchanged | Read-only at `4480db3`; no feature commit |
+| 1 | Locale configuration and browser negotiation | `ca90053` |
+| 2 | Request scope and English API isolation | `3e25793` |
+| 3 | Browser preference resource and selector | `7279ad1` |
+| 4 | Shell/authentication copy and portable literal audit | `7970e12`, `842925a`, `41918e6` |
+| 5 | Chat/composer/messages and request-rescue locale handling | `7bd5174`, `c1554c1`, `c283ae6` |
+| 6 | Sources/uploads and literal filename interpolation | `f62892e`, `9410ab6` |
+| 7 | Accounts/settings/tokens/prompts/models | `154a0b0` |
+| 8 | MCP management and presentation-only catalog metadata | `2d7dd20` |
+| 9 | Skills, validations, and attribute labels | `662a64e` |
+| 10 | Usage formatting and cache isolation | `df147e1` |
+| 11 | Locale-qualified live broadcasts | `d090e46` |
+| 12 | Strict catalogs, full view audit, and bilingual recovery pages | `5a06136` |
+| 13 | Browser/docs verification, deferred and synchronous restoration coverage | `3f7b209`, `cb2c557` |
+
+The final fresh whole-feature reviewer (`ses_e96fd672effeDK3BL8x7G64fY7`)
+approved `4480db3..cb2c557` with **no findings**. Its focused checks passed:
+156 tests / 9670 assertions; Chromium localization: 6 tests / 272 assertions;
+standalone recovery pages: 12 tests / 98 assertions; all 72 changed Ruby files
+lint-clean; range diff check clean. The earlier focused follow-up run at
+`cb2c557` also passed: 135 tests / 9446 assertions.
+
+### Recorded project-wide checks and baseline exceptions
+
+The coordinator reran the full Rails suite at `cb2c557`; the other project-wide
+results remain earlier Task 13 evidence at `3f7b209`. This is not a claim that
+all checks passed:
+
+| Check | Recorded result |
+| --- | --- |
+| Full Rails suite at `cb2c557` | 787 tests / 13085 assertions, 0 failures, 1 known `Chat::RequestOptionsTest` error: its test double lacks `augmented_context`; exit 1 |
+| Requested combined browser group | 80 tests / 3716 assertions, 0 failures, 1 existing `SourcesDropzoneTest` error: it visits `GET /login`, but login is POST-only |
+| Full RuboCop, Ruby 4 target | 234 offenses in 9 files byte-unchanged from `4480db3`; not green |
+| `bin/brakeman --no-pager` | Exit 5 before scanning: installed 8.0.4 versus latest 8.1.0 at the ensure-latest gate |
+| Supplemental `bundle exec brakeman --no-pager` | Exit 3; scan completed with 0 errors and 3 existing warnings (`PermitAttributes`, `EOLRails`, `RenderInline`) |
+| Test Tailwind build / importmap audit | Passed; importmap reported no vulnerable packages |
+
+Task 0's original focused baseline passed (83 tests / 653 assertions); its
+full baseline had 626 tests / 3404 assertions, 0 failures and the same one
+`Chat::RequestOptionsTest` error. The user chose to proceed without fixing it.
+Task 6 also recorded the legacy sources-dropzone browser exception rather
+than adding an unrelated login route. Existing MCP metadata warnings remain.
+The final coordinator full-suite rerun completed in 398 seconds with no new
+failures or errors. Fresh changed-file lint also passed for 73 files (72 Ruby
+files plus `Gemfile`), and the full-range diff check passed. No additional
+runtime changes followed these checks; this final update changes documentation
+metadata only. Existing non-green checks keep the integration gate open.
+
+See [the internationalization guide](../../internationalization.md) for user
+behavior, translation workflow, exclusions, and rollout: **tabs opened before
+deployment require a full reload** to subscribe to locale-qualified streams.
+Additional languages, RTL, unsupported upstream editor dialogs, and Mission
+Control Jobs internals remain excluded. The branch is kept **unmerged and
+unpushed**, pending a separate integration choice. Review approval is not an
+all-green baseline or a readiness-to-merge claim.
 
 ## File structure and stable interfaces
 
@@ -80,9 +147,9 @@ There is no checked-in `bin/ci`; use the actual commands above. Do not start rea
 
 **Files:** No application edits. Read the spec, `Gemfile`, `.ruby-version`, `config/database.yml`, `.github/workflows/ci.yml`, `test/support/chat_account_fixtures.rb`.
 
-- [ ] Inspect `git status --short --branch` and ensure the approved spec/plan commits are present. Use the `using-git-worktrees` workflow before application implementation; create a feature workspace from these commits, not an old account-selection branch. Preserve unrelated working-tree changes. This repository actually uses PostgreSQL, so do not invoke the SQLite database-copy workflow.
-- [ ] Run `bundle check`, prepare the **test** database, and build test Tailwind. Resolve environment failures before interpreting a feature test. Do not reset development databases.
-- [ ] Run the focused baseline:
+- [x] Inspect `git status --short --branch` and ensure the approved spec/plan commits are present. Use the `using-git-worktrees` workflow before application implementation; create a feature workspace from these commits, not an old account-selection branch. Preserve unrelated working-tree changes. This repository actually uses PostgreSQL, so do not invoke the SQLite database-copy workflow.
+- [x] Run `bundle check`, prepare the **test** database, and build test Tailwind. Resolve environment failures before interpreting a feature test. Do not reset development databases.
+- [x] Run the focused baseline:
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/authentication_lifecycle_test.rb test/integration/chat_composer_ui_test.rb test/integration/token_summary_cache_test.rb test/controllers/chat_account_selection_test.rb test/controllers/chat_account_access_test.rb test/models/sourceable_broadcast_test.rb test/models/message_test.rb test/models/chat/completionable_test.rb test/jobs/chat_response_job_test.rb
@@ -90,13 +157,13 @@ AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/aut
 
 Expected: all selected tests pass or failures are recorded before changes. Prior documentation mentions a `Chat::RequestOptionsTest` chunk double missing `augmented_context`; verify rather than assuming it still fails. Capture a full-suite baseline too. Save the execution log under `/tmp/opencode`, not in a locale catalog.
 
-- [ ] Record HEAD, commands, and baseline counts in the execution session. No feature commit is needed for this read-only task.
+- [x] Record HEAD, commands, and baseline counts in the execution session. No feature commit is needed for this read-only task.
 
 ## Task 1: Configure locales and deterministic browser negotiation
 
 **Files:** Create `app/models/language_preference.rb`, `test/models/language_preference_test.rb`, `config/locales/en.nosia_shell.yml`, `config/locales/fr.nosia_shell.yml`; modify `Gemfile`, `Gemfile.lock`, `config/application.rb`.
 
-- [ ] Write the negotiation test first:
+- [x] Write the negotiation test first:
 
 ```ruby
 require "test_helper"
@@ -148,8 +215,8 @@ class LanguagePreferenceTest < ActiveSupport::TestCase
 end
 ```
 
-- [ ] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/models/language_preference_test.rb`. Expected RED: `LanguagePreference` is missing and French locale configuration is unavailable. Do not treat a database/boot error as RED.
-- [ ] Add `gem "rails-i18n", "~> 8.0"` to `Gemfile`, run `bundle install`, and preserve existing locked dependencies except changes the resolver requires. Inside `Nosia::Application`, add:
+- [x] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/models/language_preference_test.rb`. Expected RED: `LanguagePreference` is missing and French locale configuration is unavailable. Do not treat a database/boot error as RED.
+- [x] Add `gem "rails-i18n", "~> 8.0"` to `Gemfile`, run `bundle install`, and preserve existing locked dependencies except changes the resolver requires. Inside `Nosia::Application`, add:
 
 ```ruby
 config.i18n.available_locales = [ :en, :fr ]
@@ -157,7 +224,7 @@ config.i18n.default_locale = :en
 config.i18n.fallbacks = [ :en ]
 ```
 
-- [ ] Implement the PORO; no `ApplicationRecord` inheritance or database table:
+- [x] Implement the PORO; no `ApplicationRecord` inheritance or database table:
 
 ```ruby
 class LanguagePreference
@@ -194,7 +261,7 @@ class LanguagePreference
 end
 ```
 
-- [ ] Start the shell catalogs with these complete YAML documents; later tasks add keys to them without duplicate `nosia` roots:
+- [x] Start the shell catalogs with these complete YAML documents; later tasks add keys to them without duplicate `nosia` roots:
 
 ```yaml
 # config/locales/en.nosia_shell.yml
@@ -222,14 +289,16 @@ fr:
       invalid: Préférence de langue non valide.
 ```
 
-- [ ] Re-run the exact test command. Expected GREEN: all cases pass. Do not enable every locale bundled by `rails-i18n`.
-- [ ] Commit the seven named files with `feat(i18n): configure English and French browser negotiation`.
+- [x] Re-run the exact test command. Expected GREEN: all cases pass. Do not enable every locale bundled by `rails-i18n`.
+- [x] Commit the seven named files with `feat(i18n): configure English and French browser negotiation`.
 
 ## Task 2: Scope web requests and freeze API responses to English
 
 **Files:** Create `app/controllers/concerns/localization.rb`, `test/controllers/localization_test.rb`; modify `app/controllers/application_controller.rb`, `app/controllers/api/v1/application_controller.rb`, `app/views/layouts/application.html.erb`, `test/controllers/api/v1/completions_controller_test.rb`.
 
-- [ ] Write HTTP tests before including a concern:
+**Execution correction:** The JSON `Unauthorized` assertion below (and its Task 3 counterpart) requires an invalid Bearer token. A missing Bearer token retains the existing plaintext response; implemented tests cover both without changing authentication or API contracts.
+
+- [x] Write HTTP tests before including a concern:
 
 ```ruby
 require "test_helper"
@@ -299,8 +368,8 @@ class LocaleScopeRestorationTest < ActionController::TestCase
 end
 ```
 
-- [ ] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/controllers/localization_test.rb`. Expected RED: absent document/header localization and callbacks still English.
-- [ ] Add this regression to the existing `Api::V1::CompletionsControllerTest`, using its already-defined local Faraday harness and request helpers:
+- [x] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/controllers/localization_test.rb`. Expected RED: absent document/header localization and callbacks still English.
+- [x] Add this regression to the existing `Api::V1::CompletionsControllerTest`, using its already-defined local Faraday harness and request helpers:
 
 ```ruby
 test "French browser preferences cannot alter or break committed SSE responses" do
@@ -317,7 +386,7 @@ end
 ```
 
 Run that file RED too. `ActionController::Live` commits/finalizes headers before the around-action returns; headers must be prepared **before** yielding to the action, not only in an `ensure` after streaming.
-- [ ] Implement the concern:
+- [x] Implement the concern:
 
 ```ruby
 module Localization
@@ -377,14 +446,14 @@ end
 
 Change the application layout's `<html>` to `<html lang="<%= I18n.locale %>">`. Keep existing meta tags, CSP, Turbo refresh settings, and layout geometry unchanged.
 
-- [ ] Run the Task 2 tests plus `test/controllers/api/v1/api_authentication_test.rb`, `test/controllers/api/v1/completions_controller_test.rb`, and `test/integration/authentication_lifecycle_test.rb`. Expected GREEN: no locale leak, no post-commit header mutation, and unchanged JSON/SSE/statuses. Do not alter authentication or invent missing session GET routes while doing localization.
-- [ ] Commit named files with `feat(i18n): scope web rendering without changing API language`.
+- [x] Run the Task 2 tests plus `test/controllers/api/v1/api_authentication_test.rb`, `test/controllers/api/v1/completions_controller_test.rb`, and `test/integration/authentication_lifecycle_test.rb`. Expected GREEN: no locale leak, no post-commit header mutation, and unchanged JSON/SSE/statuses. Do not alter authentication or invent missing session GET routes while doing localization.
+- [x] Commit named files with `feat(i18n): scope web rendering without changing API language`.
 
 ## Task 3: Add the browser preference resource and shared header form
 
 **Files:** Create `app/controllers/language_preferences_controller.rb`, `app/views/application/_language_preference.html.erb`, `test/controllers/language_preferences_controller_test.rb`; modify `config/routes.rb`, `app/views/application/_header.html.erb`.
 
-- [ ] Write the real request tests:
+- [x] Write the real request tests:
 
 ```ruby
 require "test_helper"
@@ -474,8 +543,8 @@ class LanguagePreferencesControllerTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/controllers/language_preferences_controller_test.rb`. Expected RED: endpoint/form missing, not a route helper typo.
-- [ ] Add the singular resource outside authenticated constraints:
+- [x] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/controllers/language_preferences_controller_test.rb`. Expected RED: endpoint/form missing, not a route helper typo.
+- [x] Add the singular resource outside authenticated constraints:
 
 ```ruby
 resource :language_preference, only: :update
@@ -517,7 +586,7 @@ end
 
 Do not use `params[:locale]` to select the language of ordinary GET/API requests. It is only the submitted preference value here.
 
-- [ ] Add the complete header partial:
+- [x] Add the complete header partial:
 
 ```erb
 <%= form_with url: language_preference_path, method: :patch,
@@ -539,8 +608,8 @@ Render it in `_header` outside `Current.user` guards. Make room for wrapping wit
 
 Native navigation discards the old JavaScript heap/Turbo snapshots; do not add another client locale store or cookie reader. The 375px browser check in Task 13 verifies the final translated labels rather than assuming they fit.
 
-- [ ] Re-run Task 2 and Task 3 tests. Expected GREEN: anonymous/authenticated, reset, invalid/tampered input, security and redirects. If CSRF raises instead of returning 422 in this test environment, assert `ActionController::InvalidAuthenticityToken` at the same request boundary; do not disable protection in production.
-- [ ] Commit named files with `feat(i18n): add persistent browser language selector`.
+- [x] Re-run Task 2 and Task 3 tests. Expected GREEN: anonymous/authenticated, reset, invalid/tampered input, security and redirects. If CSRF raises instead of returning 422 in this test environment, assert `ActionController::InvalidAuthenticityToken` at the same request boundary; do not disable protection in production.
+- [x] Commit named files with `feat(i18n): add persistent browser language selector`.
 
 ## Copy-extraction rules for Tasks 4–10
 
@@ -577,7 +646,9 @@ Only use `_html` translation keys for controlled markup in the methodology/skill
 
 **Files:** Modify `app/views/application/_header.html.erb`, `_menu.html.erb`, `_search.html.erb`, `_flash.html.erb`, `_sidebar.html.erb`, `app/views/layouts/application.html.erb`, `app/views/static/index.html.erb`, `app/views/sessions/{new.html.erb,_form.html.erb}`, `app/views/users/_form.html.erb`, `app/views/first_runs/show.html.erb`, `app/controllers/sessions_controller.rb`, `app/controllers/users_controller.rb`, both shell catalogs. Create `test/support/localized_view_assertions.rb`, `test/internationalization/view_copy_test.rb`, `test/integration/localized_pages_test.rb`.
 
-- [ ] Create the test-only source-audit helper:
+**Execution correction:** The implemented audit also parses direct Ruby-helper UI literals inside ERB, closing the original stripped-ERB example's blind spot. Audit regression tests use portable `Tempfile`/standard `TMPDIR`, not a hard-coded harness directory.
+
+- [x] Create the test-only source-audit helper:
 
 ```ruby
 module LocalizedViewAssertions
@@ -657,8 +728,8 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/internationalization/view_copy_test.rb test/integration/localized_pages_test.rb`. Expected RED: literal audit and French text assertions fail.
-- [ ] Add these shell catalog entries; replace corresponding literals throughout the named files with these exact keys:
+- [x] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/internationalization/view_copy_test.rb test/integration/localized_pages_test.rb`. Expected RED: literal audit and French text assertions fail.
+- [x] Add these shell catalog entries; replace corresponding literals throughout the named files with these exact keys:
 
 | Key suffix | English | French |
 | --- | --- | --- |
@@ -714,19 +785,21 @@ end
 
 Replace controller literals with `I18n.t("nosia.auth.try_later")`, `I18n.t("nosia.auth.rejected")`, and `I18n.t("nosia.auth.registrations_closed")` at their existing flash/rate-limit sites. Leave rate limits, status codes, redirect targets, and authentication unchanged.
 
-- [ ] Apply the markup transformation rules to `_header` and `_menu`, using the same key for title/accessible name/visible label when they describe the same action. Keep the Task 3 selector and wrapping behavior.
-- [ ] Translate `_search`; keep escaped result names and chat titles as data.
-- [ ] Translate `_flash`, `_sidebar`, and the layout's close-menu label, retaining all targets and dismiss actions.
-- [ ] Translate the session and registration form placeholders/buttons plus `static/index` and `sessions/new` captions.
-- [ ] Translate the first-run form without changing setup authorization. Add no new account/profile behavior.
-- [ ] Run the Task 4 command plus Tasks 2–3 and `test/integration/content_security_policy_test.rb`. Expected GREEN with the source audit still strict.
-- [ ] Commit the named files with `feat(i18n): translate navigation and authentication`.
+- [x] Apply the markup transformation rules to `_header` and `_menu`, using the same key for title/accessible name/visible label when they describe the same action. Keep the Task 3 selector and wrapping behavior.
+- [x] Translate `_search`; keep escaped result names and chat titles as data.
+- [x] Translate `_flash`, `_sidebar`, and the layout's close-menu label, retaining all targets and dismiss actions.
+- [x] Translate the session and registration form placeholders/buttons plus `static/index` and `sessions/new` captions.
+- [x] Translate the first-run form without changing setup authorization. Add no new account/profile behavior.
+- [x] Run the Task 4 command plus Tasks 2–3 and `test/integration/content_security_policy_test.rb`. Expected GREEN with the source audit still strict.
+- [x] Commit the named files with `feat(i18n): translate navigation and authentication`.
 
 ## Task 5: Translate chat, messages, and browser-generated composer feedback
 
 **Files:** Modify ERB under `app/views/chats/`, `app/views/messages/`, `app/views/chat_mcp_sessions/` except the two usage-owned partials `_token_totals` and `_token_footer` (Task 10), plus `app/views/dashboards/show.html.erb`, `app/views/chunks/show.html.erb`, `app/controllers/concerns/chat_account_scoped.rb`, `app/controllers/chat_mcp_sessions_controller.rb`, `app/controllers/chat_sources_controller.rb`, `app/javascript/controllers/composer_sources_controller.js`, `app/javascript/controllers/chat_account_controller.js`; create both chat catalogs and seed the MCP catalog keys `mcp.title`/`mcp.latency` used by the chat selector; extend `test/integration/localized_pages_test.rb`, `test/internationalization/view_copy_test.rb`; create `test/system/localization_test.rb`.
 
-- [ ] Add these tests to the existing test classes before changing chat copy:
+**Execution correction:** Request rescue handlers can run after the around-action locale has unwound. Validation-error serialization/rendering and no-account responses explicitly scope to `request_locale`; regressions cover French error responses and locale restoration.
+
+- [x] Add these tests to the existing test classes before changing chat copy:
 
 ```ruby
 # LocalizedPagesTest
@@ -766,8 +839,8 @@ test "chat and message copy is catalogued" do
 end
 ```
 
-- [ ] Run the two test files, plus a browser test that drives translated error buttons (complete test below). Expected RED: French composer attributes/buttons and catalogued literals are missing.
-- [ ] Add these chat translations:
+- [x] Run the two test files, plus a browser test that drives translated error buttons (complete test below). Expected RED: French composer attributes/buttons and catalogued literals are missing.
+- [x] Add these chat translations:
 
 | Key suffix | English | French |
 | --- | --- | --- |
@@ -835,7 +908,7 @@ Define `chat.phases.<phase>.title/subtitle` from this table:
 | `using_tool` | Using tool / Executing action... | Utilisation d’un outil / Exécution de l’action… |
 | `thinking` | Thinking / Processing... | Réflexion / Traitement… |
 
-- [ ] Translate every literal in the task's ERB files using the catalog keys; preserve form namespaces, Stop form ownership, validation associations, upload/skill/tool controls, and current disabled/inert state. Use whole keyboard sentences, not a translated fragment appended to another sentence. For `_thinking_animation`, retain icons and replace title/subtitle selection with:
+- [x] Translate every literal in the task's ERB files using the catalog keys; preserve form namespaces, Stop form ownership, validation associations, upload/skill/tool controls, and current disabled/inert state. Use whole keyboard sentences, not a translated fragment appended to another sentence. For `_thinking_animation`, retain icons and replace title/subtitle selection with:
 
 ```erb
 <%
@@ -852,7 +925,7 @@ Remove English `message:` overrides from `_thinking`, `_content`, and page-level
 
 Seed the chat selector's shared MCP keys in its paired catalog files now: `nosia.mcp.title` = `MCP Servers` / `Serveurs MCP`, and `nosia.mcp.latency` = `%{milliseconds}ms` / `%{milliseconds} ms`. Render its latency with `t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms))`. Task 8 extends those same files without duplicate roots/keys. Keep the two usage-owned partials unchanged until their atomic copy/cache task; the final audit includes them.
 
-- [ ] Supply the composer dictionary and account confirmation through explicit server attributes:
+- [x] Supply the composer dictionary and account confirmation through explicit server attributes:
 
 ```erb
 <%# Add to the existing root .n-chat-composer element: %>
@@ -881,7 +954,7 @@ No current template mounts `thinking_animation_controller.js`; do not refactor t
 
 Replace the two `ChatAccountScoped::NO_ACCOUNT_MESSAGE` usages in its rescue handler with request-time `I18n.t("nosia.chat.no_account")`. Retain the English constant because existing access/selection tests reference it as their English expected value; do not use that constant for runtime localized responses. The browser JSON endpoints `/chat_sources` and chat MCP actions are **web UI endpoints**, not `/api/v1`; localize their human error/flash strings without changing their JSON keys, error statuses, or authorization. In `_chat`, format the displayed timestamp with `l(chat.created_at, format: :short)`; the ISO timestamps used for ordering remain unchanged.
 
-- [ ] Create the initial real-browser test file:
+- [x] Create the initial real-browser test file:
 
 ```ruby
 require "application_system_test_case"
@@ -926,14 +999,16 @@ end
 
 The application exports its Stimulus instance on `window.Stimulus`; verify that existing `controllers/application.js` contract before running the browser test. This drives the existing state machine without a real external request; Task 13 adds navigation and actual Cable delivery checks.
 
-- [ ] Run Task 5 tests, its system file, `test/integration/chat_composer_ui_test.rb`, and the existing chat/account controller regressions. Expected GREEN: English assertions remain valid; French UI is complete; forms and safety behavior are unchanged.
-- [ ] Commit named files with `feat(i18n): translate chat and composer feedback`.
+- [x] Run Task 5 tests, its system file, `test/integration/chat_composer_ui_test.rb`, and the existing chat/account controller regressions. Expected GREEN: English assertions remain valid; French UI is complete; forms and safety behavior are unchanged.
+- [x] Commit named files with `feat(i18n): translate chat and composer feedback`.
 
 ## Task 6: Translate sources and source-upload feedback
 
 **Files:** Modify every ERB under `app/views/sources/`, `app/helpers/sources_helper.rb`, `app/models/{document,text,qna}.rb`, `app/controllers/sources/{documents,qnas,texts,websites}_controller.rb`, `app/javascript/controllers/dropzone_controller.js`, `app/views/dashboards/show.html.erb`; create both sources catalogs; extend the two copy/page test files and `test/system/localization_test.rb`.
 
-- [ ] Add these tests first:
+**Execution correction:** Filename interpolation uses `.replaceAll("%{name}", () => file.name)`, not the replacement-string example below, so JavaScript dollar-token filenames remain literal.
+
+- [x] Add these tests first:
 
 ```ruby
 # LocalizedPagesTest
@@ -971,7 +1046,7 @@ end
 
 Use the actual fixture label in `test/support/fixtures/chat_accounts/texts.yml` (`picker_second_text` at plan-writing time); verify it rather than introducing a create/factory fallback.
 
-- [ ] Run the copy/page tests RED. Add the sources catalog from the following table and translate the named files:
+- [x] Run the copy/page tests RED. Add the sources catalog from the following table and translate the named files:
 
 | Key suffix | English | French |
 | --- | --- | --- |
@@ -1049,7 +1124,7 @@ For each controller, its four flash keys `created`, `updated`, `destroyed`, `ret
 
 Define `sources.pasted_words.one` as `Pasted text · %{formatted_count} word` / `Texte collé · %{formatted_count} mot` and `.other` as the plural forms `words` / `mots`.
 
-- [ ] Change the source display methods and status helper at presentation time:
+- [x] Change the source display methods and status helper at presentation time:
 
 ```ruby
 # Text#source_subtitle
@@ -1075,7 +1150,7 @@ In `source_status_display`, retain its existing CSS branches and replace labels 
 
 In `_source_filters`, rename loop local `t` to `source_type`, then render `t("nosia.sources.types.#{source_type}", count: 2)` while retaining raw `type` query values. In `_empty`, use `t("nosia.sources.empty.#{type}")` and `t("nosia.sources.add_type.#{type}")`. Use the whole `nosia.time.ago` sentence around `time_ago_in_words`, including on MCP's last-connected display later. Format count badges with `number_with_delimiter(value)`; leave their DOM IDs untouched.
 
-- [ ] Supply `data-dropzone-messages-value` from `t('nosia.sources.upload_messages').to_json` on **both** existing dropzone roots: Sources index and dashboard. Extend its Stimulus values with `messages: Object`; change the five generated labels to:
+- [x] Supply `data-dropzone-messages-value` from `t('nosia.sources.upload_messages').to_json` on **both** existing dropzone roots: Sources index and dashboard. Extend its Stimulus values with `messages: Object`; change the five generated labels to:
 
 ```javascript
 alert.textContent = this.messagesValue.failed;
@@ -1087,7 +1162,7 @@ removeBtn.textContent = this.messagesValue.remove;
 
 Keep the uploader's file-name deduplication, upload IDs, queue, failures, retries, and account parameters exactly as they are. Use text nodes, never interpolate filenames into `innerHTML`.
 
-- [ ] Add this browser-generated validation test before changing the uploader's generated messages, run it RED, then re-run GREEN after the dictionary wiring:
+- [x] Add this browser-generated validation test before changing the uploader's generated messages, run it RED, then re-run GREEN after the dictionary wiring:
 
 ```ruby
 test "French oversized uploads expose translated errors without sending" do
@@ -1115,14 +1190,14 @@ test "French oversized uploads expose translated errors without sending" do
 end
 ```
 
-No network upload or worker is needed. Run the copy/page tests, the existing `test/controllers/sources/` directory, `test/models/sourceable_test.rb`, `test/models/source_row_test.rb`, `test/system/sources_dropzone_test.rb`, and `test/system/localization_test.rb`. Expected GREEN.
-- [ ] Commit named files with `feat(i18n): translate source workflows and upload feedback`.
+No network upload or worker is needed. Run the copy/page tests, the existing `test/controllers/sources/` directory, `test/models/sourceable_test.rb`, `test/models/source_row_test.rb`, `test/system/sources_dropzone_test.rb`, and `test/system/localization_test.rb`. Original expectation: GREEN. **Executed with a baseline exception:** source-focused checks passed (72 tests / 471 assertions) and localization Chromium checks passed (2 tests / 34 assertions); legacy `SourcesDropzoneTest` instead exposed its existing `GET /login`/POST-only route error. That check was completed and reported, not green; no unrelated authentication route was added.
+- [x] Commit named files with `feat(i18n): translate source workflows and upload feedback`.
 
 ## Task 7: Translate accounts, settings, token management, prompts, and models
 
 **Files:** Modify every ERB under `app/views/accounts/`, `app/views/settings/`, `app/views/api_tokens/`, `app/views/system_prompts/`, `app/views/models/`; modify `app/controllers/accounts_controller.rb`, `app/controllers/accounts/account_users_controller.rb`, `app/controllers/accounts/system_prompts_controller.rb`, `app/controllers/api_tokens_controller.rb`, `app/controllers/system_prompts_controller.rb`, `app/controllers/models_controller.rb`; create both accounts catalogs; extend the page/copy tests.
 
-- [ ] Add these tests:
+- [x] Add these tests:
 
 ```ruby
 # LocalizedPagesTest
@@ -1165,7 +1240,7 @@ end
 
 `Account` exposes `prompts`, while `system_prompt` returns content; the test intentionally reads the same persisted `Prompt` records before/after. Do not change prompt storage to satisfy this test.
 
-- [ ] Run the copy/page test command RED. Encode these entries in the accounts catalogs:
+- [x] Run the copy/page test command RED. Encode these entries in the accounts catalogs:
 
 | Key suffix | English | French |
 | --- | --- | --- |
@@ -1226,7 +1301,7 @@ end
 
 Use `nosia.nav.accounts/settings` and shared actions for repeated navigation/buttons. Settings' Agent Skills/MCP labels use the dedicated keys from Tasks 8–9; introduce those small entries now in their eventual paired files if needed, never an inline English fallback.
 
-- [ ] Translate all named ERB and controller flash sites. Convert dynamic headings to whole-sentence interpolation. Keep token plaintext and clipboard targets untouched; do not expose secrets in new labels or logs. Show prompt `full_name`/`content` verbatim. Keep API-token generation/revocation, account membership checks, and model refresh requests unchanged.
+- [x] Translate all named ERB and controller flash sites. Convert dynamic headings to whole-sentence interpolation. Keep token plaintext and clipboard targets untouched; do not expose secrets in new labels or logs. Show prompt `full_name`/`content` verbatim. Keep API-token generation/revocation, account membership checks, and model refresh requests unchanged.
 
 For the existing English-mode consumption-column test, replace its old French literal expectation with `Average consumption (1000 tokens)` and add a French-mode expectation for `Consommation moyenne (1 000 jetons)`. This is an intentional correction of previously mixed-language UI, not a calculation change. Add `test/integration/models_consumption_column_test.rb` to the modified files.
 
@@ -1240,14 +1315,14 @@ For model prices, preserve USD and two decimal places but use locale-aware forma
 
 Do not localize `provider`, model IDs, capability protocol values, or the `model_id`/`provider` query parameters. Seed `nosia.usage.token_quantity.one/other` in both usage catalogs now: `%{formatted_count} token` / `%{formatted_count} tokens` for English and `%{formatted_count} jeton` / `%{formatted_count} jetons` for French. Render the model context/output quantities with `t("nosia.usage.token_quantity", count: @model.context_window, formatted_count: number_with_delimiter(@model.context_window))` and the equivalent `@model.max_output_tokens` call. Task 10 extends these catalogs; it does not redefine the same keys in a second file.
 
-- [ ] Run the copy/page tests and `test/controllers/accounts_controller_test.rb`, `test/controllers/accounts/account_users_authorization_test.rb`, `test/controllers/accounts/system_prompts_controller_test.rb`, `test/controllers/api_tokens_controller_test.rb`, `test/controllers/system_prompts_controller_test.rb`, `test/integration/models_consumption_column_test.rb`. Expected GREEN with cross-account denials intact.
-- [ ] Commit named files with `feat(i18n): translate account and administration screens`.
+- [x] Run the copy/page tests and `test/controllers/accounts_controller_test.rb`, `test/controllers/accounts/account_users_authorization_test.rb`, `test/controllers/accounts/system_prompts_controller_test.rb`, `test/controllers/api_tokens_controller_test.rb`, `test/controllers/system_prompts_controller_test.rb`, `test/integration/models_consumption_column_test.rb`. Expected GREEN with cross-account denials intact.
+- [x] Commit named files with `feat(i18n): translate account and administration screens`.
 
 ## Task 8: Translate MCP management and presentation-only catalog metadata
 
 **Files:** Modify all ERB under `app/views/mcp_servers/`, `app/views/mcp_catalog/`, `app/controllers/mcp_servers_controller.rb`, `app/controllers/mcp_catalog_controller.rb`, `app/models/mcp_server.rb`; create `app/helpers/mcp_catalog_helper.rb` and both MCP catalogs; extend page/copy tests; create `test/helpers/mcp_catalog_helper_test.rb`.
 
-- [ ] Add the page/copy tests and helper isolation test before translating:
+- [x] Add the page/copy tests and helper isolation test before translating:
 
 ```ruby
 # LocalizedPagesTest
@@ -1294,7 +1369,7 @@ class McpCatalogHelperTest < ActionView::TestCase
 end
 ```
 
-- [ ] Run these tests RED. Add the following MCP copy, using existing action/nav keys for back/edit/delete/filter/reset/save/close:
+- [x] Run these tests RED. Add the following MCP copy, using existing action/nav keys for back/edit/delete/filter/reset/save/close:
 
 | Key suffix | English | French |
 | --- | --- | --- |
@@ -1395,7 +1470,7 @@ end
 
 Define `mcp.errors.one/other` as `%{count} error:` / `%{count} errors:` and `%{count} erreur :` / `%{count} erreurs :`. Replace `pluralize(..., "error")` with this translated whole heading.
 
-- [ ] Implement this complete presentation helper; leave cached `McpCatalog.all/categories` and activation metadata language-neutral:
+- [x] Implement this complete presentation helper; leave cached `McpCatalog.all/categories` and activation metadata language-neutral:
 
 ```ruby
 module McpCatalogHelper
@@ -1469,18 +1544,18 @@ The helper's complete managed metadata catalog is:
 
 These are presentation copies of Nosia-owned catalog descriptions, not translations of runtime MCP tool descriptions. Unknown extension metadata is returned unchanged and normally escaped.
 
-- [ ] Translate the task's controller flashes/browser-JSON `message`/owned `error` strings using the MCP table; keep raw provider `last_error` untouched inside the translated explanation. In `McpServer#execute_tool`, localize only the owned not-ready/not-found wrappers. Keep arbitrary results and caught provider diagnostics unchanged. The catalog's custom validation error changes atomically with its paired Rails keys in Task 9, not in this task.
+- [x] Translate the task's controller flashes/browser-JSON `message`/owned `error` strings using the MCP table; keep raw provider `last_error` untouched inside the translated explanation. In `McpServer#execute_tool`, localize only the owned not-ready/not-found wrappers. Keep arbitrary results and caught provider diagnostics unchanged. The catalog's custom validation error changes atomically with its paired Rails keys in Task 9, not in this task.
 
 For finite status/transport/capability labels, use localized display labels but preserve underlying `ready/error/connecting/disconnected/disabled`, `streamable/sse/stdio/local`, `tools/prompts/resources` values. Use the whole `nosia.time.ago` key for last-connected. Do not refactor the existing custom MCP routes/actions as part of translation.
 
-- [ ] Run the page/copy/helper tests plus `test/controllers/mcp_servers_controller_test.rb`, `test/models/mcp_server_test.rb`, `test/models/mcp_server_local_test.rb`, `test/lib/mcp_catalog_registry_test.rb`, and `test/integration/ported_script_pages_render_test.rb`. Expected GREEN; no real server connection or activation side effects in rendering tests.
-- [ ] Commit named files with `feat(i18n): translate MCP management without localizing stored metadata`.
+- [x] Run the page/copy/helper tests plus `test/controllers/mcp_servers_controller_test.rb`, `test/models/mcp_server_test.rb`, `test/models/mcp_server_local_test.rb`, `test/lib/mcp_catalog_registry_test.rb`, and `test/integration/ported_script_pages_render_test.rb`. Expected GREEN; no real server connection or activation side effects in rendering tests.
+- [x] Commit named files with `feat(i18n): translate MCP management without localizing stored metadata`.
 
 ## Task 9: Translate skills and model validation/attribute names
 
 **Files:** Modify all ERB under `app/views/agent_skills/`, `app/controllers/agent_skills_controller.rb`, `app/models/agent_skill.rb`, `app/models/mcp_server.rb`, `app/models/chat/account_scoped.rb`, `lib/mcp_catalog.rb`; create both skills catalogs; extend the page/copy tests. Add shared model attribute keys to the catalog belonging to that feature, and missing-config error keys to the MCP catalogs.
 
-- [ ] Add these behavioral tests first:
+- [x] Add these behavioral tests first:
 
 ```ruby
 # LocalizedPagesTest
@@ -1512,7 +1587,7 @@ end
 
 Use `picker_second_skill` from the existing opt-in YAML; keep its content changes in memory for validation. Add equivalent French error checks to the existing account-immutability and MCP endpoint/stdio tests, preserving their original English cases and error statuses.
 
-- [ ] Run the page/copy tests RED. Add these skills entries:
+- [x] Run the page/copy tests RED. Add these skills entries:
 
 | Key suffix | English | French |
 | --- | --- | --- |
@@ -1587,7 +1662,7 @@ content_placeholder: |-
   Saisissez ici les instructions de votre compétence…
 ```
 
-- [ ] Replace `.humanize` enum displays and options with these exact lookups:
+- [x] Replace `.humanize` enum displays and options with these exact lookups:
 
 ```erb
 <%= t("nosia.skills.execution.#{skill.execution_mode}") %>
@@ -1604,7 +1679,7 @@ content_placeholder: |-
 
 Use explicit translated labels for `execution_mode`, `trigger_mode`, `priority`, and `enabled`; do not leave implicit English label humanization. Translate whole enable/disable action labels and success messages, not ternary fragments plus the word "skill". Keep skill descriptions, tags, names, Ruby class names, content, triggers, and execution behavior unchanged.
 
-- [ ] Convert custom validation messages to symbol codes at their existing sites:
+- [x] Convert custom validation messages to symbol codes at their existing sites:
 
 ```ruby
 # AgentSkill format validator
@@ -1655,14 +1730,14 @@ Store English attribute labels as their current Rails humanized spelling, with t
 
 Use Rails' standard French validation/error/date translations from `rails-i18n`; do not duplicate all framework locale data in application catalogs.
 
-- [ ] Run copy/page tests, `test/models/agent_skill_test.rb`, `test/controllers/chat_account_selection_test.rb`, `test/models/chat_account_test.rb`, and existing MCP security/validation tests. Run API authentication/completion tests under a French header/cookie to confirm error text/status contracts stay English. Expected GREEN, with the English custom-message wording preserved.
-- [ ] Commit named files with `feat(i18n): translate skills and validation messages`.
+- [x] Run copy/page tests, `test/models/agent_skill_test.rb`, `test/controllers/chat_account_selection_test.rb`, `test/models/chat_account_test.rb`, and existing MCP security/validation tests. Run API authentication/completion tests under a French header/cookie to confirm error text/status contracts stay English. Expected GREEN, with the English custom-message wording preserved.
+- [x] Commit named files with `feat(i18n): translate skills and validation messages`.
 
 ## Task 10: Localize usage, energy explanations, numbers, dates, and cache keys
 
 **Files:** Modify all three ERB files under `app/views/token_usages/`, `app/views/chats/_token_totals.html.erb`, `app/views/messages/_token_footer.html.erb`, `app/views/models/show.html.erb`; create both usage catalogs and `test/integration/localized_cache_test.rb`; extend the copy/page tests.
 
-- [ ] Write the cache-isolation test first:
+- [x] Write the cache-isolation test first:
 
 ```ruby
 require "test_helper"
@@ -1718,7 +1793,7 @@ test "usage text and methodology are catalogued" do
 end
 ```
 
-- [ ] Run the copy/cache tests RED. Use this usage catalog:
+- [x] Run the copy/cache tests RED. Use this usage catalog:
 
 | Key suffix | English | French |
 | --- | --- | --- |
@@ -1782,7 +1857,7 @@ dataset_fallback_html: >-
   Les modèles absents du jeu de données (notamment la plupart des modèles accessibles uniquement par API, dont la consommation est indiquée comme <code>N/A</code>) utilisent un coefficient de repli, signalé par <strong>*</strong> dans les détails ci-dessus.
 ```
 
-- [ ] Change the fragment key without dropping its counter invalidation:
+- [x] Change the fragment key without dropping its counter invalidation:
 
 ```erb
 <% cache [I18n.locale, Current.account, Current.account.input_tokens_count,
@@ -1793,7 +1868,7 @@ Replace usage kind display with `t("nosia.usage.kinds.#{kind}")`, not `.humanize
 
 Translate `_token_footer`'s tooltip ternary and `_token_totals`' whole tooltip using `usage.total_tooltip` or `usage.total_fallback_tooltip`. Render formatted token amounts with numeric `count` and separate `formatted_count`. Add the corresponding `usage.token_quantity` call to model context-window/max-output display rather than a hard-coded `tokens` suffix.
 
-- [ ] Render methodology paragraphs using safe link interpolation and the existing external URLs/rel attributes:
+- [x] Render methodology paragraphs using safe link interpolation and the existing external URLs/rel attributes:
 
 ```erb
 <p><%= t("nosia.usage.methodology_intro_html",
@@ -1811,15 +1886,15 @@ Translate `_token_footer`'s tooltip ternary and `_token_totals`' whole tooltip u
 
 Under `date.formats.dataset_snapshot` add `"%-d %B %Y"` in both locale files; month names come from Rails locale data. Keep the real dataset snapshot date and license, not the feature date. Preserve the surrounding disclosure, typography, themes, links, and scope.
 
-- [ ] In `test/integration/token_footer_test.rb`, replace the English-mode fallback-tooltip assertion `absent du benchmark Comparia` with `model absent from the Comparia benchmark`, and add a French `I18n.with_locale(:fr)` rendering assertion retaining `absent du benchmark Comparia`. Preserve every existing energy/precision/token assertion. Add this test file to Task 10's modifications.
-- [ ] Run Task 10 tests, `test/integration/token_usages_test.rb`, `test/integration/token_summary_cache_test.rb`, `test/integration/token_footer_test.rb`, `test/models/token_usage_test.rb`, `test/integration/models_consumption_column_test.rb`. Expected GREEN; old English precision/counter assertions remain meaningful. Only intentionally changed French/English human labels may change rendering assertions.
-- [ ] Commit named files with `feat(i18n): localize usage formatting and isolate translated caches`.
+- [x] In `test/integration/token_footer_test.rb`, replace the English-mode fallback-tooltip assertion `absent du benchmark Comparia` with `model absent from the Comparia benchmark`, and add a French `I18n.with_locale(:fr)` rendering assertion retaining `absent du benchmark Comparia`. Preserve every existing energy/precision/token assertion. Add this test file to Task 10's modifications.
+- [x] Run Task 10 tests, `test/integration/token_usages_test.rb`, `test/integration/token_summary_cache_test.rb`, `test/integration/token_footer_test.rb`, `test/models/token_usage_test.rb`, `test/integration/models_consumption_column_test.rb`. Expected GREEN; old English precision/counter assertions remain meaningful. Only intentionally changed French/English human labels may change rendering assertions.
+- [x] Commit named files with `feat(i18n): localize usage formatting and isolate translated caches`.
 
 ## Task 11: Localize every broadcast path without changing event semantics
 
 **Files:** Create `app/models/concerns/localized_broadcasting.rb`, `test/integration/localized_broadcasts_test.rb`, `test/support/localization_fixtures.rb`, `test/support/fixtures/localization/messages.yml`, `test/support/fixtures/localization/token_usages.yml`; modify `app/models/chat.rb`, `app/models/message.rb`, `app/models/token_usage.rb`, `app/models/concerns/sourceable.rb`, `app/models/chat/completionable.rb`, `app/models/chat/similarity_search.rb`, `app/views/chats/show.html.erb`, `app/views/sources/index.html.erb`. Update affected stream assertions in existing tests listed below.
 
-- [ ] Add these **opt-in** fixture files and helper before the new test. They load only for localization live-update tests and do not change existing `ChatAccountFixtures` consumers:
+- [x] Add these **opt-in** fixture files and helper before the new test. They load only for localization live-update tests and do not change existing `ChatAccountFixtures` consumers:
 
 ```yaml
 # test/support/fixtures/localization/messages.yml
@@ -1869,7 +1944,7 @@ end
 
 `messages` has no `account_id` in the actual schema; its tenant comes through the chat. The token ledger's `model_id` is a string. Do not add schema fields to make fixtures match generic repository instructions.
 
-- [ ] First add a test capturing **both languages from the same event**, not two isolated renders:
+- [x] First add a test capturing **both languages from the same event**, not two isolated renders:
 
 ```ruby
 require "test_helper"
@@ -1938,8 +2013,8 @@ class LocalizedBroadcastsTest < ActiveSupport::TestCase
 end
 ```
 
-- [ ] Run this new file RED before touching broadcast code. Expected RED: no locale-qualified events and the phase method still requires an English message argument. Keep the existing unqualified regressions passing until the deliberate stream migration below.
-- [ ] Implement the focused concern:
+- [x] Run this new file RED before touching broadcast code. Expected RED: no locale-qualified events and the phase method still requires an English message argument. Keep the existing unqualified regressions passing until the deliberate stream migration below.
+- [x] Implement the focused concern:
 
 ```ruby
 module LocalizedBroadcasting
@@ -1975,7 +2050,7 @@ end
 
 This uses actual Turbo public broadcasting methods; do not wrap/override both `broadcast_append_to` and `broadcast_action_to`, which would nest fan-out and duplicate events. Only internal static action symbols call this helper; do not pass an action from user input. Async Turbo jobs capture their locale when enqueued; verify payloads after `perform_enqueued_jobs`, not only at enqueue time.
 
-- [ ] Include the concern in `Chat`, `Message`, `TokenUsage`, and as a concern dependency in `Sourceable`. Replace each existing `broadcasts_to` declaration in Chat/Message with `broadcasts_localized_to` using its unchanged lambda. Do **not** retain both macros or silently remove lifecycle callbacks. Replace each explicit call's method token using this exact mapping, keeping its complete argument list, target, partial, and locals unchanged:
+- [x] Include the concern in `Chat`, `Message`, `TokenUsage`, and as a concern dependency in `Sourceable`. Replace each existing `broadcasts_to` declaration in Chat/Message with `broadcasts_localized_to` using its unchanged lambda. Do **not** retain both macros or silently remove lifecycle callbacks. Replace each explicit call's method token using this exact mapping, keeping its complete argument list, target, partial, and locals unchanged:
 
 | Existing method token | Replacement method/action prefix |
 | --- | --- |
@@ -1999,7 +2074,7 @@ broadcast_localized_to :refresh, self, :messages
 
 `Message#broadcast_streamed_content` still computes `html = self.class.render_markdown_content(text)` **once before** fan-out. Reuse `content_html: html` for both locales; do not run the markdown renderer once per locale/delta. Keep all stream buffering, duplicate-message guards, intermediate tool/system filtering, ordering, retry/stop paths, and message content unchanged.
 
-- [ ] Replace worker phase APIs with the complete localized render boundary:
+- [x] Replace worker phase APIs with the complete localized render boundary:
 
 ```ruby
 def broadcast_thinking_phase(phase)
@@ -2012,7 +2087,7 @@ end
 
 The four call sites become `broadcast_thinking_phase("indexing")` in Chat, `broadcast_thinking_phase("searching")` and `broadcast_thinking_phase("retrieving")` in SimilaritySearch, and `broadcast_thinking_phase("generating")` in Completionable. Do not translate the actual relevance warning appended to persisted `message.content`, prompt instructions, excluded-source notes, or LLM chunks.
 
-- [ ] Change all four subscription declarations exactly:
+- [x] Change all four subscription declarations exactly:
 
 ```erb
 <%# chats/show %>
@@ -2026,9 +2101,9 @@ The four call sites become `broadcast_thinking_phase("indexing")` in Chat, `broa
 
 Keep the filtered-list subscription's existing `@query.blank?` guard. Keep signed stream generation and existing account/chat authorization; no unqualified compatibility subscription or subscriber registry.
 
-- [ ] Update **only intentional stream identity** in existing assertions: append `:en` to stream arrays in `test/models/sourceable_broadcast_test.rb`, `test/models/message_test.rb`, `test/models/message_placeholder_test.rb`, `test/models/chat_test.rb`, `test/models/chat/completionable_test.rb`, `test/models/chat/similarity_search_test.rb`, `test/models/chat_account_test.rb`, `test/jobs/chat_response_job_test.rb`, `test/integration/chat_composer_ui_test.rb`. Filter-list arrays put `:en` after `list:...`. Preserve existing per-language counts (eight source replaces; one/four coalesced content flushes) and content/ordering assertions. Add equivalent assertions for `:fr` in the new test file rather than weakening old tests to ignore missing broadcasts.
+- [x] Update **only intentional stream identity** in existing assertions: append `:en` to stream arrays in `test/models/sourceable_broadcast_test.rb`, `test/models/message_test.rb`, `test/models/message_placeholder_test.rb`, `test/models/chat_test.rb`, `test/models/chat/completionable_test.rb`, `test/models/chat/similarity_search_test.rb`, `test/models/chat_account_test.rb`, `test/jobs/chat_response_job_test.rb`, `test/integration/chat_composer_ui_test.rb`. Filter-list arrays put `:en` after `list:...`. Preserve existing per-language counts (eight source replaces; one/four coalesced content flushes) and content/ordering assertions. Add equivalent assertions for `:fr` in the new test file rather than weakening old tests to ignore missing broadcasts.
 
-- [ ] Extend `LocalizedBroadcastsTest` with these independent behavior tests before their final adjustments:
+- [x] Extend `LocalizedBroadcastsTest` with these independent behavior tests before their final adjustments:
 
 ```ruby
 test "streamed content is identical in both languages and remains stored verbatim" do
@@ -2092,14 +2167,14 @@ end
 
 The fixture's direct insertion deliberately does not simulate callbacks; saving its duplicate is the new public event that increments counters and broadcasts. No factories, global fixture registration, or private callback invocation are needed.
 
-- [ ] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/localized_broadcasts_test.rb test/models/sourceable_broadcast_test.rb test/models/message_test.rb test/models/message_placeholder_test.rb test/models/chat_test.rb test/models/chat/completionable_test.rb test/models/chat/similarity_search_test.rb test/models/chat_account_test.rb test/jobs/chat_response_job_test.rb test/integration/chat_composer_ui_test.rb`. Expected GREEN with unchanged per-viewer coalescing counts and no fallback stream deliveries. Re-run chat/source authorization tests as well.
-- [ ] Commit named files with `feat(i18n): isolate localized Turbo streams and background rendering`.
+- [x] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/integration/localized_broadcasts_test.rb test/models/sourceable_broadcast_test.rb test/models/message_test.rb test/models/message_placeholder_test.rb test/models/chat_test.rb test/models/chat/completionable_test.rb test/models/chat/similarity_search_test.rb test/models/chat_account_test.rb test/jobs/chat_response_job_test.rb test/integration/chat_composer_ui_test.rb`. Expected GREEN with unchanged per-viewer coalescing counts and no fallback stream deliveries. Re-run chat/source authorization tests as well.
+- [x] Commit named files with `feat(i18n): isolate localized Turbo streams and background rendering`.
 
 ## Task 12: Enforce complete catalogs and bilingual static recovery pages
 
 **Files:** Create `test/internationalization/catalogs_test.rb`, `test/packaging/bilingual_error_pages_test.rb`; extend `test/internationalization/view_copy_test.rb`; modify `public/404.html`, `public/406-unsupported-browser.html`, `public/422.html`, `public/500.html`; finish missing copy in the feature catalogs/templates identified by the strict audit.
 
-- [ ] Write the catalog contract test before final catalog cleanup:
+- [x] Write the catalog contract test before final catalog cleanup:
 
 ```ruby
 require "test_helper"
@@ -2185,7 +2260,7 @@ test "catalog files do not silently overwrite translation leaves" do
 end
 ```
 
-- [ ] Add a final full-tree source-audit test, covering even legacy/non-navigation-linked partials:
+- [x] Add a final full-tree source-audit test, covering even legacy/non-navigation-linked partials:
 
 ```ruby
 test "all application ERB visible copy and accessibility text is catalogued" do
@@ -2197,7 +2272,7 @@ end
 
 `app/views/pwa/manifest.json.erb` is explicitly excluded from the HTML-source parser because it is a JSON machine artifact containing only product name `Nosia`, not translatable human copy. Keep its URL, scope, icons, and identity unchanged. Plain document/text/Q&A/website render partials should continue to output authored content without translation.
 
-- [ ] Write the static recovery-page test as a standalone Minitest test:
+- [x] Write the static recovery-page test as a standalone Minitest test:
 
 ```ruby
 require "minitest/autorun"
@@ -2224,8 +2299,8 @@ end
 
 The path from `test/packaging` is `../../public`; verify it with the standalone command, without loading Rails. Do not rely on `Rails.root` in this recovery test.
 
-- [ ] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/internationalization` and `bundle exec ruby test/packaging/bilingual_error_pages_test.rb`. Expected RED on any incomplete copy and missing bilingual page sections.
-- [ ] Retain each page's embedded styles, viewport/meta tags, filename, HTTP purpose, and standalone operation. Set document `lang=en` and these exact title elements:
+- [x] Run `AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/internationalization` and `bundle exec ruby test/packaging/bilingual_error_pages_test.rb`. Expected RED on any incomplete copy and missing bilingual page sections.
+- [x] Retain each page's embedded styles, viewport/meta tags, filename, HTTP purpose, and standalone operation. Set document `lang=en` and these exact title elements:
 
 ```html
 <!-- 404.html -->
@@ -2299,15 +2374,17 @@ The block above is the complete 404 dialog. The other three complete dialogs are
 
 The standalone safety net intentionally contains literal bilingual text; do not make it depend on I18n, cookies, an asset server, or dynamic error controllers.
 
-- [ ] Resolve audit findings by adding genuine paired translations and replacing their literals. Examples of easily missed surfaces: SVG accessible names, native form prompts, `_chat` dates, `models/show` links and colon-suffixed labels, source empty-state messages, both assistant/message partials, browser upload errors, and all method-specific flash strings. Use the feature's catalog, not an unrelated catch-all dictionary. Never exempt a missing English/French sentence from the audit.
-- [ ] Run all i18n tests and the standalone packaging test GREEN. Inspect both languages manually for fluency; key parity alone cannot prove the French is correct. No `translation missing` markers, raw interpolation tokens, or duplicate catalog keys may remain.
-- [ ] Commit named files with `feat(i18n): complete translation coverage and bilingual recovery pages`.
+- [x] Resolve audit findings by adding genuine paired translations and replacing their literals. Examples of easily missed surfaces: SVG accessible names, native form prompts, `_chat` dates, `models/show` links and colon-suffixed labels, source empty-state messages, both assistant/message partials, browser upload errors, and all method-specific flash strings. Use the feature's catalog, not an unrelated catch-all dictionary. Never exempt a missing English/French sentence from the audit.
+- [x] Run all i18n tests and the standalone packaging test GREEN. Inspect both languages manually for fluency; key parity alone cannot prove the French is correct. No `translation missing` markers, raw interpolation tokens, or duplicate catalog keys may remain.
+- [x] Commit named files with `feat(i18n): complete translation coverage and bilingual recovery pages`.
 
 ## Task 13: Verify real browser navigation/live delivery, document, and review
 
 **Files:** Extend `test/system/localization_test.rb`; create `docs/internationalization.md`; modify `docs/README.md`, `docs/DEBT.md`, and only intentional locale-sensitive assertions in existing tests. Do not modify unrelated baseline failures.
 
-- [ ] Add this browser navigation test before the final layout/navigation adjustments:
+**Execution additions:** Permanent integration coverage now enqueues actual Turbo lifecycle jobs, exits the publisher locale, and performs them under a different worker locale, checking localized payloads and restoration. Separate deferred-job and synchronous public-helper render-error tests check restoration immediately after errors; `cb2c557` added the synchronous case without relying on Active Job's wrapper. These extend the historical Task 11 examples rather than treating immediate job execution as proof of serialization.
+
+- [x] Add this browser navigation test before the final layout/navigation adjustments:
 
 ```ruby
 test "language switching fully reloads the current page and survives Turbo navigation" do
@@ -2333,7 +2410,7 @@ test "language switching fully reloads the current page and survives Turbo navig
 end
 ```
 
-- [ ] Add an actual two-browser-session Cable test, not only a snapshot rendering assertion:
+- [x] Add an actual two-browser-session Cable test, not only a snapshot rendering assertion:
 
 ```ruby
 test "French and English browsers receive the same chat event in their own language" do
@@ -2373,7 +2450,7 @@ end
 
 Do not run two browsers against a stubbed Cable subscription. Wait for the real `[connected]` attributes before broadcasting. Use the existing test adapter in-process; do not start workers or call an AI provider.
 
-- [ ] Add this complete source Cable test. Both browsers' Sources page uses the user's existing first account; do not invent an account-switch API:
+- [x] Add this complete source Cable test. Both browsers' Sources page uses the user's existing first account; do not invent an account-switch API:
 
 ```ruby
 test "source status counts and removal stay localized in both browsers" do
@@ -2415,7 +2492,7 @@ ensure
 end
 ```
 
-- [ ] Add the 375px/theme overflow assertion around the selector, source list, and composer. Use CDP device metrics where the local Chromium window has a minimum width:
+- [x] Add the 375px/theme overflow assertion around the selector, source list, and composer. Use CDP device metrics where the local Chromium window has a minimum width:
 
 ```ruby
 test "French header and workflows fit 375px in both themes" do
@@ -2446,8 +2523,8 @@ end
 
 Inspect visible focus and French text wrapping, not just `scrollWidth`. Confirm that normal Send/Stop, real PDF selection, pasted links, source registration failures/reset/retry, account-switch confirmation, and MCP selection retain their safeguards in French as well as English. Reuse existing browser regression flows; do not add a parallel source or generation state machine.
 
-- [ ] Run the new browser file RED for genuinely missing behavior. If a browser/driver is unavailable, report that blocker; do not convert it into a skipped "passing" feature check. Adjust only localized presentation/navigation bugs revealed by these tests, then run GREEN.
-- [ ] Document the following exact user-facing behavior in `docs/internationalization.md`:
+- [x] Run the new browser file RED for genuinely missing behavior. If a browser/driver is unavailable, report that blocker; do not convert it into a skipped "passing" feature check. Adjust only localized presentation/navigation bugs revealed by these tests, then run GREEN.
+- [x] Document the following exact user-facing behavior in `docs/internationalization.md`:
 
 ```markdown
 # Internationalization
@@ -2490,8 +2567,8 @@ not replace a human review of French or a narrow-screen/keyboard check.
 
 Link this document from `docs/README.md`. In `docs/DEBT.md` mark the English/French UI debt resolved only after verification; explicitly retain additional languages/RTL and unsupported upstream UI as outside this release. Do not claim that all languages or third-party internals are translated.
 
-- [ ] Review the public Ruby interfaces' YARD comments in `LanguagePreference` and `LocalizedBroadcasting`. Check route/action scope, cookie/redirect/CSRF safety, output escaping, API locale pinning, authorization, request restoration, and the lack of database/AI-content changes. Use `rails-code-review` plus security review for the final self-review; do not fix unrelated architecture or route conventions.
-- [ ] Run the final focused suite, then full project checks, sequentially:
+- [x] Review the public Ruby interfaces' YARD comments in `LanguagePreference` and `LocalizedBroadcasting`. Check route/action scope, cookie/redirect/CSRF safety, output escaping, API locale pinning, authorization, request restoration, and the lack of database/AI-content changes. Use `rails-code-review` plus security review for the final self-review; do not fix unrelated architecture or route conventions.
+- [x] Run the final focused suite, then full project checks, sequentially:
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bin/rails test test/models/language_preference_test.rb test/controllers/localization_test.rb test/controllers/language_preferences_controller_test.rb test/internationalization test/integration/localized_pages_test.rb test/integration/localized_cache_test.rb test/integration/localized_broadcasts_test.rb test/helpers/mcp_catalog_helper_test.rb
@@ -2507,7 +2584,9 @@ git diff --check
 
 Expected: no feature failures/errors, no translation markers, no new warnings, and unchanged API/account/content semantics. Report baseline full-suite failures or unavailable network audits explicitly with command/output; do not claim those checks passed. Keep screenshots/logs under `/tmp/opencode` or existing ignored screenshot locations, never include credentials.
 
-- [ ] Commit the final test/docs/intentional presentation adjustments with `docs(i18n): document and verify bilingual interface behavior`. Do not merge, push, open a PR, or discard the worktree unless the user chooses that next step.
+**Executed verification, with baseline exceptions:** The focused and localization-browser gates passed, but the full Rails suite, combined browser group, full RuboCop, and Brakeman wrapper did not all pass. Their exact earlier results and verification scope are recorded in the execution summary. Checking this step means the commands were executed and reviewed—not that the original full-project GREEN expectation was met.
+
+- [x] Commit the final test/docs/intentional presentation adjustments with `docs(i18n): document and verify bilingual interface behavior`. Do not merge, push, open a PR, or discard the worktree unless the user chooses that next step.
 
 ## Spec-to-plan coverage and planning self-review
 
@@ -2528,9 +2607,11 @@ Expected: no feature failures/errors, no translation markers, no new warnings, a
 
 Planning self-review must check the final file, not just this table: no unspecified implementation steps, undefined test fixtures/methods, contradictory task dependencies, or unpaired catalog keys. The execution record must distinguish RED, GREEN, baseline failures, and checks not run. This plan itself is not implementation evidence.
 
-**Planning review completed:** All spec sections map to tasks above. The review
+**Historical planning review completed:** All spec sections map to tasks above. The review
 corrected post-commit SSE header mutation, fixture/association names, staged
 translation dependencies, safe return-path validation, and the JSON-manifest
 audit boundary. The placeholder/checkbox/fence scan is clear, and all 18 complete
-Ruby class/module examples pass syntax parsing. Application code, tests, and
-dependencies remain unchanged; application verification belongs to execution.
+Ruby class/module examples passed syntax parsing. At that planning checkpoint,
+application code, tests, and dependencies were unchanged. Subsequent implementation,
+review approval, and non-green baseline checks are recorded in the execution
+summary above; the planning review alone was not implementation evidence.

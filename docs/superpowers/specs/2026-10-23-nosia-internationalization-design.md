@@ -2,8 +2,11 @@
 
 **Date:** 2026-10-23
 
-**Status:** Design and written specification approved. Implementation planning
-authorized; application implementation has not started.
+**Status:** Design and written specification approved; authorized implementation
+and independent reviews complete. Tasks 0–13 passed their review gates through code HEAD
+`cb2c557` on `feat/nosia-internationalization`; the final whole-feature review
+approved `4480db3..cb2c557` with no findings. Full-project checks are **not all
+green**. The branch remains unmerged/unpushed pending a separate integration choice.
 
 ## Goal
 
@@ -20,7 +23,9 @@ language by default and falling back to English.
   model prompts or force AI response language.
 - No unrelated redesign or refactoring.
 
-## Existing project context
+## Project context at design time
+
+This section records the pre-implementation inspection, not the current code.
 
 - The checked-in application uses Rails 8.0, PostgreSQL, ERB,
   Hotwire/Stimulus, Importmap, and Minitest with fixtures.
@@ -281,10 +286,56 @@ baseline failures rather than changing unrelated code or weakening assertions.
   i18n framework, and the stated verification scope.
 - "Go" after the committed specification was presented for review — approve
   the written specification and authorize the implementation-plan step.
+- Execution option "1" after the plan — authorize subagent-driven implementation.
+- "Proceed unchanged (Recommended)" after Task 0 — continue implementation
+  while preserving/reporting the existing `Chat::RequestOptionsTest` baseline
+  error rather than fixing unrelated code.
+
+## Completed execution
+
+The [plan's execution summary](../plans/2026-10-23-nosia-internationalization.md#execution-summary)
+records Task 0–13 commits, approved review gates, verification scope, and baseline
+exceptions. Latest reviewed code HEAD is `cb2c557`; the fresh whole-feature
+review (`ses_e96fd672effeDK3BL8x7G64fY7`) approved `4480db3..cb2c557` with no
+findings: 156 focused tests / 9670 assertions, 6 Chromium localization tests /
+272 assertions, 12 standalone tests / 98 assertions, 72 changed Ruby files
+lint-clean, and a clean range diff check. The earlier focused follow-up was
+also green (135 tests / 9446 assertions).
+
+This does not make the full-project baseline green. The coordinator's final
+full Rails run at `cb2c557` completed with 787 tests / 13085 assertions,
+0 failures, and 1 known `RequestOptionsTest` missing-`augmented_context` error
+(exit 1). Earlier Task 13 checks at `3f7b209` recorded the requested combined
+browser group (80 tests / 3716 assertions, 0 failures, 1 existing
+`SourcesDropzoneTest` `GET /login` error). Full RuboCop recorded 234 offenses in
+9 files byte-unchanged from `4480db3`. The Brakeman wrapper exited 5 before
+scanning (installed 8.0.4 versus latest 8.1.0); the supplemental scan exited 3
+with 0 errors and 3 existing warnings. Tailwind and importmap checks passed.
+Except for the final Rails rerun, these project-wide results remain the earlier
+evidence, not fresh reruns at `cb2c557`. The coordinator also freshly verified
+73 changed files (72 Ruby files plus `Gemfile`) lint-clean and the range diff
+check clean. The final metadata update changes no runtime code.
+
+The implementation preserves the design boundaries. Review corrections cover
+invalid-Bearer JSON versus unchanged missing-Bearer plaintext responses, Ruby-helper
+literal auditing and portable `Tempfile` use, callback-based filename replacement
+to preserve dollar tokens, explicit request locale in rescue handlers, and actual
+deferred-job plus synchronous render-error locale-restoration tests.
+
+See [the internationalization guide](../../internationalization.md) for behavior,
+translation workflow, and rollout. **Pre-deployment tabs require a full reload**
+for locale-qualified live subscriptions; no unqualified compatibility stream is
+provided. Additional languages/RTL, unsupported upstream editor UI, and Mission
+Control Jobs internals remain excluded. No all-green or readiness-to-merge claim
+is made.
 
 ## Review and implementation gate
 
-The user approved the design in three sections, then approved the committed,
-self-reviewed specification. The `writing-plans` skill has been invoked.
-Implementation still requires the plan execution workflow and failing-test
-gates. No application code or tests were changed during brainstorming.
+The user approved the design in three sections, then the committed specification
+and planning step. No application code or tests changed during brainstorming.
+Execution option "1" and the subsequent baseline choice authorized implementation;
+the task-by-task failing-test workflow and independent specification/quality
+reviews are now complete, including Task 13 follow-up `cb2c557`. The final
+whole-feature review is approved with no findings. This implementation gate is
+complete with the recorded baseline exceptions, not an all-green project gate.
+Integration remains a separate user decision; the branch is unmerged and unpushed.
