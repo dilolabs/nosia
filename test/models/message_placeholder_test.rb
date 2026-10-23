@@ -20,7 +20,7 @@ class MessagePlaceholderTest < ActiveSupport::TestCase
   # A blank assistant message (ruby_llm creates content: '' before the first delta)
   # must broadcast a bubble containing the generating placeholder, not an empty bubble.
   test "a blank assistant message broadcasts a bubble containing the generating placeholder" do
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.messages.create!(role: :assistant, content: "")
     end
 

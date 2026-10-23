@@ -4,6 +4,7 @@ export default class extends Controller {
   static targets = ["container", "input", "list"];
   static values = {
     accountId: String,
+    messages: Object,
     url: String,
     maxFileSize: { type: Number, default: 50 }, // in MB
     acceptedFiles: String, // comma-separated MIME types
@@ -154,7 +155,7 @@ export default class extends Controller {
     if (status === "error") {
       const alert = document.createElement("span");
       alert.setAttribute("role", "alert");
-      alert.textContent = "Upload failed. Retry or remove.";
+      alert.textContent = this.messagesValue.failed;
       li.appendChild(alert);
     }
 
@@ -162,7 +163,7 @@ export default class extends Controller {
     if (this.variantValue === "dashboard") {
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
-      removeBtn.setAttribute("aria-label", "Remove upload");
+      removeBtn.setAttribute("aria-label", this.messagesValue.remove);
       removeBtn.dataset.action = "dropzone#removeFile";
       removeBtn.className = "remove-btn flex-shrink-0 w-5 h-5 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-600 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300";
       removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
@@ -174,7 +175,7 @@ export default class extends Controller {
         retryBtn.type = "button";
         retryBtn.dataset.action = "dropzone#retryFile";
         retryBtn.className = "retry-btn flex-shrink-0 text-xs text-blue-600 hover:text-blue-800 dark:hover:text-blue-400 ml-2";
-        retryBtn.textContent = "Retry";
+        retryBtn.textContent = this.messagesValue.retry;
         li.appendChild(retryBtn);
       }
     }
@@ -200,13 +201,13 @@ export default class extends Controller {
 
     const message = document.createElement("span");
     message.setAttribute("role", "alert");
-    message.textContent = `Invalid file: ${file.name}`;
+    message.textContent = this.messagesValue.invalid.replaceAll("%{name}", () => file.name);
     li.appendChild(message);
 
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.dataset.action = "dropzone#removeFile";
-    removeBtn.textContent = "Remove upload";
+    removeBtn.textContent = this.messagesValue.remove;
     li.appendChild(removeBtn);
 
     this.listTarget.appendChild(li);

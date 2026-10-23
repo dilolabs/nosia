@@ -73,6 +73,7 @@ Production deployment strategies, best practices, and operational guidance.
 - [Architecture](ARCHITECTURE.md) - Understand the codebase structure
 - [Chat account selection](chat-account-selection.md) — picker behavior, account boundaries, and source request context.
 - [Chat composer](chat-composer.md) — shared presentation, native Lexxy controls, and UI verification.
+- [Internationalization](internationalization.md) — English/French language selection, rollout requirements, translation workflow, and verification.
 - [Code of Conduct](../CODE_OF_CONDUCT.md) - Community guidelines
 
 ### Operations

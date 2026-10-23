@@ -3,7 +3,7 @@ import { Turbo } from "@hotwired/turbo-rails"
 
 export default class extends Controller {
   static targets = ["picker", "form", "send", "editingTools"]
-  static values = { accountId: String }
+  static values = { accountId: String, confirmMessage: String }
 
   initialize() {
     this.sources = new Map()
@@ -121,7 +121,7 @@ export default class extends Controller {
       return
     }
 
-    if (this.dirty() && !window.confirm("Change account? This clears your unsent message, attachment references, and tool choices. Saved sources remain in the previous account.")) {
+    if (this.dirty() && !window.confirm(this.confirmMessageValue)) {
       this.pickerTarget.value = this.accountIdValue
       return
     }

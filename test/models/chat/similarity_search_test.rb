@@ -31,7 +31,7 @@ class Chat::SimilaritySearchTest < ActiveSupport::TestCase
     @chat.define_singleton_method(:context_relevance) { |*| true }
     @chat.define_singleton_method(:retrieval_fetch_k) { 5 }
 
-    streams = capture_turbo_stream_broadcasts([ @chat, "messages" ]) do
+    streams = capture_turbo_stream_broadcasts([ @chat, "messages", :en ]) do
       @chat.similarity_search("any question")
     end
 

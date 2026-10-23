@@ -4,6 +4,7 @@ class Chat < ApplicationRecord
   class GenerationStopped < StandardError; end
 
   include ActionView::RecordIdentifier
+  include LocalizedBroadcasting
   include AccountScoped
   include AnswerRelevance
   include AugmentedPrompt
@@ -14,7 +15,7 @@ class Chat < ApplicationRecord
   include AgentSkillable
 
   acts_as_chat
-  broadcasts_to ->(chat) { [ chat, "messages" ] }
+  broadcasts_localized_to ->(chat) { [ chat, "messages" ] }
 
   belongs_to :account
   belongs_to :chat, optional: true
@@ -48,7 +49,7 @@ class Chat < ApplicationRecord
     sources = user_message.attached_websites + user_message.attached_documents
     return { ready: [], failed: [], timed_out: [] } if sources.empty?
 
-    broadcast_thinking_phase("indexing", "Indexing your attachments...")
+    broadcast_thinking_phase("indexing")
 
     deadline = Time.current + timeout
 
@@ -122,8 +123,9 @@ class Chat < ApplicationRecord
   # No broadcast —
   # the create response renders the busy form, and a fresh page load mid-generation
   # reads `generating` from the DB (reconnect-safe). Uses update_column to skip this
-  # model's broadcasts_to after_update_commit auto-replace (a spurious chat-partial
-  # BroadcastJob that is a no-op on the show page, which has no #chat_<id> target).
+  # model's broadcasts_localized_to after_update_commit auto-replace (a spurious
+  # chat-partial BroadcastJob that is a no-op on the show page, which has no
+  # #chat_<id> target).
   def start_generation!
     update_columns(generating: true, stopped_at: nil)
   end
@@ -140,20 +142,20 @@ class Chat < ApplicationRecord
 
   # Mark generation done and broadcast the composer unlock + a thinking_animation
   # remove (no-op on success where broadcast_created already removed it; cleans up the
-  # error-before-bubble case). update_column skips the broadcasts_to auto-replace; the
-  # two explicit broadcasts are synchronous so the unlock is immediate.
+  # error-before-bubble case). update_column skips the broadcasts_localized_to
+  # auto-replace; the two explicit broadcasts are synchronous so the unlock is immediate.
   def finish_generation!
     update_column(:generating, false)
-    broadcast_replace_to [ self, "messages" ],
+    broadcast_localized_to :replace, self, "messages",
       target: "#{dom_id(self)}_message_form",
       partial: "messages/form",
       locals: { chat: self }
-    broadcast_remove_to self, :messages, target: "thinking_animation"
+    broadcast_localized_to :remove, self, :messages, target: "thinking_animation"
 
     # Safety net for missed live broadcasts: at completion the DB holds the final
     # state, so a morph refresh re-renders every subscribed tab from it. A tab that
     # dropped its subscription mid-stream (and would otherwise sit stuck on
     # "Preparing" / the streaming placeholder) recovers here without a manual reload.
-    broadcast_refresh_to self, :messages
+    broadcast_localized_to :refresh, self, :messages
   end
 end

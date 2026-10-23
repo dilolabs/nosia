@@ -1,0 +1,63 @@
+en:
+  nosia:
+    skills:
+      title: "Agent Skills"
+      manage: "Manage agent skills"
+      create: "Create skill"
+      new: "Create Agent Skill"
+      edit_title: "Edit Agent Skill"
+      edit: "Edit skill"
+      show: "Show skill"
+      delete: "Delete skill"
+      enable: "Enable skill"
+      disable: "Disable skill"
+      enabled: "Enabled"
+      disabled: "Disabled"
+      none: "No agent skills yet"
+      none_help: "Create your first skill to extend what your assistant can do."
+      requires_rag: "Requires RAG context"
+      description: "Description"
+      execution_mode: "Execution mode"
+      trigger_mode: "Trigger mode"
+      rag_context: "RAG context"
+      priority: "Priority"
+      content: "SKILL.md content"
+      required_content: "SKILL.md content (required)"
+      content_help: "Enter SKILL.md content with YAML frontmatter (name, description, execution_mode, trigger_mode, requires_rag_context)"
+      content_placeholder: "---\nname: my_skill\ndescription: My skill description\nexecution_mode: llm\ntrigger_mode: explicit\n---\n\n# Instructions\nYour skill instructions here..."
+      execution_help_html: "<strong>LLM:</strong> Prompt injection. <strong>Ruby:</strong> Requires class in app/models/agent_skills/"
+      priority_help: "Higher priority = tried first (0-100)"
+      rag_help: "— enable if skill needs document/chunk access"
+      update: "Update skill"
+      tags: "Tags:"
+      "yes": "Yes"
+      "no": "No"
+      execution:
+        llm: "LLM"
+        ruby: "Ruby"
+      trigger:
+        explicit: "Explicit"
+        auto: "Auto"
+        combined: "Combined"
+      created: "Agent skill created successfully"
+      updated: "Agent skill updated"
+      deleted: "Agent skill deleted"
+      now_enabled: "Agent skill enabled"
+      now_disabled: "Agent skill disabled"
+      errors:
+        one: "%{count} error prevented this skill from being saved:"
+        other: "%{count} errors prevented this skill from being saved:"
+  activerecord:
+    attributes:
+      agent_skill:
+        name: "Name"
+        skill_content: "Skill content"
+        execution_mode: "Execution mode"
+        trigger_mode: "Trigger mode"
+        priority: "Priority"
+        enabled: "Enabled"
+        account: "Account"
+  errors:
+    messages:
+      invalid_skill_name: "must start with a letter and contain only alphanumeric, underscore, and hyphen"
+      missing_skill_metadata: "must contain valid YAML frontmatter with at least 'name' field"

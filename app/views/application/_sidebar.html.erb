@@ -1,7 +1,7 @@
 <div class="p-4">
   <%= link_to new_chat_path, class: "n-btn-group border n-main-border n-main-hover n-main-focus" do %>
-    <%= inline_svg "svg/plus.svg", title:"New chat", class:"h-5 w-5" %>
-    New Chat
+    <%= inline_svg "svg/plus.svg", aria_hidden: true, class:"h-5 w-5" %>
+    <%= t("nosia.nav.new_chat") %>
   <% end %>
 </div>
 <div class="space-y-2 h-[calc(100vh-6.45rem)] lg:h-[calc(100vh-9.4rem)] overflow-y-auto ">
@@ -13,8 +13,8 @@
         </h1>
         <p class="text-xs text-neutral-500 dark:text-neutral-400"><%= l(chat.updated_at, format: :short) %></p>
       <% end %>
-      <%= button_to chat, method: :delete, data: { turbo_confirm: "Are you sure?" }, class:"text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
-        <%= inline_svg "svg/trash-bin.svg", title:"Delete chat", class:"h-5 w-5" %>
+      <%= button_to chat, method: :delete, data: { turbo_confirm: t("nosia.actions.confirm_delete") }, aria: { label: t("nosia.nav.delete_chat") }, class:"text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+        <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class:"h-5 w-5" %>
       <% end %>
     </div>
   <% end %>

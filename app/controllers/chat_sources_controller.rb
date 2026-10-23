@@ -2,7 +2,9 @@ class ChatSourcesController < ApplicationController
   include ChatAccountScoped
 
   rescue_from ActiveRecord::RecordInvalid do |error|
-    render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    I18n.with_locale(request_locale) do
+      render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    end
   end
 
   def create
@@ -19,7 +21,7 @@ class ChatSourcesController < ApplicationController
     elsif attachable_sgid.present?
       create_document_from_sgid
     else
-      render json: { error: "url or attachable_sgid is required" }, status: :bad_request
+      render json: { error: I18n.t("nosia.chat.source_request_missing") }, status: :bad_request
     end
   end
 
@@ -57,6 +59,6 @@ class ChatSourcesController < ApplicationController
         index_status: document.index_status
       }
     rescue ActiveRecord::RecordNotFound
-      render json: { error: "invalid attachable sgid" }, status: :bad_request
+      render json: { error: I18n.t("nosia.chat.source_request_invalid") }, status: :bad_request
     end
 end

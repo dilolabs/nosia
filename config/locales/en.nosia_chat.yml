@@ -1,0 +1,94 @@
+en:
+  activerecord:
+    attributes:
+      chat:
+        account: "Account"
+        prompt: "Prompt"
+      message:
+        content: "Content"
+        chat: "Chat"
+  errors:
+    messages:
+      immutable_chat_account: "cannot be changed after creation"
+  nosia:
+    chat:
+      title: "AI Chat"
+      new: "New chat"
+      message: "Message"
+      ask: "Ask anything…"
+      generating: "Generating…"
+      available_skills: "Available skills"
+      message_errors: "Message errors"
+      editor_actions: "Editor actions"
+      attach_pdf: "Attach PDF"
+      formatting: "Formatting"
+      formatting_help: "Text formatting controls appear above the message."
+      stop: "Stop generating"
+      send: "Send"
+      account: "Account"
+      account_named: "Account: %{name}"
+      account_help: "Searches and attachments use this account."
+      keyboard: "Enter to send · Shift+Enter for a line break"
+      keyboard_with_skills: "Enter to send · Shift+Enter for a line break · / for skills"
+      disclaimer: "NOSIA can make mistakes. Check important information."
+      tools: "Tools"
+      connected_tools: "Connected tools"
+      no_ready_servers: "No ready MCP servers"
+      configure_server: "Configure an MCP Server"
+      no_account: "You need access to an account to start a chat."
+      server_added: "MCP server added to the chat."
+      server_removed: "MCP server removed from the chat."
+      model: "Model:"
+      messages: "Messages:"
+      created: "Created:"
+      excerpt: "Excerpt"
+      assistant: "Assistant"
+      using_tool: "Using tool..."
+      reasoning: "View reasoning"
+      retry: "🔄 Retry"
+      upload_title: "Add any document"
+      upload_help: "Click or drag’n’drop files here to upload"
+      upload_types: "PDF, PNG, JPG, DOCX · max 50 MB"
+      change_account: "Change account? This clears your unsent message, attachment references, and tool choices. Saved sources remain in the previous account."
+      source_request_missing: "url or attachable_sgid is required"
+      source_request_invalid: "invalid attachable sgid"
+      welcome: "Welcome to NOSIA"
+      tagline: "An ethical, humanistic, and peaceful vision of free and private generative AI."
+      select_account: "Select an account"
+      default_model: "Default"
+      document: "Document"
+      sources:
+        one: "%{formatted_count} source"
+        other: "%{formatted_count} sources"
+      source_messages:
+        untracked_pdf: "The PDF upload could not be tracked. Reset the draft and attach it again."
+        upload_failed: "PDF upload failed. Reset the draft and attach it again."
+        unregistered_pdf: "The PDF could not be registered. Reset the draft and attach it again."
+        registration_retry: "Source registration failed. Retry or reset the draft."
+        registration_failed: "Source registration failed."
+        form_unavailable: "Attachment form is unavailable. Reset the draft."
+        retry: "Retry source"
+        reset: "Reset draft"
+        confirm_reset: "Reset this unsent draft? Saved sources will remain in their account."
+      phases:
+        preparing:
+          title: "Preparing"
+          subtitle: "Starting up..."
+        indexing:
+          title: "Indexing"
+          subtitle: "Indexing your attachments..."
+        searching:
+          title: "Searching"
+          subtitle: "Looking through your documents..."
+        retrieving:
+          title: "Retrieving"
+          subtitle: "Retrieving relevant context..."
+        generating:
+          title: "Generating"
+          subtitle: "Crafting the response..."
+        using_tool:
+          title: "Using tool"
+          subtitle: "Executing action..."
+        thinking:
+          title: "Thinking"
+          subtitle: "Processing..."

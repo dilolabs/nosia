@@ -16,6 +16,6 @@ class ModelsController < ApplicationController
 
   def refresh
     RubyLLM.models.refresh
-    redirect_to models_path, notice: "Models refreshed successfully"
+    redirect_to models_path, notice: t("nosia.models.refreshed")
   end
 end

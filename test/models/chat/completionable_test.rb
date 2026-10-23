@@ -133,7 +133,7 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
     stub_chat_for_streaming(@chat, chunks: chunks)
     buffer = Message::StreamBuffer.new(interval: 1000) # never time-flush mid-stream
 
-    assert_turbo_stream_broadcasts([ @chat, "messages" ], count: 1) do
+    assert_turbo_stream_broadcasts([ @chat, "messages", :en ], count: 1) do
       @chat.complete_with_nosia("hi", stream_buffer: buffer)
     end
   end
@@ -144,7 +144,7 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
     stub_chat_for_streaming(@chat, chunks: chunks)
     buffer = Message::StreamBuffer.new(interval: 0)
 
-    assert_turbo_stream_broadcasts([ @chat, "messages" ], count: 4) do # 3 mid + 1 final
+    assert_turbo_stream_broadcasts([ @chat, "messages", :en ], count: 4) do # 3 mid + 1 final
       @chat.complete_with_nosia("hi", stream_buffer: buffer)
     end
   end
@@ -157,7 +157,7 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
     # count: 0 + block uses the diff-based capture (new_broadcasts_from), so
     # pre-block broadcasts from message creation are excluded — only NEW
     # streaming-loop broadcasts are counted.
-    assert_turbo_stream_broadcasts([ @chat, "messages" ], count: 0) do
+    assert_turbo_stream_broadcasts([ @chat, "messages", :en ], count: 0) do
       @chat.complete_with_nosia("hi", stream_buffer: buffer)
     end
   end
@@ -168,7 +168,7 @@ class Chat::CompletionableTest < ActiveSupport::TestCase
     stub_chat_for_streaming(@chat, chunks: chunks)
     received = []
 
-    assert_turbo_stream_broadcasts([ @chat, "messages" ], count: 0) do
+    assert_turbo_stream_broadcasts([ @chat, "messages", :en ], count: 0) do
       @chat.complete_with_nosia("hi") { |chunk| received << chunk.content }
     end
     assert_equal %w[a b c], received

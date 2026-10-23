@@ -27,7 +27,7 @@ module Sources
       respond_to do |format|
         if @website.save
           CrawlWebsiteUrlJob.perform_later(@website.id)
-          format.html { redirect_to sources_website_url(@website), notice: "Website was successfully created." }
+          format.html { redirect_to sources_website_url(@website), notice: t("nosia.sources.websites.created") }
           format.json { render :show, status: :created, location: @website }
         else
           format.html { render :new, status: :unprocessable_entity }
@@ -41,7 +41,7 @@ module Sources
       respond_to do |format|
         if @website.update(website_params)
           CrawlWebsiteUrlJob.perform_later(@website.id)
-          format.html { redirect_to sources_website_url(@website), notice: "Website was successfully updated." }
+          format.html { redirect_to sources_website_url(@website), notice: t("nosia.sources.websites.updated") }
           format.json { render :show, status: :ok, location: @website }
         else
           format.html { render :edit, status: :unprocessable_entity }
@@ -55,7 +55,7 @@ module Sources
       website = Current.account.websites.find(params[:id])
       website.mark_pending!
       CrawlWebsiteUrlJob.perform_later(website.id)
-      redirect_to sources_path(type: "website"), notice: "Re-crawling website."
+      redirect_to sources_path(type: "website"), notice: t("nosia.sources.websites.retrying")
     end
 
     # DELETE /websites/1 or /websites/1.json
@@ -63,7 +63,7 @@ module Sources
       @website.destroy!
 
       respond_to do |format|
-        format.html { redirect_to sources_websites_url, notice: "Website was successfully destroyed." }
+        format.html { redirect_to sources_websites_url, notice: t("nosia.sources.websites.destroyed") }
         format.json { head :no_content }
       end
     end

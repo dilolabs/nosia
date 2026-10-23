@@ -11,7 +11,7 @@ class ChatMcpSessionsController < ApplicationController
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to @chat, notice: "MCP server added to the chat." }
+      format.html { redirect_to @chat, notice: I18n.t("nosia.chat.server_added") }
     end
   end
 
@@ -24,7 +24,7 @@ class ChatMcpSessionsController < ApplicationController
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to @chat, notice: "MCP server removed from the chat." }
+      format.html { redirect_to @chat, notice: I18n.t("nosia.chat.server_removed") }
     end
   end
 

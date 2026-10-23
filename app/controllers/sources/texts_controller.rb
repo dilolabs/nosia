@@ -27,7 +27,7 @@ module Sources
       respond_to do |format|
         if @text.save
           AddTextJob.perform_later(@text.id)
-          format.html { redirect_to sources_text_url(@text), notice: "Text was successfully created." }
+          format.html { redirect_to sources_text_url(@text), notice: t("nosia.sources.texts.created") }
           format.json { render :show, status: :created, location: @text }
         else
           format.html { render :new, status: :unprocessable_entity }
@@ -41,7 +41,7 @@ module Sources
       respond_to do |format|
         if @text.update(text_params)
           AddTextJob.perform_later(@text.id)
-          format.html { redirect_to sources_text_url(@text), notice: "Text was successfully updated." }
+          format.html { redirect_to sources_text_url(@text), notice: t("nosia.sources.texts.updated") }
           format.json { render :show, status: :ok, location: @text }
         else
           format.html { render :edit, status: :unprocessable_entity }
@@ -55,7 +55,7 @@ module Sources
       text = Current.account.texts.find(params[:id])
       text.mark_pending!
       AddTextJob.perform_later(text.id)
-      redirect_to sources_path(type: "text"), notice: "Re-indexing text."
+      redirect_to sources_path(type: "text"), notice: t("nosia.sources.texts.retrying")
     end
 
     # DELETE /texts/1 or /texts/1.json
@@ -63,7 +63,7 @@ module Sources
       @text.destroy!
 
       respond_to do |format|
-        format.html { redirect_to sources_texts_url, notice: "Text was successfully destroyed." }
+        format.html { redirect_to sources_texts_url, notice: t("nosia.sources.texts.destroyed") }
         format.json { head :no_content }
       end
     end

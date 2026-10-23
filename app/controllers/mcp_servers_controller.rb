@@ -24,7 +24,7 @@ class McpServersController < ApplicationController
     @mcp_server = Current.account.mcp_servers.build(mcp_server_params)
 
     if @mcp_server.save
-      redirect_to @mcp_server, notice: "MCP server created successfully."
+      redirect_to @mcp_server, notice: t("nosia.mcp.created")
     else
       render :new, status: :unprocessable_entity
     end
@@ -35,7 +35,7 @@ class McpServersController < ApplicationController
 
   def update
     if @mcp_server.update(mcp_server_params)
-      redirect_to @mcp_server, notice: "MCP server updated."
+      redirect_to @mcp_server, notice: t("nosia.mcp.updated")
     else
       render :edit, status: :unprocessable_entity
     end
@@ -43,7 +43,7 @@ class McpServersController < ApplicationController
 
   def destroy
     @mcp_server.destroy
-    redirect_to mcp_servers_path, notice: "MCP server deleted."
+    redirect_to mcp_servers_path, notice: t("nosia.mcp.deleted")
   end
 
   # Test connection
@@ -53,14 +53,14 @@ class McpServersController < ApplicationController
         success: true,
         status: @mcp_server.status,
         latency: @mcp_server.latency_ms,
-        message: "Connection established"
+        message: t("nosia.mcp.connection_established")
       }
     else
       render json: {
         success: false,
         status: @mcp_server.status,
         error: @mcp_server.last_error,
-        message: "Connection failed"
+        message: t("nosia.mcp.connection_failed")
       }, status: :unprocessable_entity
     end
   end
@@ -68,16 +68,16 @@ class McpServersController < ApplicationController
   # Connect to server
   def connect
     if @mcp_server.test_connection!
-      redirect_to @mcp_server, notice: "Connected to MCP server."
+      redirect_to @mcp_server, notice: t("nosia.mcp.connected")
     else
-      redirect_to @mcp_server, alert: "Connection failed: #{@mcp_server.last_error}."
+      redirect_to @mcp_server, alert: t("nosia.mcp.connection_error", error: @mcp_server.last_error)
     end
   end
 
   # Disconnect from server
   def disconnect
     @mcp_server.disconnect!
-    redirect_to @mcp_server, notice: "Disconnected from MCP server."
+    redirect_to @mcp_server, notice: t("nosia.mcp.disconnected")
   end
 
   # Execute a tool (AJAX)
@@ -85,7 +85,7 @@ class McpServersController < ApplicationController
     @mcp_server = Current.account.mcp_servers.find(params[:id])
     tool_name = params[:tool_name]
     if !params[:arguments].nil? && !params[:arguments].is_a?(ActionController::Parameters)
-      render json: { error: "Tool arguments must be a JSON object" }, status: :bad_request
+      render json: { error: t("nosia.mcp.arguments_invalid") }, status: :bad_request
       return
     end
     # Tool inputs are an arbitrary JSON object, not McpServer attributes.

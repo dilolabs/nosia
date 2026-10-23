@@ -58,7 +58,7 @@ module Chat::Completionable
     end
 
     # Phase 2: Generating the response
-    broadcast_thinking_phase("generating", "Generating response...")
+    broadcast_thinking_phase("generating")
 
     # Process the latest user message
     if block_given?
@@ -107,11 +107,11 @@ module Chat::Completionable
     message
   end
 
-  def broadcast_thinking_phase(phase, message)
-    broadcast_update_to self, :messages,
+  def broadcast_thinking_phase(phase)
+    broadcast_localized_to :update, self, :messages,
       target: "thinking_animation_content",
       partial: "messages/thinking_animation",
-      locals: { phase: phase, message: message }
+      locals: { phase: phase }
   end
 
   private

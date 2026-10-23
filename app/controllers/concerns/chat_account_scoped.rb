@@ -8,8 +8,8 @@ module ChatAccountScoped
   included do
     rescue_from MissingAccount do
       respond_to do |format|
-        format.json { render json: { error: NO_ACCOUNT_MESSAGE }, status: :unprocessable_entity }
-        format.any { render plain: NO_ACCOUNT_MESSAGE, status: :unprocessable_entity }
+        format.json { render json: { error: I18n.t("nosia.chat.no_account", locale: request_locale) }, status: :unprocessable_entity }
+        format.any { render plain: I18n.t("nosia.chat.no_account", locale: request_locale), status: :unprocessable_entity }
       end
     end
   end

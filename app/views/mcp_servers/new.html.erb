@@ -1,22 +1,22 @@
 <% content_for :navbar do %>
   <li class="flex items-center">
-    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
+    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
   </li>
   <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to "MCP servers", mcp_servers_path, class:"n-ariane n-main-focus" %>
+    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
+    <%= link_to t("nosia.mcp.breadcrumb"), mcp_servers_path, class:"n-ariane n-main-focus" %>
   </li>
   <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to "New MCP Server", new_mcp_server_path, class:"n-ariane n-main-focus" %>
+    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
+    <%= link_to t("nosia.mcp.new"), new_mcp_server_path, class:"n-ariane n-main-focus" %>
   </li>
 <% end %>
 
 <div class="n-title-container md:flex md:justify-between md:items-center">
   <div>
-    <h2 class="n-main-title">New MCP Server</h2>
+    <h2 class="n-main-title"><%= t("nosia.mcp.new") %></h2>
     <p class="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
-      Connect a new Model Context Protocol server to your application.
+      <%= t("nosia.mcp.new_help") %>
     </p>
   </div>
 </div>

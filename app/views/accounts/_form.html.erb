@@ -2,19 +2,19 @@
   <div class="grid sm:grid-cols-2 gap-4">
     <div class="n-card content-start n-main-border p-4">
       <div class="n-form-field">
-        <%= form.label :name, "Account name", class: "n-label" %>
+        <%= form.label :name, t("nosia.accounts.name"), class: "n-label" %>
         <%= form.text_field :name, class: "n-field" %>
       </div>
 
       <div class="n-form-field">
-        <%= form.label :uid, "UID", class: "n-label" %>
+        <%= form.label :uid, t("nosia.accounts.uid"), class: "n-label" %>
         <%= form.text_field :uid, class: "n-field" %>
       </div>
     </div>
     <div class="sm:col-span-2 flex w-full items-center justify-between gap-4">
       <div class="flex gap-2 items-center">
-        <%= form.submit "Save", class: "n-btn-primary" %>
-        <%= link_to "Cancel", accounts_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+        <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
+        <%= link_to t("nosia.actions.cancel"), accounts_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
       </div>
     </div>
   </div>

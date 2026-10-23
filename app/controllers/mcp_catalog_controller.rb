@@ -12,7 +12,7 @@ class McpCatalogController < ApplicationController
 
   def show
     @template = McpCatalog.find(params[:id])
-    redirect_to mcp_catalog_index_path, alert: "Server not found." unless @template
+    redirect_to mcp_catalog_index_path, alert: t("nosia.mcp.server_not_found") unless @template
   end
 
   def create
@@ -20,7 +20,7 @@ class McpCatalogController < ApplicationController
     template = McpCatalog.find(server_id)
 
     unless template
-      redirect_to mcp_catalog_index_path, alert: "Server not found."
+      redirect_to mcp_catalog_index_path, alert: t("nosia.mcp.server_not_found")
       return
     end
 
@@ -29,9 +29,9 @@ class McpCatalogController < ApplicationController
 
     begin
       @mcp_server = McpCatalog.activate_for_account(Current.account, server_id, config_values)
-      redirect_to @mcp_server, notice: "#{template[:name]} activated successfully."
+      redirect_to @mcp_server, notice: t("nosia.mcp.activated_named", name: template[:name])
     rescue => e
-      redirect_to mcp_catalog_index_path, alert: "Activation error: #{e.message}."
+      redirect_to mcp_catalog_index_path, alert: t("nosia.mcp.activation_error", error: e.message)
     end
   end
 end

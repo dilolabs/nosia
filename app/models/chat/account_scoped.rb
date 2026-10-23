@@ -35,7 +35,7 @@ module Chat::AccountScoped
   private
     def account_is_fixed
       if will_save_change_to_account_id?
-        errors.add(:account, "cannot be changed after creation")
+        errors.add(:account, :immutable_chat_account)
       end
     end
 

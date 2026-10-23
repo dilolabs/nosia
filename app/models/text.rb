@@ -21,6 +21,7 @@ class Text < ApplicationRecord
   end
 
   def source_subtitle
-    "Pasted text · #{data.to_s.split.size} words"
+    count = data.to_s.split.size
+    I18n.t("nosia.sources.pasted_words", count: count, formatted_count: ActiveSupport::NumberHelper.number_to_delimited(count))
   end
 end

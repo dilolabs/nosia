@@ -8,6 +8,7 @@ class ModelsConsumptionColumnTest < ActionDispatch::IntegrationTest
     ActsAsTenant.current_tenant = @account
     @models = [
       RubyLLM::Model.new(id: "glm-5.2", name: "GLM 5.2", provider: "openai", context_window: 10000,
+        max_output_tokens: 1, capabilities: [ "streaming" ],
         pricing: { text_tokens: { standard: { input_per_million: 0, output_per_million: 2.5 } } }),
       RubyLLM::Model.new(id: "glm-5.2", name: "Other GLM", provider: "openrouter"),
       RubyLLM::Model.new(id: "org/slash.model.v2", name: "Slash model", provider: "openrouter",
@@ -24,7 +25,7 @@ class ModelsConsumptionColumnTest < ActionDispatch::IntegrationTest
     with_registry do
       get models_path
       assert_response :success
-      assert_select "th", text: /Conso\. moyenne/
+      assert_select "th", text: "Average consumption (1000 tokens)"
       assert_select "td", text: "4,095", count: 2 # glm-5.2 mWh/1000tok, independent of provider
       assert_select "td", text: "—"
       assert_select "tbody tr", count: 3
@@ -62,12 +63,12 @@ class ModelsConsumptionColumnTest < ActionDispatch::IntegrationTest
       get model_path("model", model_id: "glm-5.2", provider: "openai")
       assert_response :success
       assert_select "p", text: /\$0\.00 \/ \$2\.50/
-      assert_select "p", text: /Conso\. moyenne.*4,095/
+      assert_select "p", text: /Average consumption \(1000 tokens\).*4,095/
 
       get model_path("model", model_id: "org/slash.model.v2", provider: "openrouter")
       assert_response :success
       assert_select "p", text: /— \/ \$0\.00/
-      assert_select "p", text: /Conso\. moyenne.*—/
+      assert_select "p", text: /Average consumption \(1000 tokens\).*—/
     end
   end
 
@@ -102,6 +103,54 @@ class ModelsConsumptionColumnTest < ActionDispatch::IntegrationTest
       assert refreshed
       assert_redirected_to models_path
       assert_equal "Models refreshed successfully", flash[:notice]
+    end
+  end
+
+  test "French model presentation localizes USD quantities and consumption without changing identifiers" do
+    with_registry do |registry|
+      headers = { "Accept-Language" => "fr" }
+      get models_path, headers: headers
+      assert_response :success
+      assert_select "th", text: "Consommation moyenne (1 000 jetons)"
+      assert_select "td", text: /10[ \u00a0\u202f]000 jetons/
+      assert_select "td", text: /0,00.*\$ \/ 2,50.*\$/
+      assert_select "td", text: /4[ \u00a0\u202f]095/, count: 2
+      assert_select "td", text: "— / —"
+
+      get model_path("model", model_id: "glm-5.2", provider: "openai"), headers: headers
+      assert_response :success
+      assert_select "h1", text: "GLM 5.2"
+      assert_select "p", text: "ID : glm-5.2"
+      assert_select "p", text: "Fournisseur : openai"
+      assert_select "p", text: /Fenêtre de contexte : 10[ \u00a0\u202f]000 jetons/
+      assert_select "p", text: "Sortie maximale : 1 jeton"
+      assert_select "p", text: "Capacités : streaming"
+      assert_select "p", text: /Consommation moyenne \(1 000 jetons\) :.*4[ \u00a0\u202f]095/
+
+      get model_path("model", model_id: "glm-5.2", provider: "openrouter"), headers: headers
+      assert_response :success
+      assert_select "p", text: "Fenêtre de contexte : —"
+      assert_select "p", text: "Sortie maximale : —"
+      assert_select "p", text: /— \/ —/
+
+      registry.define_singleton_method(:refresh) { self }
+      post refresh_models_path, headers: headers
+      assert_redirected_to models_path
+      assert_equal "Les modèles ont été actualisés", flash[:notice]
+    end
+  end
+
+  test "English model quantities distinguish unknown values from singular and plural counts" do
+    with_registry do
+      get model_path("model", model_id: "glm-5.2", provider: "openai")
+      assert_response :success
+      assert_select "p", text: "Context Window: 10,000 tokens"
+      assert_select "p", text: "Max Output: 1 token"
+
+      get model_path("model", model_id: "glm-5.2", provider: "openrouter")
+      assert_response :success
+      assert_select "p", text: "Context Window: —"
+      assert_select "p", text: "Max Output: —"
     end
   end
 

@@ -1,8 +1,9 @@
 class Message < ApplicationRecord
   include ActionView::RecordIdentifier
+  include LocalizedBroadcasting
 
   acts_as_message
-  broadcasts_to ->(message) { [ message.chat, "messages" ] }
+  broadcasts_localized_to ->(message) { [ message.chat, "messages" ] }
   has_many_attached :attachments
 
   scope :for_user, -> { without_system_prompts.with_content.without_tool_calls }
@@ -59,7 +60,7 @@ class Message < ApplicationRecord
     html = self.class.render_markdown_content(text)
     return unless html
 
-    broadcast_replace_to [ chat, "messages" ],
+    broadcast_localized_to :replace, [ chat, "messages" ],
       target: dom_id(self, :content),
       partial: "messages/streaming_content",
       locals: { message: self, content_html: html }
@@ -89,35 +90,35 @@ class Message < ApplicationRecord
 
     # If it's an assistant message, remove the thinking animation
     if assistant?
-      broadcast_remove_to chat, :messages, target: "thinking_animation"
+      broadcast_localized_to :remove, chat, :messages, target: "thinking_animation"
 
       previous_message = chat.messages.where.not(id: id).order(created_at: :desc).first
       if previous_message&.assistant? && previous_message.content.blank?
         # Remove the previous empty assistant message
-        broadcast_remove_to chat, :messages, target: dom_id(previous_message, :messages)
+        broadcast_localized_to :remove, chat, :messages, target: dom_id(previous_message, :messages)
       end
 
       if previous_message&.tool?
         # Remove the previous tool message
-        broadcast_remove_to chat, :messages, target: dom_id(previous_message, :messages)
+        broadcast_localized_to :remove, chat, :messages, target: dom_id(previous_message, :messages)
       end
     end
 
-    broadcast_append_to chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
+    broadcast_localized_to :append, chat, :messages, target: dom_id(chat, :messages), locals: { message: self, scroll_to: true }
 
     # After a user prompt, broadcast the waiting animation so EVERY tab open on
     # this chat shows it (and phase updates, which target thinking_animation_content,
     # have somewhere to land). The submitting tab receives the same broadcast, so
     # create.turbo_stream must not also append it (that would duplicate it here).
     if user?
-      broadcast_append_to chat, :messages, target: dom_id(chat, :messages), partial: "messages/thinking"
+      broadcast_localized_to :append, chat, :messages, target: dom_id(chat, :messages), partial: "messages/thinking"
     end
   end
 
   def broadcast_updated
     return unless assistant?
 
-    broadcast_update_to chat, :messages, target: dom_id(self, :messages), locals: { message: self, scroll_to: true }
+    broadcast_localized_to :update, chat, :messages, target: dom_id(self, :messages), locals: { message: self, scroll_to: true }
   end
 
   def content_without_context

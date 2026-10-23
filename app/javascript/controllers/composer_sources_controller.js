@@ -3,7 +3,7 @@ import { post } from "@rails/request.js"
 
 export default class extends Controller {
   static targets = ["editor", "websiteIds", "documentIds", "errors"]
-  static values = { accountId: String, chatId: String }
+  static values = { accountId: String, chatId: String, messages: Object }
 
   connect() {
     this.operations = new Map()
@@ -50,7 +50,7 @@ export default class extends Controller {
         requestAnimationFrame(bind)
       } else if (!upload.node) {
         this.uploads.delete(file)
-        this.operations.set(file, { failed: true, pending: false, message: "The PDF upload could not be tracked. Reset the draft and attach it again." })
+        this.operations.set(file, { failed: true, pending: false, message: this.messagesValue.untracked_pdf })
         this.renderErrors()
         this.publishState()
       }
@@ -84,11 +84,11 @@ export default class extends Controller {
     upload.phase = "serializing"
 
     try {
-      if (error) throw new Error("PDF upload failed. Reset the draft and attach it again.")
+      if (error) throw new Error(this.messagesValue.upload_failed)
 
       const sgid = await this.nextSgid(file, upload)
       if (this.uploads.get(file) !== upload || !this.element.isConnected) return
-      if (!sgid) throw new Error("The PDF could not be registered. Reset the draft and attach it again.")
+      if (!sgid) throw new Error(this.messagesValue.unregistered_pdf)
 
       this.register({ attachable_sgid: sgid }, "documentIds", `sgid:${sgid}`)
     } catch (failure) {
@@ -159,13 +159,13 @@ export default class extends Controller {
         data = {}
       }
       if (controller.signal.aborted || !this.element.isConnected) return
-      if (!response.ok || !data.id) throw new Error(data.error || "Source registration failed. Retry or reset the draft.")
+      if (!response.ok || !data.id) throw new Error(data.error || this.messagesValue.registration_retry)
 
       this.addId(this[`${operation.target}Target`], data.id)
     } catch (failure) {
       if (!controller.signal.aborted && this.element.isConnected && failure.name !== "AbortError") {
         operation.failed = true
-        operation.message = failure.message || "Source registration failed."
+        operation.message = failure.message || this.messagesValue.registration_failed
       }
     } finally {
       operation.pending = false
@@ -182,7 +182,7 @@ export default class extends Controller {
 
   // Keep the hidden input namespace from the rendered chat or message form.
   addId(target, id) {
-    if (!target.name) throw new Error("Attachment form is unavailable. Reset the draft.")
+    if (!target.name) throw new Error(this.messagesValue.form_unavailable)
 
     const input = document.createElement("input")
     input.type = "hidden"
@@ -202,16 +202,16 @@ export default class extends Controller {
       if (operation.payload) {
         const retry = document.createElement("button")
         retry.type = "button"
-        retry.textContent = "Retry source"
+        retry.textContent = this.messagesValue.retry
         retry.addEventListener("click", () => this.run(operation))
         row.append(retry)
       }
 
       const reset = document.createElement("button")
       reset.type = "button"
-      reset.textContent = "Reset draft"
+      reset.textContent = this.messagesValue.reset
       reset.addEventListener("click", () => {
-        if (window.confirm("Reset this unsent draft? Saved sources will remain in their account.")) this.reset()
+        if (window.confirm(this.messagesValue.confirm_reset)) this.reset()
       })
       row.append(reset)
       this.errorsTarget.append(row)

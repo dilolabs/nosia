@@ -1,22 +1,22 @@
 <p style="color: green"><%= notice %></p>
 
-<% content_for :title, "Models" %>
+<% content_for :title, t("nosia.models.title") %>
 
-<h1>Models</h1>
+<h1><%= t("nosia.models.title") %></h1>
 
 <p>
-  <%= button_to "Refresh Models", refresh_models_path, method: :post %>
+  <%= button_to t("nosia.models.refresh"), refresh_models_path, method: :post %>
 </p>
 
 <div id="models">
   <table>
     <thead>
       <tr>
-        <th>Provider</th>
-        <th>Model</th>
-        <th>Context Window</th>
-        <th>$/1M tokens (In/Out)</th>
-        <th>Conso. moyenne (1000 tokens)</th>
+        <th><%= t("nosia.models.provider") %></th>
+        <th><%= t("nosia.models.model") %></th>
+        <th><%= t("nosia.models.context") %></th>
+        <th><%= t("nosia.models.price") %></th>
+        <th><%= t("nosia.models.consumption") %></th>
         <th colspan="2"></th>
       </tr>
     </thead>

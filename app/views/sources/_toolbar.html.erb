@@ -3,7 +3,7 @@
   <%= form_with url: sources_path, method: :get, class: "flex-1 min-w-[180px]" do |f| %>
     <%= f.hidden_field :type, value: type %>
     <%= f.hidden_field :status, value: status %>
-    <%= f.search_field :q, value: query, placeholder: "Search sources…", class: "w-full n-field" %>
+    <%= f.search_field :q, value: query, placeholder: t("nosia.sources.search"), class: "w-full n-field" %>
   <% end %>
   <%= form_with url: sources_path, method: :get,
         data: { controller: "auto-submit", action: "change->auto-submit#submit" } do |f| %>
@@ -11,7 +11,7 @@
     <%= f.hidden_field :status, value: status %>
     <%= f.hidden_field :q, value: query %>
     <%= f.select :sort,
-        options_for_select([["Recently added", "recent"], ["Title", "title"], ["Status", "status"], ["Chunk count", "chunks"]], sort),
+        options_for_select(%w[recent title status chunks].map { |key| [t("nosia.sources.sort.#{key}"), key] }, sort),
         {}, class: "n-select" %>
   <% end %>
   <%= render "sources/add_menu" %>
