@@ -22,6 +22,13 @@ module SourcesHelper
     public_send("account_sources_#{record.model_name.element}_path", record.account_id, record, **options)
   end
 
+  # Preserves scoped redirects without changing legacy upload response paths.
+  # @param record [Document, Text, Qna, Website] The source being returned
+  # @return [String] The scoped or legacy source path
+  def source_response_path(record)
+    @scoped_source_account ? source_show_path(record) : polymorphic_path([ :sources, record ])
+  end
+
   def source_edit_path(record)
     public_send("edit_account_sources_#{record.model_name.element}_path", record.account_id, record)
   end
