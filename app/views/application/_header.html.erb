@@ -1,10 +1,11 @@
-<nav class="h-16 flex w-full items-center justify-between border-b n-main-border n-main-bg py-2 px-4">
+<nav class="min-h-16 shrink-0 flex flex-wrap gap-2 w-full items-center justify-between border-b n-main-border n-main-bg py-2 px-4">
   <div class="flex items-center justify-start gap-4">
     <%= link_to root_path, class: "rounded-lg n-main-focus" do %>
       <%= image_tag "nosia-logo.png", class: "h-8" %>
     <% end %>
   </div>
-  <div class="flex items-center">
+  <div class="flex flex-wrap items-center gap-2">
+    <%= render "language_preference" %>
     <div class="flex items-center">
       <% if Current.user && Current.account %>
         <button command="show-modal" commandfor="dialog" id="toggleSidebarMobileSearch" type="button" class="n-nav-link n-main-hover">

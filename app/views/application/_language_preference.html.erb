@@ -1,0 +1,11 @@
+<%= form_with url: language_preference_path, method: :patch,
+      data: { turbo: false }, class: "flex flex-wrap items-center gap-1 text-xs" do %>
+  <%= label_tag :language_preference_locale, t("nosia.language.label"), class: "font-medium" %>
+  <%= select_tag :locale, options_for_select([
+        [t("nosia.language.automatic"), "auto"],
+        [t("nosia.language.french"), "fr"],
+        [t("nosia.language.english"), "en"]
+      ], language_preference_value), id: "language_preference_locale", class: "n-select w-auto text-xs" %>
+  <%= hidden_field_tag :return_to, request.fullpath %>
+  <%= button_tag t("nosia.language.apply"), type: :submit, class: "n-btn n-main-focus text-xs" %>
+<% end %>

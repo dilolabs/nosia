@@ -7,6 +7,8 @@ Rails.application.routes.draw do
   post "login", to: "sessions#create"
   delete "logout", to: "sessions#destroy"
 
+  resource :language_preference, only: :update
+
   # API routes
   get "v1/models", to: "api/v1/models#index"
   post "v1/chat/completions", to: "api/v1/completions#create"
