@@ -143,6 +143,18 @@ class ProfileManagementTest < ApplicationSystemTestCase
     browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
 
+  %w[en fr].product(%w[light dark]).each do |locale, theme|
+    test "native Tab keeps every #{locale} #{theme} mobile profile control fully above the bottom navigation" do
+      browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 900, deviceScaleFactor: 1, mobile: true)
+      switch_language(locale)
+      set_theme(theme)
+
+      assert_profile_keyboard_traversal
+    ensure
+      browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+    end
+  end
+
   test "password fields support native autocomplete and clipboard paste without JavaScript validation" do
     assert_selector "#profile_email_current_password[autocomplete=current-password]"
     assert_selector "#profile_password_password[autocomplete=new-password]"
@@ -350,13 +362,53 @@ class ProfileManagementTest < ApplicationSystemTestCase
     end
 
     def assert_focused_in_main
-      assert page.evaluate_script(<<~JS), "Keyboard focus must remain visible inside the scrolling main region"
+      geometry = page.evaluate_script(<<~JS)
         (() => {
-          const target = document.activeElement.getBoundingClientRect()
+          const element = document.activeElement
+          const target = element.getBoundingClientRect()
           const main = document.querySelector('main').getBoundingClientRect()
-          const hit = document.elementFromPoint(target.left + target.width / 2, target.top + target.height / 2)
-          return document.activeElement.contains(hit) && target.top >= main.top - 1 && target.bottom <= main.bottom + 1 && target.left >= main.left - 1 && target.right <= main.right + 1
+          const navigation = document.querySelector('.n-nav-bottom')?.closest('.fixed')
+          const navigationBounds = navigation?.getClientRects().length ? navigation.getBoundingClientRect() : null
+          const visibleBottom = Math.min(main.bottom, navigationBounds ? navigationBounds.top - 4 : innerHeight)
+          const points = [
+            [target.left + 8, target.top + 8], [target.right - 8, target.top + 8],
+            [target.left + 8, target.bottom - 8], [target.right - 8, target.bottom - 8],
+            [target.left + target.width / 2, target.top + target.height / 2]
+          ]
+          return {
+            element: element.id || element.getAttribute('aria-label') || element.textContent,
+            top: target.top, bottom: target.bottom, mainTop: main.top, mainBottom: main.bottom,
+            navigationTop: navigationBounds?.top,
+            fullyVisible: target.top >= main.top - 1 && target.bottom <= visibleBottom && target.left >= main.left - 1 && target.right <= main.right + 1,
+            unobscured: points.every(([x, y]) => element.contains(document.elementFromPoint(x, y)))
+          }
         })()
       JS
+      assert geometry.fetch("fullyVisible"), "Focused control must be fully inside main and above the bottom navigation: #{geometry}"
+      assert geometry.fetch("unobscured"), "Focused control must be unobscured at its corners and center: #{geometry}"
+      geometry
+    end
+
+    def assert_profile_keyboard_traversal
+      controls = [
+        "#profile_email_email",
+        "#profile_email_current_password",
+        "button[aria-controls=profile_email_current_password]",
+        "#profile-email-form button[type=submit]",
+        "#profile_password_current_password",
+        "button[aria-controls=profile_password_current_password]",
+        "#profile_password_password",
+        "button[aria-controls=profile_password_password]",
+        "#profile_password_password_confirmation",
+        "button[aria-controls=profile_password_password_confirmation]",
+        "#profile-password-form button[type=submit]"
+      ]
+      assert_equal controls.length, all(".n-profile input:not([type=hidden]), .n-profile button").length
+      find(controls.first).click
+      controls.each_with_index.map do |selector, index|
+        browser.action.send_keys(:tab).perform unless index.zero?
+        assert_selector "#{selector}:focus-visible"
+        assert_focused_in_main
+      end
     end
 end

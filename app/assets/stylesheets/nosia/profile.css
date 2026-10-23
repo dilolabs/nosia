@@ -1,5 +1,9 @@
 .n-profile {
-  @apply mx-auto w-full min-w-0 max-w-2xl space-y-6 pb-8;
+  @apply mx-auto w-full min-w-0 max-w-2xl space-y-6 pb-24 lg:pb-8;
+}
+
+main:has(> .n-profile) {
+  @apply scroll-pb-24 lg:scroll-pb-0;
 }
 
 .n-profile-card {
