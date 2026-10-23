@@ -92,7 +92,7 @@ class ViewCopyTest < ActiveSupport::TestCase
 
   private
     def with_view_source(source)
-      Tempfile.create([ "localized-view", ".html.erb" ], "/tmp/opencode") do |file|
+      Tempfile.create([ "localized-view", ".html.erb" ]) do |file|
         file.write(source)
         file.flush
         yield file.path
