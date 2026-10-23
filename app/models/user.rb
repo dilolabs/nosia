@@ -78,6 +78,7 @@ class User < ApplicationRecord
     with_lock(requires_new: true) do
       retained_session = sessions.find(session.id)
       if credential_password_valid?(current_password)
+        self.password = nil # Clear virtual state because has_secure_password ignores empty strings.
         assign_attributes(password: password, password_confirmation: password_confirmation)
         if save(context: :password_change)
           sessions.where.not(id: retained_session.id).delete_all

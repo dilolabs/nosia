@@ -131,6 +131,43 @@ class UserCredentialsTest < ActiveSupport::TestCase
     assert_equal [ @current_session.id, @foreign_session.id ].sort, Session.order(:id).pluck(:id)
   end
 
+  { empty: [ "", REPLACEMENT ], missing: [ nil, REPLACEMENT ],
+    whitespace: [ " " * 12, " " * 12 ] }.each do |description, (password, confirmation)|
+    test "changing password rejects #{description} replacements on a reused instance" do
+      assert @user.change_password(password: REPLACEMENT, password_confirmation: REPLACEMENT,
+        current_password: PASSWORD, session: @current_session)
+      @user.sessions.create!
+      saved_attributes = @user.attributes
+      saved_sessions = Session.order(:id).pluck(:id, :user_id, :created_at, :updated_at)
+
+      refute @user.change_password(password: password, password_confirmation: confirmation,
+        current_password: REPLACEMENT, session: @current_session)
+
+      assert @user.errors.of_kind?(:password, :blank)
+      assert_equal saved_attributes, @user.reload.attributes
+      assert_equal @user, @user.authenticate(REPLACEMENT)
+      assert_equal saved_sessions, Session.order(:id).pluck(:id, :user_id, :created_at, :updated_at)
+    end
+  end
+
+  { missing: nil, blank: "", mismatched: "different-password-789" }.each do |description, confirmation|
+    test "changing password rejects #{description} confirmation on a reused instance" do
+      assert @user.change_password(password: REPLACEMENT, password_confirmation: REPLACEMENT,
+        current_password: PASSWORD, session: @current_session)
+      @user.sessions.create!
+      saved_attributes = @user.attributes
+      saved_sessions = Session.order(:id).pluck(:id, :user_id, :created_at, :updated_at)
+
+      refute @user.change_password(password: REPLACEMENT, password_confirmation: confirmation,
+        current_password: REPLACEMENT, session: @current_session)
+
+      assert @user.errors[:password_confirmation].any?
+      assert_equal saved_attributes, @user.reload.attributes
+      assert_equal @user, @user.authenticate(REPLACEMENT)
+      assert_equal saved_sessions, Session.order(:id).pluck(:id, :user_id, :created_at, :updated_at)
+    end
+  end
+
   test "changing password accepts the 12 character and 72 UTF-8 byte boundaries" do
     minimum = "x" * 12
     maximum = "é" * 36
