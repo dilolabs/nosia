@@ -1,0 +1,42 @@
+fr:
+  nosia:
+    profile:
+      title: Votre profil
+      introduction: Gérez vos identifiants de connexion en toute sécurité.
+      email_title: Adresse e-mail
+      email_description: Utilisez cette adresse pour vous connecter à Nosia.
+      email_hint: Votre nouvelle adresse fonctionne dès l’enregistrement. Aucun e-mail de confirmation n’est envoyé.
+      email_submit: Modifier l’e-mail
+      email_pending: Modification de l’e-mail…
+      email_success: Votre adresse e-mail a été modifiée.
+      password_title: Mot de passe
+      password_description: Choisissez un mot de passe robuste que vous n’utilisez pas ailleurs.
+      password_hint: Au moins 12 caractères.
+      sessions_hint: Les autres navigateurs seront déconnectés. Vous resterez connecté ici. Les jetons API resteront actifs.
+      password_submit: Modifier le mot de passe
+      password_pending: Modification du mot de passe…
+      password_success: Votre mot de passe a été modifié. Les autres navigateurs ont été déconnectés.
+      errors_title: Un problème est survenu
+      show: Afficher
+      hide: Masquer
+      show_label: "Afficher : %{field}"
+      hide_label: "Masquer : %{field}"
+      fields:
+        email: Adresse e-mail
+        current_password: Mot de passe actuel
+        password: Nouveau mot de passe
+        password_confirmation: Confirmer le nouveau mot de passe
+  activerecord:
+    attributes:
+      user:
+        current_password: Mot de passe actuel
+    errors:
+      models:
+        user:
+          attributes:
+            current_password:
+              invalid: est incorrect
+            password:
+              password_too_long: doit contenir au maximum 72 octets
+            base:
+              profile_rate_limited: Trop de tentatives. Réessayez dans quelques minutes.

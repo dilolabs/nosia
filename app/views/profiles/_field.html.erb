@@ -1,0 +1,34 @@
+<% field_id = "profile_#{section}_#{field}" %>
+<% field_label = t("nosia.profile.fields.#{field}") %>
+<% messages = errors ? errors.where(field).map(&:message) : [] %>
+<% hint_id = "#{field_id}_hint" if hint.present? %>
+<% error_id = "#{field_id}_error" if messages.any? %>
+<% describedby = [hint_id, error_id].compact.join(" ").presence %>
+<% options = { id: field_id, required: true, class: "n-field", autocomplete: autocomplete,
+               aria: { invalid: messages.any?, describedby: describedby } } %>
+
+<div class="n-form-field">
+  <%= form.label field, field_label, for: field_id, class: "n-label block" %>
+  <% if field == :email %>
+    <%= form.email_field field, **options, value: value %>
+  <% else %>
+    <div class="n-profile-secret" data-controller="password-visibility"
+         data-password-visibility-show-value="<%= t("nosia.profile.show") %>"
+         data-password-visibility-hide-value="<%= t("nosia.profile.hide") %>"
+         data-password-visibility-show-label-value="<%= t("nosia.profile.show_label", field: field_label) %>"
+         data-password-visibility-hide-label-value="<%= t("nosia.profile.hide_label", field: field_label) %>"
+         data-action="turbo:before-cache@document->password-visibility#reset turbo:before-visit@document->password-visibility#reset pagehide@window->password-visibility#reset">
+      <%= form.password_field field, **options, value: nil,
+            data: { credential_secret: true, password_visibility_target: "input" } %>
+      <%= tag.button t("nosia.profile.show"), type: "button", class: "n-profile-visibility",
+            aria: { controls: field_id, pressed: false, label: t("nosia.profile.show_label", field: field_label) },
+            data: { password_visibility_target: "button", action: "password-visibility#toggle" } %>
+    </div>
+  <% end %>
+  <% if hint.present? %>
+    <p id="<%= hint_id %>" class="n-profile-help mt-1"><%= hint %></p>
+  <% end %>
+  <% if messages.any? %>
+    <p id="<%= error_id %>" class="n-profile-error mt-1"><%= messages.join(", ") %></p>
+  <% end %>
+</div>

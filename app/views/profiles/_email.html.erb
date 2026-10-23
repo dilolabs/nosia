@@ -1,0 +1,19 @@
+<section class="n-profile-card" aria-labelledby="email">
+  <h2 id="email" class="n-card-title" tabindex="-1"><%= t("nosia.profile.email_title") %></h2>
+  <p class="n-profile-help"><%= t("nosia.profile.email_description") %></p>
+
+  <%= form_with scope: :email_change, url: profile_email_path, method: :patch,
+        id: "profile-email-form", class: "mt-4", data: { controller: "credential-form" } do |form| %>
+    <%= render "errors", section: :email, errors: errors %>
+    <%= render "field", form: form, section: :email, field: :email, value: user.email,
+          errors: errors, autocomplete: "username", hint: nil %>
+    <%= render "field", form: form, section: :email, field: :current_password, value: nil,
+          errors: errors, autocomplete: "current-password", hint: nil %>
+
+    <p class="n-profile-help mt-4"><%= t("nosia.profile.email_hint") %></p>
+    <div class="n-profile-actions">
+      <%= form.button t("nosia.profile.email_submit"), class: "n-profile-submit",
+            data: { turbo_submits_with: t("nosia.profile.email_pending") } %>
+    </div>
+  <% end %>
+</section>

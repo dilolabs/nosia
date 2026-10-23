@@ -1,0 +1,24 @@
+<% content_for :title, t("nosia.profile.title") %>
+<% content_for :head do %>
+  <meta name="turbo-cache-control" content="no-cache">
+<% end %>
+
+<% content_for :navbar do %>
+  <li class="flex items-center">
+    <%= link_to t("nosia.nav.settings"), settings_path, class: "n-ariane n-main-focus" %>
+  </li>
+  <li class="flex gap-1 items-center">
+    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
+    <span class="n-ariane" aria-current="page"><%= t("nosia.profile.title") %></span>
+  </li>
+<% end %>
+
+<div class="n-profile">
+  <header class="space-y-2">
+    <h1 class="n-main-title"><%= t("nosia.profile.title") %></h1>
+    <p class="n-profile-help"><%= t("nosia.profile.introduction") %></p>
+  </header>
+
+  <%= render "email", user: @user, errors: (@failed_section == :email ? @user.errors : nil) %>
+  <%= render "password", user: @user, errors: (@failed_section == :password ? @user.errors : nil) %>
+</div>
