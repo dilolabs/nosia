@@ -12,6 +12,11 @@ fr:
       english: "English"
       french: "Français"
       apply: "Appliquer"
+      short:
+        automatic: "Auto"
+        french: "FR"
+        english: "EN"
+      auto_switch_hint: "Changer de langue recharge automatiquement cette page. Enregistrez d’abord votre travail non envoyé."
       invalid: "Préférence de langue non valide."
     actions:
       save: "Enregistrer"

@@ -16,12 +16,11 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
 
-  { "en" => "English", "fr" => "Français" }.each do |locale, language|
+  { "en" => "EN", "fr" => "FR" }.each do |locale, language|
     [ 375, 768, 1400 ].each do |width|
       test "kChat configuration is fully displayed at #{width}px in #{locale}" do
         if locale == "fr"
           select language, from: "language_preference_locale"
-          click_button "Apply"
         end
         assert_selector "html[lang=#{locale}]"
         page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 844, deviceScaleFactor: 1, mobile: false)
