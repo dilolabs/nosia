@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23
 
-**Status:** Design approved; written-spec review pending. Application implementation has not started.
+**Status:** Written specification approved; implementation planning authorized. Application implementation has not started.
 
 ## Goal
 
@@ -17,6 +17,7 @@ Allow signed-in users to manage their own login email and password at `/profile`
 - “A” for the page layout — use two visible, stacked cards with independent email and password forms; prefer discoverability and predictable saves over tabs or expand-to-edit state.
 - “Good” for Design 1/2 (page and behavior) — approve the stacked cards, immediate password-authorized email updates with sessions unchanged, password confirmation and minimum length, revocation of other browsers after password changes, accessible feedback, and the stated scope exclusions.
 - “Good” for Design 2/2 (architecture and verification) — approve separate REST update endpoints scoped to `Current.user`, model-owned credential changes, transactional password/session updates, safe responses, existing Rails/Hotwire components, and the stated test coverage.
+- “Go” after the committed specification was presented for review — approve this written specification and authorize the implementation-plan step.
 
 ## Existing context and boundaries
 
@@ -121,4 +122,4 @@ Email verification/delivery, forgotten-password recovery, passkeys/magic links, 
 
 ## Workflow status
 
-Both presented design sections are approved. Commit and review this written specification before invoking `writing-plans`. Approval of the conversational design alone does not authorize application implementation.
+Both presented design sections and the committed written specification are approved. The `writing-plans` step is authorized; application implementation waits for the plan's execution handoff.
