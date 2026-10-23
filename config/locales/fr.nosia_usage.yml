@@ -1,0 +1,6 @@
+fr:
+  nosia:
+    usage:
+      token_quantity:
+        one: "%{formatted_count} jeton"
+        other: "%{formatted_count} jetons"

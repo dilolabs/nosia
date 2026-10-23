@@ -1,0 +1,6 @@
+en:
+  nosia:
+    usage:
+      token_quantity:
+        one: "%{formatted_count} token"
+        other: "%{formatted_count} tokens"

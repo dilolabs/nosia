@@ -15,7 +15,7 @@ module Accounts
 
     def update
       if @system_prompt.update(system_prompt_params)
-        redirect_to account_system_prompt_path(@account), notice: "System prompt was successfully updated."
+        redirect_to account_system_prompt_path(@account), notice: t("nosia.prompts.updated")
       else
         render :show, status: :unprocessable_entity
       end

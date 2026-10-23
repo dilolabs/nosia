@@ -15,7 +15,7 @@ class SystemPromptsController < ApplicationController
 
   def update
     if @system_prompt.update(system_prompt_params)
-      redirect_to system_prompt_path(@system_prompt), notice: "System prompt was successfully updated."
+      redirect_to system_prompt_path(@system_prompt), notice: t("nosia.prompts.updated")
     else
       render :show, status: :unprocessable_entity
     end
@@ -23,7 +23,7 @@ class SystemPromptsController < ApplicationController
 
   def destroy
     @system_prompt.destroy
-    redirect_to system_prompts_path, notice: "System prompt was successfully deleted."
+    redirect_to system_prompts_path, notice: t("nosia.prompts.deleted")
   end
 
   private

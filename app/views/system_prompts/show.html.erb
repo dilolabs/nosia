@@ -1,13 +1,13 @@
 <% content_for :navbar do %>
   <li class="flex items-center">
-    <%= link_to "Settings", settings_path, class:"n-ariane n-main-focus" %>
+    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
   </li>
   <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
-    <%= link_to "System prompts", system_prompts_path, class:"n-ariane n-main-focus" %>
+    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
+    <%= link_to t("nosia.prompts.title"), system_prompts_path, class:"n-ariane n-main-focus" %>
   </li>
   <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", class: "shrink-0 h-5 w-5" %>
+    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
     <%= link_to @system_prompt.account.name, system_prompt_path(@system_prompt), class:"n-ariane n-main-focus" %>
   </li>
 <% end %>
@@ -18,7 +18,7 @@
 
 <div class="pb-1 pt-4 flex-1 overflow-y-auto space-y-2">
   <div class="flex justify-center">
-    <%= link_to "Edit", edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
+    <%= link_to t("nosia.actions.edit"), edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
   </div>
   <div class="max-w-4xl mx-auto n-card n-main-border px-5 py-3">
     <div class="text-[15px] leading-relaxed">
@@ -26,6 +26,6 @@
     </div>
   </div>
   <div class="flex justify-center">
-    <%= link_to "Edit", edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
+    <%= link_to t("nosia.actions.edit"), edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
   </div>
 </div>

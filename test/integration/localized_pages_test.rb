@@ -5,6 +5,185 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   include ChatAccountFixtures
   include ActionView::RecordIdentifier
 
+  {
+    accounts: "Comptes", new_account: "Nouveau compte", settings: "Paramètres",
+    api_tokens: "Jetons API", system_prompts: "Instructions système", models: "Modèles"
+  }.each do |page, heading|
+    test "French #{page} page translates its heading" do
+      sign_in_picker_user
+
+      with_singleton_replacement(RubyLLM, :models, -> { RubyLLM::Models.new([]) }) do
+        get public_send("#{page}_url"), headers: { "Accept-Language" => "fr" }
+      end
+
+      assert_response :success
+      assert_select "h1, h2", text: heading
+    end
+  end
+
+  test "French account members translate actions without changing form paths or email" do
+    sign_in_picker_user
+
+    get account_account_users_url(@second), headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select "h2", text: "Paramètres de Research team"
+    assert_select "form[action=?][method=post]", account_account_users_path(@second) do
+      assert_select 'input[type="submit"][value="Ajouter un utilisateur"]'
+      assert_select 'input[type="email"][name="account_user[email]"]'
+    end
+    assert_select "p", text: @user.email
+    assert_select "p", text: "Utilisateur actuel"
+  end
+
+  test "administration decorations stay hidden from accessible names" do
+    sign_in_picker_user
+    prompt = prompts(:picker_second_prompt)
+
+    [ new_account_url, edit_account_url(@second), account_settings_url(@second),
+      account_account_users_url(@second), account_system_prompt_url(@second), edit_account_system_prompt_url(@second),
+      settings_url, api_tokens_url, system_prompts_url, system_prompt_url(prompt), edit_system_prompt_url(prompt) ].each do |url|
+      get url, headers: { "Accept-Language" => "fr" }
+      assert_response :success
+      assert_select 'main svg:not([aria-hidden="true"])', count: 0
+    end
+  end
+
+  test "French account headings escape authored account names" do
+    sign_in_picker_user
+    @second.update!(name: "<script>Original account</script>")
+    headers = { "Accept-Language" => "fr" }
+
+    get edit_account_url(@second), headers: headers
+    assert_response :success
+    assert_select "h2", text: "Modifier le compte #{@second.name}"
+    assert_select "h2 script", count: 0
+
+    get account_settings_url(@second), headers: headers
+    assert_response :success
+    assert_select "h2", text: "Paramètres du compte #{@second.name}"
+    assert_select "h2 script", count: 0
+  end
+
+  test "French prompt read pages preserve prompt IDs content and full names" do
+    sign_in_picker_user
+    original = @second.prompts.order(:id).pluck(:id, :content)
+    prompt = prompts(:picker_second_prompt)
+    name = prompt.full_name
+    headers = { "Accept-Language" => "fr" }
+
+    [ account_system_prompt_url(@second), edit_account_system_prompt_url(@second),
+      system_prompts_url, system_prompt_url(prompt), edit_system_prompt_url(prompt) ].each do |url|
+      get url, headers: headers
+      assert_response :success
+      assert_includes response.body, prompt.content unless url == system_prompts_url
+      assert_equal original, @second.prompts.order(:id).pluck(:id, :content)
+      assert_equal name, prompt.reload.full_name
+    end
+
+    assert_select "h2", text: "Modifier #{name}"
+    assert_select "label", text: "Instructions système"
+  end
+
+  test "French missing prompt read pages do not materialize defaults" do
+    sign_in_picker_user
+    @second.prompts.destroy_all
+
+    assert_no_difference "Prompt.count" do
+      [ account_system_prompt_url(@second), edit_account_system_prompt_url(@second), system_prompts_url ].each do |url|
+        get url, headers: { "Accept-Language" => "fr" }
+        assert_response :success
+      end
+    end
+    assert_empty @second.prompts.reload
+  end
+
+  test "French account and prompt notices translate without changing saved content" do
+    sign_in_picker_user
+    headers = { "Accept-Language" => "fr" }
+
+    patch account_url(@second), params: { account: { name: "Original English name" } }, headers: headers
+    assert_redirected_to accounts_url
+    assert_equal "Le compte a été mis à jour.", flash[:notice]
+    assert_equal "Original English name", @second.reload.name
+
+    patch account_system_prompt_url(@second), params: { prompt: { content: "Original account instructions" } }, headers: headers
+    assert_redirected_to account_system_prompt_url(@second)
+    assert_equal "Les instructions système ont été mises à jour.", flash[:notice]
+    prompt = prompts(:picker_second_prompt)
+    assert_equal "Original account instructions", prompt.content
+
+    patch system_prompt_url(prompt), params: { prompt: { content: "Original edited instructions" } }, headers: headers
+    assert_redirected_to system_prompt_url(prompt)
+    assert_equal "Les instructions système ont été mises à jour.", flash[:notice]
+    assert_equal "Original edited instructions", prompt.reload.content
+
+    delete system_prompt_url(prompt), headers: headers
+    assert_redirected_to system_prompts_url
+    assert_equal "Les instructions système ont été supprimées.", flash[:notice]
+  end
+
+  test "French membership feedback preserves owner authorization and membership lifecycle" do
+    sign_in_picker_user
+    headers = { "Accept-Language" => "fr" }
+    outsider = users(:picker_outsider)
+
+    post account_account_users_url(@second), params: { account_user: { email: "missing@example.invalid" } }, headers: headers
+    assert_equal "Utilisateur introuvable.", flash[:alert]
+
+    post account_account_users_url(@second), params: { account_user: { email: outsider.email } }, headers: headers
+    assert_equal "L’utilisateur a été ajouté.", flash[:notice]
+    membership = @second.account_users.find_by!(user: outsider)
+
+    post account_account_users_url(@second), params: { account_user: { email: outsider.email } }, headers: headers
+    assert_equal "Impossible d’ajouter l’utilisateur.", flash[:alert]
+
+    owner_membership = @second.account_users.find_by!(user: @user)
+    assert_no_difference "AccountUser.count" do
+      delete account_account_user_url(@second, owner_membership), headers: headers
+    end
+    assert_equal "Le propriétaire du compte ne peut pas être retiré.", flash[:alert]
+
+    delete account_account_user_url(@second, membership), headers: headers
+    assert_equal "L’utilisateur a été retiré.", flash[:notice]
+    refute @second.account_users.exists?(membership.id)
+
+    @second.account_users.grant_to(outsider)
+    sign_in_picker_user(outsider)
+    assert_no_difference "AccountUser.count" do
+      post account_account_users_url(@second), params: { account_user: { email: users(:picker_no_account).email } }, headers: headers
+    end
+    assert_equal "Seul le propriétaire du compte peut gérer les membres.", flash[:alert]
+  end
+
+  test "French token management translates show once and clipboard feedback without exposing digests" do
+    sign_in_picker_user
+    headers = { "Accept-Language" => "fr" }
+
+    post api_tokens_url, params: { api_token: { account_id: @second.id, name: "Original token name" } }, headers: headers
+    assert_redirected_to api_tokens_url
+    plain = flash[:created_api_token]
+    token = @user.api_tokens.find_by!(name: "Original token name")
+    assert_equal ApiToken.digest(plain), token.token_digest
+    follow_redirect!(headers: headers)
+
+    assert_response :success
+    assert_select 'input[data-clipboard-target="source"][value=?]', plain
+    assert_select '[data-clipboard-success-content-value="Copié !"]'
+    assert_select "span.sr-only", text: "Copier le jeton API"
+    assert_select "span.sr-only", text: "Supprimer le jeton API"
+    assert_select "h2", text: "Votre nouveau jeton API"
+    assert_select 'main svg:not([aria-hidden="true"])', count: 0
+    refute_includes response.body, token.token_digest
+
+    get api_tokens_url, headers: headers
+    refute_includes response.body, plain
+    refute_includes response.body, token.token_digest
+
+    post api_tokens_url, params: { api_token: { account_id: @second.id, name: "" } }, headers: headers
+    assert_equal "Une erreur est survenue.", flash[:alert]
+  end
+
   test "French sources translate search sorting type filters and upload messages" do
     sign_in_picker_user
 

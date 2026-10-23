@@ -2,22 +2,22 @@
 
 <h1><%= @model.name %></h1>
 
-<p><strong>ID:</strong> <%= @model.id %></p>
-<p><strong>Provider:</strong> <%= @model.provider %></p>
-<p><strong>Context Window:</strong> <%= number_with_delimiter(@model.context_window) %> tokens</p>
-<p><strong>Max Output:</strong> <%= number_with_delimiter(@model.max_output_tokens) %> tokens</p>
+<p><strong><%= t("nosia.models.id") %></strong> <%= @model.id %></p>
+<p><strong><%= t("nosia.models.provider_label") %></strong> <%= @model.provider %></p>
+<p><strong><%= t("nosia.models.context_label") %></strong> <%= @model.context_window.nil? ? "—" : t("nosia.usage.token_quantity", count: @model.context_window, formatted_count: number_with_delimiter(@model.context_window)) %></p>
+<p><strong><%= t("nosia.models.max_output") %></strong> <%= @model.max_output_tokens.nil? ? "—" : t("nosia.usage.token_quantity", count: @model.max_output_tokens, formatted_count: number_with_delimiter(@model.max_output_tokens)) %></p>
 
 <% input = @model.price(:input) %>
 <% output = @model.price(:output) %>
-<p><strong>$/1M tokens (In/Out):</strong> <%= input.nil? ? "—" : format("$%.2f", input) %> / <%= output.nil? ? "—" : format("$%.2f", output) %></p>
+<p><strong><%= t("nosia.models.price_label") %></strong> <%= input.nil? ? "—" : number_to_currency(input, unit: "$", precision: 2) %> / <%= output.nil? ? "—" : number_to_currency(output, unit: "$", precision: 2) %></p>
 <% mwh = GreenIt.dataset_mwh_per_1000_tokens(@model.id) %>
-<p><strong>Conso. moyenne (1000 tokens):</strong> <%= mwh ? number_with_delimiter(mwh.to_i) : "—" %></p>
+<p><strong><%= t("nosia.models.consumption_label") %></strong> <%= mwh ? number_with_delimiter(mwh.to_i) : "—" %></p>
 
 <% if @model.capabilities.any? %>
-  <p><strong>Capabilities:</strong> <%= @model.capabilities.join(", ") %></p>
+  <p><strong><%= t("nosia.models.capabilities") %></strong> <%= @model.capabilities.join(", ") %></p>
 <% end %>
 
 <p>
-  <%= link_to "Start chat with this model", new_chat_path(model: @model.id) %> |
-  <%= link_to "All models", models_path %>
+  <%= link_to t("nosia.models.start_chat_named"), new_chat_path(model: @model.id) %> |
+  <%= link_to t("nosia.models.all"), models_path %>
 </p>
