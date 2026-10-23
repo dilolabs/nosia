@@ -2,10 +2,10 @@
   <summary class="n-btn-primary list-none"><%= t("nosia.sources.add") %></summary>
   <div class="n-dropdown-menu absolute right-0 mt-1 border n-main-border">
     <div class="n-dropdown-list">
-      <%= link_to t("nosia.sources.upload_documents"), new_sources_document_path, class: "n-dropdown-item n-main-hover" %>
-      <%= link_to t("nosia.sources.add_website"), new_sources_website_path, class: "n-dropdown-item n-main-hover" %>
-      <%= link_to t("nosia.sources.paste_text"), new_sources_text_path, class: "n-dropdown-item n-main-hover" %>
-      <%= link_to t("nosia.sources.add_qna"), new_sources_qna_path, class: "n-dropdown-item n-main-hover" %>
+      <%= link_to t("nosia.sources.upload_documents"), source_new_path(:document), class: "n-dropdown-item n-main-hover" %>
+      <%= link_to t("nosia.sources.add_website"), source_new_path(:website), class: "n-dropdown-item n-main-hover" %>
+      <%= link_to t("nosia.sources.paste_text"), source_new_path(:text), class: "n-dropdown-item n-main-hover" %>
+      <%= link_to t("nosia.sources.add_qna"), source_new_path(:qna), class: "n-dropdown-item n-main-hover" %>
     </div>
   </div>
 </details>

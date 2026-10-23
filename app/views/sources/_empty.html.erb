@@ -19,7 +19,7 @@
     <div class="py-16 text-center space-y-3">
       <div class="text-3xl"><%= source_type_icon(type) %></div>
       <h3 class="n-card-title"><%= t("nosia.sources.empty.#{type}") %></h3>
-      <%= link_to t("nosia.sources.add_type.#{type}"), new_polymorphic_path([:sources, type.to_sym]), class: "n-btn-primary inline-block" %>
+      <%= link_to t("nosia.sources.add_type.#{type}"), source_new_path(type), class: "n-btn-primary inline-block" %>
     </div>
   <% end %>
 </div>

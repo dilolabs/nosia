@@ -1,13 +1,13 @@
 <%# locals: type, status, counts %>
 <nav class="w-full md:w-44 shrink-0 md:border-r n-main-border md:pr-3 text-sm" aria-label="<%= t('nosia.sources.filters') %>">
-  <%= link_to sources_path, class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if type == 'all' && status == 'all'}" do %>
+  <%= link_to source_index_path, class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if type == 'all' && status == 'all'}" do %>
     <span><%= t("nosia.sources.all") %></span>
     <%= render "sources/counts", key: "all", value: counts[:total] %>
   <% end %>
 
   <p class="mt-3 mb-1 px-2 text-xs uppercase tracking-wide text-neutral-400"><%= t("nosia.sources.by_type") %></p>
   <% SourceRow::TYPES.each do |source_type| %>
-    <%= link_to sources_path(type: source_type), class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if type == source_type && status == 'all'}" do %>
+    <%= link_to source_index_path(type: source_type), class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if type == source_type && status == 'all'}" do %>
       <span><%= source_type_icon(source_type) %> <%= t("nosia.sources.types.#{source_type}", count: 2) %></span>
       <%= render "sources/counts", key: "type-#{source_type}", value: counts[:by_type][source_type] %>
     <% end %>
@@ -16,13 +16,13 @@
   <% if counts[:by_status]["failed"].positive? || counts[:by_status]["pending"].positive? %>
     <p class="mt-3 mb-1 px-2 text-xs uppercase tracking-wide text-neutral-400"><%= t("nosia.sources.needs_attention") %></p>
     <% if counts[:by_status]["failed"].positive? %>
-      <%= link_to sources_path(status: "failed"), class: "n-nav-link n-main-hover-danger justify-between #{'n-main-bg font-semibold' if status == 'failed'}" do %>
+      <%= link_to source_index_path(status: "failed"), class: "n-nav-link n-main-hover-danger justify-between #{'n-main-bg font-semibold' if status == 'failed'}" do %>
         <span><%= t("nosia.sources.failed_filter") %></span>
         <%= render "sources/counts", key: "status-failed", value: counts[:by_status]["failed"], variant: :error %>
       <% end %>
     <% end %>
     <% if counts[:by_status]["pending"].positive? %>
-      <%= link_to sources_path(status: "pending"), class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if status == 'pending'}" do %>
+      <%= link_to source_index_path(status: "pending"), class: "n-nav-link n-main-hover justify-between #{'n-main-bg font-semibold' if status == 'pending'}" do %>
         <span><%= t("nosia.sources.pending_filter") %></span>
         <%= render "sources/counts", key: "status-pending", value: counts[:by_status]["pending"], variant: :pending %>
       <% end %>
