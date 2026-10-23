@@ -17,8 +17,37 @@
 - Actual repository files take precedence over the generic stack description: `.ruby-version` is `4`; packaging tests already run without booting Rails; CI is `.github/workflows/ci.yml`. There is no `bin/ci` or `config/ci.rb`.
 - Never run these new helpers against the working host during automated verification. Stub all privileged writes; do native import/removal smoke checks only in disposable machines.
 - Every implementation task follows RED → GREEN. Run the exact new test first and confirm a missing behavior—not a syntax or harness error—causes failure. If a proposed command/API differs on a target OS, preserve the approved behavior, correct the plan inline, and test that target rather than relaxing validation.
+- **Execution note:** The code blocks below preserve the original proposed implementation. Reviewed source files are now authoritative: review-driven corrections and native verification gaps are recorded in the execution notes below. Do not copy superseded snippets over the committed implementation.
 
 ## File map
+
+### Execution progress
+
+Worktree: `.worktrees/caddy-puma-local-https`, branch `feat/caddy-puma-local-https`.
+
+Baseline: dependency check and database test preparation succeeded. Existing packaging tests: 2 runs, 8 assertions, no failures. With disposable encryption/model/chunk settings matching the checked-in 4096-dimensional schema, the application baseline has 626 runs, 3405 assertions, 0 failures, 1 error: `Website::CrawlableTest#test_crawl_url!_still_crawls_public_hosts` requires an unavailable embedding provider. The user explicitly approved proceeding with that baseline limitation. No development secrets were copied.
+
+- [x] Task 1: Remove Thruster — committed `1148fc3`; spec and quality reviews approved; 17 packaging tests / 36 assertions pass.
+- [x] Task 2: Unix helper — through `0c57572`; spec and quality reviews approved; 82 tests / 1,105 assertions pass. macOS admin-domain dedup uses typed `plutil` reads (macOS 12+); native macOS verification remains unavailable here.
+- [x] Task 3: Windows helper — through `5caf65c`; spec and quality reviews approved; portable contracts 3 tests / 53 assertions pass, 48 native Windows tests skipped. Portable PowerShell 7.4.6 parses the helper/child/test fragments; native Windows 5.1/7 verification remains pending.
+- [x] Task 4: Installer distribution — through `5490bd7`; spec and quality reviews approved; 63 tests / 762 assertions pass with 20 native Windows skips. Directory publication races, restrictive Unix umasks, and optional Windows guidance lookup errors have regression coverage.
+- [x] Task 5: Documentation — through `fc4dfe0`; spec and quality reviews approved; 28 packaging/documentation contracts / 261 assertions pass. Guide reflects the actual helper outputs, platform prerequisites, exact removal, and client trust boundaries.
+- [x] Task 6: Cross-platform CI — committed `3a6f3cf`; spec and quality reviews approved; all packaging 231 runs / 2,238 assertions pass, with 68 expected native Windows skips. Native macOS/Windows GitHub Actions execution has not been triggered.
+- [x] Task 7: Available final verification and all-task review recorded in `d488c9a`; final code/spec/security review approved with no fixes requested, conditioned on remaining native/disposable acceptance evidence. No merge or push performed.
+
+### Review-driven implementation corrections and remaining gates
+
+- Unix validation compares decoded input bytes with the OpenSSL-exported certificate to reject concatenated/trailing objects inside a single PEM block. It does not implement a general ASN.1 encoding linter.
+- Unix cleanup is confined to its uniquely created private directory, including unexpected nested copies, without following copied symlinks.
+- macOS deduplication requires exact certificate presence and unrestricted admin-domain trust, not merely `verify-cert` success that could inherit user trust. Typed `plutil` reads require macOS 12+. Ordinary missing admin settings remain eligible for a confirmed first import; actual export errors are reported.
+- Tests use portable Ruby permission checks, not GNU-only `stat` syntax.
+- Windows snapshot tests mutate the exported root during confirmation and prove the child retains the confirmed DER. Native crypt32, stores, locks, and UAC remain unverified on this Linux host.
+- Installer publication uses exact-path POSIX `link`, not the proposed `ln` command that could descend into a racing directory. Explicit `chmod u+x` handles restrictive umasks. PowerShell optional-guidance lookup errors fall back to the manual guide without failing installation.
+- All implementation tasks passed separate spec and quality reviews; the final overall reviewer found no remaining source-code issues. Automated tests never changed real host trust.
+- Parent independently reran all packaging tests: **231 runs, 2,238 assertions, 0 failures/errors, 68 native Windows skips**. Focused streaming/composer regressions: **12 runs, 120 assertions, no failures/errors**. New Ruby files: **5 files, no lint offenses**.
+- Parent independently reran the full Rails suite: **626 runs, 3,405 assertions, 0 failures, 1 error**, exactly the approved unavailable embedding-provider baseline. Repository-wide lint and offline security warnings are pre-existing and recorded in `docs/LOCAL_HTTPS.md`.
+- **Still pending:** native macOS and Windows PowerShell 5.1/7 CI, disposable-machine image/HTTPS/assets/streaming checks, real trust import/repeat/removal, and browser/runtime checks. No suitable disposable machine was provided. Do not treat these checks as passed or merge readiness as unconditional.
+- Branch and worktree are preserved as-is. No application settings/secrets were copied from the main worktree; its pre-existing local changes remain untouched.
 
 | File | Responsibility |
 | --- | --- |
@@ -43,7 +72,7 @@
 
 **Files:** Create `test/packaging/caddy_puma.rb`; modify `Gemfile`, `Gemfile.lock`, `Procfile`, `Dockerfile`, `config/dockerfile.yml`; delete `bin/thrust`.
 
-- [ ] **Step 1: Add the regression contract.** Create this complete test file:
+- [x] **Step 1: Add the regression contract.** Create this complete test file:
 
 ```ruby
 require "minitest/autorun"
@@ -97,8 +126,8 @@ class CaddyPumaPackagingTest < Minitest::Test
 end
 ```
 
-- [ ] **Step 2: Run RED.** Run `ruby test/packaging/caddy_puma.rb`. Expect failures identifying the existing Thruster dependency/wrapper and `EXPOSE 80 443`; preservation tests should pass.
-- [ ] **Step 3: Make only these implementation edits.** Delete the `gem "thruster"` line and `bin/thrust`. Replace `Procfile` with:
+- [x] **Step 2: Run RED.** Run `ruby test/packaging/caddy_puma.rb`. Expect failures identifying the existing Thruster dependency/wrapper and `EXPOSE 80 443`; preservation tests should pass.
+- [x] **Step 3: Make only these implementation edits.** Delete the `gem "thruster"` line and `bin/thrust`. Replace `Procfile` with:
 
 ```procfile
 web: bin/start-app
@@ -118,14 +147,14 @@ In `config/dockerfile.yml` retain every other option and change:
   thruster: false
 ```
 
-- [ ] **Step 4: Update the lockfile without upgrading other gems.** Run `bundle install`, inspect `git diff -- Gemfile.lock`, and require the diff to remove only Thruster's dependency/platform entries and any genuinely orphaned dependency. Do not run `bundle update`.
-- [ ] **Step 5: Run GREEN and commit.** Run `ruby test/packaging/caddy_puma.rb` and `git diff --check`. Expect all packaging tests passing, with no worker or migration edits. Stage only Task 1 paths and commit `refactor: run Puma directly behind Caddy`.
+- [x] **Step 4: Update the lockfile without upgrading other gems.** Run `bundle install`, inspect `git diff -- Gemfile.lock`, and require the diff to remove only Thruster's dependency/platform entries and any genuinely orphaned dependency. Do not run `bundle update`.
+- [x] **Step 5: Run GREEN and commit.** Run `ruby test/packaging/caddy_puma.rb` and `git diff --check`. Expect all packaging tests passing, with no worker or migration edits. Stage only Task 1 paths and commit `refactor: run Puma directly behind Caddy`.
 
 ## Task 2: Add the Unix trust helper and isolated tests
 
 **Files:** Create `test/support/caddy_certificate_fixtures.rb`, `test/packaging/caddy_trust_posix.rb`, and `bin/trust-caddy`.
 
-- [ ] **Step 1: Add ephemeral certificate fixtures.** Create this support file; it writes no private keys:
+- [x] **Step 1: Add ephemeral certificate fixtures.** Create this support file; it writes no private keys:
 
 ```ruby
 require "openssl"
@@ -159,7 +188,7 @@ module CaddyCertificateFixtures
 end
 ```
 
-- [ ] **Step 2: Add the failing subprocess tests.** Create this test file. The harness loads definitions without the script's final entry call, then replaces OS boundaries—not validation—with shell functions. There is no production test-mode flag or confirmation bypass.
+- [x] **Step 2: Add the failing subprocess tests.** Create this test file. The harness loads definitions without the script's final entry call, then replaces OS boundaries—not validation—with shell functions. There is no production test-mode flag or confirmation bypass.
 
 ```ruby
 require "minitest/autorun"
@@ -371,8 +400,8 @@ class CaddyTrustPosixTest < Minitest::Test
 end
 ```
 
-- [ ] **Step 3: Run RED.** Run `ruby test/packaging/caddy_trust_posix.rb`. Expect “missing Unix trust helper” assertions. Fix harness syntax errors before continuing; do not create production code to mask them.
-- [ ] **Step 4: Create the helper's validation and store boundaries.** Write this first part of `bin/trust-caddy`; Task 2 Step 5 appends its workflow in the same task:
+- [x] **Step 3: Run RED.** Run `ruby test/packaging/caddy_trust_posix.rb`. Expect “missing Unix trust helper” assertions. Fix harness syntax errors before continuing; do not create production code to mask them.
+- [x] **Step 4: Create the helper's validation and store boundaries.** Write this first part of `bin/trust-caddy`; Task 2 Step 5 appends its workflow in the same task:
 
 ```sh
 #!/bin/sh
@@ -471,7 +500,7 @@ cleanup() {
 }
 ```
 
-- [ ] **Step 5: Append the entry workflow.** These functions are not a new service layer; they keep source acquisition, inspection, confirmation, and native writes separately testable.
+- [x] **Step 5: Append the entry workflow.** These functions are not a new service layer; they keep source acquisition, inspection, confirmation, and native writes separately testable.
 
 ```sh
 install_root() {
@@ -527,14 +556,14 @@ main() {
 main "$@"
 ```
 
-- [ ] **Step 6: Set mode and run GREEN.** Run `chmod +x bin/trust-caddy`, `sh -n bin/trust-caddy`, and `ruby test/packaging/caddy_trust_posix.rb`. Expect passing real-certificate validation, all three Linux mappings, macOS routing, cancellation, repeat-run, and partial-failure tests. No real `sudo`, trust import, Docker daemon, or CA-store write may occur in the tests.
-- [ ] **Step 7: Check cleanup explicitly.** Extend `test_all_native_store_mappings` with the assertion below and repeat the test. The expected set contains fixture, log, and fake installed certificate only:
+- [x] **Step 6: Set mode and run GREEN.** Run `chmod +x bin/trust-caddy`, `sh -n bin/trust-caddy`, and `ruby test/packaging/caddy_trust_posix.rb`. Expect passing real-certificate validation, all three Linux mappings, macOS routing, cancellation, repeat-run, and partial-failure tests. No real `sudo`, trust import, Docker daemon, or CA-store write may occur in the tests.
+- [x] **Step 7: Check cleanup explicitly.** Extend `test_all_native_store_mappings` with the assertion below and repeat the test. The expected set contains fixture, log, and fake installed certificate only:
 
 ```ruby
 assert_equal %w[ calls.log fixture.crt installed.crt ], Dir.children(@dir).sort
 ```
 
-- [ ] **Step 8: Commit.** Stage only Task 2 files and commit `feat: add opt-in Linux and macOS Caddy trust helper`.
+- [x] **Step 8: Commit.** Stage only Task 2 files and commit `feat: add opt-in Linux and macOS Caddy trust helper`.
 
 ## Task 3: Add the native Windows helper without elevating Docker
 
@@ -542,7 +571,7 @@ assert_equal %w[ calls.log fixture.crt installed.crt ], Dir.children(@dir).sort
 
 The root's self-signature must be verified, not inferred from equal subject/issuer names. Use `CryptVerifyCertificateSignatureEx` from Windows' built-in `crypt32.dll`; it supports the ECDSA certificates Caddy actually generates. An `X509Chain` with unknown-root errors ignored is not a substitute for checking the root signature.
 
-- [ ] **Step 1: Add the native subprocess tests.** Create this file. Run it once under each PowerShell edition on a Windows host. The `Start-Process` tripwire prevents unintended UAC elevation even if another mock is omitted.
+- [x] **Step 1: Add the native subprocess tests.** Created, including portable missing-feature RED assertions. Native execution under both Windows editions remains pending. The `Start-Process` tripwire prevents unintended UAC elevation even if another mock is omitted.
 
 ```ruby
 require "minitest/autorun"
@@ -761,7 +790,7 @@ end
 ```
 
 - [ ] **Step 2: Run RED on Windows.** In PowerShell run `$env:CADDY_TEST_POWERSHELL='powershell'; ruby test/packaging/caddy_trust_windows.rb`, then repeat with `'pwsh'`. Expect “missing Windows trust helper”, not an OpenSSL or Ruby setup error. On Linux the file should report native-Windows skips; that is not Windows verification.
-- [ ] **Step 3: Write validation and native read boundaries.** Create the first part of `bin/trust-caddy.ps1`:
+- [x] **Step 3: Write validation and native read boundaries.** Create the first part of `bin/trust-caddy.ps1`:
 
 ```powershell
 # Opt-in host trust for the current Compose project's Caddy local CA.
@@ -848,7 +877,7 @@ function Confirm-CaddyTrust {
 }
 ```
 
-- [ ] **Step 4: Append the certificate-only elevation adapter and workflow.** The immutable DER bytes and their confirmed SHA-256 are embedded as base64/hex, never shell-interpolated file paths. Only this import runs as administrator:
+- [x] **Step 4: Append the certificate-only elevation adapter and workflow.** The immutable DER bytes and their confirmed SHA-256 are embedded as base64/hex, never shell-interpolated file paths. Only this import runs as administrator:
 
 ```powershell
 function New-CaddyImportScript {
@@ -941,13 +970,13 @@ if ($MyInvocation.InvocationName -ne '.') {
 ```
 
 - [ ] **Step 5: Run GREEN in both editions.** Run the two Task 3 Step 2 commands again. Expect actual ECDSA signature validation and all mocked workflow/import/elevation tests to pass without a UAC dialog or trust-store modification. If Windows is unavailable, record it as unverified and require the native CI job in Task 6 before release.
-- [ ] **Step 6: Commit.** Stage the two Task 3 paths and commit `feat: add opt-in Windows Caddy trust helper`.
+- [x] **Step 6: Commit.** Stage the two Task 3 paths and commit `feat: add opt-in Windows Caddy trust helper`.
 
 ## Task 4: Distribute helpers through the existing installers
 
 **Files:** Create `test/packaging/caddy_trust_installers.rb`; modify only helper-download and final-guidance portions of `install.sh` and `install.ps1`.
 
-- [ ] **Step 1: Add isolated downloader tests.** Create this file; it extracts only the new downloader function, so testing never runs Docker installation, model selection, or the existing installer entry point.
+- [x] **Step 1: Add isolated downloader tests.** Create this file; it extracts only the new downloader function, so testing never runs Docker installation, model selection, or the existing installer entry point.
 
 ```ruby
 require "minitest/autorun"
@@ -1076,8 +1105,8 @@ class CaddyTrustInstallersTest < Minitest::Test
 end
 ```
 
-- [ ] **Step 2: Run RED.** Run `ruby test/packaging/caddy_trust_installers.rb`. Expect missing-downloader failures, with the other platform's behavior test skipped. Repeat on Windows under both PowerShell engines when available.
-- [ ] **Step 3: Add the complete POSIX downloader before `# Main installation` in `install.sh`.** The hard-link publication is atomic and refuses to overwrite an existing destination, including a concurrently created file:
+- [x] **Step 2: Run RED.** Run `ruby test/packaging/caddy_trust_installers.rb`. Expect missing-downloader failures, with the other platform's behavior test skipped. Native Windows repeats remain pending.
+- [x] **Step 3: Add the complete POSIX downloader before `# Main installation` in `install.sh`.** The hard-link publication is atomic and refuses to overwrite an existing destination, including a concurrently created file. The committed version uses `link`, not the superseded `ln` example below:
 
 ```sh
 download_caddy_trust_helper() {
@@ -1117,7 +1146,7 @@ Replace only the final `echo "Setup complete..."` inside `do_install` with:
   fi
 ```
 
-- [ ] **Step 4: Add the complete Windows downloader before `# Main installation` in `install.ps1`.** `File.Move` with two arguments refuses to overwrite an existing target on PowerShell 5.1 and 7:
+- [x] **Step 4: Add the complete Windows downloader before `# Main installation` in `install.ps1`.** `File.Move` with two arguments refuses to overwrite an existing target on PowerShell 5.1 and 7:
 
 ```powershell
 function Download-CaddyTrustHelper {
@@ -1156,13 +1185,13 @@ Replace only the final `Write-Host "Setup complete..."` inside `Do-Install` with
     }
 ```
 
-- [ ] **Step 5: Run GREEN and commit.** Run `sh -n install.sh` and `ruby test/packaging/caddy_trust_installers.rb`; run the Windows tests with both PowerShell engines. No network, Docker installation, or helper execution should occur in the tests. Commit only Task 4 paths as `feat: distribute optional Caddy trust helpers during setup`.
+- [x] **Step 5: Run available GREEN checks and commit.** Shell, portable PowerShell mocks, packaging, and syntax checks passed; native Windows runs remain pending. No network, Docker installation, or real helper execution occurred in the tests. Committed only Task 4 paths.
 
 ## Task 5: Document local trust, verification, and exact removal
 
 **Files:** Create `docs/LOCAL_HTTPS.md`; modify `README.md:142-150`, `CONTRIBUTING.md:60-70`, `docs/DEPLOYMENT.md` before its Caddy production example, `docs/ARCHITECTURE.md:810-814`, and `docs/DIAGRAMS.md:40`; extend `test/packaging/caddy_puma.rb`.
 
-- [ ] **Step 1: Add the documentation contract before writing the guide.** Add this public test method inside `CaddyPumaPackagingTest`:
+- [x] **Step 1: Add the documentation contract before writing the guide.** Add this public test method inside `CaddyPumaPackagingTest`:
 
 ```ruby
 def test_local_https_documentation_covers_all_platforms_without_normalizing_insecure_requests
@@ -1183,8 +1212,8 @@ def test_local_https_documentation_covers_all_platforms_without_normalizing_inse
 end
 ```
 
-- [ ] **Step 2: Run RED.** Run `ruby test/packaging/caddy_puma.rb`. Expect only the missing guide/link test to fail; preserve the earlier proxy/startup contract.
-- [ ] **Step 3: Write the complete local guide below.** Shell variables asking the reader for an actual fingerprint/path are interactive inputs, not unresolved plan details. Do not replace them with broad certificate-subject deletion commands.
+- [x] **Step 2: Run RED.** Run `ruby test/packaging/caddy_puma.rb`. Expect only the missing guide/link test to fail; preserve the earlier proxy/startup contract.
+- [x] **Step 3: Write the complete local guide below.** Shell variables asking the reader for an actual fingerprint/path are interactive inputs, not unresolved plan details. Do not replace them with broad certificate-subject deletion commands.
 
 ````markdown
 # Trusted local HTTPS
@@ -1334,7 +1363,7 @@ Remove-Item -LiteralPath $path -Confirm
 - The installers download helpers but never run them. If the helper download fails, use this manual guide. Existing helper files are preserved; review upstream changes and replace an old helper deliberately when upgrading.
 ````
 
-- [ ] **Step 4: Update the three entry points with these exact snippets.** Replace the README's current certificate-warning note with:
+- [x] **Step 4: Update the three entry points.** Replaced the README's current certificate-warning note and linked the reviewed canonical guide:
 
 ```markdown
 > **Local HTTPS:** Caddy signs `nosia.localhost` with its local CA. After starting Compose, optionally run `bin/trust-caddy` (Linux/macOS) or `.\bin\trust-caddy.ps1` (Windows) to review and trust its public root. See [Trusted local HTTPS](docs/LOCAL_HTTPS.md) for prerequisites, browser imports, verification, and removal. Public-domain deployment remains automatic; see the [Deployment Guide](docs/DEPLOYMENT.md).
@@ -1358,13 +1387,13 @@ Remove the single `- Thruster HTTP/2 proxy` bullet from the `web` service in `do
 │ Puma (port 3000) │                        │ • AddText        │
 ```
 
-- [ ] **Step 5: Run GREEN and commit.** Run `ruby test/packaging/caddy_puma.rb` and `git diff --check`. Review each command for exact-certificate targeting, no blanket deletion, and no normal use of insecure TLS bypass. Commit Task 5 files as `docs: explain local Caddy trust verification and removal`.
+- [x] **Step 5: Run GREEN and commit.** Run `ruby test/packaging/caddy_puma.rb` and `git diff --check`. Review each command for exact-certificate targeting, no blanket deletion, and no normal use of insecure TLS bypass. Commit Task 5 files as `docs: explain local Caddy trust verification and removal`.
 
 ## Task 6: Make cross-platform verification a CI gate
 
 **Files:** Extend `test/packaging/caddy_puma.rb` and `test/packaging/caddy_trust_windows.rb`; add one job to `.github/workflows/ci.yml` without replacing existing jobs.
 
-- [ ] **Step 1: Add the CI contract and PowerShell parse checks.** Add this method to `CaddyPumaPackagingTest`:
+- [x] **Step 1: Add the CI contract and PowerShell parse checks.** Add this method to `CaddyPumaPackagingTest`:
 
 ```ruby
 def test_ci_runs_isolated_helper_tests_on_all_host_platforms
@@ -1402,8 +1431,8 @@ def test_both_powershell_files_parse_in_this_native_engine
 end
 ```
 
-- [ ] **Step 2: Run RED.** Run `ruby test/packaging/caddy_puma.rb`. Expect the missing `trust_helpers` job to fail. The new Windows parse test runs under the already configured Task 3 engine commands on Windows.
-- [ ] **Step 3: Add this job under `jobs:` in `.github/workflows/ci.yml`.** It installs only the minimal test dependencies, not the application's native Rails bundle on Windows:
+- [x] **Step 2: Run RED.** Run `ruby test/packaging/caddy_puma.rb`. Expect the missing `trust_helpers` job to fail. The new Windows parse test runs under the already configured Task 3 engine commands on Windows.
+- [x] **Step 3: Add the job under `jobs:` in `.github/workflows/ci.yml`.** It installs only the minimal test dependencies, not the application's native Rails bundle on Windows; the committed version also selects compatible Homebrew OpenSSL on macOS:
 
 ```yaml
   trust_helpers:
@@ -1451,13 +1480,13 @@ end
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 ```
 
-- [ ] **Step 4: Run GREEN and commit.** Run `ruby test/packaging/caddy_puma.rb` and `git diff --check`. Check the GitHub Actions expression syntax without evaluating CI commands against the local machine. Commit Task 6 files as `ci: verify Caddy trust helpers across host platforms`.
+- [x] **Step 4: Run GREEN and commit.** Run `ruby test/packaging/caddy_puma.rb` and `git diff --check`. Check the GitHub Actions expression syntax without evaluating CI commands against the local machine. Commit Task 6 files as `ci: verify Caddy trust helpers across host platforms`.
 
 ## Task 7: Final regression, security review, and disposable smoke checks
 
 **Files:** No production code by default. Record observed results and platform limitations in `docs/LOCAL_HTTPS.md` under a short `## Maintainer verification` section.
 
-- [ ] **Step 1: Run all isolated tests in the implementation worktree.** On Unix:
+- [x] **Step 1: Run all available isolated tests in the implementation worktree.** Native Windows tests remain explicitly skipped on this Unix host:
 
 ```sh
 ruby test/packaging/caddy_puma.rb
@@ -1469,7 +1498,7 @@ sh -n install.sh
 
 Expected: all applicable tests pass; no real Docker, elevation, or trust-store writes. On native Windows use each Task 3 engine setting to run both `caddy_trust_windows.rb` and `caddy_trust_installers.rb`. A skipped Windows test on Linux does not satisfy the native platform gate.
 
-- [ ] **Step 2: Run application regressions and static checks with the project's configured test database.** These paths exist in the repository:
+- [x] **Step 2: Run available application regressions and static checks.** Recorded the approved provider baseline error and pre-existing lint/security findings. The installed offline Brakeman scanner was used instead of the network freshness-enforcing binstub; that exact binstub invocation was not run. Original command list:
 
 ```sh
 bin/rails test test/models/message/stream_buffer_test.rb test/integration/chat_composer_ui_test.rb
@@ -1481,7 +1510,7 @@ git diff --check
 
 Expected: existing streaming/composer behavior, the application suite, lint, and security checks remain green. If setup or a pre-existing failure blocks a command, record the exact failure separately; do not edit unrelated tests or call it passing. Use the repository's actual PostgreSQL setup rather than the generic SQLite description in global agent guidance.
 
-- [ ] **Step 3: Review privileged boundaries manually.** Check each of these before any native import smoke test:
+- [x] **Step 3: Review privileged boundaries manually.** Checked independently during implementation, per-task reviews, and final overall review:
 
   - Source is one public root copied over Docker, not a download from unverified HTTPS.
   - Certificate data is validated before inspection/confirmation and held as a canonical snapshot; no second Docker fetch occurs after confirmation.
@@ -1494,7 +1523,7 @@ Expected: existing streaming/composer behavior, the application suite, lint, and
   - Temporary cleanup is limited to directories/files created by this workflow.
   - Public HTTPS, Docker volumes, worker startup, migrations, and the user's local work remain intact.
 
-- [ ] **Step 4: Build and validate the real proxy in a disposable Linux/macOS test environment only.** This step assumes an already configured disposable Nosia checkout/`.env`, Docker Model Runner, and free ports 80/443. Do not run it against an existing production project. Build the local image and use this temporary Compose overlay so all Rails services use the changed image:
+- [ ] **Step 4: Build and validate the real proxy in a disposable Linux/macOS test environment only.** **NOT RUN: no disposable machine provided.** This step assumes an already configured disposable Nosia checkout/`.env`, Docker Model Runner, and free ports 80/443. Do not run it against an existing production project. Build the local image and use this temporary Compose overlay so all Rails services use the changed image:
 
 ```sh
 docker build -t nosia:caddy-puma-smoke .
@@ -1528,7 +1557,7 @@ curl --cacert "$smoke_dir/root.crt" --fail --output /dev/null "https://nosia.loc
 
 Expected: an actual stylesheet is served successfully. Verify chat streaming in a browser in that disposable machine after the native trust check below: log in through the existing flow, create a chat using its configured test model, and confirm tokens arrive incrementally and the composer unlocks when the response finishes. A passing Ruby stream-buffer test alone does not prove proxy-level streaming.
 
-- [ ] **Step 5: Perform native store checks only in disposable machines.** In the Step 4 Unix shell, select the same temporary project explicitly before running the helper:
+- [ ] **Step 5: Perform native store checks only in disposable machines.** **NOT RUN: no disposable machine provided; working host trust left unchanged.** In the Step 4 Unix shell, select the same temporary project explicitly before running the helper:
 
 ```sh
 export COMPOSE_PROJECT_NAME=nosia-caddy-smoke
@@ -1567,7 +1596,7 @@ curl.exe --fail https://nosia.localhost/up
 
 Perform exact-thumbprint removal using Task 5's guide, then verify that normal certificate validation fails. Confirm Docker runs in the unelevated parent and only the import receives a UAC prompt. Exercise both Windows PowerShell 5.1 and PowerShell 7, preserving the same CA between repeat runs. Do not claim native verification from mock-only CI.
 
-- [ ] **Step 6: Stop only the smoke project's containers; do not delete volumes.** On Unix:
+- [ ] **Step 6: Stop only the smoke project's containers; do not delete volumes.** **NOT APPLICABLE here: no smoke project was started.** On Unix:
 
 ```sh
 docker compose -p nosia-caddy-smoke -f docker-compose.yml -f "$smoke_dir/image.yml" down
@@ -1588,8 +1617,8 @@ Remove-Item Env:\COMPOSE_FILE
 
 Do not use `down -v`: preserving CA identity is a requirement and the database volume may contain test data worth retaining. Remove the exact host trust entry before removing the exported certificate. VM disposal is the final cleanup boundary for native smoke checks.
 
-- [ ] **Step 7: Record observed results, not anticipated ones.** Add a `## Maintainer verification` section to `docs/LOCAL_HTTPS.md` listing test date, OS/edition, isolated-test result, native trust/repeat/removal result, and proxy/asset/streaming result. Use “not run” with the actual reason for unavailable environments. Do not add fabricated PASS entries. Commit the verified record as `docs: record Caddy local HTTPS verification`.
-- [ ] **Step 8: Review the implementation against the approved spec and offer integration choices.** Report the precise tests run, platform gaps, final commits, and any remaining risks. Do not merge, publish, push, import a CA on the user's working host, or remove a worktree without the relevant authorization.
+- [x] **Step 7: Record observed results, not anticipated ones.** Added the reviewed `## Maintainer verification` section to `docs/LOCAL_HTTPS.md` with results and explicit gaps, committed as `docs: record Caddy local HTTPS verification`.
+- [x] **Step 8: Review the implementation against the approved spec.** Final overall code/spec/security review approved with no fixes requested, conditioned on pending acceptance checks. Preserved the branch/worktree without merging or pushing because full-suite/native acceptance is not green. No host CA imports or worktree removal performed.
 
 ## Spec coverage and execution handoff
 

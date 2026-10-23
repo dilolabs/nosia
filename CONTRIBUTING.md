@@ -69,6 +69,8 @@ Before you begin, ensure you have the following installed:
 
 5. Access the application at `https://nosia.localhost`
 
+**Optional local HTTPS trust:** After Docker startup, review and run `bin/trust-caddy` on Linux/macOS or `.\bin\trust-caddy.ps1` in native Windows PowerShell as your normal user. This is a separate opt-in, never part of `bin/setup` or ordinary startup. Read [Local HTTPS](docs/LOCAL_HTTPS.md) for prerequisites, machine-wide CA risks, fingerprint review, client verification, and exact removal.
+
 ### Option 2: Local Development
 
 1. Install Ruby dependencies:
