@@ -1,24 +1,23 @@
-<div class="n-title-container md:flex md:justify-between md:items-center">
-  <h2 class="n-main-title"><%= t("nosia.nav.accounts") %></h2>
-  <div>
-    <%= link_to t("nosia.accounts.add"), new_account_path, class: "n-btn-primary hidden md:inline-flex " %>
-  </div>
-</div>
+<% content_for :title, t("nosia.nav.accounts") %>
 
-<ul class="n-cards-grid !list-none">
-  <% @accounts.each do |account| %>
-    <li class="relative n-card border n-main-border xl:col-span-2">
-      <div class="h-32 pt-6 text-center n-main-hover">
-        <h5 class="n-card-title"><%= account.name %></h5>
-      </div>
-      <div class="absolute w-full bottom-0 px-2 pb-2 grid grid-cols-2 gap-2">
-        <%= link_to edit_account_path(account), class: "bg-white dark:bg-neutral-900 n-btn n-main-hover n-main-focus border n-main-border" do %>
-          <p><%= t("nosia.accounts.rename") %></p>
-        <% end %>
-        <%= link_to account_account_users_path(account), class: "bg-white dark:bg-neutral-900 n-btn n-main-hover n-main-focus border n-main-border" do %>
-          <p><%= t("nosia.nav.settings") %></p>
-        <% end %>
-      </div>
-    </li>
+<section class="n-accounts">
+  <header class="n-account-header">
+    <h1 class="n-main-title"><%= t("nosia.nav.accounts") %></h1>
+    <%= link_to t("nosia.accounts.add"), new_account_path, class: "n-account-primary" %>
+  </header>
+
+  <% if @accounts.empty? %>
+    <div class="n-account-panel">
+      <h2><%= t("nosia.account_experience.no_accounts") %></h2>
+      <p class="n-account-help"><%= t("nosia.account_experience.accounts_help") %></p>
+    </div>
+  <% else %>
+    <ul class="n-account-cards !list-none">
+      <% @accounts.each do |account| %>
+        <%= render "account", account: account, counts: @counts.fetch(account.id) %>
+      <% end %>
+    </ul>
   <% end %>
-</ul>
+
+  <%= render "pagination", page: @page, has_more: @has_more, base_path: accounts_path %>
+</section>

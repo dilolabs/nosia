@@ -11,9 +11,9 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
       post accounts_path, params: { account: { name: "New Account" } }
     end
 
-    assert_redirected_to accounts_path
-
     account = @user.accounts.find_by!(name: "New Account")
+    assert_redirected_to account_path(account)
+
     assert_equal @user, account.owner
     assert_equal 1, account.account_users.where(user: @user).count
     assert_equal 2, account.prompts.count

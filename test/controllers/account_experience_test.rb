@@ -1,0 +1,267 @@
+require "test_helper"
+require_relative "../support/account_experience_fixtures"
+
+class AccountExperienceTest < ActionDispatch::IntegrationTest
+  include AccountExperienceFixtures
+
+  setup do
+    sign_in_overview
+  end
+
+  test "directory exposes accessible account and new-conversation links" do
+    get accounts_path
+
+    assert_response :success
+    assert_select "[data-account-id]", count: 3
+    assert_select "a[href='#{account_path(@second)}']"
+    assert_select "a[href='#{new_chat_path(account_id: @second.id)}']"
+    refute_includes response.body, @foreign.name
+  end
+
+  test "hub uses second-account summaries without exposing other members' private data" do
+    get account_path(@second)
+
+    assert_response :success
+    assert_select "[data-conversation-id]", count: 5
+    assert_select "[data-source-type]", count: 4
+    assert_select "a[href='#{account_sources_path(@second, type: 'text')}']"
+    assert_select "a[href='#{account_token_usage_path(@second)}']"
+    assert_select "a[href='#{account_api_tokens_path(@second)}']"
+    assert_select "a[href='#{edit_account_path(@second)}']"
+    assert_includes response.body, "Shared research instructions"
+    refute_includes response.body, "Personal research override"
+    refute_includes response.body, "Member private question"
+    refute_includes response.body, "Alpha private question"
+    refute_includes response.body, experience(:api_tokens, :overview_second_token).token_digest
+    assert_select "a[href='#{account_sources_path(@second, status: 'failed')}']"
+    assert_select "a[href='#{account_sources_path(@second, status: 'pending')}']"
+    assert_select "dd", text: "900"
+    assert_select "dd", text: "100"
+    assert_select "#accordion-collapse, #drawer-right", count: 0
+    assert_equal @first, @user.first_account
+  end
+
+  test "member hub hides management but retains read-only prompt, own tokens, and account usage" do
+    sign_in_overview(@member)
+    get account_path(@second)
+
+    assert_response :success
+    assert_select "a[href='#{edit_account_path(@second)}']", count: 0
+    assert_select "a[href='#{account_account_users_path(@second)}']", count: 0
+    assert_select "a[href='#{account_system_prompt_path(@second)}']"
+    assert_select "a[href='#{account_api_tokens_path(@second)}']"
+    assert_select "a[href='#{account_token_usage_path(@second)}']"
+    assert_select "[data-conversation-id]", count: 1
+    assert_includes response.body, "Shared research instructions"
+    refute_includes response.body, "Personal research override"
+    refute_includes response.body, @user.email
+  end
+
+  test "history is private, account-specific, stable, and paginated" do
+    expected_ids = @second.conversations_for(@user).pluck(:id).map(&:to_s)
+    get account_chats_path(@second)
+
+    assert_response :success
+    assert_select "[data-conversation-id]", count: 25
+    assert_equal expected_ids.first(25), css_select("[data-conversation-id]").map { |row| row["data-conversation-id"] }
+    assert_select "a[rel=next][href='#{account_chats_path(@second, page: 2)}']"
+    assert_select "a[rel=prev]", count: 0
+    refute_includes response.body, "Member private question"
+    refute_includes response.body, "Alpha private question"
+
+    get account_chats_path(@second, page: 2)
+
+    assert_response :success
+    assert_select "[data-conversation-id]", count: 3
+    assert_equal expected_ids.drop(25), css_select("[data-conversation-id]").map { |row| row["data-conversation-id"] }
+    assert_select "a[rel=prev][href='#{account_chats_path(@second, page: 1)}']"
+    assert_select "a[rel=next]", count: 0
+
+    get account_path(@foreign)
+    assert_response :not_found
+    get account_chats_path(@foreign)
+    assert_response :not_found
+  end
+
+  test "empty hub reads do not create prompts chats sources or provider jobs" do
+    before = [ Prompt.count, Chat.count, Document.count, Text.count, Qna.count, Website.count ]
+
+    get account_path(@empty)
+
+    assert_response :success
+    assert_equal before, [ Prompt.count, Chat.count, Document.count, Text.count, Qna.count, Website.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+    assert_select "a[href='#{new_chat_path(account_id: @empty.id)}']", minimum: 1
+    assert_select "a[href='#{account_sources_path(@empty)}']", minimum: 1
+    assert_select ".n-account-prompt", text: /#{Regexp.escape(Prompts.system_prompt.first(100))}/
+    assert_empty @empty.prompts.reload
+  end
+
+  test "directory bounds accounts and provides separate navigation actions" do
+    accounts = Account.insert_all!(23.times.map { |index| { name: "Additional account #{index}", owner_id: @user.id } })
+    AccountUser.insert_all!(accounts.rows.map { |row| { account_id: row.first, user_id: @user.id } })
+    expected_ids = @user.accounts.order(:name, :id).pluck(:id).map(&:to_s)
+
+    get accounts_path
+
+    assert_response :success
+    assert_select "[data-account-id]", count: 24
+    assert_equal expected_ids.first(24), css_select("[data-account-id]").map { |row| row["data-account-id"] }
+    assert_select "a[rel=next][href='#{accounts_path(page: 2)}']"
+    assert_select "a a", count: 0
+
+    get accounts_path(page: 2)
+
+    assert_response :success
+    assert_select "[data-account-id]", count: 2
+    assert_equal expected_ids.drop(24), css_select("[data-account-id]").map { |row| row["data-account-id"] }
+    assert_select "a[rel=prev][href='#{accounts_path(page: 1)}']"
+    assert_select "a[rel=next]", count: 0
+  end
+
+  test "invalid page values fall back to the first page" do
+    [ "nonsense", "0", "-3", [ "2" ], { number: "2" } ].each do |page|
+      get accounts_path, params: { page: page }
+      assert_response :success
+      assert_select "[data-account-id]", count: 3
+      assert_select "a[rel=prev]", count: 0
+
+      get account_chats_path(@second), params: { page: page }
+      assert_response :success
+      assert_select "[data-conversation-id]", count: 25
+      assert_select "a[rel=prev]", count: 0
+    end
+  end
+
+  test "history ties use descending IDs and pages beyond the end remain actionable" do
+    @second.conversations_for(@user).update_all(updated_at: Time.utc(2026, 1, 4))
+    expected_ids = @second.conversations_for(@user).pluck(:id).map(&:to_s)
+
+    get account_chats_path(@second)
+    assert_response :success
+    assert_equal expected_ids.first(25), css_select("[data-conversation-id]").map { |row| row["data-conversation-id"] }
+
+    get account_chats_path(@second, page: 3)
+    assert_response :success
+    assert_select "[data-conversation-id]", count: 0
+    assert_select "a[rel=prev][href='#{account_chats_path(@second, page: 2)}']"
+    assert_select "a[rel=next]", count: 0
+    assert_select "a[href='#{new_chat_path(account_id: @second.id)}']", minimum: 1
+  end
+
+  test "query parameters cannot replace route account IDs" do
+    get account_path(@foreign), params: { id: @second.id }
+    assert_response :not_found
+
+    get account_chats_path(@foreign), params: { account_id: @second.id }
+    assert_response :not_found
+
+    get account_path(@second), params: { id: @foreign.id }
+    assert_response :success
+    assert_select "[data-account-overview='#{@second.id}']"
+
+    get account_chats_path(@second), params: { account_id: @foreign.id }
+    assert_response :success
+    assert_select "[data-conversation-id]", count: 25
+  end
+
+  test "revoked membership prevents owner hub and history reads" do
+    experience(:account_users, :overview_owner_second).destroy!
+
+    get account_path(@second)
+    assert_response :not_found
+
+    get account_chats_path(@second)
+    assert_response :not_found
+  end
+
+  test "authored account prompt and conversation text cannot inject markup" do
+    @second.update_columns(name: "<script>Account name</script>", uid: "<img src=x onerror=alert(1)>")
+    experience(:prompts, :overview_second_shared).update_columns(content: "<script>Shared prompt</script>")
+    experience(:messages, :overview_second_question_27).update_columns(content: "<context>Private evidence</context><b>Safe question</b>")
+    experience(:messages, :overview_second_question_26).update_columns(content: "<p> </p>")
+
+    get account_path(@second)
+
+    assert_response :success
+    assert_select "h1", text: @second.name
+    assert_select ".n-account-prompt", text: "<script>Shared prompt</script>"
+    assert_select "[data-conversation-id] a", text: "Safe question"
+    assert_select "[data-conversation-id] a", text: "Untitled conversation"
+    assert_select "main script, main img[onerror], [data-conversation-id] b", count: 0
+    refute_includes response.body, "Private evidence"
+  end
+
+  test "directory empty state offers account creation without global conversation drawers" do
+    @user.account_users.delete_all
+
+    get accounts_path
+
+    assert_response :success
+    assert_select "[data-account-id]", count: 0
+    assert_select "h2", text: "No accounts yet"
+    assert_select "a[href='#{new_account_path}']"
+    assert_select "#accordion-collapse, #drawer-right", count: 0
+  end
+
+  test "French account overview and history translate navigation and privacy labels" do
+    headers = { "Accept-Language" => "fr" }
+
+    get accounts_path, headers: headers
+    assert_response :success
+    assert_select "h1", text: "Comptes"
+    assert_select "a", text: "Voir le compte", count: 3
+
+    get account_path(@second), headers: headers
+    assert_response :success
+    assert_select "h2", text: "Vos conversations récentes"
+    assert_select "p", text: "Seules vos conversations sont affichées."
+    assert_select "p", text: "Depuis la création · tous les membres du compte"
+    assert_select 'main svg:not([aria-hidden="true"])', count: 0
+
+    get account_chats_path(@second), headers: headers
+    assert_response :success
+    assert_select "h2", text: "Vos conversations"
+    assert_select "a[rel=next]", text: "Suivant"
+    assert_select 'nav[aria-label="Pagination"]'
+  end
+
+  test "invalid account creation renders submitted details with 422" do
+    account = Account.new(name: "Rejected account", owner: @user)
+    account.errors.add(:name, :invalid)
+
+    with_creation_error(account) do
+      assert_no_difference [ "Account.count", "Prompt.count" ] do
+        post accounts_path, params: { account: { name: account.name } }
+      end
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "input[name='account[name]'][value='Rejected account']"
+  end
+
+  test "unrelated prompt validation errors are not rescued as account input errors" do
+    previous = Rails.application.env_config["action_dispatch.show_exceptions"]
+    Rails.application.env_config["action_dispatch.show_exceptions"] = :none
+    prompt = Prompt.new(content: "")
+    prompt.errors.add(:content, :blank)
+
+    with_creation_error(prompt) do
+      error = assert_raises(ActiveRecord::RecordInvalid) do
+        post accounts_path, params: { account: { name: "Valid account" } }
+      end
+      assert_equal prompt, error.record
+    end
+  ensure
+    Rails.application.env_config["action_dispatch.show_exceptions"] = previous
+  end
+
+  private
+    def with_creation_error(record)
+      original = Account.method(:create_with_system_prompt!)
+      Account.define_singleton_method(:create_with_system_prompt!) { |*| raise ActiveRecord::RecordInvalid, record }
+      yield
+    ensure
+      Account.define_singleton_method(:create_with_system_prompt!, original)
+    end
+end

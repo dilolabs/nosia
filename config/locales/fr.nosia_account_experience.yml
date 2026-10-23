@@ -1,0 +1,51 @@
+fr:
+  nosia:
+    account_experience:
+      view_account: Voir le compte
+      new_conversation: Nouvelle conversation
+      edit_account: Modifier le compte
+      sources: Sources de connaissances
+      view_sources: Voir toutes les sources
+      add_source: Ajouter une source
+      recent: Vos conversations récentes
+      history: Vos conversations
+      view_history: Voir l’historique
+      privacy: Seules vos conversations sont affichées.
+      usage: Utilisation du compte
+      usage_details: Détails de l’utilisation
+      lifetime: Depuis la création · tous les membres du compte
+      input: Jetons d’entrée
+      output: Jetons de sortie
+      tokens: jetons
+      prompt: Prompt système
+      default_prompt: Instructions par défaut du compte · Des instructions personnelles peuvent s’appliquer
+      view_prompt: Voir le prompt système
+      users: Utilisateurs du compte
+      manage_users: Gérer les utilisateurs
+      api_tokens: Vos jetons API
+      manage_tokens: Gérer vos jetons
+      no_sources: Ajoutez des sources pour enrichir les connaissances de ce compte. Vous pouvez déjà démarrer une conversation.
+      no_conversations: Votre historique privé de conversations apparaîtra ici.
+      no_tokens: Vous n’avez aucun jeton API pour ce compte.
+      no_accounts: Aucun compte pour le moment
+      accounts_help: Les comptes séparent les connaissances, les conversations et l’utilisation. Créez-en un pour commencer.
+      untitled: Conversation sans titre
+      pagination: Pagination
+      previous: Précédent
+      next: Suivant
+      breadcrumb: Fil d’Ariane
+      failed:
+        one: "%{count} source en échec · Consulter"
+        other: "%{count} sources en échec · Consulter"
+      processing:
+        one: "%{count} source en traitement · Consulter"
+        other: "%{count} sources en traitement · Consulter"
+      sources_count:
+        one: "%{count} source"
+        other: "%{count} sources"
+      conversations_count:
+        one: "%{count} conversation personnelle"
+        other: "%{count} conversations personnelles"
+      roles:
+        owner: Propriétaire
+        member: Membre

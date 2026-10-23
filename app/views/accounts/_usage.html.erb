@@ -1,0 +1,16 @@
+<section class="n-account-panel">
+  <div class="n-account-header">
+    <h2><%= t("nosia.account_experience.usage") %></h2>
+    <%= link_to t("nosia.account_experience.usage_details"), account_token_usage_path(@account), class: "n-account-link" %>
+  </div>
+  <p class="text-2xl font-semibold"><%= number_with_delimiter(@token_totals.values.sum) %> <%= t("nosia.account_experience.tokens") %></p>
+  <p class="n-account-help"><%= t("nosia.account_experience.lifetime") %></p>
+  <dl>
+    <% %i[input output].each do |kind| %>
+      <div class="n-account-conversation">
+        <dt><%= t("nosia.account_experience.#{kind}") %></dt>
+        <dd><%= number_with_delimiter(@token_totals.fetch(kind)) %></dd>
+      </div>
+    <% end %>
+  </dl>
+</section>

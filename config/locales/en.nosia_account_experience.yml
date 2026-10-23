@@ -1,0 +1,51 @@
+en:
+  nosia:
+    account_experience:
+      view_account: View account
+      new_conversation: New conversation
+      edit_account: Edit account
+      sources: Knowledge sources
+      view_sources: View all sources
+      add_source: Add source
+      recent: Your recent conversations
+      history: Your conversations
+      view_history: View history
+      privacy: Only your conversations are shown.
+      usage: Account usage
+      usage_details: Usage details
+      lifetime: Lifetime · all account members
+      input: Input tokens
+      output: Output tokens
+      tokens: tokens
+      prompt: System prompt
+      default_prompt: Account default · Personal overrides may apply
+      view_prompt: View system prompt
+      users: Account users
+      manage_users: Manage users
+      api_tokens: Your API tokens
+      manage_tokens: Manage your tokens
+      no_sources: Add sources to give this account more knowledge. You can already start a conversation.
+      no_conversations: Your private conversation history will appear here.
+      no_tokens: You have no API tokens for this account.
+      no_accounts: No accounts yet
+      accounts_help: Accounts keep knowledge, conversations, and usage separate. Create one to get started.
+      untitled: Untitled conversation
+      pagination: Pagination
+      previous: Previous
+      next: Next
+      breadcrumb: Breadcrumb
+      failed:
+        one: "%{count} failed source · Review"
+        other: "%{count} failed sources · Review"
+      processing:
+        one: "%{count} processing source · View"
+        other: "%{count} processing sources · View"
+      sources_count:
+        one: "%{count} source"
+        other: "%{count} sources"
+      conversations_count:
+        one: "%{count} of your conversations"
+        other: "%{count} of your conversations"
+      roles:
+        owner: Owner
+        member: Member

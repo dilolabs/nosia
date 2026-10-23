@@ -524,7 +524,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     headers = { "Accept-Language" => "fr" }
 
     patch account_url(@second), params: { account: { name: "Original English name" } }, headers: headers
-    assert_redirected_to accounts_url
+    assert_redirected_to account_url(@second)
     assert_equal "Le compte a été mis à jour.", flash[:notice]
     assert_equal "Original English name", @second.reload.name
 
