@@ -574,7 +574,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     assert_no_difference "AccountUser.count" do
       post account_account_users_url(@second), params: { account_user: { email: users(:picker_no_account).email } }, headers: headers
     end
-    assert_equal "Seul le propriétaire du compte peut gérer les membres.", flash[:alert]
+    assert_response :forbidden
   end
 
   test "French token management translates show once and clipboard feedback without exposing digests" do

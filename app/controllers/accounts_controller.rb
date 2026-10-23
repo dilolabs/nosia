@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
 class AccountsController < ApplicationController
+  include AccountScoped
+
   before_action :set_account, only: [ :edit, :update ]
+  before_action :require_account_owner, only: [ :edit, :update ]
 
   def index
     @accounts = Current.user.accounts.order(:name)
@@ -28,12 +31,11 @@ class AccountsController < ApplicationController
   end
 
   private
+    def set_account
+      @account = member_account(request.path_parameters.fetch(:id))
+    end
 
-  def account_params
-    params.require(:account).permit(:name, :uid)
-  end
-
-  def set_account
-    @account = Current.user.accounts.find(params[:id])
-  end
+    def account_params
+      params.require(:account).permit(:name, :uid)
+    end
 end
