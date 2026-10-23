@@ -7,13 +7,6 @@
   <div class="flex flex-wrap items-center gap-2">
     <%= render "language_preference" %>
     <div class="flex items-center">
-      <% if Current.user && Current.account %>
-        <button command="show-modal" commandfor="dialog" id="toggleSidebarMobileSearch" type="button" class="n-nav-link n-main-hover">
-          <span class="sr-only"><%= t("nosia.nav.search") %></span>
-          <%= inline_svg "svg/search.svg", aria_hidden: true, class:"w-5 h-5" %>
-        </button>
-        <%= render "search" %>
-      <% end %>
       <button id="theme-toggle" type="button" class="n-nav-link n-main-hover">
         <span class="sr-only"><%= t("nosia.nav.toggle_dark_mode") %></span>
         <%= inline_svg "svg/moon.svg", id: "theme-toggle-dark-icon", aria_hidden: true, class:"hidden h-6 w-6" %>
