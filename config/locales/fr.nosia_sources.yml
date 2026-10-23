@@ -1,4 +1,22 @@
 fr:
+  activerecord:
+    attributes:
+      document:
+        title: "Titre"
+        file: "Fichier"
+        account: "Compte"
+      text:
+        title: "Titre"
+        data: "Texte"
+        account: "Compte"
+      qna:
+        question: "Question"
+        answer: "Réponse"
+        account: "Compte"
+      website:
+        url: "URL"
+        data: "Données"
+        account: "Compte"
   nosia:
     time:
       ago: "il y a %{duration}"

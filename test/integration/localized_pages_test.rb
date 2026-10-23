@@ -5,6 +5,132 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   include ChatAccountFixtures
   include ActionView::RecordIdentifier
 
+  test "French skill creation translates labels without changing machine values or field names" do
+    sign_in_picker_user
+
+    get new_agent_skill_url, headers: { "Accept-Language" => "fr" }
+
+    assert_response :success
+    assert_select "h2", text: "Créer une compétence d’agent"
+    assert_select 'option[value="explicit"]', text: "Explicite"
+    assert_select 'option[value="llm"]', text: "LLM"
+    assert_select 'textarea[name="agent_skill[skill_content]"]'
+    assert_select 'label[for="agent_skill_execution_mode"]', text: "Mode d’exécution"
+    assert_select 'label[for="agent_skill_trigger_mode"]', text: "Mode de déclenchement"
+    assert_select 'label[for="agent_skill_priority"]', text: "Priorité"
+    assert_select 'label[for="agent_skill_enabled"]', text: "Activée"
+    assert_select 'option[value="ruby"]', text: "Ruby"
+    assert_select 'option[value="auto"]', text: "Automatique"
+    assert_select 'option[value="combined"]', text: "Combiné"
+    assert_select 'textarea[name="agent_skill[skill_content]"]' do |fields|
+      assert_equal "---\nname: my_skill\ndescription: Description de ma compétence\nexecution_mode: llm\ntrigger_mode: explicit\n---\n\n# Instructions\nSaisissez ici les instructions de votre compétence…", fields.first["placeholder"]
+    end
+  end
+
+  test "French skill read pages translate wrappers and preserve authored content metadata and enums" do
+    sign_in_picker_user
+    skill = agent_skills(:picker_first_skill)
+    skill.update_columns(description: "Original skill description", metadata: { "tags" => [ "original", "English" ] }, requires_rag_context: true)
+    original = skill.reload.attributes
+    headers = { "Accept-Language" => "fr" }
+
+    get agent_skills_url, headers: headers
+    assert_response :success
+    assert_select "h2", text: "Compétences d’agent"
+    assert_select "span.sr-only", text: "Désactiver la compétence"
+    assert_select "span", text: "Étiquettes :"
+    assert_select ".n-tag", text: "LLM"
+    assert_select ".n-tag", text: "Explicite"
+    assert_includes response.body, "original, English"
+
+    get agent_skill_url(skill), headers: headers
+    assert_response :success
+    assert_select "h2", text: skill.name
+    assert_select "p", text: "Original skill description"
+    assert_select "pre", text: skill.skill_content
+    assert_select "dt", text: "Contexte RAG"
+    assert_select "dd", text: "Oui"
+
+    get edit_agent_skill_url(skill), headers: headers
+    assert_response :success
+    assert_select "h2", text: "Modifier la compétence d’agent"
+    assert_select 'textarea[name="agent_skill[skill_content]"]', text: skill.skill_content
+    assert_select 'input[type="submit"][value="Mettre à jour la compétence"]'
+    assert_select 'main svg:not([aria-hidden="true"])', count: 0
+    assert_equal original, skill.reload.attributes
+  end
+
+  test "French skill notices use complete messages without changing saved instructions" do
+    sign_in_picker_user
+    headers = { "Accept-Language" => "fr" }
+    content = "---\nname: original-skill\ndescription: Original description\nexecution_mode: llm\ntrigger_mode: explicit\n---\nKeep these instructions."
+
+    post agent_skills_url, params: { agent_skill: { skill_content: content } }, headers: headers
+    assert_redirected_to agent_skills_url
+    assert_equal "La compétence d’agent a été créée", flash[:notice]
+    skill = @first.agent_skills.find_by!(name: "original-skill")
+    assert_equal content, skill.skill_content
+
+    patch agent_skill_url(skill), params: { agent_skill: { priority: 42 } }, headers: headers
+    assert_redirected_to agent_skills_url
+    assert_equal "La compétence d’agent a été mise à jour", flash[:notice]
+    assert_equal content, skill.reload.skill_content
+    assert_equal "Original description", skill.description
+    assert_equal %w[llm explicit], [ skill.execution_mode, skill.trigger_mode ]
+
+    [ "La compétence d’agent est désactivée", "La compétence d’agent est activée" ].each do |notice|
+      patch toggle_agent_skill_url(skill), headers: headers
+      assert_redirected_to agent_skills_url
+      assert_equal notice, flash[:notice]
+    end
+
+    delete agent_skill_url(skill), headers: headers
+    assert_redirected_to agent_skills_url
+    assert_equal "La compétence d’agent a été supprimée", flash[:notice]
+  end
+
+  test "French skill empty state and error headings use complete sentences" do
+    sign_in_picker_user
+    @first.agent_skills.destroy_all
+    headers = { "Accept-Language" => "fr" }
+
+    get agent_skills_url, headers: headers
+    assert_response :success
+    assert_select "p", text: "Aucune compétence d’agent pour le moment"
+    assert_select "p", text: "Créez votre première compétence pour enrichir les possibilités de votre assistant."
+    assert_select 'main svg:not([aria-hidden="true"])', count: 0
+
+    { "valid-skill" => "1 erreur empêche l’enregistrement de cette compétence :", "1bad" => "2 erreurs empêchent l’enregistrement de cette compétence :" }.each do |name, heading|
+      post agent_skills_url, params: { agent_skill: { name: name, priority: 101, skill_content: "Keep these instructions." } }, headers: headers
+      assert_response :unprocessable_entity
+      assert_select "h4", text: heading
+      assert_select "li", text: "Priorité doit être inférieur ou égal à 100"
+    end
+  end
+
+  test "standard model attribute labels translate in their owning catalogs" do
+    {
+      User => { email: [ "Email", "E-mail" ], password: [ "Password", "Mot de passe" ], password_confirmation: [ "Password confirmation", "Confirmation du mot de passe" ] },
+      Account => { name: [ "Name", "Nom" ], uid: [ "Uid", "UID" ], owner: [ "Owner", "Propriétaire" ] },
+      AccountUser => { user: [ "User", "Utilisateur" ], account: [ "Account", "Compte" ] },
+      ApiToken => { name: [ "Name", "Nom" ], account: [ "Account", "Compte" ] },
+      Chat => { account: [ "Account", "Compte" ], prompt: [ "Prompt", "Message" ] },
+      Message => { content: [ "Content", "Contenu" ], chat: [ "Chat", "Conversation" ] },
+      Document => { title: [ "Title", "Titre" ], file: [ "File", "Fichier" ], account: [ "Account", "Compte" ] },
+      Text => { title: [ "Title", "Titre" ], data: [ "Data", "Texte" ], account: [ "Account", "Compte" ] },
+      Qna => { question: [ "Question", "Question" ], answer: [ "Answer", "Réponse" ], account: [ "Account", "Compte" ] },
+      Website => { url: [ "Url", "URL" ], data: [ "Data", "Données" ], account: [ "Account", "Compte" ] },
+      McpServer => { name: [ "Name", "Nom" ], endpoint: [ "Endpoint", "Adresse du serveur" ], transport_type: [ "Transport type", "Type de transport" ], account: [ "Account", "Compte" ] },
+      AgentSkill => { name: [ "Name", "Nom" ], skill_content: [ "Skill content", "Contenu de la compétence" ], execution_mode: [ "Execution mode", "Mode d’exécution" ], trigger_mode: [ "Trigger mode", "Mode de déclenchement" ], priority: [ "Priority", "Priorité" ], enabled: [ "Enabled", "Activée" ], account: [ "Account", "Compte" ] },
+      Prompt => { content: [ "Content", "Instructions" ], name: [ "Name", "Nom" ] }
+    }.each do |model, attributes|
+      attributes.each do |attribute, (english, french)|
+        assert_equal english, model.human_attribute_name(attribute, locale: :en)
+        assert_equal french, model.human_attribute_name(attribute, locale: :fr)
+      end
+    end
+  end
+
   test "French MCP creation translates transport labels without changing form wiring" do
     sign_in_picker_user
 
@@ -633,7 +759,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_equal "fr", response.headers["Content-Language"]
     assert_equal original_locale, I18n.locale
-    assert_equal({ "error" => "Url est déjà utilisé(e)" }, response.parsed_body)
+    assert_equal({ "error" => "URL est déjà utilisé(e)" }, response.parsed_body)
   end
 
   test "French users without an account receive translated page and request feedback" do

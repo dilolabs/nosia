@@ -1,4 +1,16 @@
 fr:
+  activerecord:
+    attributes:
+      mcp_server:
+        name: "Nom"
+        endpoint: "Adresse du serveur"
+        transport_type: "Type de transport"
+        account: "Compte"
+  errors:
+    messages:
+      public_host_required: "doit désigner un hôte accessible publiquement"
+      stdio_disabled: "stdio nécessite MCP_STDIO_ENABLED sur ce déploiement"
+      missing_required_config: "Configuration requise manquante : %{fields}"
   nosia:
     mcp:
       title: "Serveurs MCP"

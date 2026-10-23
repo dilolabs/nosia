@@ -1,4 +1,16 @@
 en:
+  activerecord:
+    attributes:
+      mcp_server:
+        name: "Name"
+        endpoint: "Endpoint"
+        transport_type: "Transport type"
+        account: "Account"
+  errors:
+    messages:
+      public_host_required: "must point to a publicly routable host"
+      stdio_disabled: "stdio requires MCP_STDIO_ENABLED on this deployment"
+      missing_required_config: "Missing required config: %{fields}"
   nosia:
     mcp:
       title: "MCP Servers"

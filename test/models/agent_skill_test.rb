@@ -1,4 +1,5 @@
 require "test_helper"
+require_relative "../support/chat_account_fixtures"
 
 class AgentSkillTest < ActiveSupport::TestCase
   def setup
@@ -71,5 +72,32 @@ class AgentSkillTest < ActiveSupport::TestCase
     assert_includes invocable, explicit
     assert_includes invocable, combined
     assert_equal %w[combined-skill explicit-skill], invocable.map(&:name).sort
+  end
+end
+
+class LocalizedAgentSkillTest < ActiveSupport::TestCase
+  include ChatAccountFixtures
+
+  test "French skill name validation preserves authored instructions" do
+    skill = agent_skills(:picker_second_skill)
+    skill.name = nil
+    skill.skill_content = "---\nname: 1bad\ndescription: Sample\nexecution_mode: llm\ntrigger_mode: explicit\n---\nKeep these instructions."
+
+    I18n.with_locale(:fr) do
+      refute skill.valid?
+      assert_includes skill.errors[:name], "doit commencer par une lettre et ne contenir que des lettres, des chiffres, des tirets et des traits de soulignement"
+    end
+    assert_includes skill.skill_content, "Keep these instructions."
+  end
+
+  test "French missing skill metadata validation retains the original content" do
+    skill = @second.agent_skills.new(skill_content: "Keep these instructions.")
+
+    I18n.with_locale(:fr) do
+      refute skill.valid?
+      assert_includes skill.errors[:skill_content], "doit contenir un en-tête YAML valide avec au moins le champ 'name'"
+      assert_includes skill.errors.full_messages, "Contenu de la compétence doit contenir un en-tête YAML valide avec au moins le champ 'name'"
+    end
+    assert_equal "Keep these instructions.", skill.skill_content
   end
 end

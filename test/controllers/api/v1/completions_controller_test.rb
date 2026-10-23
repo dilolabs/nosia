@@ -44,6 +44,7 @@ class Api::V1::CompletionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "French browser preferences cannot alter or break committed SSE responses" do
+    patch "/language_preference", params: { locale: "fr" }
     with_local_completion do |requests|
       post "/v1/chat/completions", params: completion_params.merge(stream: true), headers: auth_headers.merge("Accept-Language" => "fr"), as: :json
 
@@ -52,6 +53,18 @@ class Api::V1::CompletionsControllerTest < ActionDispatch::IntegrationTest
       assert_includes response.body, "data: [DONE]"
       assert_includes response.body, "**Hello**"
       assert_provider_request(requests)
+    end
+  end
+
+  test "French header and cookie preserve English completion validation contracts" do
+    patch "/language_preference", params: { locale: "fr" }
+    with_local_completion do |requests|
+      post "/v1/completions", params: completion_params.except(:messages), headers: auth_headers.merge("Accept-Language" => "fr"), as: :json
+
+      assert_response :unprocessable_entity
+      assert_equal "en", response.headers["Content-Language"]
+      assert_equal "A user prompt or final user message is required", response.parsed_body["error"]
+      assert_empty requests
     end
   end
 

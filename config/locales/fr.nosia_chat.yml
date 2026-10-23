@@ -1,4 +1,15 @@
 fr:
+  activerecord:
+    attributes:
+      chat:
+        account: "Compte"
+        prompt: "Message"
+      message:
+        content: "Contenu"
+        chat: "Conversation"
+  errors:
+    messages:
+      immutable_chat_account: "ne peut pas être modifié après la création"
   nosia:
     chat:
       title: "Conversation avec l’IA"

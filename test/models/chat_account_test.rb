@@ -26,6 +26,17 @@ class ChatAccountTest < ActiveSupport::TestCase
     assert_equal @second.id, chat.reload.account_id
   end
 
+  test "French immutable account validation preserves the saved chat account" do
+    chat = chats(:picker_second_chat)
+
+    I18n.with_locale(:fr) do
+      refute chat.update(account: @first)
+      assert_includes chat.errors[:account], "ne peut pas être modifié après la création"
+      assert_includes chat.errors.full_messages, "Compte ne peut pas être modifié après la création"
+    end
+    assert_equal @second.id, chat.reload.account_id
+  end
+
   test "source attributes normalize references and reject other accounts under another tenant" do
     chat = chats(:picker_second_chat)
     own_id = websites(:picker_second_website).id

@@ -1,8 +1,8 @@
 <div class="n-title-container flex justify-between items-center">
   <h2 class="n-main-title"><%= @agent_skill.name %></h2>
   <div class="flex items-center gap-2">
-    <%= link_to "Edit", edit_agent_skill_path(@agent_skill), class: "n-btn-primary" %>
-    <%= link_to "Back", agent_skills_path, class: "n-btn" %>
+    <%= link_to t("nosia.actions.edit"), edit_agent_skill_path(@agent_skill), class: "n-btn-primary" %>
+    <%= link_to t("nosia.actions.back"), agent_skills_path, class: "n-btn" %>
   </div>
 </div>
 
@@ -11,17 +11,17 @@
     <div class="m-6 space-y-4">
       <div class="flex flex-wrap items-center gap-2">
         <span class="n-tag <%= @agent_skill.enabled? ? "n-tag-ready" : "n-tag-disconnected" %>">
-          <%= @agent_skill.enabled? ? "Enabled" : "Disabled" %>
+          <%= t(@agent_skill.enabled? ? "nosia.skills.enabled" : "nosia.skills.disabled") %>
         </span>
-        <span class="n-tag n-tag-disconnected"><%= @agent_skill.execution_mode.humanize %></span>
-        <span class="n-tag n-tag-disconnected"><%= @agent_skill.trigger_mode.humanize %></span>
+        <span class="n-tag n-tag-disconnected"><%= t("nosia.skills.execution.#{@agent_skill.execution_mode}") %></span>
+        <span class="n-tag n-tag-disconnected"><%= t("nosia.skills.trigger.#{@agent_skill.trigger_mode}") %></span>
         <% if @agent_skill.requires_rag_context %>
-          <span class="n-tag n-tag-connecting">Requires RAG context</span>
+          <span class="n-tag n-tag-connecting"><%= t("nosia.skills.requires_rag") %></span>
         <% end %>
       </div>
 
       <div>
-        <p class="n-label font-medium">Description</p>
+        <p class="n-label font-medium"><%= t("nosia.skills.description") %></p>
         <div class="text-sm text-neutral-700 dark:text-neutral-300">
           <%= simple_format(@agent_skill.description) %>
         </div>
@@ -29,19 +29,19 @@
 
       <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
         <div>
-          <dt class="text-neutral-500 dark:text-neutral-400">Execution mode</dt>
-          <dd class="font-medium"><%= @agent_skill.execution_mode.humanize %></dd>
+          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.execution_mode") %></dt>
+          <dd class="font-medium"><%= t("nosia.skills.execution.#{@agent_skill.execution_mode}") %></dd>
         </div>
         <div>
-          <dt class="text-neutral-500 dark:text-neutral-400">Trigger mode</dt>
-          <dd class="font-medium"><%= @agent_skill.trigger_mode.humanize %></dd>
+          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.trigger_mode") %></dt>
+          <dd class="font-medium"><%= t("nosia.skills.trigger.#{@agent_skill.trigger_mode}") %></dd>
         </div>
         <div>
-          <dt class="text-neutral-500 dark:text-neutral-400">RAG context</dt>
-          <dd class="font-medium"><%= @agent_skill.requires_rag_context ? "Yes" : "No" %></dd>
+          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.rag_context") %></dt>
+          <dd class="font-medium"><%= t(@agent_skill.requires_rag_context ? "nosia.skills.yes" : "nosia.skills.no") %></dd>
         </div>
         <div>
-          <dt class="text-neutral-500 dark:text-neutral-400">Priority</dt>
+          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.priority") %></dt>
           <dd class="font-medium"><%= @agent_skill.priority %></dd>
         </div>
       </dl>
@@ -50,7 +50,7 @@
 
   <div class="n-card n-main-border">
     <div class="m-6 space-y-3">
-      <h3 class="font-semibold">SKILL.md content</h3>
+      <h3 class="font-semibold"><%= t("nosia.skills.content") %></h3>
       <pre class="bg-neutral-100 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap"><%= @agent_skill.skill_content_text %></pre>
     </div>
   </div>

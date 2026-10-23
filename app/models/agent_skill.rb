@@ -13,7 +13,7 @@ class AgentSkill < ApplicationRecord
   validates :name, presence: true,
             uniqueness: { scope: :account_id },
             format: { with: /\A[a-zA-Z][a-zA-Z0-9_-]*\z/,
-                     message: "must start with a letter and contain only alphanumeric, underscore, and hyphen" }
+                     message: :invalid_skill_name }
   validates :execution_mode, presence: true
   validates :trigger_mode, presence: true
   validates :priority, numericality: { only_integer: true, greater_than_or_equal_to: 0, less_than_or_equal_to: 100 }
@@ -54,6 +54,6 @@ class AgentSkill < ApplicationRecord
   def validate_metadata_present
     return if name.present?
     return if metadata.present? && metadata["name"].present?
-    errors.add(:skill_content, "must contain valid YAML frontmatter with at least 'name' field")
+    errors.add(:skill_content, :missing_skill_metadata)
   end
 end

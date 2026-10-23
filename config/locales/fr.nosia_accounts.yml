@@ -1,4 +1,19 @@
 fr:
+  activerecord:
+    attributes:
+      account:
+        name: "Nom"
+        uid: "UID"
+        owner: "Propriétaire"
+      account_user:
+        user: "Utilisateur"
+        account: "Compte"
+      api_token:
+        name: "Nom"
+        account: "Compte"
+      prompt:
+        content: "Instructions"
+        name: "Nom"
   nosia:
     accounts:
       add: "Ajouter un compte"

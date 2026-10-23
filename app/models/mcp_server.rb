@@ -173,12 +173,12 @@ class McpServer < ApplicationRecord
     return if endpoint.blank?
 
     candidate = endpoint.match?(%r{\Ahttps?://}i) ? endpoint : "https://#{endpoint}"
-    errors.add(:endpoint, "must point to a publicly routable host") unless UrlGuard.safe?(candidate)
+    errors.add(:endpoint, :public_host_required) unless UrlGuard.safe?(candidate)
   end
 
   def stdio_transport_enabled_for_deployment
     unless self.class.stdio_enabled?
-      errors.add(:transport_type, "stdio requires MCP_STDIO_ENABLED on this deployment")
+      errors.add(:transport_type, :stdio_disabled)
     end
   end
 

@@ -1,4 +1,10 @@
 fr:
+  activerecord:
+    attributes:
+      user:
+        email: "E-mail"
+        password: "Mot de passe"
+        password_confirmation: "Confirmation du mot de passe"
   nosia:
     language:
       label: "Langue"
