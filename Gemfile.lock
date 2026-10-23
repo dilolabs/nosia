@@ -5,7 +5,7 @@ PATH
       httpx (~> 1.4)
       json-schema (>= 5.0, < 7)
       json_schemer (~> 2.4)
-      ruby_llm (= 2.0.0)
+      ruby_llm (= 2.1.1)
       zeitwerk (~> 2)
 
 GEM
@@ -141,7 +141,6 @@ GEM
     erubi (1.13.1)
     et-orbi (1.4.0)
       tzinfo
-    event_stream_parser (1.0.0)
     faraday (2.14.3)
       faraday-net_http (>= 2.0, < 3.5)
       json
@@ -244,7 +243,8 @@ GEM
     multipart-post (2.4.1)
     neighbor (1.0.0)
       activerecord (>= 7.2)
-    net-http (0.9.1)
+    net-http (0.10.0)
+      net-protocol (>= 0.3.0)
       uri (>= 0.11.1)
     net-imap (0.6.6)
       date
@@ -395,14 +395,13 @@ GEM
       rubocop-rails (>= 2.30)
     ruby-progressbar (1.13.0)
     ruby-rc4 (0.1.5)
-    ruby_llm (2.0.0)
+    ruby_llm (2.1.1)
       base64
-      event_stream_parser (~> 1)
-      faraday (>= 1.10.0)
+      faraday (>= 1.10.0, != 2.0.0)
       faraday-multipart (>= 1)
       faraday-net_http (>= 1)
       faraday-retry (>= 1)
-      json (< 3)
+      json (< 4)
       marcel (>= 1.0, < 3)
       schematist (~> 1.1)
       zeitwerk (~> 2)
@@ -456,7 +455,7 @@ GEM
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
     unicode-emoji (4.2.0)
-    uri (1.1.1)
+    uri (1.1.2)
     useragent (0.16.11)
     web-console (4.3.0)
       actionview (>= 8.0.0)
@@ -469,7 +468,7 @@ GEM
     websocket-extensions (0.1.5)
     xpath (3.2.0)
       nokogiri (~> 1.8)
-    zeitwerk (2.7.5)
+    zeitwerk (2.8.3)
 
 PLATFORMS
   aarch64-linux-gnu
@@ -516,7 +515,7 @@ DEPENDENCIES
   rails-i18n (~> 8.0)
   redis (>= 4.0.1)
   rubocop-rails-omakase
-  ruby_llm (= 2.0.0)
+  ruby_llm (= 2.1.1)
   ruby_llm-mcp!
   selenium-webdriver
   solid_queue
