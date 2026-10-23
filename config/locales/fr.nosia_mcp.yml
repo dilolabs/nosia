@@ -1,0 +1,5 @@
+fr:
+  nosia:
+    mcp:
+      title: "Serveurs MCP"
+      latency: "%{milliseconds} ms"

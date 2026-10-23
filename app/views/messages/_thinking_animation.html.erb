@@ -1,15 +1,14 @@
 <%
-  # Define icons and messages based on phase
-  phase_config = {
-    "preparing" => { icon: "💭", title: "Preparing", subtitle: "Starting up..." },
-    "indexing" => { icon: "📥", title: "Indexing", subtitle: "Indexing your attachments..." },
-    "searching" => { icon: "🔍", title: "Searching", subtitle: "Looking through your documents..." },
-    "retrieving" => { icon: "📚", title: "Retrieving", subtitle: "Retrieving relevant context..." },
-    "generating" => { icon: "✨", title: "Generating", subtitle: "Crafting the response..." },
-    "using_tool" => { icon: "🔧", title: "Using tool", subtitle: "Executing action..." }
+  phase_icons = {
+    "preparing" => "💭",
+    "indexing" => "📥",
+    "searching" => "🔍",
+    "retrieving" => "📚",
+    "generating" => "✨",
+    "using_tool" => "🔧",
+    "thinking" => "💭"
   }
-
-  config = phase_config[phase] || { icon: "💭", title: "Thinking", subtitle: "Processing..." }
+  phase = "thinking" unless phase_icons.key?(phase)
 %>
 
 <div class="flex items-center gap-3">
@@ -24,10 +23,10 @@
   <!-- Texte de phase avec animation de transition -->
   <div class="flex-1">
     <div class="text-sm font-medium text-neutral-700 dark:text-neutral-300 thinking-phase-text">
-      <%= config[:icon] %> <%= config[:title] %>
+      <%= phase_icons[phase] %> <%= t("nosia.chat.phases.#{phase}.title") %>
     </div>
     <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 thinking-subtext">
-      <%= message.presence || config[:subtitle] %>
+      <%= t("nosia.chat.phases.#{phase}.subtitle") %>
     </div>
   </div>
 </div>

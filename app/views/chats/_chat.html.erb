@@ -1,16 +1,16 @@
 <div id="<%= dom_id chat %>">
   <div>
-    <strong>Model:</strong>
-    <%= chat.model&.name || 'Default' %>
+    <strong><%= t("nosia.chat.model") %></strong>
+    <%= chat.model&.name || t("nosia.chat.default_model") %>
   </div>
 
   <div>
-    <strong>Messages:</strong>
+    <strong><%= t("nosia.chat.messages") %></strong>
     <%= chat.messages.count %>
   </div>
 
   <div>
-    <strong>Created:</strong>
-    <%= chat.created_at.strftime("%B %d, %Y at %I:%M %p") %>
+    <strong><%= t("nosia.chat.created") %></strong>
+    <%= l(chat.created_at, format: :short) %>
   </div>
 </div>

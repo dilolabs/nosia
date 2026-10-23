@@ -2,6 +2,7 @@
      data-controller="chat-reconnect chat-account"
      data-chat-reconnect-generating-value="<%= @chat.generating? %>"
      data-chat-account-account-id-value="<%= @chat.account_id %>"
+     data-chat-account-confirm-message-value="<%= t('nosia.chat.change_account') %>"
      data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture">
   <section data-controller="scroll" class="w-full overflow-y-auto">
     <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col max-w-4xl mx-auto">

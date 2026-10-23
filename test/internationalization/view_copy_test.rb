@@ -9,6 +9,13 @@ class ViewCopyTest < ActiveSupport::TestCase
     assert_localized_view_sources Dir.glob(Rails.root.join("app/views/{application,layouts,static,sessions,users,first_runs}/**/*.erb"))
   end
 
+  test "chat sources have no uncatalogued UI literals" do
+    usage_partials = %w[app/views/chats/_token_totals.html.erb app/views/messages/_token_footer.html.erb].map { |path| Rails.root.join(path).to_s }
+    paths = Dir.glob(Rails.root.join("app/views/{chats,messages,chat_mcp_sessions,dashboards,chunks}/**/*.erb"))
+
+    assert_localized_view_sources paths - usage_partials
+  end
+
   {
     "original sign in submit" => [ "Sign in", '<%= form.submit "Sign in", class: "n-btn-primary" %>' ],
     "original sign up submit" => [ "Sign up", '<%= form.submit "Sign up", class: "n-btn-primary" %>' ],

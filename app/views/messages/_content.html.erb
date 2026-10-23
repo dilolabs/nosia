@@ -1,5 +1,5 @@
 <% if message.response_content.present? %>
   <%== sanitized_markdown(message.response_content) %>
 <% else %>
-  <%= render "messages/thinking_animation", phase: "generating", message: "Generating response…" %>
+  <%= render "messages/thinking_animation", phase: "generating" %>
 <% end %>

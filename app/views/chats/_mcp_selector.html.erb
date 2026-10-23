@@ -8,7 +8,7 @@
     <div class="relative z-10 w-full max-w-2xl rounded-xl bg-white dark:bg-neutral-800 shadow-xl">
       <%# Header %>
       <div class="flex items-center justify-between border-b n-main-border px-6 py-4">
-        <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">MCP Servers</h3>
+        <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"><%= t("nosia.mcp.title") %></h3>
         <button type="button" data-action="click->mcp-selector#close" class="n-btn-icon n-main-hover n-main-focus text-neutral-400 hover:text-neutral-500 dark:hover:text-neutral-300">
           <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -30,7 +30,7 @@
                     <h4 class="font-medium text-neutral-900 dark:text-neutral-100 truncate"><%= server.name %></h4>
                     <span class="n-tag n-tag-ready">
                       <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
-                      <%= server.latency_ms %>ms
+                      <%= t("nosia.mcp.latency", milliseconds: server.latency_ms) %>
                     </span>
                   </div>
                   <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400 truncate"><%= server.endpoint || server.command %></p>
@@ -42,14 +42,14 @@
                       method: :delete,
                       data: { turbo_method: :delete },
                       class: "n-btn border n-main-border text-red-600 dark:text-red-300 n-main-hover-danger n-main-focus-danger" do %>
-                      Remove
+                      <%= t("nosia.actions.remove") %>
                     <% end %>
                   <% else %>
                     <%= button_to chat_mcp_sessions_path(chat, mcp_server_id: server.id),
                       method: :post,
                       data: { turbo_method: :post },
                       class: "n-btn-primary" do %>
-                      Add
+                      <%= t("nosia.actions.add") %>
                     <% end %>
                   <% end %>
                 </div>
@@ -58,8 +58,8 @@
           </div>
         <% else %>
           <div class="text-center py-8">
-            <p class="text-neutral-500 dark:text-neutral-400 mb-4">No ready MCP servers</p>
-            <%= link_to "Configure an MCP Server", mcp_servers_path, class: "n-btn-primary inline-flex items-center gap-2" %>
+            <p class="text-neutral-500 dark:text-neutral-400 mb-4"><%= t("nosia.chat.no_ready_servers") %></p>
+            <%= link_to t("nosia.chat.configure_server"), mcp_servers_path, class: "n-btn-primary inline-flex items-center gap-2" %>
           </div>
         <% end %>
       </div>
@@ -67,7 +67,7 @@
       <%# Footer %>
       <div class="flex justify-end gap-2 border-t n-main-border px-6 py-4">
         <button type="button" data-action="click->mcp-selector#close" class="n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary">
-          Close
+          <%= t("nosia.actions.close") %>
         </button>
       </div>
     </div>
