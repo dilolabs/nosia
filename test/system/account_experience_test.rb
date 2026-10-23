@@ -93,6 +93,42 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "history wraps long unbroken account names at 375 pixels" do
+    @second.update_columns(name: "ResearchAccount" * 12)
+    resize_account_viewport(375, 812)
+    visit account_chats_path(@second)
+
+    assert_current_path account_chats_path(@second)
+    assert_selector "h1", text: @second.name
+    assert_no_text "Member private question"
+    assert_no_selector "[data-conversation-id='#{experience(:chats, :overview_first_chat).id}']"
+    assert_no_selector "[data-conversation-id='#{experience(:chats, :overview_foreign_chat).id}']"
+    metrics = page.evaluate_script(<<~JS)
+      (() => {
+        const main = document.querySelector('main');
+        return {viewport: [innerWidth, innerHeight], scroll_width: main.scrollWidth, client_width: main.clientWidth,
+          heading_wrap: getComputedStyle(document.querySelector('h1')).overflowWrap};
+      })()
+    JS
+    record_account_evidence("history-long-name-375", metrics)
+    assert_main_without_horizontal_overflow
+    save_account_evidence("history-long-name-375")
+
+    [ "nav a[href='#{account_path(@second)}']", ".n-account-primary", "a[rel='next']" ].each do |selector|
+      action = find(selector)
+      page.execute_script("arguments[0].scrollIntoView({block: 'center'})", action)
+      assert action.visible?
+      assert page.evaluate_script(<<~JS, action), "History action must fit the viewport: #{selector}"
+        (() => {
+          const e = arguments[0], r = e.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return r.left >= 0 && r.right <= innerWidth && !!hit && (hit === e || e.contains(hit));
+        })()
+      JS
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "owner saves account details and creates a personal token in the same account" do
     visit account_path(@second)
     click_on "Edit account"

@@ -3,7 +3,7 @@
 
 <section class="n-accounts">
   <header class="n-account-header">
-    <h1 class="n-main-title"><%= @account.name %></h1>
+    <h1 class="n-main-title n-account-name"><%= @account.name %></h1>
     <%= link_to t("nosia.account_experience.new_conversation"), new_chat_path(account_id: @account.id), class: "n-account-primary" %>
   </header>
   <%= render "accounts/conversations", conversations: @conversations, titles: @titles, recent: false %>
