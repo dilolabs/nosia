@@ -11,7 +11,7 @@
 }
 
 .n-profile .n-field {
-  @apply min-h-11 min-w-0 border-neutral-500 text-neutral-900 focus:outline-green-700 dark:text-neutral-100 dark:focus:outline-green-400;
+  @apply min-h-11 min-w-0 border-neutral-500 text-neutral-900 focus:outline-green-700 dark:border-neutral-400 dark:text-neutral-100 dark:focus:outline-green-400;
 }
 
 .n-profile-secret {
