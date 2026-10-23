@@ -30,7 +30,7 @@
                     <h4 class="font-medium text-neutral-900 dark:text-neutral-100 truncate"><%= server.name %></h4>
                     <span class="n-tag n-tag-ready">
                       <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
-                      <%= t("nosia.mcp.latency", milliseconds: server.latency_ms) %>
+                      <%= t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms)) %>
                     </span>
                   </div>
                   <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400 truncate"><%= server.endpoint || server.command %></p>
