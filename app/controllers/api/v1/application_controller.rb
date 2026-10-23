@@ -18,6 +18,14 @@ module Api
 
       private
 
+      def request_locale
+        :en
+      end
+
+      def locale_varies_by_request?
+        false
+      end
+
       # Bearer-token authentication. Fails closed: an unknown token gets a 401,
       # never a silent fallthrough into nil-user code paths.
       def verify_api_key
