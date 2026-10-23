@@ -80,6 +80,7 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
   end
 
   test "second-account usage is account-wide even with an unrelated ambient tenant" do
+    callbacks_before = TokenUsagesController._process_action_callbacks.to_a
     first = @first
     restored_tenant = nil
     # Rails resets CurrentAttributes around requests, so install the ambient
@@ -106,7 +107,10 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
     get account_token_usage_path(@foreign)
     assert_response :not_found
   ensure
-    TokenUsagesController.skip_around_action with_ambient_tenant, only: :show
+    TokenUsagesController.skip_around_action with_ambient_tenant, raise: false
+    callbacks_after = TokenUsagesController._process_action_callbacks.to_a
+    assert_equal callbacks_before, callbacks_after,
+      "Callback chain must be restored exactly (#{callbacks_before.size} before, #{callbacks_after.size} after)"
   end
 
   test "malformed raw scoped filing accounts are rejected before token writes" do
