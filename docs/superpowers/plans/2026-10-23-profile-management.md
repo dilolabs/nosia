@@ -1111,7 +1111,7 @@ current progress is recorded below.
 | 2. Cards/localization | Implemented and both reviews approved; explicit partial paths tested across controller prefixes. |
 | 3. Update endpoints | Implemented and both reviews approved; includes shared counter, safe malformed-root/CSRF handling. |
 | 4. Browser behavior | Implemented and both reviews approved; mobile bottom-navigation focus clearance and dark border contrast corrected with regressions. |
-| 5. Security/docs | Implemented in `7c1c79a`; source/docs approved by both reviewers and final cross-feature review. Broader-suite baseline classification is being finalized. |
+| 5. Security/docs | Implemented in `7c1c79a`; source/docs approved by both reviewers and final cross-feature review. Full-suite failing cases and Brakeman warnings exactly match the pre-feature base. |
 
 No merge, push, or worktree removal is authorized by execution alone. Actual
 third-party password-manager integration remains untested; native autocomplete,
@@ -1127,8 +1127,11 @@ simulated autofill preservation, and clipboard paste have been verified.
   `chat_waiting_ux_test.rb`; an independent run on detached base `e722cd8`
   reproduced both exact `Unable to find field "Email"` errors.
 - Full Rails suite: **860 tests, 15 failures, 37 errors**, seed `17661`.
-  Detached base `e722cd8` reproduces all reported groups/counts in **799 tests**;
-  exact per-case comparison is being completed before making a broader claim.
+  Detached base `e722cd8` reproduces the same failures in **799 tests**.
+  All **52 failing test identities, failure/error types, and normalized primary
+  messages match exactly**; no added, removed, or changed failing cases. The only
+  raw-message difference is an anonymous-class object address, not an assertion
+  result. Global checks remain red; this is not an all-suite pass or merge approval.
 - Brakeman: three warning fingerprints/types/paths/messages exactly match the
   detached base; zero added warnings and no suppressions. Existing warnings are
   in API-token mass assignment, source-text XSS, and Rails end-of-support.
@@ -1137,6 +1140,12 @@ simulated autofill preservation, and clipboard paste have been verified.
 - Native keyboard traversal across all 11 controls remains unobscured by mobile
   navigation in both locales/themes; desktop 200% zoom, reduced motion, contrast,
   native no-JavaScript updates, paste, and history cleanup were exercised.
+
+Durable local comparison evidence: `/tmp/opencode/profile-feature-full-17661.log`,
+`/tmp/opencode/profile-baseline-full-17661.log`, and
+`/tmp/opencode/profile-baseline-verification.json`. The comparison is reproducible
+with `/tmp/opencode/profile-compare-full-17661.py`. Independent baseline system
+setup reproduction is in `/tmp/opencode/profile-baseline-system-errors-47945.log`.
 
 Use the isolated test database and explicit driver in this environment. The
 `SE_CHROMEDRIVER` environment variable alone does not bypass Rails' eager driver

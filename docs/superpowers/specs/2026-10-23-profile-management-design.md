@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23
 
-**Status:** Implemented on `feature/profile-management`; source/spec/quality reviews approved. Focused verification passes; broader-suite baseline classification is being finalized. Not merged.
+**Status:** Implemented on `feature/profile-management`; source/spec/quality reviews approved. Focused verification passes. All broader-suite failing cases were independently reproduced on the pre-feature base; global checks remain red. Not merged.
 
 ## Goal
 
