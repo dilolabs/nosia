@@ -2,8 +2,8 @@
 
 **Date:** 2026-10-23
 
-**Status:** Design sections approved. Written-specification review is pending;
-application implementation and implementation planning have not started.
+**Status:** Design and written specification approved. Implementation planning
+authorized; application implementation has not started.
 
 ## Goal
 
@@ -279,10 +279,12 @@ baseline failures rather than changing unrelated code or weakening assertions.
   updates, request/cache isolation, full navigation on language switch,
   bilingual static emergency pages, Rails locale data rather than a JavaScript
   i18n framework, and the stated verification scope.
+- "Go" after the committed specification was presented for review — approve
+  the written specification and authorize the implementation-plan step.
 
 ## Review and implementation gate
 
-The user approved the design in three sections. This document must be committed,
-self-reviewed, and reviewed by the user before invoking `writing-plans`.
-Design approval alone does not authorize application implementation. No
-application code or tests have been changed during brainstorming.
+The user approved the design in three sections, then approved the committed,
+self-reviewed specification. The `writing-plans` skill has been invoked.
+Implementation still requires the plan execution workflow and failing-test
+gates. No application code or tests were changed during brainstorming.
