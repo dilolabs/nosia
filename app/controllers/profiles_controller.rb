@@ -1,7 +1,4 @@
-class ProfilesController < ApplicationController
-  before_action -> { response.headers["Cache-Control"] = "no-store" }
-
+class ProfilesController < Profiles::BaseController
   def show
-    @user = Current.user
   end
 end
