@@ -16,7 +16,7 @@
   </li>
 <% end %>
 
-<div class="mx-auto max-w-2xl">
+<div class="mx-auto max-w-2xl pb-24 lg:pb-0">
   <div class="mb-6">
     <%= link_to mcp_catalog_index_path, class: "inline-flex items-center gap-1 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 n-main-focus rounded-lg" do %>
       <%= inline_svg_tag "svg/chevron-left.svg", aria: { hidden: true }, class: "h-4 w-4" %>
@@ -24,7 +24,7 @@
     <% end %>
   </div>
 
-  <div class="n-card n-main-border">
+  <div class="n-card n-main-border !block !whitespace-normal wrap-anywhere">
     <div class="border-b n-main-border px-6 py-4">
       <div class="flex items-start gap-4">
         <span class="text-5xl shrink-0" aria-hidden="true"><%= @template[:icon] %></span>
@@ -115,7 +115,7 @@
         <% end %>
       </div>
 
-      <div class="mt-8 flex gap-3">
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row">
         <%= link_to t("nosia.actions.cancel"), mcp_catalog_index_path, class: "flex-1 text-center n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
         <%= form.submit t("nosia.mcp.activate_named", name: @template[:name]), class: "flex-1 n-btn-primary" %>
       </div>
