@@ -109,6 +109,36 @@ class ProfilesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "profile page renders its cards and validation errors from another controller prefix" do
+    @user.errors.add(:current_password, :invalid)
+
+    html = ApplicationController.renderer.render(template: "profiles/show",
+      assigns: { user: @user, failed_section: :email }, layout: false)
+    page = Nokogiri::HTML.fragment(html)
+
+    assert_select page, "form#profile-email-form", count: 1
+    assert_select page, "form#profile-password-form", count: 1
+    assert_select page, "#profile_email_errors a[href='#profile_email_current_password']", text: "Current password is incorrect"
+    assert_select page, "#profile_email_current_password[aria-invalid=true]"
+    assert_select page, "#profile_password_errors", count: 0
+  end
+
+  { email: 2, password: 3 }.each do |section, field_count|
+    test "#{section} card renders fields and validation errors directly from another controller prefix" do
+      @user.errors.add(:current_password, :invalid)
+
+      html = ApplicationController.renderer.render(partial: "profiles/#{section}",
+        locals: { user: @user, errors: @user.errors }, layout: false)
+      page = Nokogiri::HTML.fragment(html)
+
+      assert_select page, "form#profile-#{section}-form", count: 1
+      assert_select page, ".n-field", count: field_count
+      assert_select page, "#profile_#{section}_errors a[href='#profile_#{section}_current_password']", text: "Current password is incorrect"
+      assert_select page, "#profile_#{section}_current_password[aria-invalid=true]"
+      assert_select page, "#profile_#{section}_current_password_error", text: "is incorrect"
+    end
+  end
+
   test "failed password rendering links summary and inline errors without retaining any secrets" do
     secret = "never-render-this-password"
     @user.password = secret

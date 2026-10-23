@@ -19,6 +19,6 @@
     <p class="n-profile-help"><%= t("nosia.profile.introduction") %></p>
   </header>
 
-  <%= render "email", user: @user, errors: (@failed_section == :email ? @user.errors : nil) %>
-  <%= render "password", user: @user, errors: (@failed_section == :password ? @user.errors : nil) %>
+  <%= render "profiles/email", user: @user, errors: (@failed_section == :email ? @user.errors : nil) %>
+  <%= render "profiles/password", user: @user, errors: (@failed_section == :password ? @user.errors : nil) %>
 </div>

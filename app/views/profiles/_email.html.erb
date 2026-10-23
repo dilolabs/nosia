@@ -4,10 +4,10 @@
 
   <%= form_with scope: :email_change, url: profile_email_path, method: :patch,
         id: "profile-email-form", class: "mt-4", data: { controller: "credential-form" } do |form| %>
-    <%= render "errors", section: :email, errors: errors %>
-    <%= render "field", form: form, section: :email, field: :email, value: user.email,
+    <%= render "profiles/errors", section: :email, errors: errors %>
+    <%= render "profiles/field", form: form, section: :email, field: :email, value: user.email,
           errors: errors, autocomplete: "username", hint: nil %>
-    <%= render "field", form: form, section: :email, field: :current_password, value: nil,
+    <%= render "profiles/field", form: form, section: :email, field: :current_password, value: nil,
           errors: errors, autocomplete: "current-password", hint: nil %>
 
     <p class="n-profile-help mt-4"><%= t("nosia.profile.email_hint") %></p>
