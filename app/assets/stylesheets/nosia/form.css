@@ -65,3 +65,7 @@
   focus:outline-2 focus:outline-offset-1 focus:outline-green-500
   dark:bg-neutral-700 dark:border-neutral-600;
 }
+
+.n-language-preference .n-select {
+  @apply h-8 w-auto cursor-pointer py-1 pl-2 pr-7 text-xs;
+}

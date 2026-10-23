@@ -49,10 +49,6 @@ class User < ApplicationRecord
     accounts.order(:created_at).first
   end
 
-  def recent_chats(limit: 5)
-    chats.order(:created_at).limit(limit)
-  end
-
   # Changes the email after verifying the persisted password, preserving browser sessions.
   # @param email [String, nil] The replacement email address.
   # @param current_password [String, nil] The password authorizing the change.

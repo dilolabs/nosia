@@ -9,14 +9,13 @@ class LocalizationSystemTest < ApplicationSystemTestCase
   teardown { Capybara.reset_sessions! }
 
   test "changing language reloads the current account URL and Turbo history stays French" do
-    sign_in_with_language("English", "en", "Sign in")
+    sign_in_with_language("EN", "en", "Sign in")
     url = new_chat_url(account_id: @second.id, model: "picker-test-model")
     visit url
     assert_selector "lexxy-editor[connected]"
     previous_origin = page.evaluate_script("performance.timeOrigin")
 
-    select "Français", from: "language_preference_locale"
-    click_button "Apply"
+    select "FR", from: "language_preference_locale"
 
     assert_selector "html[lang=fr]"
     assert_current_path url
@@ -102,8 +101,8 @@ class LocalizationSystemTest < ApplicationSystemTestCase
     Capybara.reset_sessions!
   end
 
-  test "French language controls wrap and remain keyboard accessible at 375px in both themes" do
-    sign_in_with_language("Français", "fr", "Se connecter")
+  test "French language switcher remains keyboard accessible at 375px in both themes" do
+    sign_in_with_language("FR", "fr", "Se connecter")
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 900, deviceScaleFactor: 1, mobile: false)
 
     [ new_chat_url(account_id: @second.id), sources_url ].each do |url|
@@ -112,19 +111,16 @@ class LocalizationSystemTest < ApplicationSystemTestCase
       [ false, true ].each do |dark|
         page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
         assert_equal 375, page.evaluate_script("innerWidth")
-        assert_selector "nav label[for=language_preference_locale]", text: "Langue"
+        assert_selector "nav label.sr-only[for=language_preference_locale]", text: "Langue", visible: :all
         assert_selector "nav select#language_preference_locale"
-        find("#language_preference_locale").send_keys(:tab)
-        assert_selector "nav form button:focus-visible", text: "Appliquer"
+        find("#language_preference_locale").send_keys(:escape)
+        assert_selector "#language_preference_locale:focus-visible"
         assert_language_control_geometry
       end
     end
 
     previous_origin = page.evaluate_script("performance.timeOrigin")
-    select "English", from: "language_preference_locale"
-    find("#language_preference_locale").send_keys(:tab)
-    assert_selector "nav form button:focus-visible", text: "Appliquer"
-    page.driver.browser.action.send_keys(:enter).perform
+    find("#language_preference_locale").send_keys(:end)
 
     assert_selector "html[lang=en]"
     assert_current_path sources_path
@@ -134,10 +130,63 @@ class LocalizationSystemTest < ApplicationSystemTestCase
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
 
+  test "language switcher is a single compact control in both locales and themes" do
+    visit root_url
+
+    { "EN" => "en", "FR" => "fr" }.each do |language, locale|
+      select language, from: "language_preference_locale"
+      assert_selector "html[lang=#{locale}]"
+
+      [ 320, 375, 1400 ].each do |width|
+        page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 900, deviceScaleFactor: 1, mobile: false)
+        [ false, true ].each do |dark|
+          page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
+          layout = page.evaluate_script(<<~JS)
+            (() => {
+              const form = document.querySelector('nav form[action="/language_preference"]');
+              const select = form.querySelector('select');
+              const label = form.querySelector('label');
+              const box = element => {
+                const { width, height } = element.getBoundingClientRect();
+                return { width, height };
+              };
+              return { select: box(select), form: box(form), label: box(label),
+                overflow: document.documentElement.scrollWidth - innerWidth };
+            })()
+          JS
+
+          assert_in_delta layout.dig("select", "height"), layout.dig("form", "height"), 1
+          assert_operator layout.dig("select", "width"), :<=, 80
+          assert_operator layout.dig("select", "height"), :>=, 32
+          assert_operator layout.dig("select", "height"), :<=, 36
+          assert_equal 1, layout.dig("label", "width")
+          assert_equal 1, layout.dig("label", "height")
+          assert_equal 0, layout.fetch("overflow")
+          assert_selector "nav form[action='/language_preference'] svg[aria-hidden=true]"
+          assert_no_selector "nav form[action='/language_preference'] button"
+        end
+      end
+    end
+  ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
+
+  test "choosing Auto immediately restores the browser language" do
+    visit root_url
+    find("#language_preference_locale option[value=fr]", visible: :all).select_option
+    assert_selector "html[lang=fr]"
+    previous_origin = page.evaluate_script("performance.timeOrigin")
+
+    select "Auto", from: "language_preference_locale"
+
+    assert_selector "html[lang=en]"
+    assert_selector "select#language_preference_locale option[value=auto][selected]", visible: :all
+    assert_not_equal previous_origin, page.evaluate_script("performance.timeOrigin")
+  end
+
   test "French oversized uploads show translated feedback and unblock sending when removed" do
     visit root_url
-    select "Français", from: "language_preference_locale"
-    click_button "Apply"
+    select "FR", from: "language_preference_locale"
     assert_button "Se connecter"
     fill_in "email", with: @user.email
     fill_in "password", with: ChatAccountFixtures::PASSWORD
@@ -171,8 +220,7 @@ class LocalizationSystemTest < ApplicationSystemTestCase
 
   test "French composer feedback uses the server dictionary and resets failed sources" do
     visit root_url
-    select "Français", from: "language_preference_locale"
-    click_button "Apply"
+    select "FR", from: "language_preference_locale"
     assert_button "Se connecter"
     fill_in "email", with: @user.email
     fill_in "password", with: ChatAccountFixtures::PASSWORD
@@ -211,7 +259,6 @@ class LocalizationSystemTest < ApplicationSystemTestCase
     def sign_in_with_language(language, locale, sign_in)
       visit root_url
       select language, from: "language_preference_locale"
-      click_button "Apply"
       assert_selector "html[lang=#{locale}]"
       fill_in "email", with: @user.email
       fill_in "password", with: ChatAccountFixtures::PASSWORD
@@ -220,7 +267,7 @@ class LocalizationSystemTest < ApplicationSystemTestCase
     end
 
     def localized_browsers
-      [ [ :english, "English", "en", "Sign in" ], [ :french, "Français", "fr", "Se connecter" ] ]
+      [ [ :english, "EN", "en", "Sign in" ], [ :french, "FR", "fr", "Se connecter" ] ]
     end
 
     def assert_language_control_geometry
@@ -232,7 +279,7 @@ class LocalizationSystemTest < ApplicationSystemTestCase
             const { left, right, top, bottom, width, height } = element.getBoundingClientRect();
             return { left, right, top, bottom, width, height };
           };
-          const controls = [...form.querySelectorAll('label, select, button')];
+          const controls = [...form.querySelectorAll('select')];
           const focus = document.activeElement;
           const style = getComputedStyle(focus);
           return {
@@ -245,8 +292,9 @@ class LocalizationSystemTest < ApplicationSystemTestCase
       JS
       assert_equal 0, layout.fetch("overflow")
       assert_equal "wrap", layout.fetch("wrap")
-      # At this width the selector group must flow below the logo, not overlap it.
-      assert_operator layout.fetch("controls").first.fetch("top"), :>=, layout.fetch("logo").fetch("bottom")
+      control = layout.fetch("controls").first
+      logo = layout.fetch("logo")
+      assert control.fetch("left") >= logo.fetch("right") || control.fetch("top") >= logo.fetch("bottom"), "Switcher must not overlap the logo"
       layout.fetch("controls").each do |box|
         assert_operator box.fetch("left"), :>=, 0
         assert_operator box.fetch("right"), :<=, 375
