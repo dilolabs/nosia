@@ -90,6 +90,26 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     assert_equal({ "error" => "Identifiant de pièce jointe non valide" }, response.parsed_body)
   end
 
+  test "French source validation errors retain the request locale after the action unwinds" do
+    sign_in_picker_user
+    original_locale = I18n.locale
+    website = websites(:picker_second_website)
+
+    # Simulate a lookup missing a competing registration, using real uniqueness validation.
+    register_duplicate = ->(account, url) { account.websites.create!(url: url) }
+    assert_no_difference "Website.count" do
+      with_singleton_replacement(Website, :find_or_create_by_url!, register_duplicate) do
+        post chat_sources_url, params: { account_id: @second.id, url: website.url },
+          headers: { "Accept-Language" => "fr" }, as: :json
+      end
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal "fr", response.headers["Content-Language"]
+    assert_equal original_locale, I18n.locale
+    assert_equal({ "error" => "Url est déjà utilisé(e)" }, response.parsed_body)
+  end
+
   test "French users without an account receive translated page and request feedback" do
     sign_in_picker_user(users(:picker_no_account))
     headers = { "Accept-Language" => "fr" }

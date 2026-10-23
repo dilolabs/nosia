@@ -2,7 +2,9 @@ class ChatSourcesController < ApplicationController
   include ChatAccountScoped
 
   rescue_from ActiveRecord::RecordInvalid do |error|
-    render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    I18n.with_locale(request_locale) do
+      render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    end
   end
 
   def create
