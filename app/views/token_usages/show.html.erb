@@ -3,7 +3,7 @@
   <h2 class="n-main-title mt-0.5"><%= t("nosia.usage.title") %></h2>
 </div>
 
-<%= render "summary", token_totals: @token_totals, green_summary: @green_summary,
+<%= render "summary", account: @usage_account, token_totals: @token_totals, green_summary: @green_summary,
                       tokens_by_kind: @tokens_by_kind, tokens_by_day: @tokens_by_day %>
 
 <%= render "transparency" %>
