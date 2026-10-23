@@ -1,0 +1,5 @@
+picker_api_token:
+  name: Deploy key
+  user: picker_owner
+  account: picker_first
+  token_digest: <%= ApiToken.digest("api-token-layout-test") %>
