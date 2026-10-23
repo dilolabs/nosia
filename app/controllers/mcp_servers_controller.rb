@@ -49,19 +49,29 @@ class McpServersController < ApplicationController
   # Test connection
   def test_connection
     if @mcp_server.test_connection!
-      render json: {
-        success: true,
-        status: @mcp_server.status,
-        latency: @mcp_server.latency_ms,
-        message: t("nosia.mcp.connection_established")
-      }
+      respond_to do |format|
+        format.html { redirect_to @mcp_server, status: :see_other, flash: { connection_test: "success" } }
+        format.json do
+          render json: {
+            success: true,
+            status: @mcp_server.status,
+            latency: @mcp_server.latency_ms,
+            message: t("nosia.mcp.connection_established")
+          }
+        end
+      end
     else
-      render json: {
-        success: false,
-        status: @mcp_server.status,
-        error: @mcp_server.last_error,
-        message: t("nosia.mcp.connection_failed")
-      }, status: :unprocessable_entity
+      respond_to do |format|
+        format.html { redirect_to @mcp_server, status: :see_other, flash: { connection_test: "error" } }
+        format.json do
+          render json: {
+            success: false,
+            status: @mcp_server.status,
+            error: @mcp_server.last_error,
+            message: t("nosia.mcp.connection_failed")
+          }, status: :unprocessable_entity
+        end
+      end
     end
   end
 

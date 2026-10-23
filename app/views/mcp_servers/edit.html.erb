@@ -23,5 +23,9 @@
       <%= t("nosia.mcp.edit_help") %>
     </p>
   </div>
+  <div class="mb-4 md:mb-0 md:text-right">
+    <%= button_to t("nosia.mcp.test_connection"), test_connection_mcp_server_path(@mcp_server), method: :post, data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, class: "n-btn min-w-48 border text-neutral-900 dark:text-neutral-100 n-main-border n-main-hover-tertiary n-main-focus-tertiary disabled:cursor-wait disabled:opacity-60" %>
+    <p class="mt-2 text-xs text-neutral-600 dark:text-neutral-400"><%= t("nosia.mcp.test_saved_configuration") %></p>
+  </div>
 </div>
 <%= render "form", mcp_server: @mcp_server %>

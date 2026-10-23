@@ -29,13 +29,15 @@
         <%= button_to t("nosia.mcp.connect"), connect_mcp_server_path(@mcp_server), method: :post, class: "n-btn border n-main-border n-main-hover n-main-focus" %>
       <% end %>
 
-      <%= button_to t("nosia.mcp.test_connection_short"), test_connection_mcp_server_path(@mcp_server), method: :post, data: { turbo: false }, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
+      <%= button_to t("nosia.mcp.test_connection_short"), test_connection_mcp_server_path(@mcp_server), method: :post, data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, class: "n-btn min-w-48 border text-neutral-900 dark:text-neutral-100 n-main-border n-main-hover-tertiary n-main-focus-tertiary disabled:cursor-wait disabled:opacity-60" %>
 
       <%= link_to t("nosia.actions.delete"), mcp_server_path(@mcp_server), data: { turbo_method: :delete, turbo_confirm: t("nosia.mcp.delete_confirm") }, class: "n-btn-danger" %>
     </div>
   </div>
 
-  <% if @mcp_server.last_error.present? %>
+  <% if flash[:connection_test].present? %>
+    <%= render "connection_test_result", server: @mcp_server, success: flash[:connection_test] == "success" %>
+  <% elsif @mcp_server.last_error.present? %>
     <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/10">
       <p class="text-sm font-medium text-red-800 dark:text-red-400"><%= t("nosia.mcp.last_error") %></p>
       <p class="mt-1 text-sm text-red-700 dark:text-red-300"><%= @mcp_server.last_error %></p>

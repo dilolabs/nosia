@@ -463,6 +463,8 @@ Beyond the catalog, you can add custom MCP servers:
 
 4. **Use in chats** - Enable the custom server for your conversations
 
+**Test connection** uses the saved server configuration. Save any edits first. While the test runs, the button shows a busy state; the server page then displays the result, response time, or error details with troubleshooting guidance.
+
 For more details on MCP integration, see the [MCP Documentation](https://modelcontextprotocol.io/).
 
 ## Managing Your Installation
