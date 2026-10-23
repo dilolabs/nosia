@@ -154,16 +154,39 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
       end
       assert_equal original, source.reload.attributes
     end
-  end
 
-  test "a revoked member cannot write sources" do
-    @second.account_users.find_by!(user: @user).destroy!
+    test "revoked membership denies every #{type} operation even for the account owner" do
+      source = experience(type.to_s.pluralize, "overview_second_#{type}")
+      path = public_send("account_sources_#{type}_path", @second, source)
 
-    assert_no_difference "Text.count" do
-      post account_sources_texts_path(@second), params: { text: { data: "No longer allowed" } }
-      assert_response :not_found
+      get path
+      assert_response :success
+      @second.account_users.find_by!(user: @user).destroy!
+      assert @first.account_users.exists?(user: @user)
+      assert_not @second.account_users.exists?(user: @user)
+      assert_equal @user.id, @second.reload.owner_id
+      original_sources = model.order(:id).map(&:attributes)
+
+      assert_no_enqueued_jobs only: INGESTION_JOBS do
+        assert_no_difference [ -> { model.count }, "ActiveStorage::Blob.count", "ActiveStorage::Attachment.count" ] do
+          get public_send("new_account_sources_#{type}_path", @second)
+          assert_response :not_found
+          get path
+          assert_response :not_found
+          get public_send("edit_account_sources_#{type}_path", @second, source)
+          assert_response :not_found
+          post public_send("account_sources_#{type.to_s.pluralize}_path", @second), params: { type => attributes_for_source(type) }
+          assert_response :not_found
+          patch path, params: { type => attributes_for_source(type) }
+          assert_response :not_found
+          delete path
+          assert_response :not_found
+          post public_send("account_sources_#{type}_retry_path", @second, source)
+          assert_response :not_found
+        end
+      end
+      assert_equal original_sources, model.order(:id).map(&:attributes)
     end
-    assert_no_enqueued_jobs only: INGESTION_JOBS
   end
 
   test "scoped source operations do not change the legacy first-account context" do
