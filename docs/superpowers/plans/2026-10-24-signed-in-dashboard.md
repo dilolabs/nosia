@@ -1111,7 +1111,7 @@ git commit -m "feat(dashboard): add balanced signed-in workspace"
 **Create:** `test/controllers/global_token_usage_test.rb`, `app/views/token_usages/_summary_content.html.erb`.
 **Modify:** `app/controllers/token_usages_controller.rb`, `app/views/token_usages/_summary.html.erb`, `app/views/token_usages/show.html.erb`, `test/controllers/accounts/scoped_tokens_usage_test.rb`.
 
-- [ ] **Step 1: Add global-report request tests.**
+- [x] **Step 1: Add global-report request tests.**
 
 ```ruby
 # test/controllers/global_token_usage_test.rb
@@ -1165,16 +1165,28 @@ class GlobalTokenUsageTest < ActionDispatch::IntegrationTest
   end
 
   test "global report renders without a default account and restores any ambient tenant" do
-    ActsAsTenant.with_tenant(@first) do
-      get token_usage_path
-      assert_select "[data-period-total][data-value='1057']"
-      assert_equal @first, ActsAsTenant.current_tenant
+    callbacks_before = TokenUsagesController._process_action_callbacks.to_a
+    first = @first
+    restored_tenant = nil
+    with_ambient_tenant = ->(_controller, action) do
+      ActsAsTenant.with_tenant(first) do
+        action.call
+        restored_tenant = ActsAsTenant.current_tenant
+      end
     end
+    TokenUsagesController.around_action with_ambient_tenant, only: :show
+    get token_usage_path
+    assert_response :success
+    assert_select "[data-period-total][data-value='1057']"
+    assert_equal @first, restored_tenant
     sign_in_overview(experience(:users, :overview_no_account))
     get token_usage_path
     assert_response :success
     assert_select "[data-period-total][data-value='0']"
     assert_select "[data-lifetime-total][data-value='0']"
+  ensure
+    TokenUsagesController.skip_around_action with_ambient_tenant, raise: false
+    assert_equal callbacks_before, TokenUsagesController._process_action_callbacks.to_a
   end
 end
 ```
@@ -1224,13 +1236,13 @@ ensure
 end
 ```
 
-- [ ] **Step 2: Run both request files and observe the intended old-scope failures.**
+- [x] **Step 2: Run both request files and observe the intended old-scope failures.**
 
 ```bash
 rails_test test test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb
 ```
 
-- [ ] **Step 3: Preserve the scoped branch and add the global report branch.**
+- [x] **Step 3: Preserve the scoped branch and add the global report branch.**
 
 ```ruby
 # app/controllers/token_usages_controller.rb
@@ -1254,7 +1266,7 @@ class TokenUsagesController < ApplicationController
 end
 ```
 
-- [ ] **Step 4: Extract existing summary markup unchanged, retaining its account-specific cache wrapper.** Use this read-only script to derive the new file contents once before replacing `_summary.html.erb`, then apply the printed result with the patch tool. This preserves the existing body rather than hand-recreating 134 lines and accidentally changing scoped markup or localization selectors; all file edits still use the patch tool.
+- [x] **Step 4: Extract existing summary markup unchanged, retaining its account-specific cache wrapper.** Use this read-only script to derive the new file contents once before replacing `_summary.html.erb`, then apply the printed result with the patch tool. This preserves the existing body rather than hand-recreating 134 lines and accidentally changing scoped markup or localization selectors; all file edits still use the patch tool.
 
 ```python
 from pathlib import Path
@@ -1305,7 +1317,7 @@ Replace `app/views/token_usages/show.html.erb` with:
 
 The global branch deliberately renders uncached content. Its exact 30-day chart comes from `_overview`; passing an empty `tokens_by_day` to lifetime content prevents the legacy scoped chart's older date arithmetic from being used for aggregate reporting. The scoped branch remains unchanged.
 
-- [ ] **Step 5: Run reporting, locale, and dashboard regressions together.**
+- [x] **Step 5: Run reporting, locale, and dashboard regressions together.**
 
 ```bash
 rails_test test test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/dashboards_controller_test.rb test/integration/token_usages_test.rb test/integration/localized_pages_test.rb test/internationalization/catalogs_test.rb test/controllers/account_experience_test.rb
@@ -1313,12 +1325,14 @@ rails_test test test/controllers/global_token_usage_test.rb test/controllers/acc
 
 The old `TokenUsagesTest` root assertion excludes the **detailed** environmental heading and per-model rows; it remains valid because the dashboard adds only the compact overview. Do not remove it or weaken the methodology/model-XSS tests.
 
-- [ ] **Step 6: Commit the reporting integration.**
+- [x] **Step 6: Commit the reporting integration.**
 
 ```bash
 git add app/controllers/token_usages_controller.rb app/views/token_usages/_summary.html.erb app/views/token_usages/_summary_content.html.erb app/views/token_usages/show.html.erb test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb
 git commit -m "feat(usage): align global reporting with dashboard memberships"
 ```
+
+**Task 5 execution:** Implemented in `f0e6bb3`, exactly six paths. RED: 19 runs / 279 assertions / five expected failures, seed 50520, exit 1. Initial GREEN exposed a test observing tenant state outside Rails' CurrentAttributes request boundary; observation now runs in a temporary `around_action`, with exact callback-chain cleanup asserted in `ensure`. Final GREEN: 112 runs / 11,512 assertions / no failures/errors, seed 38482, exit 0. Independent spec and quality reviews approved; the quality reviewer also ran an expanded 124-test / 11,592-assertion regression set successfully. Lint and whitespace passed. Logs: `/tmp/opencode/dashboard-task5-{red,green,lint,whitespace}.log`. Optional valid-member query-parameter scope coverage is included in Task 6's navigation test.
 
 ## Task 6: Verify the dashboard in a real browser and retain upload/composer coverage
 
@@ -1403,6 +1417,9 @@ class DashboardSystemTest < ApplicationSystemTestCase
       click_on "Usage details"
     end
     assert_current_path token_usage_path
+    assert_selector "[data-period-total][data-value='1057']"
+    assert_selector "[data-lifetime-total][data-value='1065']"
+    visit token_usage_path(account_id: @second.id)
     assert_selector "[data-period-total][data-value='1057']"
     assert_selector "[data-lifetime-total][data-value='1065']"
     find(".n-dashboard-daily-data summary").click
