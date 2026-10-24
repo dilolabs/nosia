@@ -53,6 +53,19 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".n-dashboard-compose [data-dropzone-target=container]", text: "Upload knowledge sources"
   end
 
+  test "composer preserves desktop new chat navigation in both locales without restoring drawers" do
+    %i[en fr].each do |locale|
+      get user_root_path, params: { account_id: @second.id, model: "overview-test-model" },
+        headers: { "Accept-Language" => locale.to_s }
+
+      assert_response :success
+      assert_select ".n-dashboard-compose .n-dashboard-section-heading > .hidden[class~='lg:block'] > a.n-dashboard-link[href='#{new_chat_path}']",
+        text: I18n.t("nosia.nav.new_chat", locale: locale), count: 1
+      assert_select "#accordion-right-actions, #drawer-right", count: 0
+      assert_equal @first, @user.first_account
+    end
+  end
+
   test "recent previews are personal escaped bounded and unchanged in storage" do
     chat = experience(:chats, :overview_first_chat)
     message = experience(:messages, :overview_first_question)
