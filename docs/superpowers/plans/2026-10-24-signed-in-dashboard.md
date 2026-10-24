@@ -1337,6 +1337,7 @@ git commit -m "feat(usage): align global reporting with dashboard memberships"
 ## Task 6: Verify the dashboard in a real browser and retain upload/composer coverage
 
 **Create:** `test/system/dashboard_test.rb`.
+**Conditional correction:** Modify `app/assets/stylesheets/nosia/dashboard.css` only if a failing browser assertion establishes a dashboard presentation defect. Keep any correction dashboard-scoped; do not alter shared composer behavior or unrelated page styling.
 **Retain unchanged:** `test/system/chat_account_selection_test.rb`, `test/system/chat_composer_ui_test.rb`, `test/system/localization_test.rb`, `test/system/sources_dropzone_test.rb`. These already cover PDF/source registration, retry/idempotency, upload removal, pending-upload submission guards, skill selection, draft reset, and French upload feedback on the root page.
 
 - [ ] **Step 1: Add browser tests for the new page-level behavior.** These supplement the earlier red request/model tests. They may pass immediately if those changes already implement the behavior. A newly discovered presentation defect must be reproduced by a failing browser assertion before a corrective application edit; do not weaken assertions or delete existing uploader tests to make the redesign pass.
@@ -1460,6 +1461,30 @@ class DashboardSystemTest < ApplicationSystemTestCase
     assert page.evaluate_script("Array.from(document.querySelectorAll('.n-dashboard-shortcut')).every(e => getComputedStyle(e).transitionDuration === '0s')")
   end
 
+  test "no-account setup guidance remains readable in both themes" do
+    page.driver.browser.manage.delete_all_cookies
+    visit root_url
+    fill_in "email", with: experience(:users, :overview_no_account).email
+    fill_in "password", with: AccountExperienceFixtures::PASSWORD
+    click_on "Sign in"
+    assert_selector "[data-dashboard]"
+    assert_selector "[data-chat-no-account]"
+    assert_no_selector "lexxy-editor"
+    assert_selector "[data-period-total][data-value='0']"
+    resize_dashboard(375, 812)
+    %w[light dark].each do |theme|
+      set_dashboard_theme(theme)
+      100.times do
+        page.send_keys(:tab)
+        break if page.evaluate_script("document.activeElement.matches('.n-dashboard-shortcut')")
+      end
+      assert_selector ".n-dashboard-shortcut:focus"
+      verify_dashboard_contrast
+      page.execute_script("document.querySelector('main').scrollTop = 0")
+      page.save_screenshot("#{@evidence_dir}/375-no-account-#{theme}.png")
+    end
+  end
+
   private
     def resize_dashboard(width, height)
       page.current_window.resize_to(width, height)
@@ -1537,11 +1562,13 @@ class DashboardSystemTest < ApplicationSystemTestCase
             const fg=blend(rgba(focus?s.outlineColor:s.color),bg),a=luminance(fg),b=luminance(bg);
             return {selector,minimum,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
           }
-          return [
+          const samples = [
             ...['.n-dashboard-heading h1','.n-dashboard-help','.n-dashboard-panel .n-dashboard-help',
               '.n-dashboard-shortcut strong','.n-dashboard-shortcut .n-dashboard-help','.n-dashboard-link'].map(s=>measure(s,false,4.5)),
             measure('.n-dashboard-shortcut svg',false,3),measure('.n-dashboard-shortcut:focus',true,3)
           ];
+          if (document.querySelector('[data-chat-no-account]')) samples.push(measure('[data-chat-no-account]',false,4.5));
+          return samples;
         })()
       JS
       rows.each { |row| assert_operator row.fetch("ratio"), :>=, row.fetch("minimum"), row.fetch("selector") }
@@ -1578,7 +1605,7 @@ Expected: compact/root/saved/new composer interactions and generic/scoped source
 - [ ] **Step 6: Commit browser coverage once all new targeted tests pass.**
 
 ```bash
-git add test/system/dashboard_test.rb
+git add test/system/dashboard_test.rb app/assets/stylesheets/nosia/dashboard.css
 git commit -m "test(dashboard): cover browser navigation and responsive accessibility"
 ```
 
