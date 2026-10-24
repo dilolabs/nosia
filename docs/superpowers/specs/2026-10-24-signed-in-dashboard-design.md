@@ -2,7 +2,7 @@
 
 Date: 2026-10-24
 
-Design approved in chat; written specification awaiting user review.
+Design and written specification approved by the user on 2026-10-24 (“Go”).
 
 ## Goal
 
@@ -326,3 +326,5 @@ are unnecessary for a 30-point overview.
   confirm shared read-only reporting, current-membership privacy, existing chat
   workflows, no-account/empty states, accessible presentation, test coverage,
   navigation/reload freshness, and exclusion of polling/custom date filters.
+- User reviewed the committed written specification and answered “Go”.
+  Rationale: approve the written design and proceed to implementation planning.
