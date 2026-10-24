@@ -3,8 +3,10 @@
     <li><%= link_to t("nosia.nav.accounts"), accounts_path, class: "n-account-link" %></li>
     <li aria-hidden="true">/</li>
     <% if title.present? %>
-      <li><%= link_to account.name, account_path(account), class: "n-account-link n-account-name" %></li>
-      <li aria-hidden="true">/</li>
+      <% if account.persisted? %>
+        <li><%= link_to account.name, account_path(account), class: "n-account-link n-account-name" %></li>
+        <li aria-hidden="true">/</li>
+      <% end %>
       <li aria-current="page"><%= title %></li>
     <% else %>
       <li aria-current="page" class="n-account-name"><%= account.name %></li>

@@ -1,21 +1,3 @@
 <% content_for :account_tool_title, t("nosia.account_experience.edit_account") %>
 
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.accounts"), accounts_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
-    <%= link_to @account.name, account_path(@account), class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.actions.edit_named", name: @account.name), edit_account_path(@account), class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="n-title-container">
-  <h2 class="n-main-title mt-0.5 mb-2"><%= t("nosia.accounts.edit", name: @account.name) %></h2>
-</div>
-
-<%= render "form", account: @account %>
+<%= render "form_page", account: @account, title: t("nosia.accounts.edit", name: @account.name) %>

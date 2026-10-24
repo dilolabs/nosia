@@ -62,8 +62,61 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
 
     get new_account_path
     assert_response :success
-    assert_select "nav[aria-label='Breadcrumb']", count: 0
+    assert_select "nav[aria-label='Breadcrumb']", count: 1 do
+      assert_select "a[href='#{accounts_path}']", text: "Accounts"
+      assert_select "[aria-current='page']", text: "New Account"
+      assert_select "a[href='#{account_path(@second)}']", count: 0
+      assert_select "a", count: 1
+    end
     assert_select "form a[href='#{accounts_path}']", text: "Cancel"
+  end
+
+  test "new and edit accounts share translated form presentation without changing their actions" do
+    @second.update_columns(name: "<script>Account name</script>", uid: "research-uid")
+
+    %i[en fr].each do |locale|
+      headers = { "Accept-Language" => locale.to_s }
+      [ [ new_account_path, false ], [ edit_account_path(@second), true ] ].each do |path, editing|
+        get path, headers: headers
+
+        assert_response :success
+        title = I18n.t(editing ? "nosia.accounts.edit" : "nosia.accounts.new", name: @second.name, locale: locale)
+        assert_select ".n-title-container h2.n-main-title.mt-0\\.5.mb-2", text: title
+        assert_select "nav[aria-label='#{I18n.t('nosia.account_experience.breadcrumb', locale: locale)}']" do
+          assert_select "a[href='#{accounts_path}']", text: I18n.t("nosia.nav.accounts", locale: locale)
+          assert_select "a", count: editing ? 2 : 1
+          assert_select "li[aria-hidden='true']", count: editing ? 2 : 1
+          assert_select "[aria-current='page']", text: I18n.t(editing ? "nosia.account_experience.edit_account" : "nosia.accounts.new", locale: locale)
+          assert_select "a[href='#{account_path(@second)}']", text: @second.name if editing
+        end
+        assert_select ".n-form-container form[action='#{editing ? account_path(@second) : accounts_path}'][method='post']" do
+          assert_select "input[name='_method'][value='patch']", count: editing ? 1 : 0
+          assert_select "label[for='account_name']", text: I18n.t("nosia.accounts.name", locale: locale)
+          assert_select "label[for='account_uid']", text: I18n.t("nosia.accounts.uid", locale: locale)
+          assert_select "input[name='account[name]']" do |fields|
+            assert_equal editing ? @second.name : "", fields.first["value"].to_s
+          end
+          assert_select "input[name='account[uid]']" do |fields|
+            assert_equal editing ? @second.uid : "", fields.first["value"].to_s
+          end
+          assert_select "input[type='submit'][value='#{I18n.t('nosia.actions.save', locale: locale)}']"
+          assert_select "a[href='#{editing ? account_path(@second) : accounts_path}']", text: I18n.t("nosia.actions.cancel", locale: locale)
+        end
+        assert_select "main script, main svg:not([aria-hidden='true'])", count: 0
+        assert_select "#accordion-right-actions, #drawer-right", count: 0
+      end
+    end
+  end
+
+  test "members can open the new account form but cannot edit account details" do
+    sign_in_overview(@member)
+
+    get new_account_path
+    assert_response :success
+    assert_select ".n-form-container form[action='#{accounts_path}']"
+
+    get edit_account_path(@second)
+    assert_response :forbidden
   end
 
   test "global tools retain their navbar and conversation drawers" do
@@ -359,6 +412,10 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
+    assert_select ".n-title-container h2.n-main-title.mb-2", text: "New Account"
+    assert_select "nav[aria-label='Breadcrumb'] [aria-current='page']", text: "New Account"
+    assert_select "nav[aria-label='Breadcrumb'] a", count: 1
+    assert_select ".n-form-container form[action='#{accounts_path}'][method='post']"
     assert_select "input[name='account[name]'][value='Rejected account']"
     assert_select "form [role='alert'] li", text: /Name/
     assert_select "form a[href='#{accounts_path}']", text: "Cancel"

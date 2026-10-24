@@ -155,6 +155,24 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "new and edit account forms have matching computed desktop presentation" do
+    verify_account_form_parity(1440, 1000)
+  end
+
+  test "new and edit account forms have matching computed mobile presentation" do
+    verify_account_form_parity(375, 812)
+  end
+
+  test "account form cancel links retain directory and account context" do
+    visit new_account_path
+    click_on "Cancel"
+    assert_current_path accounts_path
+
+    visit edit_account_path(@second)
+    click_on "Cancel"
+    assert_current_path account_path(@second)
+  end
+
   test "owner saves account details and creates a personal token in the same account" do
     visit account_path(@second)
     click_on "Edit account"
@@ -259,6 +277,72 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def verify_account_form_parity(width, height)
+      resize_account_viewport(width, height)
+      %w[light dark].each do |theme|
+        metrics = [ [ "new", new_account_path ], [ "edit", edit_account_path(@second) ] ].map do |name, path|
+          visit path
+          assert_selector "form #account_name"
+          set_account_theme(theme)
+          page.driver.browser.execute_async_script(<<~JS)
+            const done = arguments[0];
+            Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {}))).then(() => done());
+          JS
+          assert_main_without_horizontal_overflow
+          measurements = account_form_measurements
+          record_account_evidence("form-#{name}-#{width}-#{theme}", measurements)
+          save_account_evidence("form-#{name}-#{width}-#{theme}")
+          measurements
+        end
+
+        created, edited = metrics
+        assert_operator created.fetch("form_width"), :<=, 512
+        assert_operator created.fetch("form_width"), :>, 0
+        assert_in_delta created.fetch("main_center"), created.fetch("form_center"), 1
+        %w[form_width form_y card_x field_x].each do |property|
+          assert_in_delta created.fetch(property), edited.fetch(property), 0.5, "#{property} at #{width}px in #{theme}"
+        end
+        assert created.fetch("breadcrumb_fontSize"), "New account must have a semantic breadcrumb"
+        created.each do |property, value|
+          if value.is_a?(Numeric)
+            assert_in_delta value, edited.fetch(property), 0.5, "#{property} at #{width}px in #{theme}"
+          else
+            assert_equal value, edited.fetch(property), "#{property} at #{width}px in #{theme}"
+          end
+        end
+        assert_selector "nav[aria-label='Breadcrumb'] [aria-current='page']", text: "Edit account"
+        assert_no_enqueued_jobs only: ChatResponseJob
+      end
+    end
+
+    def account_form_measurements
+      page.evaluate_script(<<~JS)
+        (() => {
+          const form = document.querySelector('main form'), main = document.querySelector('main');
+          const wrapper = form.closest('.n-form-container') || form, heading = document.querySelector('main h2');
+          const breadcrumb = document.querySelector('nav[aria-label="Breadcrumb"]');
+          const data = {};
+          for (const [name, element] of Object.entries({form, wrapper, card: form.querySelector('.n-card'), field: form.querySelector('#account_name')})) {
+            const rect = element.getBoundingClientRect();
+            for (const key of ['x', 'y', 'width', 'height']) data[`${name}_${key}`] = rect[key];
+          }
+          data.main_center = main.getBoundingClientRect().x + main.clientLeft + parseFloat(getComputedStyle(main).paddingLeft) +
+            (main.clientWidth - parseFloat(getComputedStyle(main).paddingLeft) - parseFloat(getComputedStyle(main).paddingRight)) / 2;
+          data.form_center = data.form_x + data.form_width / 2;
+          for (const property of ['paddingTop', 'paddingBottom', 'maxWidth']) data[`wrapper_${property}`] = getComputedStyle(wrapper)[property];
+          for (const name of ['card', 'field']) {
+            const element = form.querySelector(name === 'card' ? '.n-card' : '#account_name');
+            data[`${name}_background`] = getComputedStyle(element).backgroundColor;
+            data[`${name}_color`] = getComputedStyle(element).color;
+          }
+          for (const property of ['fontSize', 'fontWeight', 'lineHeight', 'marginTop', 'marginBottom']) data[`heading_${property}`] = getComputedStyle(heading)[property];
+          data.heading_y = heading.getBoundingClientRect().y;
+          for (const property of ['fontSize', 'lineHeight', 'marginBottom', 'color']) data[`breadcrumb_${property}`] = breadcrumb ? getComputedStyle(breadcrumb)[property] : null;
+          return data;
+        })()
+      JS
+    end
+
     def take_failed_screenshot
       # Failure artifacts must never disclose a newly generated bearer token.
       page.execute_script("document.querySelectorAll('[data-clipboard-target=source]').forEach(e => { e.value = '[REDACTED]'; e.setAttribute('value', '[REDACTED]'); })")

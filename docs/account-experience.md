@@ -51,6 +51,11 @@ descending. Directory/history page inputs are normalized and bounded before SQL
 offset calculation. Existing non-account URLs remain supported. Account creation,
 editing, and the old account-settings landing page lead to the hub.
 
+New and Edit account pages share the same centered, padded form container,
+heading spacing, and semantic breadcrumb styling. New links back to Accounts;
+Edit retains the account hub in its breadcrumb and Cancel link. Invalid creation
+keeps the same presentation and submitted details with a 422 response.
+
 Recent and history conversation previews are limited to 120 characters including
 the Unicode ellipsis (`…`). Shorter titles remain unchanged, as do saved prompts
 and the full content displayed when opening a conversation.
@@ -117,7 +122,32 @@ Use the dedicated test-only database and dummy key described in
 Run processes sequentially; never reset a shared development/test database or run
 live providers/ingestion workers for these checks.
 
-### Final execution: 2026-10-24 (+02:00)
+### UI-correction verification: 2026-10-24
+
+The history-preview and New/Edit presentation corrections were tested first.
+History request/browser tests failed on the full-length preview; form request
+tests failed on the missing breadcrumb/heading spacing. Computed browser checks
+failed on desktop form width (512px versus 1343px) and mobile form top position
+(150px versus 188px), before the shared presentation was implemented.
+
+Using the dedicated environment prefix below, the fresh focused command was
+`bin/rails test test/controllers/account_experience_test.rb test/controllers/accounts_controller_test.rb test/controllers/accounts/administration_test.rb test/models/account_overview_test.rb test/integration/localized_pages_test.rb`:
+107 tests, 1678 assertions, no failures/errors/skips, exit 0 (seed 63137;
+`/tmp/opencode/account-ui-forms-green-request.log`). The browser command below,
+with `test/system/account_experience_test.rb`, passed 13 tests / 632 assertions,
+no failures/errors/skips, exit 0 (seed 59460;
+`/tmp/opencode/account-ui-forms-green-browser-final.log`).
+
+Paired New/Edit screenshots at 1440×1000 and 375×812 in light and dark were read:
+`/tmp/opencode/account-experience-form-{new,edit}-{1440,375}-{light,dark}.png`.
+Computed form/card/field geometry, heading spacing, and breadcrumb styles match;
+dark captures wait for theme transitions. Changed-test RuboCop and whitespace
+checks passed. No new CSS build was needed. Existing JSON duplicate-key warnings
+remain. No full-suite or security rerun is claimed for these UI corrections;
+the feature-wide results below are historical, and native 200% zoom is still
+unverified. Fresh specification and quality reviews remain required.
+
+### Historical feature-wide execution: 2026-10-24 (+02:00)
 
 Verified application/test revision: `ecfd9ce8b3a496284b2579737325d2505ddf08e1`,
 Ruby 4.0.7 / Rails 8.0.5.1 / PostgreSQL. This documentation-only change follows
