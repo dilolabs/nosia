@@ -205,7 +205,13 @@ class DashboardSystemTest < ApplicationSystemTestCase
           function blend(a,b){return a.slice(0,3).map((v,i)=>v*a[3]+b[i]*(1-a[3]));}
           function background(e){const ancestors=[];for(let a=e;a;a=a.parentElement)ancestors.unshift(a);return ancestors.reduce((bg,a)=>{const s=getComputedStyle(a);if(s.backgroundImage!=='none'||s.opacity!=='1')throw new Error('Unmeasured gradient/opacity');return blend(rgba(s.backgroundColor),bg);},[255,255,255]);}
           function luminance(rgb){return rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);}
-          function measure(selector,focus,minimum){const e=document.querySelector(selector),s=getComputedStyle(e),bg=background(focus?e.parentElement:e);const fg=blend(rgba(focus?s.outlineColor:s.color),bg),a=luminance(fg),b=luminance(bg);return {selector,minimum,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};}
+          function measure(selector,focus,minimum){
+            const e=Array.from(document.querySelectorAll(selector)).find(candidate=>candidate.getClientRects().length>0&&getComputedStyle(candidate).visibility==='visible');
+            if(!e)throw new Error(`No rendered visible contrast sample for ${selector}`);
+            const s=getComputedStyle(e),bg=background(focus?e.parentElement:e);
+            const fg=blend(rgba(focus?s.outlineColor:s.color),bg),a=luminance(fg),b=luminance(bg);
+            return {selector,minimum,text:e.textContent.trim(),visibility:s.visibility,rect_count:e.getClientRects().length,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
+          }
           const samples=[...['.n-dashboard-heading h1','.n-dashboard-help','.n-dashboard-panel .n-dashboard-help','.n-dashboard-shortcut strong','.n-dashboard-shortcut .n-dashboard-help','.n-dashboard-link'].map(s=>measure(s,false,4.5)),measure('.n-dashboard-shortcut svg',false,3),measure('.n-dashboard-shortcut:focus',true,3)];
           if(document.querySelector('[data-chat-no-account]'))samples.push(measure('[data-chat-no-account]',false,4.5));
           return samples;
