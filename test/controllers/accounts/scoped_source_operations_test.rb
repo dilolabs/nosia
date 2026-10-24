@@ -270,32 +270,49 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
     {
       html: { headers: { "Accept" => "text/html" } },
       turbo: { headers: { "Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml" } },
-      json_body_html_response: { as: :json, headers: { "Accept" => "text/html" } }
+      json_body_html_response: { as: :json, headers: { "Accept" => "text/html" } },
+      json_preferred_html_fallback: { as: :json, headers: { "Accept" => "application/json, text/html;q=0.9" } },
+      xml_preferred_html_fallback: { headers: { "Accept" => "application/xml, text/html;q=0.9" } }
     }.each do |format, options|
-      test "ordinary members can create and update scoped #{type} with #{format}" do
-        sign_in_overview(@member)
-        attributes = attributes_for_source(type).merge(account_id: @second.id)
-        created_attributes = attributes.dup
-        created_attributes[:url] = "https://member-created.example/reference" if type == :website
-        source = experience(type.to_s.pluralize, "overview_second_#{type}")
-        path = public_send("account_sources_#{type}_path", @second, source)
-
-        assert_difference -> { model.where(account: @second).count }, 1 do
-          assert_enqueued_jobs 1, only: INGESTION_JOBS do
-            post public_send("account_sources_#{type.to_s.pluralize}_path", @second), params: { type => created_attributes }, **options
+      %i[ create update ].each do |operation|
+        test "ordinary members can #{operation} scoped #{type} with #{format}" do
+          sign_in_overview(@member)
+          attributes = attributes_for_source(type).merge(account_id: @second.id)
+          source = experience(type.to_s.pluralize, "overview_second_#{type}")
+          path = if operation == :create
+            public_send("account_sources_#{type.to_s.pluralize}_path", @second)
+          else
+            public_send("account_sources_#{type}_path", @second, source)
           end
-        end
-        created = model.where(account: @second).order(:id).last
-        assert_redirected_to public_send("account_sources_#{type}_path", @second, created)
-        assert_enqueued_with job: ingestion_job(type), args: [ created.id ]
+          method = operation == :create ? :post : :patch
 
-        clear_enqueued_jobs
-        assert_enqueued_jobs 1, only: INGESTION_JOBS do
-          patch path, params: { type => attributes }, **options
+          assert_difference -> { model.where(account: @second).count }, operation == :create ? 1 : 0 do
+            assert_enqueued_jobs 1, only: INGESTION_JOBS do
+              public_send method, path, params: { type => attributes }, **options
+            end
+          end
+          source = operation == :create ? model.where(account: @second).order(:id).last : source.reload
+          assert_redirected_to public_send("account_sources_#{type}_path", @second, source)
+          assert_equal "text/html", response.media_type
+          assert_equal attributes.stringify_keys, source.attributes.slice(*attributes.keys.map(&:to_s))
+          assert_enqueued_with job: ingestion_job(type), args: [ source.id ]
         end
-        assert_redirected_to path
-        assert_equal attributes.stringify_keys, source.reload.attributes.slice(*attributes.keys.map(&:to_s))
-        assert_enqueued_with job: ingestion_job(type), args: [ source.id ]
+      end
+    end
+
+    test "#{type} explicit JSON writes reject an HTML Accept fallback without writes or jobs" do
+      source = experience(type.to_s.pluralize, "overview_second_#{type}")
+      headers = { "Accept" => "application/json, text/html;q=0.9" }
+
+      assert_no_changes -> { model.order(:id).map(&:attributes) } do
+        assert_no_enqueued_jobs do
+          post public_send("account_sources_#{type.to_s.pluralize}_path", @second, format: :json),
+            params: { type => attributes_for_source(type) }, as: :json, headers: headers
+          assert_response :not_acceptable
+          patch public_send("account_sources_#{type}_path", @second, source, format: :json),
+            params: { type => attributes_for_source(type) }, as: :json, headers: headers
+          assert_response :not_acceptable
+        end
       end
     end
 
@@ -309,6 +326,55 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
         end
       end
       assert_response :not_found
+    end
+  end
+
+  %i[ create update ].each do |operation|
+    test "invalid website scoped #{operation} returns HTML errors with a JSON preferred fallback" do
+      sign_in_overview(@member)
+      source = experience(:websites, :overview_second_website)
+      path = if operation == :create
+        account_sources_websites_path(@second)
+      else
+        account_sources_website_path(@second, source)
+      end
+      method = operation == :create ? :post : :patch
+
+      assert_no_changes -> { Website.order(:id).map(&:attributes) } do
+        assert_no_enqueued_jobs only: INGESTION_JOBS do
+          public_send method, path, params: { website: { account_id: @second.id, url: "", data: "Keep this content" } },
+            as: :json, headers: { "Accept" => "application/json, text/html;q=0.9" }
+        end
+      end
+      assert_response :unprocessable_entity
+      assert_equal "text/html", response.media_type
+      assert_select "[role='alert'] li", text: "Url can't be blank"
+      assert_select "form[action='#{path}']"
+      assert_select "input[type='hidden'][name='website[account_id]'][value='#{@second.id}']"
+      assert_select "lexxy-editor[name='website[data]'][attachments='false']" do |editors|
+        assert_equal Commonmarker.to_html("Keep this content"), editors.first["value"]
+      end
+    end
+  end
+
+  test "legacy website writes retain JSON validation responses with an HTML Accept fallback" do
+    sign_in_overview(@member)
+    source = experience(:websites, :overview_second_website)
+    attributes = { website: { url: "", data: "Keep this content" } }
+    headers = { "Accept" => "application/json, text/html;q=0.9" }
+
+    assert_no_changes -> { Website.order(:id).map(&:attributes) } do
+      assert_no_enqueued_jobs only: INGESTION_JOBS do
+        post sources_websites_path, params: attributes, as: :json, headers: headers
+        assert_response :unprocessable_entity
+        assert_equal "application/json", response.media_type
+        assert_equal [ "can't be blank" ], response.parsed_body.fetch("url")
+
+        patch sources_website_path(source), params: attributes, as: :json, headers: headers
+        assert_response :unprocessable_entity
+        assert_equal "application/json", response.media_type
+        assert_equal [ "can't be blank" ], response.parsed_body.fetch("url")
+      end
     end
   end
 
@@ -395,6 +461,7 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
       end
     end
     assert_response :created
+    assert_equal "application/json", response.media_type
     document = Document.find(response.parsed_body.fetch("id"))
     assert_equal @second.id, document.account_id
     assert_equal "Uploaded evidence", response.parsed_body.fetch("title")

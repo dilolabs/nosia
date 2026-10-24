@@ -33,8 +33,12 @@ module SourceScoped
     end
 
     def require_scoped_source_html
-      if @scoped_source_account && !request.negotiate_mime([ Mime[:html] ])
-        head :not_acceptable
+      if @scoped_source_account
+        if request.negotiate_mime([ Mime[:html] ])
+          request.format = :html
+        else
+          head :not_acceptable
+        end
       end
     end
 
