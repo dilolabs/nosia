@@ -1,0 +1,13 @@
+<%# locals: (shortcuts:) %>
+<section aria-labelledby="dashboard-shortcuts-title">
+  <h2 id="dashboard-shortcuts-title" class="text-base font-semibold"><%= t("nosia.dashboard.shortcuts_title") %></h2>
+  <nav class="n-dashboard-shortcuts" aria-labelledby="dashboard-shortcuts-title">
+    <% shortcuts.each do |shortcut| %>
+      <%= link_to shortcut.fetch(:path), class: "n-dashboard-shortcut", data: { dashboard_destination: shortcut.fetch(:key) } do %>
+        <%= inline_svg "svg/#{shortcut.fetch(:icon)}.svg", aria_hidden: true %>
+        <strong><%= t("nosia.dashboard.destinations.#{shortcut.fetch(:key)}") %></strong>
+        <span class="n-dashboard-help"><%= shortcut.fetch(:scope) %></span>
+      <% end %>
+    <% end %>
+  </nav>
+</section>

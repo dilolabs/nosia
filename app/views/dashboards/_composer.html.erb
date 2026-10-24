@@ -1,0 +1,17 @@
+<%# locals: (chat:) %>
+<section class="n-dashboard-panel n-dashboard-compose" aria-labelledby="dashboard-composer-title"
+         data-controller="chat-account" data-chat-account-account-id-value="<%= chat.account_id %>"
+         data-chat-account-confirm-message-value="<%= t('nosia.chat.change_account') %>"
+         data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture">
+  <h2 id="dashboard-composer-title"><%= t("nosia.dashboard.composer_title") %></h2>
+  <% if chat.account %>
+    <p class="n-dashboard-help"><%= t("nosia.dashboard.composer_help") %></p>
+  <% end %>
+  <%= render "chats/form", chat: chat %>
+  <% if chat.account %>
+    <%= render "source_upload", chat: chat %>
+  <% else %>
+    <p class="n-dashboard-help"><%= t("nosia.dashboard.no_account") %></p>
+    <%= link_to t("nosia.dashboard.setup_account"), accounts_path, class: "n-dashboard-link" %>
+  <% end %>
+</section>
