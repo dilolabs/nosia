@@ -1,6 +1,7 @@
 <%# Counters move via update_counters without touching the account row, so
     they must be part of the key or this fragment goes stale forever. %>
-<% cache [ I18n.locale, Current.account, Current.account.input_tokens_count, Current.account.output_tokens_count, "token-usage-summary" ] do %>
+<% summary_account = local_assigns.fetch(:account) { Current.account } %>
+<% cache [ I18n.locale, summary_account, summary_account.input_tokens_count, summary_account.output_tokens_count, "token-usage-summary" ] do %>
   <%
     total_input  = token_totals[:input]
     total_output = token_totals[:output]

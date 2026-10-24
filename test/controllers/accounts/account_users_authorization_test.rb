@@ -35,8 +35,7 @@ module Accounts
         post account_account_users_path(@account), params: { account_user: { email: @stranger.email } }
       end
 
-      assert_redirected_to account_account_users_path(@account)
-      assert_not flash[:alert].nil?
+      assert_response :forbidden
     end
 
     test "member cannot remove other members" do
@@ -47,7 +46,7 @@ module Accounts
         delete account_account_user_path(@account, owner_membership)
       end
 
-      assert_redirected_to account_account_users_path(@account)
+      assert_response :forbidden
     end
 
     test "the owner cannot be removed" do

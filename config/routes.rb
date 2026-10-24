@@ -26,10 +26,29 @@ Rails.application.routes.draw do
 
   # User routes
   constraints Authentication::Authenticated do
-    resources :accounts, only: [ :index, :new, :edit, :create, :update ] do
+    resources :accounts, only: [ :index, :show, :new, :edit, :create, :update ] do
       resources :account_users, only: [ :index, :create, :destroy ], module: :accounts
       resource :settings, only: [ :show ], module: :accounts
       resource :system_prompt, only: [ :show, :edit, :update ], module: :accounts
+
+      resources :chats, only: :index, module: :accounts
+      resources :sources, only: :index
+      resource :token_usage, only: :show, controller: "token_usages"
+      resources :api_tokens, only: [ :index, :create, :destroy ]
+      namespace :sources do
+        resources :documents, except: :index do
+          resource :retry, only: :create, module: :documents
+        end
+        resources :texts, except: :index do
+          resource :retry, only: :create, module: :texts
+        end
+        resources :qnas, except: :index do
+          resource :retry, only: :create, module: :qnas
+        end
+        resources :websites, except: :index do
+          resource :retry, only: :create, module: :websites
+        end
+      end
     end
     resources :api_tokens, only: [ :index, :create, :destroy ]
     resources :chats, only: [ :show, :new, :create, :destroy ] do

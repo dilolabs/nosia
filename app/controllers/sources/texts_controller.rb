@@ -1,10 +1,14 @@
 module Sources
   class TextsController < ApplicationController
+    include SourceScoped
+
+    before_action :verify_scoped_source_account, only: %i[ create update ]
     before_action :set_text, only: %i[ show edit update destroy ]
+    before_action :require_scoped_source_html, only: %i[ create update ]
 
     # GET /texts or /texts.json
     def index
-      redirect_to sources_path(type: "text")
+      redirect_to source_index_path(type: "text")
     end
 
     # GET /texts/1 or /texts/1.json
@@ -13,7 +17,7 @@ module Sources
 
     # GET /texts/new
     def new
-      @text = Current.account.texts.new
+      @text = source_account.texts.new
     end
 
     # GET /texts/1/edit
@@ -22,13 +26,13 @@ module Sources
 
     # POST /texts or /texts.json
     def create
-      @text = filing_account(:text).texts.new(text_params)
+      @text = source_filing_account(:text).texts.new(text_params)
 
       respond_to do |format|
         if @text.save
           AddTextJob.perform_later(@text.id)
-          format.html { redirect_to sources_text_url(@text), notice: t("nosia.sources.texts.created") }
-          format.json { render :show, status: :created, location: @text }
+          format.html { redirect_to source_response_path(@text), notice: t("nosia.sources.texts.created") }
+          format.json { render :show, status: :created, location: source_response_path(@text) }
         else
           format.html { render :new, status: :unprocessable_entity }
           format.json { render json: @text.errors, status: :unprocessable_entity }
@@ -41,7 +45,7 @@ module Sources
       respond_to do |format|
         if @text.update(text_params)
           AddTextJob.perform_later(@text.id)
-          format.html { redirect_to sources_text_url(@text), notice: t("nosia.sources.texts.updated") }
+          format.html { redirect_to source_response_path(@text), notice: t("nosia.sources.texts.updated") }
           format.json { render :show, status: :ok, location: @text }
         else
           format.html { render :edit, status: :unprocessable_entity }
@@ -52,10 +56,10 @@ module Sources
 
     # POST /texts/1/retry
     def retry
-      text = Current.account.texts.find(params[:id])
+      text = source_account.texts.find(params[:id])
       text.mark_pending!
       AddTextJob.perform_later(text.id)
-      redirect_to sources_path(type: "text"), notice: t("nosia.sources.texts.retrying")
+      redirect_to source_index_path(type: "text"), notice: t("nosia.sources.texts.retrying")
     end
 
     # DELETE /texts/1 or /texts/1.json
@@ -63,7 +67,7 @@ module Sources
       @text.destroy!
 
       respond_to do |format|
-        format.html { redirect_to sources_texts_url, notice: t("nosia.sources.texts.destroyed") }
+        format.html { redirect_to source_index_path(type: "text"), notice: t("nosia.sources.texts.destroyed") }
         format.json { head :no_content }
       end
     end
@@ -71,7 +75,7 @@ module Sources
     private
     # Use callbacks to share common setup or constraints between actions.
     def set_text
-      @text = Current.account.texts.find(params[:id])
+      @text = source_account.texts.find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.

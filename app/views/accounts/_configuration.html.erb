@@ -1,0 +1,24 @@
+<section class="n-account-panel">
+  <h2><%= t("nosia.account_experience.prompt") %></h2>
+  <p class="n-account-help"><%= t("nosia.account_experience.default_prompt") %></p>
+  <p class="n-account-prompt"><%= truncate(@shared_prompt.to_s, length: 240) %></p>
+  <%= link_to t("nosia.account_experience.view_prompt"), account_system_prompt_path(@account), class: "n-account-link" %>
+</section>
+
+<section class="n-account-panel">
+  <div class="n-account-conversation">
+    <h2><%= t("nosia.account_experience.users") %></h2>
+    <span><%= @users_count %></span>
+  </div>
+  <% if account_owner? %>
+    <%= link_to t("nosia.account_experience.manage_users"), account_account_users_path(@account), class: "n-account-link" %>
+  <% end %>
+  <div class="n-account-conversation">
+    <h2><%= t("nosia.account_experience.api_tokens") %></h2>
+    <span><%= @api_tokens_count %></span>
+  </div>
+  <% if @api_tokens_count.zero? %>
+    <p class="n-account-help"><%= t("nosia.account_experience.no_tokens") %></p>
+  <% end %>
+  <%= link_to t("nosia.account_experience.manage_tokens"), account_api_tokens_path(@account), class: "n-account-link" %>
+</section>

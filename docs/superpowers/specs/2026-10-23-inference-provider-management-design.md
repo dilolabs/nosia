@@ -1,6 +1,6 @@
 # Inference provider management, onboarding, and model selection
 
-**Status:** Design approved in conversation; final written specification awaiting user review. Application implementation has not started.
+**Status:** Written specification approved; implementation planning authorized. Application implementation has not started.
 
 **Date:** 2026-10-23
 
@@ -218,6 +218,7 @@ Cleanup may drop obsolete vector values while retaining cited chunk text/metadat
 
 ## Decisions
 
+- “Go” after the committed written specification was presented — Approve this written design and proceed to writing the implementation plan; this does not select an execution mode or authorize unplanned application changes.
 - “Good” to Design 3 — Approve versioned background index replacement, dimension-flexible pgvector storage with exact per-generation width validation, atomic cutover, safe failure/retry/cancel, historical citation preservation, retrieval-K-only updates without rebuilding, and explicit disclosure of exact-search performance at 4096 dimensions.
 - “Yes” to Design 2 — Approve named encrypted provider connections, isolated RubyLLM contexts, installed-model-first resource-aware recommendations, capability-aware generation controls, per-chat connection/model/options persistence, one-time migration, and HTTP-based Ollama downloads without required Docker Model Runner integration.
 - “Good” to Design 1 — Approve the detailed onboarding/workspace flow, proposed initial embedding/chunking/retrieval values, new-chat model picker, existing-chat model retention, access boundaries, progress UX, and preservation of Nosia's styling/localization.
@@ -251,4 +252,4 @@ Cleanup may drop obsolete vector values while retaining cited chunk text/metadat
 
 ## Review and execution gate
 
-The user approved all three presented design sections. No application implementation is authorized by that chat approval. Finalize/review and commit this written specification, obtain the user's explicit review of the committed file, then invoke writing-plans. Implementation remains behind the resulting plan and test-first gates.
+The user approved all three presented design sections and then approved the committed written specification with “Go.” The writing-plans skill has been invoked. Application execution remains behind the resulting implementation plan, execution-mode handoff, and test-first gates.

@@ -1,0 +1,14 @@
+<li class="n-account-panel" data-account-id="<%= account.id %>">
+  <div class="n-account-header">
+    <h2 class="n-account-name"><%= account.name %></h2>
+    <span class="n-account-role"><%= account_role_label(account) %></span>
+  </div>
+  <% if account.uid.present? %>
+    <p class="n-account-help"><%= account.uid %></p>
+  <% end %>
+  <p class="n-account-help"><%= t("nosia.account_experience.sources_count", count: counts[:sources]) %> · <%= t("nosia.account_experience.conversations_count", count: counts[:conversations]) %></p>
+  <div class="n-account-actions">
+    <%= link_to t("nosia.account_experience.view_account"), account_path(account), class: "n-account-link" %>
+    <%= link_to t("nosia.account_experience.new_conversation"), new_chat_path(account_id: account.id), class: "n-account-secondary" %>
+  </div>
+</li>

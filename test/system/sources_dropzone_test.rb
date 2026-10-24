@@ -6,10 +6,11 @@ class SourcesDropzoneTest < ApplicationSystemTestCase
     @account = Account.create!(name: "DZ Account", owner: @user)
     @account.account_users.grant_to(@user)
     ActsAsTenant.current_tenant = @account
-    visit login_url
-    fill_in "Email", with: @user.email
-    fill_in "Password", with: "testpassword123"
+    visit root_url
+    fill_in "email", with: @user.email
+    fill_in "password", with: "testpassword123"
     click_on "Sign in"
+    assert_selector "select[name='chat[account_id]']"
   end
 
   def teardown

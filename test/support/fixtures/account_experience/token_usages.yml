@@ -1,0 +1,12 @@
+overview_first_usage:
+  account: overview_first
+  kind: completion
+  model_id: overview-test-model
+  input_tokens: 10
+  output_tokens: 2
+overview_second_usage:
+  account: overview_second
+  kind: completion
+  model_id: overview-test-model
+  input_tokens: 900
+  output_tokens: 100

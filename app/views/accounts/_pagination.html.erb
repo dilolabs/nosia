@@ -1,0 +1,8 @@
+<nav class="n-account-actions" aria-label="<%= t('nosia.account_experience.pagination') %>">
+  <% if page > 1 %>
+    <%= link_to t("nosia.account_experience.previous"), "#{base_path}?#{ { page: page - 1 }.to_query }", class: "n-account-secondary", rel: "prev" %>
+  <% end %>
+  <% if has_more %>
+    <%= link_to t("nosia.account_experience.next"), "#{base_path}?#{ { page: page + 1 }.to_query }", class: "n-account-secondary", rel: "next" %>
+  <% end %>
+</nav>

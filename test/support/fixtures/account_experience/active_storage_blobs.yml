@@ -1,0 +1,1 @@
+overview_blob: <%= ActiveStorage::FixtureSet.blob(filename: "account_source.txt") %>

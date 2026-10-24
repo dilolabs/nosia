@@ -1,0 +1,20 @@
+overview_first:
+  name: Alpha team
+  uid: alpha-team
+  owner: overview_owner
+  input_tokens_count: 10
+  output_tokens_count: 2
+  created_at: 2026-01-01 00:00:00
+overview_second:
+  name: Research team
+  uid: research-team
+  owner: overview_owner
+  input_tokens_count: 900
+  output_tokens_count: 100
+  created_at: 2026-01-02 00:00:00
+overview_foreign:
+  name: Private team
+  owner: overview_outsider
+overview_empty:
+  name: Empty team
+  owner: overview_owner

@@ -1,0 +1,10 @@
+overview_first_text:
+  account: overview_first
+  title: Alpha evidence
+  data: Alpha evidence
+  index_status: 10
+overview_second_text:
+  account: overview_second
+  title: Research evidence
+  data: Research evidence
+  index_status: 20

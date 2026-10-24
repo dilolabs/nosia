@@ -3,6 +3,10 @@ require "yaml"
 
 class CatalogsTest < ActiveSupport::TestCase
   PLURAL_PATHS = %w[
+    nosia.account_experience.conversations_count
+    nosia.account_experience.failed
+    nosia.account_experience.processing
+    nosia.account_experience.sources_count
     nosia.chat.sources
     nosia.sources.pasted_words
     nosia.sources.types.document

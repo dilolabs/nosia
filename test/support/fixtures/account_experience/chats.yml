@@ -1,0 +1,24 @@
+overview_first_chat:
+  account: overview_first
+  user: overview_owner
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:overview_model) %>
+overview_foreign_chat:
+  account: overview_foreign
+  user: overview_outsider
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:overview_model) %>
+overview_member_chat:
+  account: overview_second
+  user: overview_member
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:overview_model) %>
+overview_child_chat:
+  account: overview_second
+  user: overview_owner
+  chat: overview_second_chat_0
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:overview_model) %>
+<% 28.times do |i| %>
+overview_second_chat_<%= i %>:
+  account: overview_second
+  user: overview_owner
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:overview_model) %>
+  updated_at: <%= (Time.utc(2026, 1, 4) + i.minutes).iso8601 %>
+<% end %>

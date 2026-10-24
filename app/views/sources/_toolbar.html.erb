@@ -1,11 +1,11 @@
 <%# locals: type, status, sort, query %>
 <div class="flex flex-wrap gap-3 items-center mb-4">
-  <%= form_with url: sources_path, method: :get, class: "flex-1 min-w-[180px]" do |f| %>
+  <%= form_with url: source_index_path, method: :get, class: "flex-1 min-w-[180px]" do |f| %>
     <%= f.hidden_field :type, value: type %>
     <%= f.hidden_field :status, value: status %>
     <%= f.search_field :q, value: query, placeholder: t("nosia.sources.search"), class: "w-full n-field" %>
   <% end %>
-  <%= form_with url: sources_path, method: :get,
+  <%= form_with url: source_index_path, method: :get,
         data: { controller: "auto-submit", action: "change->auto-submit#submit" } do |f| %>
     <%= f.hidden_field :type, value: type %>
     <%= f.hidden_field :status, value: status %>

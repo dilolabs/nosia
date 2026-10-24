@@ -1,4 +1,6 @@
 class Account < ApplicationRecord
+  include Overview
+
   belongs_to :owner, class_name: "User"
 
   has_many :account_users, dependent: :destroy do
