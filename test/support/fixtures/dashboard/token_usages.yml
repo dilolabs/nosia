@@ -1,0 +1,42 @@
+dashboard_first:
+  account: overview_first
+  kind: completion
+  model_id: overview-test-model
+  input_tokens: 10
+  output_tokens: 2
+  created_at: 2026-10-24 08:00:00
+dashboard_second_member:
+  account: overview_second
+  chat: overview_member_chat
+  kind: completion
+  model_id: overview-test-model
+  input_tokens: 900
+  output_tokens: 100
+  created_at: 2026-10-24 09:00:00
+dashboard_indexing:
+  account: overview_second
+  kind: embedding
+  input_tokens: 40
+  output_tokens: 0
+  created_at: 2026-10-20 10:00:00
+dashboard_skill:
+  account: overview_second
+  kind: agent_skill
+  model_id: overview-test-model
+  input_tokens: 2
+  output_tokens: 3
+  created_at: 2026-10-23 10:00:00
+dashboard_old:
+  account: overview_first
+  kind: completion
+  model_id: overview-test-model
+  input_tokens: 7
+  output_tokens: 1
+  created_at: 2026-09-24 23:59:59
+dashboard_outsider:
+  account: overview_foreign
+  kind: completion
+  model_id: private-model
+  input_tokens: 9000
+  output_tokens: 900
+  created_at: 2026-10-24 09:00:00
