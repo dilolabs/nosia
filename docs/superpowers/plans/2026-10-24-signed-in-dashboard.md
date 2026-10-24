@@ -48,7 +48,7 @@
 
 ## Task 0: Establish a safe execution baseline
 
-- [ ] **Step 1: Verify workspace and available tooling.**
+- [x] **Step 1: Verify workspace and available tooling.**
 
 ```bash
 git status --short
@@ -60,17 +60,20 @@ command -v chromedriver
 
 Expect only this plan/spec documentation change and installed dependencies. Do not install browser/system packages or update the lockfile for this task. The worktree uses PostgreSQL; do not apply SQLite database-copy instructions.
 
-- [ ] **Step 2: Prepare a feature-specific test database, not shared `nosia_test`.**
+- [x] **Step 2: Prepare a feature-specific test database, not shared `nosia_test`.**
 
-The original ignored `.env` is loaded without copying or displaying its secrets. Set the explicit test environment/database/dummy provider key on **every** Rails command. Never run a development reset or background worker.
+The original ignored `.env` is loaded without copying or displaying its secrets. Set the explicit test environment/database/dummy provider key on **every** Rails command. Never run a development reset or background worker. Build the existing ignored Tailwind output before rendering tests: a fresh worktree does not contain `app/assets/builds/tailwind.css`. The user approved this setup correction after the first focused attempt exposed missing-asset errors; no application-source change is needed.
 
 ```bash
 RAILS_ENV=test DATABASE_URL=postgresql:///nosia_signed_in_dashboard_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bin/rails db:prepare
+RAILS_ENV=test DATABASE_URL=postgresql:///nosia_signed_in_dashboard_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bin/rails tailwindcss:build
 RAILS_ENV=test DATABASE_URL=postgresql:///nosia_signed_in_dashboard_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bin/rails test test/controllers/chat_account_selection_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/integration/token_usages_test.rb test/integration/chat_composer_ui_test.rb test/internationalization/catalogs_test.rb
 RAILS_ENV=test DATABASE_URL=postgresql:///nosia_signed_in_dashboard_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bin/rails test > /tmp/opencode/signed-in-dashboard-baseline.log 2>&1
 ```
 
 Expect database preparation and focused regressions to succeed. Record the full-suite exit, counts, and exact failures. Historical documentation mentions an unrelated `Chat::RequestOptionsTest` error, but that is not fresh evidence or automatic permission to ignore it. If any baseline fails, stop and obtain an explicit decision before application changes.
+
+**Execution baseline and explicit user acceptance:** On 2026-10-24, database preparation, existing Tailwind build, and tooling checks passed. After resolving missing generated CSS and disk exhaustion, the fresh focused run passed with 54 runs / 9,726 assertions / no failures, errors, or skips (seed 64245, exit 0). The full run had 1,042 runs / 18,215 assertions / 0 failures / 1 error / 0 skips (seed 38278, exit 1). Its sole error is the preexisting `Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`: missing `augmented_context` on its test double, at `app/models/chat/completionable.rb:39`, called from `test/models/chat/request_options_test.rb:32` (test begins at line 29). The user explicitly answered **“Proceed with the dashboard”** when asked to leave this test unchanged and accept that exact baseline. This is not a passing full suite; no additional failure/error is accepted. Complete current evidence is `/tmp/opencode/signed-in-dashboard-baseline{,-focused,-audit,-error-index}.log`; earlier missing-asset and disk-full attempts are retained separately.
 
 For subsequent commands, `rails_test` below denotes this **exact shell function**, defined once in the execution shell; it does not go in the repository:
 

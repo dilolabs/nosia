@@ -328,3 +328,7 @@ are unnecessary for a 30-point overview.
   navigation/reload freshness, and exclusion of polling/custom date filters.
 - User reviewed the committed written specification and answered “Go”.
   Rationale: approve the written design and proceed to implementation planning.
+- User answered “Proceed with the dashboard” after a fresh baseline isolated the
+  existing `Chat::RequestOptionsTest` missing-`augmented_context` test-double
+  error. Rationale: leave that unrelated test unchanged and accept only this
+  exact baseline error; all new feature tests and regressions must pass.
