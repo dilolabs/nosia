@@ -87,7 +87,7 @@ rails_test() {
 
 **Create:** `test/support/dashboard_fixtures.rb`, `test/support/fixtures/dashboard/token_usages.yml`, `test/models/token_usage/report_test.rb`, `app/models/token_usage/report.rb`.
 
-- [ ] **Step 1: Add the opt-in fixture support and tests.** Do not change global fixtures or existing account fixture files. Reset the fixture cache before loading the replacement ledger, because the parent loader has already loaded a fixture set named `token_usages`.
+- [x] **Step 1: Add the opt-in fixture support and tests.** Do not change global fixtures or existing account fixture files. Reset the fixture cache before loading the replacement ledger, because the parent loader has already loaded a fixture set named `token_usages`.
 
 ```ruby
 # test/support/dashboard_fixtures.rb
@@ -200,7 +200,7 @@ class TokenUsage::ReportTest < ActiveSupport::TestCase
       assert_equal 8, report.daily_totals.fetch(Date.new(2026, 9, 27))
       assert_equal 40, report.daily_totals.fetch(Date.new(2026, 10, 25))
       assert_equal 1065, report.period_totals[:total]
-      old.update_columns(created_at: report.starts_at - 1.microsecond)
+      old.update_columns(created_at: report.starts_at - Rational(1, 1_000_000))
       assert_equal 1057, TokenUsage::Report.new(accounts: @user.accounts, now: now).period_totals[:total]
     end
   end
@@ -246,7 +246,7 @@ class TokenUsage::ReportTest < ActiveSupport::TestCase
 end
 ```
 
-- [ ] **Step 2: Run the new model tests.**
+- [x] **Step 2: Run the new model tests.**
 
 ```bash
 rails_test test test/models/token_usage/report_test.rb
@@ -254,7 +254,7 @@ rails_test test test/models/token_usage/report_test.rb
 
 Expect an undefined `TokenUsage::Report` failure, not a fixture, connection, or encryption error.
 
-- [ ] **Step 3: Add the minimal read-only reporting model.** PostgreSQL stores Rails timestamps as UTC without time zone in this checkout. Quote the captured IANA zone, convert UTC to that zone before grouping, and materialize every tenant-relaxed query inside its block.
+- [x] **Step 3: Add the minimal read-only reporting model.** PostgreSQL stores Rails timestamps as UTC without time zone in this checkout. Quote the captured IANA zone, convert UTC to that zone before grouping, and materialize every tenant-relaxed query inside its block.
 
 ```ruby
 # app/models/token_usage/report.rb
@@ -324,7 +324,7 @@ class TokenUsage::Report
 end
 ```
 
-- [ ] **Step 4: Rerun the model tests and existing account model tests.**
+- [x] **Step 4: Rerun the model tests and existing account model tests.**
 
 ```bash
 rails_test test test/models/token_usage/report_test.rb test/models/account_overview_test.rb
@@ -332,12 +332,14 @@ rails_test test test/models/token_usage/report_test.rb test/models/account_overv
 
 Expect all new period/lifetime tests to pass. The actual ledger has NOT NULL input/output columns, so fixtures use zero, not an invalid null. Defensive aggregate coercion does not authorize a schema change.
 
-- [ ] **Step 5: Commit these explicit files.**
+- [x] **Step 5: Commit these explicit files.**
 
 ```bash
 git add app/models/token_usage/report.rb test/models/token_usage/report_test.rb test/support/dashboard_fixtures.rb test/support/fixtures/dashboard/token_usages.yml
 git commit -m "feat(usage): add authorized cross-account token report"
 ```
+
+**Task 1 execution:** Implemented in `8fa6855`. RED: 7 undefined-report errors before application code, exit 1. GREEN: new report and existing account overview tests, 17 runs / 72 assertions / no failures/errors, exit 0. Changed Ruby lint and whitespace passed. Independent spec and quality reviews approved. Replaced the unsupported test shorthand `1.microsecond` with an exact Rational; the initial attempt is retained. Logs: `/tmp/opencode/dashboard-task1-{red,green,green-initial}.log`. Quality review suggested nonblocking cached-counter/ledger divergence coverage; Task 2 adds it below.
 
 ## Task 2: Add detailed aggregate reporting and private recent-chat selection
 
@@ -369,6 +371,15 @@ test "new reports reflect revoked memberships and empty detailed summaries" do
   empty = TokenUsage::Report.new(accounts: @user.accounts.none, now: @report_time)
   assert_empty empty.tokens_by_model
   assert_equal 0, empty.green_summary[:kwh]
+end
+
+test "lifetime uses cached counters even when they differ from the ledger" do
+  @first.update_columns(input_tokens_count: 100, output_tokens_count: 20)
+  @second.update_columns(input_tokens_count: 200, output_tokens_count: 30)
+  report = TokenUsage::Report.new(accounts: @user.accounts, now: @report_time)
+  assert_equal({ input: 300, output: 50, total: 350 }, report.lifetime_totals)
+  assert_equal({ input: 952, output: 105, total: 1057 }, report.period_totals)
+  assert_equal 1057, report.daily_totals.values.sum
 end
 ```
 
