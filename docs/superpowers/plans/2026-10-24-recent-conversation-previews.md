@@ -21,7 +21,7 @@
 test "recent conversation previews shorten long prompts without changing history or stored content" do
   chat = experience(:chats, :overview_second_chat_27)
   message = experience(:messages, :overview_second_question_27)
-  prompt = "Résumé & détails " * 30
+  prompt = "Résumé détaillé " * 30
   message.update_columns(content: prompt)
   expected = "#{prompt[0, 119]}…"
 
