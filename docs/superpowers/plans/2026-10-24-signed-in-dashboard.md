@@ -797,7 +797,7 @@ git commit -m "feat(usage): add accessible thirty-day usage overview"
 **Create:** `test/controllers/dashboards_controller_test.rb`, `app/helpers/dashboards_helper.rb`, `app/views/dashboards/_composer.html.erb`, `_source_upload.html.erb`, `_shortcuts.html.erb`, `_recent.html.erb`.
 **Modify:** `app/controllers/dashboards_controller.rb`, `app/views/dashboards/show.html.erb`, `app/views/layouts/application.html.erb`.
 
-- [ ] **Step 1: Add request regressions for the new page.**
+- [x] **Step 1: Add request regressions for the new page.**
 
 ```ruby
 # test/controllers/dashboards_controller_test.rb
@@ -930,7 +930,7 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] **Step 2: Run the new dashboard tests against the old page.**
+- [x] **Step 2: Run the new dashboard tests against the old page.**
 
 ```bash
 rails_test test test/controllers/dashboards_controller_test.rb
@@ -938,7 +938,7 @@ rails_test test test/controllers/dashboards_controller_test.rb
 
 Expect missing dashboard panels/shortcuts/aggregate assertions. Preserve existing access-rejection tests; a chart/report error is not a reason to weaken authentication.
 
-- [ ] **Step 3: Add the helper and controller orchestration.**
+- [x] **Step 3: Add the helper and controller orchestration.**
 
 ```ruby
 # app/helpers/dashboards_helper.rb
@@ -982,7 +982,7 @@ class DashboardsController < ApplicationController
 end
 ```
 
-- [ ] **Step 4: Replace the dashboard view and add its focused partials.** Keep only the composer panel inside the `chat-account` controller, so account-switch locking does not make unrelated dashboard navigation inert. The compact uploader remains a sibling of the form so form replacement and publisher-disconnect protections retain their existing contracts.
+- [x] **Step 4: Replace the dashboard view and add its focused partials.** Keep only the composer panel inside the `chat-account` controller, so account-switch locking does not make unrelated dashboard navigation inert. The compact uploader remains a sibling of the form so form replacement and publisher-disconnect protections retain their existing contracts.
 
 ```erb
 <%# app/views/dashboards/show.html.erb %>
@@ -1088,7 +1088,7 @@ In `app/views/layouts/application.html.erb`, replace the right-drawer condition 
 +      <% if Current.user && !account_page? && !dashboard_page? %>
 ```
 
-- [ ] **Step 5: Build CSS and run the new requests plus existing composer/navigation contracts.**
+- [x] **Step 5: Build CSS and run the new requests plus existing composer/navigation contracts.**
 
 ```bash
 rails_test tailwindcss:build
@@ -1097,12 +1097,14 @@ rails_test test test/controllers/dashboards_controller_test.rb test/controllers/
 
 Expect the compact uploader's existing request assertions to remain green without deletion. Root query-account validation, the no-account marker, hidden model field, and composer action strings remain unchanged. Do not edit shared composer JavaScript merely to accommodate page markup.
 
-- [ ] **Step 6: Commit the composed dashboard.**
+- [x] **Step 6: Commit the composed dashboard.**
 
 ```bash
 git add app/helpers/dashboards_helper.rb app/controllers/dashboards_controller.rb app/views/dashboards app/views/layouts/application.html.erb test/controllers/dashboards_controller_test.rb
 git commit -m "feat(dashboard): add balanced signed-in workspace"
 ```
+
+**Task 4 execution:** Implemented in `9ad3375`, exactly nine paths. RED: 7 runs / 39 assertions / six expected failures / no errors, seed 12236, exit 1. GREEN: 130 runs / 10,916 assertions / no failures, errors, or skips, seed 5901, exit 0. Tailwind build, changed Ruby lint, and whitespace passed. Independent spec and quality reviews approved; Task 3 visible-localized-number/date-mapping followups are covered. Logs: `/tmp/opencode/dashboard-task4-{red,green,build,lint,whitespace}.log`. Browser verification and global report integration remain pending.
 
 ## Task 5: Make global Token usage agree with the dashboard
 
@@ -1252,7 +1254,7 @@ class TokenUsagesController < ApplicationController
 end
 ```
 
-- [ ] **Step 4: Extract existing summary markup unchanged, retaining its account-specific cache wrapper.** Execute this exact extraction script once, before replacing `_summary.html.erb`. It copies the existing body rather than hand-recreating 134 lines and accidentally changing scoped markup or localization selectors.
+- [ ] **Step 4: Extract existing summary markup unchanged, retaining its account-specific cache wrapper.** Use this read-only script to derive the new file contents once before replacing `_summary.html.erb`, then apply the printed result with the patch tool. This preserves the existing body rather than hand-recreating 134 lines and accidentally changing scoped markup or localization selectors; all file edits still use the patch tool.
 
 ```python
 from pathlib import Path
@@ -1264,7 +1266,7 @@ assert not target.exists(), "Inspect existing target instead of overwriting it"
 assert lines[3].startswith("<% cache [")
 assert lines[-1].strip() == "<% end %>"
 body = "".join(line[2:] if line.startswith("  ") else line for line in lines[4:-1])
-target.write_text("<%# locals: (token_totals:, green_summary:, tokens_by_kind:, tokens_by_day:) %>\n" + body)
+print("<%# locals: (token_totals:, green_summary:, tokens_by_kind:, tokens_by_day:) %>\n" + body, end="")
 ```
 
 Replace `_summary.html.erb` with:
