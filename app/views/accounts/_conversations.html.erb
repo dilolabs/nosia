@@ -14,7 +14,9 @@
     <ul class="!list-none">
       <% conversations.each do |chat| %>
         <li class="n-account-conversation" data-conversation-id="<%= chat.id %>">
-          <%= link_to account_conversation_title(chat, titles: titles), chat_path(chat), class: "n-account-link n-account-name" %>
+          <% title = account_conversation_title(chat, titles: titles) %>
+          <% title = truncate(title, length: 120, omission: "…") if recent %>
+          <%= link_to title, chat_path(chat), class: "n-account-link n-account-name" %>
           <time datetime="<%= chat.updated_at.iso8601 %>" class="n-account-help"><%= l(chat.updated_at, format: :short) %></time>
         </li>
       <% end %>

@@ -380,6 +380,37 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
     Rails.application.env_config["action_dispatch.show_exceptions"] = previous
   end
 
+  test "recent conversation previews shorten long prompts without changing history or stored content" do
+    chat = experience(:chats, :overview_second_chat_27)
+    message = experience(:messages, :overview_second_question_27)
+    prompt = "Résumé détaillé " * 30
+    message.update_columns(content: prompt)
+    expected = "#{prompt[0, 119]}…"
+
+    get account_path(@second)
+    assert_response :success
+    assert_select "[data-conversation-id='#{chat.id}'] a", text: expected
+    assert_equal prompt, message.reload.content
+
+    get account_chats_path(@second)
+    assert_response :success
+    assert_select "[data-conversation-id='#{chat.id}'] a", text: prompt.strip
+  end
+
+  test "recent conversation previews retain short and exact-limit titles" do
+    chat = experience(:chats, :overview_second_chat_27)
+    message = experience(:messages, :overview_second_question_27)
+
+    [ "Short question?", "é" * 120, "é" * 121 ].each do |prompt|
+      message.update_columns(content: prompt)
+
+      get account_path(@second)
+      assert_response :success
+      expected = prompt.length > 120 ? "#{prompt[0, 119]}…" : prompt
+      assert_select "[data-conversation-id='#{chat.id}'] a", text: expected
+    end
+  end
+
   private
     def with_creation_error(record)
       original = Account.method(:create_with_system_prompt!)
