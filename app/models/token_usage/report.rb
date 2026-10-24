@@ -33,6 +33,29 @@ class TokenUsage::Report
     end
   end
 
+  # @return [Hash{String => Integer}] Lifetime tokens grouped by existing usage kind
+  def tokens_by_kind
+    @tokens_by_kind ||= read_usage { |usage| usage.group(:kind).sum(total_expression) }
+  end
+
+  # @return [Hash{String => Integer}] Lifetime tokens grouped by reported model string
+  def tokens_by_model
+    @tokens_by_model ||= read_usage { |usage| usage.where.not(model_id: nil).group(:model_id).sum(total_expression) }
+  end
+
+  # @return [Hash] Existing top-five model/embedding energy estimate and fallback flags
+  def green_summary
+    @green_summary ||= begin
+      models = tokens_by_model.sort_by { |model, tokens| [ -tokens, model ] }.first(5).map do |model_id, tokens|
+        impact = GreenIt.energy_kwh(tokens: tokens, model_id: model_id, kind: :completion)
+        { model_id: model_id, tokens: tokens, kwh: impact[:kwh], fallback: impact[:fallback] }
+      end
+      embedding = GreenIt.energy_kwh(tokens: tokens_by_kind.fetch("embedding", 0), model_id: nil, kind: :embedding)
+      kwh = models.sum { |entry| entry[:kwh] } + embedding[:kwh]
+      { models: models, kwh: kwh, co2e_g: GreenIt.co2e_g(kwh: kwh), fallback_used: models.any? { |entry| entry[:fallback] } }
+    end
+  end
+
   private
     def totals(input, output)
       { input: input.to_i, output: output.to_i, total: input.to_i + output.to_i }
@@ -50,6 +73,10 @@ class TokenUsage::Report
     def local_date_expression
       zone = TokenUsage.connection.quote(@zone.tzinfo.identifier)
       Arel.sql("DATE((token_usages.created_at AT TIME ZONE 'UTC') AT TIME ZONE #{zone})")
+    end
+
+    def total_expression
+      Arel.sql("COALESCE(token_usages.input_tokens, 0) + COALESCE(token_usages.output_tokens, 0)")
     end
 
     def read_usage

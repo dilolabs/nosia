@@ -45,6 +45,11 @@ class User < ApplicationRecord
     )
   end
 
+  # @return [ActiveRecord::Relation<Chat>] Personal root chats in current memberships, newest first
+  def recent_conversations
+    chats.root.where(account: accounts).includes(:account).order(updated_at: :desc, id: :desc)
+  end
+
   def first_account
     accounts.order(:created_at).first
   end

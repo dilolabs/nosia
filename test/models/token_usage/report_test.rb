@@ -83,4 +83,37 @@ class TokenUsage::ReportTest < ActiveSupport::TestCase
     assert_operator queries.length, :<=, 3
     refute queries.any? { |sql| sql.match?(/SELECT\s+"(?:accounts|token_usages)"\.\*/i) }
   end
+
+  test "detailed breakdowns use the same authorized lifetime ledger and current estimation rules" do
+    report = TokenUsage::Report.new(accounts: @user.accounts, now: @report_time)
+    assert_equal({ "completion" => 1020, "embedding" => 40, "agent_skill" => 5 }, report.tokens_by_kind)
+    assert_equal({ "overview-test-model" => 1025 }, report.tokens_by_model)
+    summary = report.green_summary
+    assert_equal [ "overview-test-model" ], summary[:models].map { |entry| entry[:model_id] }
+    expected = GreenIt.energy_kwh(tokens: 1025, model_id: "overview-test-model", kind: :completion)[:kwh] +
+      GreenIt.energy_kwh(tokens: 40, model_id: nil, kind: :embedding)[:kwh]
+    assert_in_delta expected, summary[:kwh], 1e-12
+    assert_in_delta GreenIt.co2e_g(kwh: expected), summary[:co2e_g], 1e-12
+    assert summary[:fallback_used]
+  end
+
+  test "new reports reflect revoked memberships and empty detailed summaries" do
+    experience(:account_users, :overview_owner_second).destroy!
+    report = TokenUsage::Report.new(accounts: @user.accounts, now: @report_time)
+    assert_equal 12, report.period_totals[:total]
+    assert_equal 20, report.lifetime_totals[:total]
+    assert_equal({ "completion" => 20 }, report.tokens_by_kind)
+    empty = TokenUsage::Report.new(accounts: @user.accounts.none, now: @report_time)
+    assert_empty empty.tokens_by_model
+    assert_equal 0, empty.green_summary[:kwh]
+  end
+
+  test "lifetime uses cached counters even when they differ from the ledger" do
+    @first.update_columns(input_tokens_count: 100, output_tokens_count: 20)
+    @second.update_columns(input_tokens_count: 200, output_tokens_count: 30)
+    report = TokenUsage::Report.new(accounts: @user.accounts, now: @report_time)
+    assert_equal({ input: 300, output: 50, total: 350 }, report.lifetime_totals)
+    assert_equal({ input: 952, output: 105, total: 1057 }, report.period_totals)
+    assert_equal 1057, report.daily_totals.values.sum
+  end
 end
