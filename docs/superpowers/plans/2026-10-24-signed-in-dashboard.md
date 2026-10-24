@@ -1738,7 +1738,7 @@ git commit -m "docs(dashboard): explain aggregate scope and navigation"
 
 ## Task 8: Run the final verification and review gates
 
-- [ ] **Step 1: Rerun all focused server regressions after the final application change.**
+- [x] **Step 1: Rerun all focused server regressions after the final application change.**
 
 ```bash
 rails_test test test/models/token_usage/report_test.rb test/models/dashboard_recents_test.rb test/models/account_overview_test.rb test/helpers/token_usages_helper_test.rb test/controllers/dashboards_controller_test.rb test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/account_experience_test.rb test/controllers/accounts_controller_test.rb test/controllers/chat_account_selection_test.rb test/controllers/chat_account_access_test.rb test/controllers/chat_account_sources_test.rb test/integration/chat_composer_ui_test.rb test/integration/header_navigation_test.rb test/integration/token_usages_test.rb test/integration/localized_pages_test.rb test/integration/content_security_policy_test.rb test/integration/ported_script_pages_render_test.rb test/internationalization/catalogs_test.rb
@@ -1746,7 +1746,7 @@ rails_test test test/models/token_usage/report_test.rb test/models/dashboard_rec
 
 Expected: zero new failures/errors. Preserve actual counts, seed, command, and exit. If a new failure is discovered, use systematic debugging; do not silently skip it or change unrelated code.
 
-- [ ] **Step 2: Run the full server suite and retain the log.**
+- [x] **Step 2: Run the full server suite and retain the log.**
 
 ```bash
 rails_test test > /tmp/opencode/signed-in-dashboard-final-suite.log 2>&1
@@ -1754,7 +1754,7 @@ rails_test test > /tmp/opencode/signed-in-dashboard-final-suite.log 2>&1
 
 Compare with the explicitly accepted Task 0 baseline. A failing command remains failing even if its only error was accepted earlier; report both facts. Never label historical account-experience results as a fresh dashboard full-suite run.
 
-- [ ] **Step 3: Run changed-file lint, security scanning, and diff checks.**
+- [x] **Step 3: Run changed-file lint, security scanning, and diff checks.**
 
 ```bash
 RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/models/token_usage/report.rb app/models/user.rb app/controllers/dashboards_controller.rb app/controllers/token_usages_controller.rb app/helpers/dashboards_helper.rb app/helpers/token_usages_helper.rb test/support/dashboard_fixtures.rb test/models/token_usage/report_test.rb test/models/dashboard_recents_test.rb test/helpers/token_usages_helper_test.rb test/controllers/dashboards_controller_test.rb test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/system/dashboard_test.rb
@@ -1766,8 +1766,8 @@ git status --short
 
 Expect clean changed-file lint and whitespace. Record Brakeman's actual exit/warnings; existing Rails end-of-support or API-token warnings are not a clean security pass and must not be silently suppressed or fixed as unrelated dashboard work.
 
-- [ ] **Step 4: Rerun the browser commands in Task 6 after any corrective UI change.** Read the new screenshots and contrast records, not stale earlier artifacts. Record which native-zoom/manual checks remain unverified.
-- [ ] **Step 5: Perform specification-fidelity and Rails/security self-review.** Verify every row below, inspect the complete diff, and resolve new blocking findings through a failing test first. Use `requesting-code-review` when execution reaches this gate; subagent review is allowed only when the chosen execution workflow explicitly authorizes it.
+- [x] **Step 4: Rerun the browser commands in Task 6 after any corrective UI change.** Read the new screenshots and contrast records, not stale earlier artifacts. Record which native-zoom/manual checks remain unverified.
+- [x] **Step 5: Perform specification-fidelity and Rails/security self-review.** Verify every row below, inspect the complete diff, and resolve new blocking findings through a failing test first. Use `requesting-code-review` when execution reaches this gate; subagent review is allowed only when the chosen execution workflow explicitly authorizes it.
 
 | Approved requirement | Implementation / evidence |
 | --- | --- |
@@ -1784,7 +1784,31 @@ Expect clean changed-file lint and whitespace. Record Brakeman's actual exit/war
 | No new schema/packages/tracking/polling/global switch/CSRF cache | Diff and architecture/security review. |
 | Test-first, public-method docs, user docs, accurate verification reporting | Tasks 0–8, YARD tags, documentation, final evidence. |
 
-- [ ] **Step 6: Hand off the outcome without merging or discarding work.** Report the branch/worktree, feature behavior, actual checks and warnings, any accepted baseline failures, and the separate native-zoom status. Do not merge, push, open a PR, or remove this worktree without user direction; use `finishing-a-development-branch` to offer integration choices once its prerequisites are satisfied.
+- [x] **Step 6: Hand off the outcome without merging or discarding work.** Report the branch/worktree, feature behavior, actual checks and warnings, any accepted baseline failures, and the separate native-zoom status. Do not merge, push, open a PR, or remove this worktree without user direction; use `finishing-a-development-branch` to offer integration choices once its prerequisites are satisfied.
+
+### Final execution and handoff record
+
+Verification ran at `3040dc1` on `feat/signed-in-dashboard`; only this execution record is added afterward. The worktree remains `/home/cbldev/gitd/dilolabs/nosia/.worktrees/signed-in-dashboard`. All database-sharing runs were sequential against the dedicated test database with the explicit approved environment. Exact commands and auxiliary exits are indexed in `/tmp/opencode/dashboard-task8-command-index.log`.
+
+| Gate | Actual result | Evidence under `/tmp/opencode/` |
+| --- | --- | --- |
+| Focused server regressions | 257 runs / 12,893 assertions, zero failures/errors/skips; seed 48323; exit 0 | `signed-in-dashboard-final-focused.log` |
+| Unfiltered full server suite | **FAILING:** 1,068 runs / 18,989 assertions, zero failures / one error / zero skips; seed 50013; exit 1 | `signed-in-dashboard-final-suite.log` |
+| Changed-file RuboCop | 14 files, no offenses; exit 0 | `signed-in-dashboard-final-lint.log` |
+| Brakeman | **WARNINGS:** two high-confidence warnings, zero scanner errors; exit 3 | `signed-in-dashboard-final-brakeman.log` |
+| Whitespace and status | `git diff --check 68b15a1` passes; checkout clean before this documentation update | `signed-in-dashboard-final-diff-check.log`, `signed-in-dashboard-final-status.log` |
+| Browser suites after last production change | Six files: 100 tests / 4,721 assertions, zero failures/errors/skips; all exit 0. Test-only visible-contrast refinement rerun: 5 / 304, exit 0 | `dashboard-task6-32*` through `-37*`, `dashboard-task6-42*` |
+| Screenshot/contrast review | Final images opened; 50 visible contrast samples, minimum text 7.13:1 and non-text/focus 4.54:1 | `dashboard-530817/`, `dashboard-task8-browser-evidence-audit.log` |
+
+The full suite's only error is the exact accepted preexisting `Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`: missing `augmented_context`, `app/models/chat/completionable.rb:39` called from `test/models/chat/request_options_test.rb:32` (test at line 29). Identity and complete backtrace match the accepted 1,042-run / 18,215-assertion baseline after normalizing only the anonymous class address. Both files remain unchanged. See `dashboard-task8-baseline-comparison.log`. No new failure was waived and the command is not green.
+
+Brakeman reports `PermitAttributes` for `permit(:account_id, :name)` at `app/controllers/api_tokens_controller.rb:62`, and `EOLRails` for Rails 8.0.5.1 at `Gemfile.lock:318` (scanner-reported support end: 2026-10-07). Both entire files are unchanged from `68b15a1`; see `dashboard-task8-security-warning-files-unchanged.log`. Final security review found no new dashboard bypass; API-token assignment retains its existing membership check. These warnings remain unresolved, not suppressed, and are not a clean security pass. Existing JSON duplicate-key warnings are preserved in raw test output. Initial unavailable `python` bootstrap attempts exited 127 before checks ran; all actual gates subsequently executed via `python3` and have their true exits retained.
+
+Final independent specification review and full Rails/code-quality/security review approved the implementation and evidence with no Critical or Important dashboard findings. Optional follow-up: add a six-model regression proving the preserved five-model environmental-estimation cutoff; current production behavior is correct. No application change is required for handoff.
+
+**Native 200% browser zoom remains UNVERIFIED**: no headed display was available. No CDP viewport/device-scale or CSS zoom is represented as native zoom. Browser results are fresh after the final production correction; only test/documentation changes followed, so the six browser suites were not redundantly rerun during Task 8.
+
+The branch and worktree are preserved. No merge, push, PR creation, or removal was performed. Integration options were not offered as a green-suite completion: the full suite still exits 1 with its accepted baseline error, and security warnings remain. Implementation and verification are ready for human review with those explicit limitations.
 
 ## Plan self-review record
 
