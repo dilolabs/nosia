@@ -93,6 +93,32 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "history previews shorten long prompts but open the full saved conversation" do
+    chat = experience(:chats, :overview_second_chat_27)
+    message = experience(:messages, :overview_second_question_27)
+    prompt = "Résumé détaillé " * 30
+    message.update_columns(content: prompt)
+    expected = "#{prompt[0, 119]}…"
+
+    visit account_chats_path(@second)
+
+    assert_selector "[data-conversation-id]", count: 25
+    within "[data-conversation-id='#{chat.id}']" do
+      assert_equal expected, find("a").text
+      assert_selector "a[href='#{chat_path(chat)}']"
+      assert_selector "time[datetime='#{chat.updated_at.iso8601}']"
+      click_on expected
+    end
+    assert_current_path chat_path(chat)
+    assert_selector "#messages_message_#{message.id}", text: prompt.strip, exact_text: true
+    assert_equal prompt, message.reload.content
+
+    visit account_chats_path(@second)
+    assert_selector "[data-conversation-id] a", text: "Research question 26", exact_text: true
+    assert_no_text "Member private question"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "history wraps long unbroken account names at 375 pixels" do
     @second.update_columns(name: "ResearchAccount" * 12)
     resize_account_viewport(375, 812)

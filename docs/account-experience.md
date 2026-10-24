@@ -51,8 +51,9 @@ descending. Directory/history page inputs are normalized and bounded before SQL
 offset calculation. Existing non-account URLs remain supported. Account creation,
 editing, and the old account-settings landing page lead to the hub.
 
-Recent conversation previews are limited to 120 characters including the ellipsis;
-history titles and stored prompts remain unchanged.
+Recent and history conversation previews are limited to 120 characters including
+the Unicode ellipsis (`…`). Shorter titles remain unchanged, as do saved prompts
+and the full content displayed when opening a conversation.
 
 Revoked membership is checked on subsequent requests. Already-running jobs/streams
 are not forcibly interrupted by this feature. Merely opening read pages does not
