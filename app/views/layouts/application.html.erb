@@ -42,7 +42,7 @@
         <% end %>
         <%= yield %>
       </main>
-      <% if Current.user && !account_page? %>
+      <% if Current.user && !account_page? && !dashboard_page? %>
         <div id="accordion-collapse" data-accordion="collapse" class="hidden -ml-5 lg:flex items-center">
           <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions" aria-label="<%= t("nosia.nav.view_menu") %>" class="rounded-l-lg n-main-focus">
             <div class="n-btn-drawer">

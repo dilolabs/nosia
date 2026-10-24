@@ -1,0 +1,60 @@
+<%# locals: (report:, title_id:, show_report_link: true) %>
+<section class="n-dashboard-panel n-usage-overview" aria-labelledby="<%= title_id %>">
+  <div class="n-dashboard-section-heading">
+    <h2 id="<%= title_id %>"><%= t("nosia.dashboard.usage_title") %></h2>
+    <span class="n-dashboard-help"><%= t("nosia.usage.last_30_days") %></span>
+  </div>
+  <p class="n-dashboard-help"><%= t("nosia.dashboard.usage_scope") %></p>
+  <p class="n-dashboard-help" data-usage-window><%= l(report.starts_at.to_date, format: :short) %> – <%= l(report.ends_at.to_date, format: :short) %></p>
+  <dl>
+    <div class="n-dashboard-primary-stat">
+      <dt class="n-dashboard-help"><%= t("nosia.usage.total") %></dt>
+      <dd class="n-dashboard-number" data-period-total data-value="<%= report.period_totals[:total] %>"><%= number_with_delimiter(report.period_totals[:total]) %></dd>
+    </div>
+  </dl>
+  <dl class="n-dashboard-stat-pair">
+    <div>
+      <dt class="n-dashboard-help"><%= t("nosia.usage.input") %></dt>
+      <dd data-period-input data-value="<%= report.period_totals[:input] %>"><%= number_with_delimiter(report.period_totals[:input]) %></dd>
+    </div>
+    <div>
+      <dt class="n-dashboard-help"><%= t("nosia.usage.output") %></dt>
+      <dd data-period-output data-value="<%= report.period_totals[:output] %>"><%= number_with_delimiter(report.period_totals[:output]) %></dd>
+    </div>
+  </dl>
+  <p class="n-dashboard-help"><%= t("nosia.usage.token_unit", count: report.period_totals[:total]) %></p>
+  <% if report.period_totals[:total].zero? %>
+    <p class="n-dashboard-help"><%= t("nosia.usage.none") %></p>
+  <% end %>
+  <svg viewBox="0 0 300 40" class="n-dashboard-chart" preserveAspectRatio="none" role="img" aria-labelledby="<%= title_id %>-trend-title <%= title_id %>-trend-description">
+    <title id="<%= title_id %>-trend-title"><%= t("nosia.dashboard.trend_title") %></title>
+    <desc id="<%= title_id %>-trend-description"><%= t("nosia.dashboard.trend_description") %></desc>
+    <polyline fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" points="<%= usage_trend_points(report.daily_totals) %>"></polyline>
+  </svg>
+  <details class="n-dashboard-daily-data">
+    <summary><%= t("nosia.dashboard.daily_data") %></summary>
+    <table>
+      <caption class="sr-only"><%= t("nosia.dashboard.daily_data") %></caption>
+      <thead>
+        <tr>
+          <th scope="col"><%= t("nosia.dashboard.date") %></th>
+          <th scope="col"><%= t("nosia.usage.tokens_title") %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% report.daily_totals.each do |date, tokens| %>
+          <tr data-usage-day="<%= date.iso8601 %>">
+            <th scope="row"><%= l(date, format: :short) %></th>
+            <td data-value="<%= tokens %>"><%= number_with_delimiter(tokens) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </details>
+  <div class="n-dashboard-usage-footer">
+    <p class="n-dashboard-help"><%= t("nosia.dashboard.lifetime") %>: <span data-lifetime-total data-value="<%= report.lifetime_totals[:total] %>"><%= number_with_delimiter(report.lifetime_totals[:total]) %></span></p>
+    <% if show_report_link %>
+      <%= link_to t("nosia.dashboard.usage_details"), token_usage_path, class: "n-dashboard-link" %>
+    <% end %>
+  </div>
+</section>

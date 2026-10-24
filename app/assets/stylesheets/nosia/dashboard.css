@@ -1,0 +1,156 @@
+.n-dashboard {
+  @apply mx-auto w-full min-w-0 max-w-7xl space-y-6 pb-24 lg:pb-8;
+}
+
+.n-dashboard-heading h1 {
+  @apply text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100;
+}
+
+.n-dashboard-top {
+  @apply grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,1fr)];
+}
+
+.n-dashboard-panel {
+  @apply min-w-0 rounded-xl border border-neutral-400 bg-white p-5 text-neutral-900 dark:border-neutral-500 dark:bg-neutral-800 dark:text-neutral-100 sm:p-6;
+}
+
+.n-dashboard-panel h2,
+.n-dashboard-section-heading h2 {
+  @apply text-base font-semibold;
+}
+
+.n-dashboard-help {
+  overflow-wrap: anywhere;
+  @apply text-sm leading-relaxed text-neutral-600 dark:text-neutral-300;
+}
+
+.n-dashboard-section-heading,
+.n-dashboard-usage-footer {
+  @apply flex min-w-0 flex-wrap items-center justify-between gap-3;
+}
+
+.n-dashboard-primary-stat {
+  @apply mt-4;
+}
+
+.n-dashboard-number {
+  @apply text-4xl font-semibold tracking-tight tabular-nums;
+}
+
+.n-dashboard-stat-pair {
+  @apply mt-4 grid grid-cols-2 gap-4;
+}
+
+.n-dashboard-stat-pair dd {
+  @apply text-xl font-semibold tabular-nums;
+}
+
+.n-dashboard-chart {
+  @apply mt-4 h-12 w-full text-green-800 dark:text-green-300;
+}
+
+.n-dashboard-daily-data {
+  @apply mt-3 text-sm;
+}
+
+.n-dashboard-daily-data summary {
+  @apply min-h-11 cursor-pointer py-3 font-medium underline underline-offset-4 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:focus:outline-green-300;
+}
+
+.n-dashboard-daily-data table {
+  @apply w-full text-left tabular-nums;
+}
+
+.n-dashboard-daily-data th,
+.n-dashboard-daily-data td {
+  @apply border-b border-neutral-300 py-2 dark:border-neutral-600;
+}
+
+.n-dashboard-daily-data td {
+  @apply text-right;
+}
+
+.n-dashboard-usage-footer {
+  @apply mt-3 border-t border-neutral-300 pt-3 dark:border-neutral-600;
+}
+
+.n-dashboard-link {
+  @apply inline-flex min-h-11 max-w-full items-center rounded-sm text-sm font-medium text-green-800 underline underline-offset-4 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:text-green-200 dark:focus:outline-green-300;
+}
+
+.n-dashboard-compose > .n-dashboard-help {
+  @apply mb-4 mt-1;
+}
+
+.n-dashboard-compose [data-chat-no-account] {
+  @apply text-neutral-600 dark:text-neutral-300;
+}
+
+.n-dashboard-compose .n-chat-composer .n-composer-editor {
+  /* Lexxy and the shared composer are unlayered; keep this override local. */
+  display: flex !important;
+  flex-direction: column;
+  min-block-size: 7rem;
+}
+
+.n-dashboard-compose .n-chat-composer .n-composer-editor .lexxy-editor__content {
+  flex: 1;
+  min-block-size: 0 !important;
+}
+
+.n-dashboard-upload {
+  @apply mt-4 space-y-2;
+}
+
+.n-dashboard-shortcuts {
+  @apply mt-3 grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4;
+}
+
+.n-dashboard-shortcut {
+  overflow-wrap: anywhere;
+  @apply flex min-h-28 min-w-0 flex-col items-start gap-2 rounded-xl border border-neutral-400 bg-white p-4 text-sm text-neutral-900 hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:border-neutral-500 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-green-950 dark:focus:outline-green-300;
+}
+
+.n-dashboard-shortcut svg {
+  @apply h-5 w-5 text-green-800 dark:text-green-200;
+}
+
+.n-dashboard-recent-list {
+  @apply mt-3 list-none;
+}
+
+.n-dashboard-recent-row {
+  @apply flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-neutral-300 py-3 last:border-0 dark:border-neutral-600;
+}
+
+.n-dashboard-recent-row > div {
+  @apply min-w-0 flex-1 basis-48;
+}
+
+.n-dashboard-recent-row a {
+  overflow-wrap: anywhere;
+}
+
+.n-global-usage {
+  @apply mx-auto max-w-4xl space-y-6 pb-24 lg:pb-8;
+}
+
+main:has(.n-dashboard),
+main:has(.n-global-usage) {
+  min-width: 0;
+  scroll-padding-block-end: 6rem;
+}
+
+@media (max-width: 360px) {
+  .n-dashboard-shortcuts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-dashboard a,
+  .n-dashboard button,
+  .n-usage-overview summary {
+    transition: none;
+  }
+}

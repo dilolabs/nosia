@@ -92,6 +92,22 @@ This document contains ASCII diagrams that complement the [ARCHITECTURE.md](ARCH
 └───────────────────────────────────────────────────────────────┘
 ```
 
+## Signed-in Dashboard Entry Points
+
+```text
+Authenticated /
+  ├─ Inline composer → existing chat create → saved conversation
+  ├─ Usage overview → global /token_usage (current memberships)
+  ├─ Eight labeled shortcuts → existing tool/directory routes
+  └─ Your five recent root chats → your saved conversation
+
+Composer account selection ≠ default tool account ≠ aggregate report scope
+```
+
+Recent conversation content remains personal. Usage is account-wide across
+current memberships. Explicit account reports stay scoped to their URL account.
+See [Signed-in dashboard](dashboard.md) for dates, empty states, and verification.
+
 ## Account Experience Entry Points
 
 ```text
