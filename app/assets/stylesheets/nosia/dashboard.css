@@ -82,6 +82,22 @@
   @apply mb-4 mt-1;
 }
 
+.n-dashboard-compose [data-chat-no-account] {
+  @apply text-neutral-600 dark:text-neutral-300;
+}
+
+.n-dashboard-compose .n-chat-composer .n-composer-editor {
+  /* Lexxy and the shared composer are unlayered; keep this override local. */
+  display: flex !important;
+  flex-direction: column;
+  min-block-size: 7rem;
+}
+
+.n-dashboard-compose .n-chat-composer .n-composer-editor .lexxy-editor__content {
+  flex: 1;
+  min-block-size: 0 !important;
+}
+
 .n-dashboard-upload {
   @apply mt-4 space-y-2;
 }
