@@ -346,7 +346,7 @@ git commit -m "feat(usage): add authorized cross-account token report"
 **Modify:** `app/models/token_usage/report.rb`, `app/models/user.rb`, `test/models/token_usage/report_test.rb`.
 **Create:** `test/models/dashboard_recents_test.rb`.
 
-- [ ] **Step 1: Append these public-behavior tests to `TokenUsage::ReportTest` and create the recents tests.**
+- [x] **Step 1: Append these public-behavior tests to `TokenUsage::ReportTest` and create the recents tests.**
 
 ```ruby
 test "detailed breakdowns use the same authorized lifetime ledger and current estimation rules" do
@@ -414,7 +414,7 @@ class DashboardRecentsTest < ActiveSupport::TestCase
 end
 ```
 
-- [ ] **Step 2: Run the new tests before adding the methods.**
+- [x] **Step 2: Run the new tests before adding the methods.**
 
 ```bash
 rails_test test test/models/token_usage/report_test.rb test/models/dashboard_recents_test.rb
@@ -422,7 +422,7 @@ rails_test test test/models/token_usage/report_test.rb test/models/dashboard_rec
 
 Expect failures for missing `tokens_by_kind`, `tokens_by_model`, `green_summary`, and `recent_conversations`.
 
-- [ ] **Step 3: Add these public methods before `private` in `TokenUsage::Report`.** Preserve the existing top-five-model/embedding estimation rules; do not fix unrelated estimator limitations in this feature.
+- [x] **Step 3: Add these public methods before `private` in `TokenUsage::Report`.** Preserve the existing top-five-model/embedding estimation rules; do not fix unrelated estimator limitations in this feature.
 
 ```ruby
 # @return [Hash{String => Integer}] Lifetime tokens grouped by existing usage kind
@@ -466,7 +466,7 @@ def recent_conversations
 end
 ```
 
-- [ ] **Step 4: Rerun the domain tests.**
+- [x] **Step 4: Rerun the domain tests.**
 
 ```bash
 rails_test test test/models/token_usage/report_test.rb test/models/dashboard_recents_test.rb test/models/account_overview_test.rb
@@ -474,12 +474,14 @@ rails_test test test/models/token_usage/report_test.rb test/models/dashboard_rec
 
 Expect correct sums and empty/revoked/ordered/private behavior, with no provider requests.
 
-- [ ] **Step 5: Commit domain changes.**
+- [x] **Step 5: Commit domain changes.**
 
 ```bash
 git add app/models/token_usage/report.rb app/models/user.rb test/models/token_usage/report_test.rb test/models/dashboard_recents_test.rb
 git commit -m "feat(dashboard): add private recents and detailed usage aggregates"
 ```
+
+**Task 2 execution:** Implemented in `b8c23fc`. RED: 12 runs / 28 assertions / four expected missing-method errors, seed 49252, exit 1. GREEN: 22 runs / 97 assertions / no failures, errors, or skips, seed 59503, exit 0. Changed Ruby lint and whitespace passed; independent spec and quality reviews approved. Logs: `/tmp/opencode/dashboard-task2-{red,green}.log`. Quality review noted optional extra coverage for the preserved five-model cutoff; no functional or blocking issue was found.
 
 ## Task 3: Build the shared accessible usage overview
 
