@@ -488,7 +488,7 @@ git commit -m "feat(dashboard): add private recents and detailed usage aggregate
 **Create:** `app/helpers/token_usages_helper.rb`, `app/views/token_usages/_overview.html.erb`, `app/assets/stylesheets/nosia/dashboard.css`, `config/locales/en.nosia_dashboard.yml`, `config/locales/fr.nosia_dashboard.yml`, `test/helpers/token_usages_helper_test.rb`.
 **Modify:** `app/assets/tailwind/application.css`.
 
-- [ ] **Step 1: Write geometry and rendered-component tests.**
+- [x] **Step 1: Write geometry and rendered-component tests.**
 
 ```ruby
 # test/helpers/token_usages_helper_test.rb
@@ -524,6 +524,9 @@ class TokenUsagesHelperTest < ActionView::TestCase
       assert_select fragment, "details table tbody tr[data-usage-day]", count: 30
       assert_select fragment, "svg[role='img'][aria-labelledby='test-usage-trend-title test-usage-trend-description']"
       assert_select fragment, "a[href='#{token_usage_path}']"
+      fragment.css("dl > div").each do |group|
+        assert_equal %w[dt dd], group.element_children.map(&:name)
+      end
       values = fragment.css("[data-usage-day] td").map { |cell| cell["data-value"].to_i }
       assert_equal report.period_totals[:total], values.sum
       refute_match(/translation missing|missing translation/i, html)
@@ -532,13 +535,13 @@ class TokenUsagesHelperTest < ActionView::TestCase
 end
 ```
 
-- [ ] **Step 2: Run and observe the missing helper/component failure.**
+- [x] **Step 2: Run and observe the missing helper/component failure.**
 
 ```bash
 rails_test test test/helpers/token_usages_helper_test.rb
 ```
 
-- [ ] **Step 3: Add numeric-only geometry and the shared overview partial.**
+- [x] **Step 3: Add numeric-only geometry and the shared overview partial.**
 
 ```ruby
 # app/helpers/token_usages_helper.rb
@@ -573,10 +576,10 @@ end
       <dt class="n-dashboard-help"><%= t("nosia.usage.total") %></dt>
       <dd class="n-dashboard-number" data-period-total data-value="<%= report.period_totals[:total] %>"><%= number_with_delimiter(report.period_totals[:total]) %></dd>
     </div>
-    <div class="n-dashboard-stat-pair">
+  </dl>
+  <dl class="n-dashboard-stat-pair">
       <div><dt class="n-dashboard-help"><%= t("nosia.usage.input") %></dt><dd data-period-input data-value="<%= report.period_totals[:input] %>"><%= number_with_delimiter(report.period_totals[:input]) %></dd></div>
       <div><dt class="n-dashboard-help"><%= t("nosia.usage.output") %></dt><dd data-period-output data-value="<%= report.period_totals[:output] %>"><%= number_with_delimiter(report.period_totals[:output]) %></dd></div>
-    </div>
   </dl>
   <p class="n-dashboard-help"><%= t("nosia.usage.token_unit", count: report.period_totals[:total]) %></p>
   <% if report.period_totals[:total].zero? %>
@@ -608,7 +611,7 @@ end
 </section>
 ```
 
-- [ ] **Step 4: Add the paired catalogs and focused styling.** These catalogs have no new plural branches; keep the existing `CatalogsTest::PLURAL_PATHS` unchanged.
+- [x] **Step 4: Add the paired catalogs and focused styling.** These catalogs have no new plural branches; keep the existing `CatalogsTest::PLURAL_PATHS` unchanged.
 
 ```yaml
 # config/locales/en.nosia_dashboard.yml
@@ -771,7 +774,7 @@ Add this import after `accounts.css` in `app/assets/tailwind/application.css`:
 @import "../stylesheets/nosia/dashboard.css" layer(utilities);
 ```
 
-- [ ] **Step 5: Run component, catalog, and CSS checks.**
+- [x] **Step 5: Run component, catalog, and CSS checks.**
 
 ```bash
 rails_test test test/helpers/token_usages_helper_test.rb test/internationalization/catalogs_test.rb
@@ -780,12 +783,14 @@ rails_test tailwindcss:build
 
 Expect 30 table rows, matching numeric totals, finite zero-series geometry, paired translations, and a successful Tailwind build. Do not commit generated ignored CSS builds.
 
-- [ ] **Step 6: Commit the shared overview and its assets/tests.**
+- [x] **Step 6: Commit the shared overview and its assets/tests.**
 
 ```bash
 git add app/helpers/token_usages_helper.rb app/views/token_usages/_overview.html.erb app/assets/stylesheets/nosia/dashboard.css app/assets/tailwind/application.css config/locales/en.nosia_dashboard.yml config/locales/fr.nosia_dashboard.yml test/helpers/token_usages_helper_test.rb
 git commit -m "feat(usage): add accessible thirty-day usage overview"
 ```
+
+**Task 3 execution:** Implemented in `4ec1810`. Missing-helper RED preceded implementation; semantic RED (2 tests / 19 assertions / 1 failure, seed 61147) exposed invalid nested definition-list grouping and was corrected to two valid lists. GREEN component/catalog run: 6 tests / 9,614 assertions / no failures/errors, seed 39440, exit 0. Tailwind build, changed Ruby lint, and whitespace checks passed. Independent spec and quality reviews approved. Logs: `/tmp/opencode/dashboard-task3-{red,semantics-red,green,build,lint}.log`. Quality suggested stronger visible-number/date-mapping coverage; Task 4 adds those request assertions below.
 
 ## Task 4: Assemble the balanced root dashboard without changing chat workflows
 
@@ -822,6 +827,10 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".n-dashboard-recent-list [data-conversation-id]", count: 5
     assert_select "[data-period-total][data-value='1057']"
     assert_select "[data-lifetime-total][data-value='1065']"
+    report = TokenUsage::Report.new(accounts: @user.accounts, now: @report_time)
+    days = css_select("details table tbody tr[data-usage-day]")
+    assert_equal report.daily_totals.keys, days.map { |row| Date.iso8601(row["data-usage-day"]) }
+    assert_equal report.daily_totals, days.to_h { |row| [ Date.iso8601(row["data-usage-day"]), row.at_css("td")["data-value"].to_i ] }
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_equal counts, [ Chat.count, Message.count, Document.count, Prompt.count, TokenUsage.count ]
   end
@@ -887,6 +896,9 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select "h1", text: I18n.t("nosia.dashboard.welcome", locale: locale)
       assert_select "a[data-dashboard-destination='mcp']", text: /#{Regexp.escape(I18n.t("nosia.dashboard.destinations.mcp", locale: locale))}/
+      { "period-total" => 1057, "period-input" => 952, "period-output" => 105, "lifetime-total" => 1065 }.each do |attribute, value|
+        assert_select "[data-#{attribute}]", text: ActiveSupport::NumberHelper.number_to_delimited(value, locale: locale)
+      end
       refute_match(/translation missing|missing translation/i, response.body)
     end
   end
