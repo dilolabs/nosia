@@ -1,0 +1,7 @@
+<% { first: "owner", second: "owner", member: "member" }.each do |key, role| %>
+overview_<%= key %>_token:
+  account: overview_<%= key == :first ? "first" : "second" %>
+  user: overview_<%= role %>
+  name: <%= key %> token
+  token_digest: <%= ApiToken.digest("overview-#{key}-secret") %>
+<% end %>

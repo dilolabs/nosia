@@ -2,10 +2,12 @@
 
 module Accounts
   class AccountUsersController < ApplicationController
+    include AccountScoped
+
     before_action :set_account
-    before_action :set_user, only: %i[create]
-    before_action :set_account_user, only: %i[destroy]
-    before_action :require_owner
+    before_action :require_account_owner
+    before_action :set_user, only: :create
+    before_action :set_account_user, only: :destroy
 
     def index
       @account_users = @account.account_users.includes(:user)
@@ -33,25 +35,17 @@ module Accounts
     end
 
     private
+      def set_account
+        @account = member_account(request.path_parameters.fetch(:account_id))
+      end
 
-    # Membership is the account's trust boundary: only the owner manages it.
-    def require_owner
-      return if @account.owner_id == Current.user.id
+      def set_user
+        @user = User.find_by(email: params[:account_user][:email])
+        redirect_to account_account_users_path(@account), alert: t("nosia.accounts.user_not_found") unless @user
+      end
 
-      redirect_to account_account_users_path(@account), alert: t("nosia.accounts.owner_only")
-    end
-
-    def set_account
-      @account = Current.user.accounts.find(params[:account_id])
-    end
-
-    def set_account_user
-      @account_user = @account.account_users.find(params[:id])
-    end
-
-    def set_user
-      @user = User.find_by(email: params[:account_user][:email])
-      redirect_to account_account_users_path(@account), alert: t("nosia.accounts.user_not_found") unless @user
-    end
+      def set_account_user
+        @account_user = @account.account_users.find(params[:id])
+      end
   end
 end

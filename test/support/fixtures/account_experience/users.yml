@@ -1,0 +1,5 @@
+<% %w[owner member outsider no_account].each do |role| %>
+overview_<%= role %>:
+  email: <%= User.type_for_attribute("email").serialize("overview-#{role}@example.com").to_json %>
+  password_digest: <%= BCrypt::Password.create("account-experience-password-123", cost: BCrypt::Engine::MIN_COST).to_json %>
+<% end %>

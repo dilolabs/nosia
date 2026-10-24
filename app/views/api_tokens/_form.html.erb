@@ -1,12 +1,18 @@
-<%= form_with(model: api_token) do |form| %>
+<%= form_with(model: api_token, url: @account ? account_api_tokens_path(@account) : api_tokens_path) do |form| %>
   <div class="n-form-field">
     <%= form.label :name, t("nosia.tokens.name"), class: "n-label" %>
     <%= form.text_field :name, required: true, class: "n-field" %>
   </div>
 
   <div class="n-form-field">
-    <%= form.label :account_id, t("nosia.tokens.default_account"), class: "n-label" %>
-    <%= form.collection_select :account_id, Current.user.accounts, :id, :name, { prompt: true, required: true }, { class: "n-select" } %>
+    <% if @account %>
+      <p class="n-label"><%= t("nosia.tokens.default_account") %></p>
+      <%= form.hidden_field :account_id, value: @account.id %>
+      <p><%= @account.name %></p>
+    <% else %>
+      <%= form.label :account_id, t("nosia.tokens.default_account"), class: "n-label" %>
+      <%= form.collection_select :account_id, Current.user.accounts, :id, :name, { prompt: true, required: true }, { class: "n-select" } %>
+    <% end %>
   </div>
 
   <%= form.submit t("nosia.tokens.generate"), class: "n-btn-primary" %>

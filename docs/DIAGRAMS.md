@@ -92,6 +92,25 @@ This document contains ASCII diagrams that complement the [ARCHITECTURE.md](ARCH
 └───────────────────────────────────────────────────────────────┘
 ```
 
+## Account Experience Entry Points
+
+```text
+Accounts index (current memberships)
+  └─ Account hub (explicit authorized account)
+       ├─ New conversation → existing composer with account_id
+       ├─ Sources → documents / texts / Q&As / websites
+       ├─ Your history → your saved chat
+       ├─ Usage → account-wide reporting
+       ├─ Your API tokens → your tokens ∩ this account
+       ├─ Shared prompt → member read / owner edit
+       └─ Details + users → owner-only administration
+```
+
+The URL carries account context, not a global preference. Membership is rechecked
+on subsequent requests; conversation history and tokens remain personal even for
+owners. See [Account experience](account-experience.md) for boundaries and
+verification limits.
+
 ## RAG Pipeline Flow
 
 ```

@@ -1,8 +1,10 @@
-<%= turbo_stream_from Current.account, "sources", I18n.locale %>
+<% content_for :account_tool_title, t("nosia.account_experience.sources") if @scoped_source_account %>
+
+<%= turbo_stream_from source_account, "sources", I18n.locale %>
 <%# New sources are prepended live to the matching filter view. Searched views
     opt out (a new row may not match the query) and refresh on reload. %>
 <% unless @query %>
-  <%= turbo_stream_from Current.account, "sources", "list:#{@type}:#{@status}", I18n.locale %>
+  <%= turbo_stream_from source_account, "sources", "list:#{@type}:#{@status}", I18n.locale %>
 <% end %>
 
 <div class="n-main-title-container">
@@ -15,7 +17,10 @@
   <div class="flex-1 min-w-0"
        data-controller="dropzone"
        data-dropzone-messages-value="<%= t('nosia.sources.upload_messages').to_json %>"
-       data-dropzone-url-value="<%= sources_documents_path %>"
+       data-dropzone-url-value="<%= source_collection_path(:document) %>"
+       <% if @scoped_source_account %>
+         data-dropzone-account-id-value="<%= @scoped_source_account.id %>"
+       <% end %>
        data-dropzone-max-file-size-value="50"
        data-dropzone-click-to-browse-value="false"
        data-dropzone-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">

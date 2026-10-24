@@ -1,0 +1,4 @@
+overview_model:
+  model_id: overview-test-model
+  provider: openai
+  name: Overview test model

@@ -25,6 +25,17 @@ class Chat < ApplicationRecord
 
   scope :root, -> { where(chat_id: nil) }
 
+  # @param chats [Array<Chat>] Already-authorized, bounded rows
+  # @return [Hash] First user-question markup keyed by chat ID; blank messages may map to nil
+  def self.first_questions_for(chats)
+    return {} if chats.empty?
+
+    Message.user.where(chat_id: chats.map(&:id))
+      .select("DISTINCT ON (chat_id) messages.*")
+      .reorder(:chat_id, :created_at, :id)
+      .to_h { |message| [ message.chat_id, message.question ] }
+  end
+
   # Recompute cached token counters from the token_usages event log (drift repair).
   # Rails 8's sum takes a single column, so two queries (small, indexed).
   def recount!

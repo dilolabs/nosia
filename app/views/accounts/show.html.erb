@@ -1,0 +1,27 @@
+<% content_for :title, @account.name %>
+
+<section class="n-accounts" data-account-overview="<%= @account.id %>">
+  <header class="n-account-header">
+    <div>
+      <h1 class="n-main-title n-account-name"><%= @account.name %></h1>
+      <p class="n-account-help"><%= @account.uid %> · <%= account_role_label(@account) %></p>
+    </div>
+    <div class="n-account-actions">
+      <% if account_owner? %>
+        <%= link_to t("nosia.account_experience.edit_account"), edit_account_path(@account), class: "n-account-secondary" %>
+      <% end %>
+      <%= link_to t("nosia.account_experience.new_conversation"), new_chat_path(account_id: @account.id), class: "n-account-primary" %>
+    </div>
+  </header>
+
+  <div class="n-account-columns">
+    <div class="n-account-stack">
+      <%= render "sources" %>
+      <%= render "conversations", conversations: @conversations, titles: @titles, recent: true %>
+    </div>
+    <div class="n-account-stack">
+      <%= render "usage" %>
+      <%= render "configuration" %>
+    </div>
+  </div>
+</section>

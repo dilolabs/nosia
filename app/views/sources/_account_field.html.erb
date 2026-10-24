@@ -1,0 +1,11 @@
+<div class="n-form-field">
+  <% if @scoped_source_account %>
+    <p class="n-label"><%= t("nosia.sources.account_label") %></p>
+    <%= form.hidden_field :account_id, value: @scoped_source_account.id %>
+    <p class="text-sm text-neutral-700 dark:text-neutral-200"><%= @scoped_source_account.name %></p>
+  <% else %>
+    <%= form.label :account_id, t("nosia.sources.account_label"), class: "n-label" %>
+    <%= form.collection_select :account_id, Current.user.accounts, :id, :name,
+          { prompt: true, selected: source_account&.id, required: true }, { class: "n-select" } %>
+  <% end %>
+</div>

@@ -17,15 +17,19 @@
 </div>
 
 <div class="pb-1 pt-4 flex-1 overflow-y-auto space-y-2">
-  <div class="flex justify-center">
-    <%= link_to t("nosia.actions.edit"), edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
-  </div>
+  <% if @system_prompt.user_id.present? || account_owner?(@system_prompt.account) %>
+    <div class="flex justify-center">
+      <%= link_to t("nosia.actions.edit"), edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
+    </div>
+  <% end %>
   <div class="max-w-4xl mx-auto n-card n-main-border px-5 py-3">
     <div class="text-[15px] leading-relaxed">
       <%= simple_format @system_prompt.content %>
     </div>
   </div>
-  <div class="flex justify-center">
-    <%= link_to t("nosia.actions.edit"), edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
-  </div>
+  <% if @system_prompt.user_id.present? || account_owner?(@system_prompt.account) %>
+    <div class="flex justify-center">
+      <%= link_to t("nosia.actions.edit"), edit_system_prompt_path(@system_prompt), class: "n-btn-primary" %>
+    </div>
+  <% end %>
 </div>

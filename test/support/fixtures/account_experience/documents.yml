@@ -1,0 +1,6 @@
+<% %w[first second].each do |account| %>
+overview_<%= account %>_document:
+  account: overview_<%= account %>
+  title: <%= account.capitalize %> document
+  index_status: 10
+<% end %>

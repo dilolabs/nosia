@@ -1,0 +1,6 @@
+<% %w[first second].each do |account| %>
+overview_<%= account %>_file:
+  name: file
+  record: overview_<%= account %>_document (Document)
+  blob: overview_blob
+<% end %>

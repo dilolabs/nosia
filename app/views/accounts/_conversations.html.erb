@@ -1,0 +1,25 @@
+<section class="n-account-panel">
+  <div class="n-account-header">
+    <h2><%= t("nosia.account_experience.#{recent ? 'recent' : 'history'}") %></h2>
+    <% if recent %>
+      <%= link_to t("nosia.account_experience.view_history"), account_chats_path(@account), class: "n-account-link" %>
+    <% end %>
+  </div>
+  <p class="n-account-help"><%= t("nosia.account_experience.privacy") %></p>
+
+  <% if conversations.empty? %>
+    <p class="n-account-help"><%= t("nosia.account_experience.no_conversations") %></p>
+    <%= link_to t("nosia.account_experience.new_conversation"), new_chat_path(account_id: @account.id), class: "n-account-secondary" %>
+  <% else %>
+    <ul class="!list-none">
+      <% conversations.each do |chat| %>
+        <li class="n-account-conversation" data-conversation-id="<%= chat.id %>">
+          <% title = account_conversation_title(chat, titles: titles) %>
+          <% title = truncate(title, length: 120, omission: "…") %>
+          <%= link_to title, chat_path(chat), class: "n-account-link n-account-name" %>
+          <time datetime="<%= chat.updated_at.iso8601 %>" class="n-account-help"><%= l(chat.updated_at, format: :short) %></time>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>

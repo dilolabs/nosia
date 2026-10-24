@@ -1,0 +1,26 @@
+<section class="n-account-panel">
+  <div class="n-account-header">
+    <h2><%= t("nosia.account_experience.sources") %></h2>
+    <%= link_to t("nosia.account_experience.view_sources"), account_sources_path(@account), class: "n-account-link" %>
+  </div>
+  <div class="n-account-source-grid">
+    <% SourceRow::TYPES.each do |type| %>
+      <%= link_to account_sources_path(@account, type: type), class: "n-account-source", data: { source_type: type } do %>
+        <%= inline_svg "svg/#{AccountsHelper::ACCOUNT_SOURCE_ICONS.fetch(type)}", aria_hidden: true, class: "h-5 w-5" %>
+        <strong><%= number_with_delimiter(@source_counts[:by_type].fetch(type)) %></strong>
+        <span><%= t("nosia.sources.types.#{type}", count: 2) %></span>
+      <% end %>
+    <% end %>
+  </div>
+
+  <% if @source_counts[:total].zero? %>
+    <p class="n-account-help"><%= t("nosia.account_experience.no_sources") %></p>
+    <%= link_to t("nosia.account_experience.add_source"), account_sources_path(@account), class: "n-account-link" %>
+  <% end %>
+  <% %w[failed pending].each do |status| %>
+    <% count = @source_counts[:by_status].fetch(status) %>
+    <% if count.positive? %>
+      <p><%= link_to t("nosia.account_experience.#{status == 'failed' ? 'failed' : 'processing'}", count: count), account_sources_path(@account, status: status), class: "n-account-link" %></p>
+    <% end %>
+  <% end %>
+</section>

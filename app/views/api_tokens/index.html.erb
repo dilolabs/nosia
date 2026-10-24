@@ -1,3 +1,5 @@
+<% content_for :account_tool_title, t("nosia.account_experience.api_tokens") if @account %>
+
 <% content_for :navbar do %>
   <li class="flex items-center">
     <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
@@ -16,7 +18,8 @@
   <div class="n-card n-main-border w-full row-span-2 lg:col-span-2">
     <div class="n-card-content">
       <h2 class="n-card-title"><%= t("nosia.tokens.new") %></h2>
-      <%= render "form", api_token: ApiToken.new %>
+      <%= render "application/validation_errors", record: @api_token %>
+      <%= render "form", api_token: @api_token %>
     </div>
   </div>
 
@@ -42,7 +45,7 @@
       <div class="n-card-content min-w-0">
         <div class="flex items-start gap-4 justify-between">
           <h2 class="n-card-title"><%= api_token.name %> <span class="text-sm upercase">(<%= api_token.account.name %>)</span></h2>
-          <%= button_to api_token, method: :delete, form_class: "shrink-0", data: { turbo_confirm: t("nosia.actions.confirm_delete") }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
+          <%= button_to @account ? account_api_token_path(@account, api_token) : api_token_path(api_token), method: :delete, form_class: "shrink-0", data: { turbo_confirm: t("nosia.actions.confirm_delete") }, class: "text-red-600 dark:text-red-300 n-btn-icon n-main-hover-danger n-main-focus-danger" do %>
             <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "mx-auto w-6 h-6" %>
             <span class="sr-only"><%= t("nosia.tokens.delete") %></span>
           <% end %>

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class SourcesController < ApplicationController
+  include SourceScoped
+
   PAGE_SIZE = 50
 
   def index
@@ -11,10 +13,10 @@ class SourcesController < ApplicationController
     @page   = [ params[:page].to_i, 1 ].max
     offset  = (@page - 1) * PAGE_SIZE
 
-    @counts = SourceRow.counts_for(Current.account)
-    @total  = SourceRow.total_for(Current.account, type: @type, status: @status, query: @query)
+    @counts = SourceRow.counts_for(source_account)
+    @total  = SourceRow.total_for(source_account, type: @type, status: @status, query: @query)
     @rows   = SourceRow.for_account(
-      Current.account,
+      source_account,
       type: @type, status: @status, query: @query, sort: @sort,
       limit: PAGE_SIZE, offset:
     )

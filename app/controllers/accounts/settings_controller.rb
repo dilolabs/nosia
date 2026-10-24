@@ -2,8 +2,11 @@
 
 module Accounts
   class SettingsController < ApplicationController
+    include AccountScoped
+
     def show
-      @account = Current.user.accounts.find(params[:account_id])
+      account = member_account(request.path_parameters.fetch(:account_id))
+      redirect_to account_path(account)
     end
   end
 end
