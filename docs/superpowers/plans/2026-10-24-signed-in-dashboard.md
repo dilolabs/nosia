@@ -1341,7 +1341,7 @@ git commit -m "feat(usage): align global reporting with dashboard memberships"
 **Browser-discovered navigation correction:** The retained `chat_account_selection` and `chat_composer_ui` suites fail because suppressing the dashboard history drawer also removed its desktop “New chat” link. Restore the existing localized `new_chat_path` link in the dashboard composer heading, desktop-only (mobile already has this link). Allow `app/views/dashboards/_composer.html.erb` and focused request coverage in `test/controllers/dashboards_controller_test.rb` for this correction. Keep the duplicate drawer suppressed and preserve the existing browser tests unchanged.
 **Retain unchanged:** `test/system/chat_account_selection_test.rb`, `test/system/chat_composer_ui_test.rb`, `test/system/localization_test.rb`, `test/system/sources_dropzone_test.rb`. These already cover PDF/source registration, retry/idempotency, upload removal, pending-upload submission guards, skill selection, draft reset, and French upload feedback on the root page.
 
-- [ ] **Step 1: Add browser tests for the new page-level behavior.** These supplement the earlier red request/model tests. They may pass immediately if those changes already implement the behavior. A newly discovered presentation defect must be reproduced by a failing browser assertion before a corrective application edit; do not weaken assertions or delete existing uploader tests to make the redesign pass.
+- [x] **Step 1: Add browser tests for the new page-level behavior.** These supplement the earlier red request/model tests. They may pass immediately if those changes already implement the behavior. A newly discovered presentation defect must be reproduced by a failing browser assertion before a corrective application edit; do not weaken assertions or delete existing uploader tests to make the redesign pass.
 
 ```ruby
 # test/system/dashboard_test.rb
@@ -1580,7 +1580,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
 end
 ```
 
-- [ ] **Step 2: Build assets, then run the new browser file with the installed local browser/driver.** This bootstrap unsets the broken remote-browser switch from the ignored environment without editing shared test configuration.
+- [x] **Step 2: Build assets, then run the new browser file with the installed local browser/driver.** This bootstrap unsets the broken remote-browser switch from the ignored environment without editing shared test configuration.
 
 ```bash
 rails_test tailwindcss:build
@@ -1589,7 +1589,7 @@ RAILS_ENV=test DATABASE_URL=postgresql:///nosia_signed_in_dashboard_test AI_API_
 
 Expect correct root submission and redirect, stable tool/report context after switching, eight working destinations, 30 visible table rows after expansion, responsive column changes, distinct themes, visible keyboard focus, and passing sampled contrast checks. If Task 0 found different browser binary paths, use those observed paths rather than installing anything.
 
-- [ ] **Step 3: Run the existing browser regressions sequentially.**
+- [x] **Step 3: Run the existing browser regressions sequentially.**
 
 ```bash
 RAILS_ENV=test DATABASE_URL=postgresql:///nosia_signed_in_dashboard_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bundle exec ruby -rselenium-webdriver -e 'ENV.delete("CAPYBARA_SERVER_PORT"); Selenium::WebDriver::Chrome::Service.driver_path="/usr/bin/chromedriver"; Selenium::WebDriver::Chrome.path="/usr/bin/chromium"; load "bin/rails"' -- test test/system/chat_account_selection_test.rb
@@ -1601,14 +1601,22 @@ RAILS_ENV=test DATABASE_URL=postgresql:///nosia_signed_in_dashboard_test AI_API_
 
 Expected: compact/root/saved/new composer interactions and generic/scoped sources continue working. Existing test names may still say “dashboard uploads”; the feature remains present as a compact control, so no mass test renaming/deletion is necessary.
 
-- [ ] **Step 4: Read the screenshots produced in the test's `@evidence_dir` (`"/tmp/opencode/dashboard-#{Process.pid}"`) with the image-reading tool.** Inspect desktop balance, narrow/landscape wrapping, both themes, the compact uploader, and shortcuts below the fold. Retain actual screenshot paths and contrast records in the verification notes; do not claim a screenshot was reviewed without opening it.
-- [ ] **Step 5: Perform a separate native-browser 200% zoom check if a headed browser is available.** In that browser set native zoom to 200%, revisit signed-in `/`, and Tab through the composer and shortcuts; verify reflow and unobscured controls. If no headed session can establish native zoom, explicitly record it as unverified. CDP viewport/device-scale or CSS zoom is not equivalent evidence.
-- [ ] **Step 6: Commit browser coverage once all new targeted tests pass.**
+- [x] **Step 4: Read the screenshots produced in the test's `@evidence_dir` (`"/tmp/opencode/dashboard-#{Process.pid}"`) with the image-reading tool.** Inspect desktop balance, narrow/landscape wrapping, both themes, the compact uploader, and shortcuts below the fold. Retain actual screenshot paths and contrast records in the verification notes; do not claim a screenshot was reviewed without opening it.
+- [x] **Step 5: Perform a separate native-browser 200% zoom check if a headed browser is available.** In that browser set native zoom to 200%, revisit signed-in `/`, and Tab through the composer and shortcuts; verify reflow and unobscured controls. If no headed session can establish native zoom, explicitly record it as unverified. CDP viewport/device-scale or CSS zoom is not equivalent evidence.
+- [x] **Step 6: Commit browser coverage once all new targeted tests pass.**
 
 ```bash
 git add test/system/dashboard_test.rb app/assets/stylesheets/nosia/dashboard.css
 git commit -m "test(dashboard): cover browser navigation and responsive accessibility"
 ```
+
+**Task 6 execution:** Browser coverage and scoped CSS corrections in `373d595`; desktop navigation regression corrected in `3146187`; visible-link contrast sampling hardened in `2b5440f`. Browser-proven corrections address dark no-account text contrast and Formatting toolbar movement without changing shared composer code. The missing desktop New chat link was reproduced by the retained suites and a new failing request assertion, then restored without bringing back the history drawer. The existing five browser files remain unchanged.
+
+Final sequential browser results: dashboard 5 / 304 (seed 39133), selection 44 / 681 (14055), composer 29 / 2,765 (47619), localization 8 / 337 (55800), dropzone 1 / 2 (65319), account experience 13 / 632 (24210): **100 tests / 4,721 assertions, zero failures/errors/skips, all exit 0**. New request coverage: 8 / 130, seed 36181, exit 0. The test-only contrast refinement reran the dashboard suite: 5 / 304, seed 39133, exit 0; production remained unchanged. All build/lint/whitespace checks passed. Failed attempts are preserved in `/tmp/opencode/dashboard-task6-01*` through `-28*`; final checks are `-29*` through `-45*`.
+
+The implementer, reviewers, and coordinator opened actual final screenshots. Latest 14 images and contrast records are in `/tmp/opencode/dashboard-530817/`: `{375-812,768-1024,1440-1000,812-375}-{light,dark}.png`, `375-{light,dark}-{upload,shortcuts}.png`, `375-no-account-{light,dark}.png`, and `contrast.jsonl`. Minimum sampled text/icon contrast is 7.13:1; focus is 4.54:1. Extreme account names create tall cards but wrap without horizontal overflow. Visible-link sampling now records actual visible matches rather than the hidden mobile desktop-only link.
+
+**Native 200% browser zoom remains UNVERIFIED:** no headed display was available and headless zoom did not apply (`/tmp/opencode/dashboard-task6-26-native-zoom.log`). Step 5 is recorded as attempted/limitation documented, not as a passing native-zoom check. Independent spec and quality reviews approved Task 6; no blocking or remaining minor finding. No full server-suite claim is made here.
 
 ## Task 7: Document the dashboard and review public Ruby interfaces
 
