@@ -1623,7 +1623,7 @@ The implementer, reviewers, and coordinator opened actual final screenshots. Lat
 **Create:** `docs/dashboard.md`.
 **Modify:** `docs/account-experience.md`, `docs/README.md`, `docs/DIAGRAMS.md`.
 
-- [ ] **Step 1: Add this user/developer guide.** It describes behavior and verification procedure, not unrun success claims.
+- [x] **Step 1: Add this user/developer guide.** It describes behavior and verification procedure, not unrun success claims.
 
 ```markdown
 # Signed-in dashboard
@@ -1687,7 +1687,7 @@ viewport, device-scale override, or CSS zoom does not establish native zoom.
 Record any unavailable manual check explicitly rather than implying coverage.
 ```
 
-- [ ] **Step 2: Correct the account guide's usage description without rewriting historical evidence.** Replace its current “Usage is lifetime account-wide input/output” bullet with this exact Markdown paragraph:
+- [x] **Step 2: Correct the account guide's usage description without rewriting historical evidence.** Replace its current “Usage is lifetime account-wide input/output” bullet with this exact Markdown paragraph:
 
 ```markdown
 - Usage on the hub and explicit account report is lifetime account-wide
@@ -1699,7 +1699,7 @@ Record any unavailable manual check explicitly rather than implying coverage.
 
 Leave historical test logs and past native-zoom limitations intact; those are evidence from earlier revisions, not current dashboard results.
 
-- [ ] **Step 3: Add the guide link and entrypoint diagram.** Add this line after the Account experience link in `docs/README.md`:
+- [x] **Step 3: Add the guide link and entrypoint diagram.** Add this line after the Account experience link in `docs/README.md`:
 
 ```markdown
 - [Signed-in dashboard](dashboard.md) — inline conversations, cross-account token statistics, explicit tool shortcuts, and private recents.
@@ -1725,14 +1725,16 @@ current memberships. Explicit account reports stay scoped to their URL account.
 See [Signed-in dashboard](dashboard.md) for dates, empty states, and verification.
 ````
 
-- [ ] **Step 4: Review YARD and boundaries inline against the code.** Check the documented authorized-relation precondition and time endpoints on `TokenUsage::Report`, hash/Date return types, recent-conversation relation, numeric SVG helper, and shortcut helper. Ensure each public method's actual signature matches this plan and its callers. Do not add a services layer, global account mutation, or comments on every ERB/controller line.
-- [ ] **Step 5: Check documentation whitespace and commit explicit paths.**
+- [x] **Step 4: Review YARD and boundaries inline against the code.** Check the documented authorized-relation precondition and time endpoints on `TokenUsage::Report`, hash/Date return types, recent-conversation relation, numeric SVG helper, and shortcut helper. Ensure each public method's actual signature matches this plan and its callers. Do not add a services layer, global account mutation, or comments on every ERB/controller line.
+- [x] **Step 5: Check documentation whitespace and commit explicit paths.**
 
 ```bash
 git diff --check
 git add docs/dashboard.md docs/account-experience.md docs/README.md docs/DIAGRAMS.md
 git commit -m "docs(dashboard): explain aggregate scope and navigation"
 ```
+
+**Task 7 execution:** Documentation committed in `fe76043`, exactly four paths. All 24 local links/anchors, Markdown fences, section placement, and whitespace checks passed. Historical account-guide verification evidence was byte-preserved. Public Ruby interfaces and their callers were reviewed against actual code; no incorrect contract required a source change. Captured-zone description and generic environmental-summary Hash could be more explicit but do not misstate behavior. Independent specification and quality reviews approved with no required changes. This documentation task ran no database, provider, or browser commands.
 
 ## Task 8: Run the final verification and review gates
 
