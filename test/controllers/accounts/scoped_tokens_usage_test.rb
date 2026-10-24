@@ -230,19 +230,19 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "global usage retains the first-account default after viewing a scoped account" do
+  test "global usage aggregates memberships after viewing a scoped account" do
     get account_token_usage_path(@second)
     assert_response :success
     assert_select "section p", text: "900"
 
     get token_usage_path
     assert_response :success
-    assert_select "section p", text: "10"
-    assert_select "section p", text: "2"
-    assert_select "section p", text: "900", count: 0
+    assert_select "#global-lifetime-summary section p", text: "910"
+    assert_select "#global-lifetime-summary section p", text: "102"
+    assert_select "[data-lifetime-total][data-value='1012']"
   end
 
-  test "cached usage stays isolated between viewed accounts and the global default" do
+  test "cached account fragments remain isolated and global aggregation does not reuse their keys" do
     previous_cache = Rails.cache
     previous_controller_store = ActionController::Base.cache_store
     previous_perform_caching = ActionController::Base.perform_caching
@@ -250,11 +250,13 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
     ActionController::Base.cache_store = Rails.cache
     ActionController::Base.perform_caching = true
 
-    [ account_token_usage_path(@first), account_token_usage_path(@second), token_usage_path ].each_with_index do |path, index|
+    [ [ account_token_usage_path(@first), "10", "2" ],
+      [ account_token_usage_path(@second), "900", "100" ],
+      [ token_usage_path, "910", "102" ] ].each do |path, input, output|
       get path
       assert_response :success
-      assert_select "section p", text: index == 1 ? "900" : "10"
-      assert_select "section p", text: index == 1 ? "100" : "2"
+      assert_select "section p", text: input
+      assert_select "section p", text: output
     end
 
     @second.update_columns(input_tokens_count: 901, output_tokens_count: 101)
@@ -264,8 +266,8 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
     assert_select "section p", text: "101"
     get token_usage_path
     assert_response :success
-    assert_select "section p", text: "10"
-    assert_select "section p", text: "2"
+    assert_select "#global-lifetime-summary section p", text: "911"
+    assert_select "#global-lifetime-summary section p", text: "103"
   ensure
     Rails.cache = previous_cache
     ActionController::Base.cache_store = previous_controller_store

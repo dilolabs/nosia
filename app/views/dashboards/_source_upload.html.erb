@@ -1,0 +1,15 @@
+<%# locals: (chat:) %>
+<div class="n-dashboard-upload" data-controller="dropzone" data-variant="dashboard"
+     data-dropzone-messages-value="<%= t('nosia.sources.upload_messages').to_json %>"
+     data-dropzone-account-id-value="<%= chat.account_id %>" data-dropzone-url-value="<%= sources_documents_path %>"
+     data-dropzone-max-file-size-value="50"
+     data-dropzone-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg"
+     data-action="chat-account:reset@window->dropzone#resetChatDraft">
+  <input type="file" multiple accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg" class="hidden" data-dropzone-target="input">
+  <button type="button" class="n-account-secondary" data-dropzone-target="container" data-active="false" aria-describedby="dashboard-upload-help">
+    <%= inline_svg "svg/download.svg", aria_hidden: true, class: "mr-2 h-4 w-4" %>
+    <%= t("nosia.dashboard.upload_sources") %>
+  </button>
+  <p id="dashboard-upload-help" class="n-dashboard-help"><%= t("nosia.dashboard.upload_help") %></p>
+  <ul class="hidden !list-none space-y-2" data-dropzone-target="list"></ul>
+</div>

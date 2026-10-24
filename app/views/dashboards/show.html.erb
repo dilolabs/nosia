@@ -1,44 +1,14 @@
-<% content_for :title, t("nosia.chat.title") %>
-<div class="h-[calc(100vh-10.5rem)] lg:h-full flex flex-col justify-between"
-     data-controller="chat-account"
-     data-chat-account-account-id-value="<%= @chat.account_id %>"
-     data-chat-account-confirm-message-value="<%= t('nosia.chat.change_account') %>"
-     data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture">
-  <section class="w-full max-w-4xl mx-auto sm:pt-6 text-center overflow-y-auto">
-    <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight">
-      <%= t("nosia.chat.welcome") %>
-    </h2>
-    <p class="text-sm md:text-base mt-3 text-neutral-500 dark:text-neutral-400">
-      <%= t("nosia.chat.tagline") %>
-    </p>
-    <% if @chat.account.present? %>
-      <div class="my-3 lg:mt-12 flex justify-center w-full bg-white dark:bg-neutral-800 shadow-sm rounded-3xl border n-main-border">
-        <div data-controller="dropzone" data-dropzone-messages-value="<%= t('nosia.sources.upload_messages').to_json %>" data-variant="dashboard" data-dropzone-account-id-value="<%= @chat.account_id %>" data-action="chat-account:reset@window->dropzone#resetChatDraft" data-dropzone-url-value="/sources/documents" data-dropzone-max-file-size-value="50" data-dropzone-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg" class="w-full relative p-3 sm:p-6 rounded-xl text-center">
-          <div data-dropzone-target="container" class="group relative flex-wrap p-3 sm:p-6 md:py-14 rounded-xl text-center transition-all border-2 border-dashed n-main-border n-main-hover n-main-focus" data-active="false">
-            <input type="file" multiple accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/png,image/jpeg" class="hidden" data-dropzone-target="input">
-            <div class="mx-auto mb-4 h-12 w-12 rounded-2xl ring-1 ring-neutral-200/70 flex items-center justify-center group-data-[active=true]:ring-neutral-300 transition">
-              <%= inline_svg_tag "svg/download.svg", class: "h-6 w-6 text-neutral-500 dark:text-neutral-400" %>
-            </div>
-            <p class="text-base sm:text-lg font-semibold text-neutral-800 dark:text-white"><%= t("nosia.chat.upload_title") %></p>
-            <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400"><%= t("nosia.chat.upload_help") %></p>
-            <p class="mt-2 text-xs text-neutral-400 dark:text-neutral-500"><%= t("nosia.chat.upload_types") %></p>
-            <div class="pointer-events-none absolute inset-0 rounded-2xl ring-8 ring-transparent group-data-[active=true]:ring-neutral-100 transition"></div>
-          </div>
-
-          <ul data-dropzone-target="list" class="mt-6 mx-auto grid md:grid-cols-2 space-y-2 text-left hidden">
-          </ul>
-        </div>
-      </div>
-    <% end %>
-  </section>
-  <section class="w-full max-w-4xl mx-auto">
-    <div class="mx-auto pointer-events-auto">
-      <%= render "chats/form", chat: @chat %>
-    </div>
-  </section>
-  <%# MCP Selector Modal %>
-  <% if @chat.persisted? %>
-    <%= render "chats/mcp_selector", chat: @chat %>
-  <% end %>
-
+<% content_for :title, t("nosia.dashboard.title") %>
+<div class="n-dashboard" data-dashboard>
+  <header class="n-dashboard-heading">
+    <p class="n-dashboard-help"><%= t("nosia.dashboard.title") %></p>
+    <h1><%= t("nosia.dashboard.welcome") %></h1>
+    <p class="n-dashboard-help"><%= t("nosia.dashboard.introduction") %></p>
+  </header>
+  <div class="n-dashboard-top">
+    <%= render "composer", chat: @chat %>
+    <%= render "token_usages/overview", report: @report, title_id: "dashboard-usage-title" %>
+  </div>
+  <%= render "shortcuts", shortcuts: dashboard_shortcuts(account: @default_account) %>
+  <%= render "recent", conversations: @conversations, titles: @titles %>
 </div>

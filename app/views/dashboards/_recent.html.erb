@@ -1,0 +1,20 @@
+<%# locals: (conversations:, titles:) %>
+<section class="n-dashboard-panel" aria-labelledby="dashboard-recents-title">
+  <h2 id="dashboard-recents-title"><%= t("nosia.dashboard.recents_title") %></h2>
+  <p class="n-dashboard-help"><%= t("nosia.dashboard.recents_help") %></p>
+  <ul class="n-dashboard-recent-list !list-none">
+    <% conversations.each do |chat| %>
+      <li class="n-dashboard-recent-row" data-conversation-id="<%= chat.id %>">
+        <div>
+          <%= link_to truncate(account_conversation_title(chat, titles: titles), length: 120, omission: "…"), chat_path(chat), class: "n-dashboard-link" %>
+          <p class="n-dashboard-help"><%= chat.account.name %></p>
+        </div>
+        <time class="n-dashboard-help" datetime="<%= chat.updated_at.iso8601 %>"><%= l(chat.updated_at, format: :short) %></time>
+      </li>
+    <% end %>
+  </ul>
+  <% if conversations.empty? %>
+    <p class="n-dashboard-help"><%= t("nosia.dashboard.no_conversations") %></p>
+  <% end %>
+  <%= link_to t("nosia.dashboard.history_by_account"), accounts_path, class: "n-dashboard-link" %>
+</section>

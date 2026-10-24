@@ -16,9 +16,11 @@ the account in another browser tab.
   Account owners cannot inspect other members' chats through the account hub.
 - API-token lists, generation, and revocation cover only your tokens in this
   account. A newly generated secret is displayed once; digests are never rendered.
-- Usage is lifetime account-wide input/output, with detailed usage and impact on
-  the linked reporting page. Hub summaries refresh on navigation/reload. This is
-  usage reporting, not a new billing system.
+- Usage on the hub and explicit account report is lifetime account-wide
+  input/output. The signed-in dashboard and global `/token_usage` page aggregate
+  all current membership accounts, including other members' usage; dashboard
+  period totals and lifetime totals are labeled separately. Hub summaries refresh
+  on navigation/reload. This is usage reporting, not a new billing system.
 - Members may read the shared default system prompt. Only the account owner edits
   it, edits account details, or accesses/manages the membership directory. The hub
   shows the user count to members, not the membership directory.
