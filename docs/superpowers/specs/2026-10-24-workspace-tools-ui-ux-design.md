@@ -1,6 +1,6 @@
 # Workspace tools UI/UX — shared foundation and rollout
 
-Status: Design approved in conversation; written-spec review pending.
+Status: Written specification approved by the user (“Go”); Sources planning authorized.
 
 Date: 2026-10-24
 
@@ -128,9 +128,9 @@ that the current application does not implement.
 
 ## Design status
 
-The shared foundation and the first Sources design have been approved in
-conversation. This shared specification and the Sources specification must be
-committed and reviewed by the user before writing-plans is invoked for Sources.
+The shared foundation and the first Sources design were committed in `0a58bbe`
+and reviewed by the user, who answered “Go” to starting the Sources plan.
+writing-plans has been invoked for Sources only.
 No application code, routes, schema, dependencies, or permissions have been
 changed for this redesign. Approval here does not skip the independent design,
 written-spec review, planning, or verification gates for later workflows.

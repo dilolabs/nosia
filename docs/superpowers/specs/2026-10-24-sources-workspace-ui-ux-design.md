@@ -1,6 +1,6 @@
 # Sources workspace UI/UX
 
-Status: Design approved in conversation; written-spec review pending.
+Status: Written specification approved by the user (“Go”); implementation planning authorized.
 
 Date: 2026-10-24
 
@@ -211,8 +211,12 @@ focused/source/composer regression checks with honest baseline reporting.
   navigation/live-update boundaries, and verify account/source/UI regressions.
   Rationale: keep this a safe, test-first presentation/workflow improvement rather
   than a rewrite of ingestion or account semantics.
+- User answered **“Go”** after being asked to review the two specifications
+  committed in `0a58bbe` before writing the Sources implementation plan.
+  Rationale: approve the written specifications and proceed to planning, not
+  application implementation or the later workflow redesigns.
 
-All Sources design sections are approved in conversation. The committed written
-specification still requires user review before writing-plans. No application
-implementation is authorized until that gate and implementation planning are
-complete.
+All design sections and the committed written specification are approved.
+The [Sources implementation plan](../plans/2026-10-24-sources-workspace-ui-ux.md)
+has been written. Application implementation awaits the user's
+execution-workflow choice; no application code has changed during planning.
