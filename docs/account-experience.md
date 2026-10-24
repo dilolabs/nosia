@@ -36,6 +36,15 @@ is rejected. Outsiders, mismatched records, and malformed account context return
 422. Legacy global shared-prompt edit/update/delete routes enforce the same owner
 rule.
 
+Scoped Text, Q&A, and Website create/update tools support HTML responses, not a
+new JSON API. When HTML is acceptable, it is selected explicitly, including Turbo
+fallbacks or an Accept header such as `application/json, text/html;q=0.9`. A JSON
+request body can still be parsed when the response accepts HTML. Explicit `.json`
+URLs and JSON-only/XML-only response requests receive 406 before mutations or
+ingestion jobs. Membership, raw account validation, and update-record authority
+are checked first, so unauthorized or conflicting requests still receive 404.
+Document JSON uploads and existing global source response behavior are unchanged.
+
 The directory shows 24 accounts per page, ordered by name then ID. The hub shows
 five recent conversations. History shows 25 per page, ordered by activity then ID
 descending. Directory/history page inputs are normalized and bounded before SQL
@@ -106,7 +115,7 @@ live providers/ingestion workers for these checks.
 
 ### Final execution: 2026-10-24 (+02:00)
 
-Verified application/test revision: `0df9f4742d54191153a89d1d019caa0c98c24e9c`,
+Verified application/test revision: `ecfd9ce8b3a496284b2579737325d2505ddf08e1`,
 Ruby 4.0.7 / Rails 8.0.5.1 / PostgreSQL. This documentation-only change follows
 those checks. Full commands, self-review details, and retained earlier failures:
 `/tmp/opencode/account-experience-task11-verification.md` (local evidence, not
@@ -135,11 +144,11 @@ bundle exec ruby -rselenium-webdriver -e 'ENV.delete("CAPYBARA_SERVER_PORT"); Se
 
 | Check / explicit browser file | Seed | Runs / assertions | Failures / errors / skips | Exit | Log |
 | --- | ---: | ---: | --- | ---: | --- |
-| Focused command above | 35220 | 302 / 13136 | 0 / 0 / 0 | 0 | `account-experience-task11-focused.log` |
-| Unfiltered full suite | 15399 | 986 / 17457 | 0 / **1** / 0 | **1** | `account-experience-final-suite.log` |
-| `test/system/account_experience_test.rb` | 56936 | 8 / 387 | 0 / 0 / 0 | 0 | `account-experience-task11-browser-feature.log` |
-| `test/system/chat_account_selection_test.rb` | 39072 | 44 / 681 | 0 / 0 / 0 | 0 | `account-experience-task11-browser-chat.log` |
-| `test/system/sources_dropzone_test.rb` | 18662 | 1 / 2 | 0 / 0 / 0 | 0 | `account-experience-task11-browser-dropzone.log` |
+| Focused command above | 4768 | 354 / 13716 | 0 / 0 / 0 | 0 | `account-experience-task11-focused.log` |
+| Unfiltered full suite | 54073 | 1038 / 18037 | 0 / **1** / 0 | **1** | `account-experience-final-suite.log` |
+| `test/system/account_experience_test.rb` | 26794 | 9 / 402 | 0 / 0 / 0 | 0 | `account-experience-task11-browser-feature.log` |
+| `test/system/chat_account_selection_test.rb` | 19523 | 44 / 681 | 0 / 0 / 0 | 0 | `account-experience-task11-browser-chat.log` |
+| `test/system/sources_dropzone_test.rb` | 1066 | 1 / 2 | 0 / 0 / 0 | 0 | `account-experience-task11-browser-dropzone.log` |
 
 **The full suite did not pass.** Its only error matches the explicitly accepted
 Task 0 baseline: `Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`,
@@ -158,7 +167,12 @@ corrections preserved the plural equality/runtime guard and restored context-fre
 legacy uploads. The preexisting Sources browser setup was maintained to use the
 existing root login page and stable field IDs, without changing production auth
 or its source assertion. Earlier logs are retained with `-before-plural-fix` and
-`-before-upload-fix` suffixes; they are not the final results above.
+`-before-upload-fix` suffixes. Final review also led to HTML-only scoped
+non-document writes rejecting unsupported response formats before side effects,
+explicit HTML selection for mixed Accept headers, and long history-heading
+wrapping at 375px. These corrections were separately reviewed before this rerun.
+Previous final logs/report are retained with
+`-before-final-format-fix-0df9f47` suffixes; none are the current results above.
 
 ### Lint, security, and self-review
 
@@ -193,6 +207,9 @@ git status --short
   usage cache identity/tenant restoration, escaped output, and read-only GETs.
   No new blocking feature finding remained. No schema, dependency, auth migration,
   global account preference, or `Current.account` assignment was introduced.
+  The final private format guard runs after membership/raw-account/record checks
+  and before create/update writes, and pins HTML once negotiated. Its response
+  contract is documented above; existing public model/helper contracts are unchanged.
 - Existing model/helper YARD tags were checked against the implementation and
   authorized/bounded caller preconditions. No material contract discrepancy
   requiring application edits was found. Source navigation helpers have uneven
@@ -201,22 +218,27 @@ git status --short
 
 ### Browser and visual evidence
 
-Final feature-run evidence is **only lines 70–78** of
-`/tmp/opencode/account-experience-task10-evidence.jsonl`, seed **56936**. Earlier
+Final feature-run evidence is **only lines 150–159** of
+`/tmp/opencode/account-experience-task10-evidence.jsonl`, seed **26794**. Earlier
 lines belong to earlier runs. A run-specific copy, screenshot hashes, and the
-nine-record slice are preserved under
-`/tmp/opencode/account-experience-task11-0df9f47-browser-56936/`.
+ten-record slice are preserved under
+`/tmp/opencode/account-experience-task11-ecfd9ce-browser-26794/`.
 
-All eight current screenshots were read: `account-experience-1440-light.png`,
+All nine current screenshots were read: `account-experience-1440-light.png`,
 `account-experience-375-light.png`, `account-experience-375-dark.png`,
 `account-experience-375-light-content.png`, `account-experience-375-dark-content.png`,
-`account-experience-member.png`, `account-experience-empty-hub.png`, and
-`account-experience-source-validation-error.png`. Desktop columns, narrow long
+`account-experience-member.png`, `account-experience-empty-hub.png`,
+`account-experience-source-validation-error.png`, and
+`account-experience-history-long-name-375.png`. Desktop columns, narrow long
 French name/UID wrapping, distinct themes, member-only history, actionable empty
 states, and preserved invalid-form details were inspected. The supplemental
-light-content capture still shows the header, not a separate scrolled source
-panel; the dark-content capture shows the two-column source tiles and wrapped
-French Q&A label. No broader screenshot coverage is implied.
+light-content capture now shows the two-column source tiles and wrapped French
+Q&A label; the dark-content capture shows the header, not a separate scrolled
+source panel. The long-history screenshot shows the unbroken name wrapping;
+at a 375px viewport its main scroll/client widths both measured 365px, with
+`overflow-wrap: anywhere`. Browser assertions also check the hub breadcrumb,
+New conversation, and Next history links fit and are unobscured when scrolled
+into view. No broader screenshot coverage is implied.
 
 Browser automation also exercised account navigation/composer preselection,
 second-account source/history links, account edits, one-time personal-token
@@ -232,5 +254,5 @@ automated checks, not an exhaustive UI, screen-reader, or assistive-technology a
 **Native 200% browser zoom is still UNVERIFIED.** Headless Ctrl+Add left
 `innerWidth=1400`, `outerWidth=1400`, and `devicePixelRatio=1` unchanged. Viewport,
 CDP, device-scale, and CSS emulation do not replace the outstanding headed/manual
-200% zoom check. Independent documentation-specification and final whole-feature
-quality reviews are still required before integration.
+200% zoom check. Documentation-specification review and the final reviewer's
+confirmation of this fresh evidence are still required before integration.
