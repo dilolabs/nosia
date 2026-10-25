@@ -514,6 +514,54 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
     end
   end
 
+  test "normal and one-character View titles are separate 44px targets at 375px" do
+    sources = SourceRow::TYPES.map { |type| experience(type.pluralize, "overview_second_#{type}") }
+    measurements = []
+    resize_sources(375, 812)
+
+    %w[normal short].each do |variant|
+      if variant == "short"
+        sources.each do |source|
+          source.update_columns(source.is_a?(Website) ? { data: "# X" } : { title: "X" })
+        end
+      end
+      visit account_sources_path(@second)
+      %w[light dark].each do |theme|
+        set_sources_theme(theme)
+        assert_source_layout
+        rows = page.evaluate_script(<<~JS)
+          Array.from(document.querySelectorAll('.n-source-row')).map(row => {
+            const title=row.querySelector('.n-source-title'),bounds=title.getBoundingClientRect();
+            const others=Array.from(row.querySelectorAll('.n-source-subtitle,.n-source-row-actions a,.n-source-row-actions button'));
+            return {type:row.dataset.sourceType,title:title.textContent.trim(),width:bounds.width,height:bounds.height,
+              overlaps:others.some(element=>{const other=element.getBoundingClientRect();
+                return Math.min(bounds.right,other.right)>Math.max(bounds.left,other.left)&&Math.min(bounds.bottom,other.bottom)>Math.max(bounds.top,other.top);})};
+          })
+        JS
+        measurements.concat(rows.map { |row| row.merge("variant" => variant, "theme" => theme) })
+        File.write("#{@evidence_dir}/view-targets.json", measurements.to_json)
+        puts "Source View target bounds: #{rows.to_json}"
+        assert_equal SourceRow::TYPES.sort, rows.map { |row| row.fetch("type") }.sort
+        assert_equal [ "X" ], rows.map { |row| row.fetch("title") }.uniq if variant == "short"
+        rows.each do |row|
+          assert_operator row.fetch("width"), :>=, 44, row.to_json
+          assert_operator row.fetch("height"), :>=, 44, row.to_json
+          assert_not row.fetch("overlaps"), row.to_json
+        end
+        sources.each do |source|
+          verify_row_keyboard(source)
+          title = "[data-source-id='#{source.id}'] .n-source-title"
+          find(title).send_keys(:null)
+          page.execute_script("document.querySelector(arguments[0]).focus()", title)
+          assert_focused_source_visible
+          measure_source_contrast([ [ title, "color", 4.5 ], [ "#{title}:focus", "outlineColor", 3 ] ])
+          save_source_screenshot("view-#{variant}-#{source.model_name.element}-#{theme}")
+        end
+      end
+    end
+    assert_no_enqueued_jobs
+  end
+
   test "long source and account names fit the locale viewport theme matrix with accessible row actions" do
     @second.update_columns(name: "CompteDeRecherche" * 12)
     source = experience(:texts, :overview_second_text)
@@ -704,7 +752,14 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
       row = "[data-source-id='#{source.id}']"
       find("#{row} .n-source-title").send_keys(:null)
       page.execute_script("document.querySelector(arguments[0]).focus()", "#{row} .n-source-title")
-      [ "[data-source-edit]", "form button", "a[data-turbo-method='delete']" ].each do |selector|
+      view = find("#{row} .n-source-title:focus")
+      assert_focused_source_visible
+      assert_operator view.rect.width, :>=, 44
+      assert_operator view.rect.height, :>=, 44
+      actions = [ "[data-source-edit]" ]
+      actions << "form button" if source.failed?
+      actions << "a[data-turbo-method='delete']"
+      actions.each do |selector|
         page.send_keys(:tab)
         focused = find("#{row} #{selector}:focus")
         assert_focused_source_visible
@@ -712,7 +767,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
         assert_operator focused.rect.height, :>=, 44
       end
       page.send_keys([ :shift, :tab ])
-      assert_selector "#{row} form button:focus"
+      assert_selector "#{row} #{actions[-2]}:focus"
       assert_focused_source_visible
     end
 
