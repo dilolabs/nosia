@@ -153,6 +153,27 @@ promise live prepends. Reading workspace pages does not enqueue processing.
 See [Sources workspace](sources-workspace.md) for navigation, safety, and
 verification boundaries.
 
+## Token Usage Workspace
+
+```text
+/token_usage                         /accounts/:account_id/token_usage
+current memberships                 current URL-account membership
+       |                                         |
+30 local dates + lifetime counters  lifetime counters + existing rolling query
+       \                                         /
+        +-- overview / static trend / daily table --+
+        |          secondary context + estimates   |
+        +-- lifetime model/type details + method --+
+
+Scoped lifetime fragments: locale + account + counters + version + section
+Recent chart/table/date labels: outside lifetime fragments
+Dashboard overview: existing independent presentation, unchanged
+```
+
+Global and account recent periods deliberately remain different. All supplied
+account date buckets are preserved; neither route changes the default account.
+See [Token usage workspace](token-usage-workspace.md) for scope and limitations.
+
 ## RAG Pipeline Flow
 
 ```
