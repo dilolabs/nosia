@@ -7,12 +7,13 @@
 <% actions = capture do %>
   <%= link_to t("nosia.sources.#{type.pluralize}.edit_action"), source_edit_path(record), class: "n-workspace-button n-workspace-primary", data: { source_edit: true } %>
   <% if record.failed? %>
-    <%= button_to t("nosia.actions.retry"), source_retry_path(record), method: :post, class: "n-workspace-button" %>
+    <%= button_to t("nosia.actions.retry"), source_retry_path(record), method: :post, class: "n-workspace-button", form: { data: { turbo: false } } %>
   <% end %>
   <%= link_to t("nosia.sources.#{type.pluralize}.delete_action"), source_show_path(record), class: "n-workspace-button n-workspace-danger", data: { turbo_method: :delete, turbo_confirm: source_delete_confirmation(record, account_name: account.name) } %>
 <% end %>
 
-<div class="n-workspace n-source-workspace" data-source-workspace data-source-detail>
+<div class="n-workspace n-source-workspace" data-source-workspace data-source-detail
+     data-controller="source-navigation" data-action="turbo:before-fetch-request@document->source-navigation#requestHTML">
   <%= render "workspaces/header", title: title, scope_label: source_workspace_scope(account), trail: source_workspace_trail(title: title), back_path: source_index_path(type: type), show_new_chat: !@scoped_source_account, actions: actions %>
   <section class="n-workspace-panel n-source-detail-panel">
     <div class="n-source-metadata">

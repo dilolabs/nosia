@@ -17,7 +17,7 @@
         uploads -- source editors are text-only. %>
     <%= form.lexxy_rich_text_area :data,
           **source_field_options(form, :data,
-            value: website.to_html,
+            value: source_website_editor_value(website),
             class: "n-textarea n-source-editor",
             attachments: "false") %>
     <%= render "sources/field_error", form: form, attribute: :data %>

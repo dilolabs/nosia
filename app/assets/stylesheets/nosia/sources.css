@@ -66,3 +66,5 @@
 .n-source-markdown pre, .n-source-markdown table { display: block; max-width: 100%; overflow-x: auto; }
 .n-source-file-frame { width: 100%; height: 60vh; min-height: 16rem; margin-top: 1rem; border: 1px solid var(--color-neutral-500); border-radius: .5rem; }
 .n-source-file-image { display: block; width: auto; max-width: 100%; max-height: 70vh; margin: 1rem auto 0; object-fit: contain; }
+
+@media (prefers-reduced-motion: reduce) { .n-source-workspace .n-field, .n-source-workspace .n-select, .n-source-workspace .n-source-editor, .n-source-workspace .n-source-title { transition: none; } }

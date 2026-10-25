@@ -21,7 +21,7 @@
   <div class="n-source-row-actions">
     <%= link_to t("nosia.actions.edit"), source_edit_path(record), class: "n-workspace-button", data: { source_edit: true } %>
     <% if record.failed? %>
-      <%= button_to source_retry_path(record), method: :post, aria: { label: t("nosia.actions.retry") }, class: "n-workspace-button n-main-focus-tertiary" do %>
+      <%= button_to source_retry_path(record), method: :post, aria: { label: t("nosia.actions.retry") }, class: "n-workspace-button n-main-focus-tertiary", form: { data: { turbo: false } } do %>
         <span aria-hidden="true"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></span><%= t("nosia.actions.retry") %>
       <% end %>
     <% end %>

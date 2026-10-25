@@ -62,6 +62,87 @@ class SourcesWorkspaceFormsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a duplicate website 422 retains submitted Lexxy formatting without mutating or saving the source" do
+    draft = "<p>Keep <strong>this</strong> content</p>"
+    existing = experience(:websites, :overview_second_website)
+
+    assert_no_changes -> { Website.order(:id).map(&:attributes) } do
+      assert_no_enqueued_jobs do
+        post account_sources_websites_path(@second), params: { website: { url: existing.url, data: draft } }
+      end
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "[data-source-form-target='errors'] a[href='#website_url']", text: "Url has already been taken"
+    assert_equal draft, controller.view_assigns.fetch("website").data
+    assert_select "lexxy-editor#website_data[name='website[data]'][attachments='false']" do |editors|
+      content = Nokogiri::HTML.fragment(editors.first["value"])
+      assert_select content, "p", text: "Keep this content"
+      assert_select content, "strong", text: "this"
+      assert_equal Commonmarker.to_html("Keep **this** content"), editors.first["value"]
+    end
+  end
+
+  test "website 422 editor presentation normalizes unsafe HTML without emitting executable markup" do
+    draft = <<~HTML
+      <p>Safe <strong>knowledge</strong></p>
+      <script>alert('source-xss')</script>
+      <img src="invalid" onerror="alert('source-xss')">
+      <p><a href="javascript:alert('source-xss')" onclick="alert('source-xss')">Unsafe link</a></p>
+    HTML
+
+    assert_no_changes -> { Website.order(:id).map(&:attributes) } do
+      assert_no_enqueued_jobs do
+        post account_sources_websites_path(@second), params: { website: { url: "", data: draft } }
+      end
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal draft, controller.view_assigns.fetch("website").data
+    assert_select ".n-source-form script, .n-source-form img, .n-source-form [onerror], .n-source-form [onclick]", count: 0
+    assert_select "lexxy-editor#website_data", count: 1 do |editors|
+      content = Nokogiri::HTML.fragment(editors.first["value"])
+      assert_select content, "strong", text: "knowledge"
+      assert_select content, "script, img, [onerror], [onclick]", count: 0
+      content.css("a").each { |link| refute_match(/\A\s*(?:javascript|data|vbscript):/i, link["href"].to_s) }
+    end
+  end
+
+  test "website 422 presentation keeps Markdown formatting and the existing frontmatter policy" do
+    draft = "---\nprivate_note: do not show\n---\n# Research draft\n\nKeep **this** content"
+    assert_no_changes -> { Website.order(:id).map(&:attributes) } do
+      assert_no_enqueued_jobs do
+        post account_sources_websites_path(@second), params: { website: { url: "", data: draft } }
+      end
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal draft, controller.view_assigns.fetch("website").data
+    assert_select "lexxy-editor#website_data" do |editors|
+      content = Nokogiri::HTML.fragment(editors.first["value"])
+      assert_select content, "h1", text: "Research draft"
+      assert_select content, "strong", text: "this"
+      assert_not_includes editors.first["value"], "private_note"
+    end
+  end
+
+  test "website 422 leaves unchanged persisted content on its existing rendering path" do
+    source = experience(:websites, :overview_second_website)
+    assert_no_changes -> { Website.order(:id).map(&:attributes) } do
+      assert_no_enqueued_jobs do
+        patch account_sources_website_path(@second, source), params: { website: { url: "" } }
+      end
+    end
+
+    assert_response :unprocessable_entity
+    rendered = controller.view_assigns.fetch("website")
+    assert_not rendered.will_save_change_to_data?
+    assert_equal source.data, rendered.data
+    assert_select "lexxy-editor#website_data" do |editors|
+      assert_equal source.to_html, editors.first["value"]
+    end
+  end
+
   test "source-specific error summary escapes base messages and omits an empty summary" do
     source = experience(:texts, :overview_second_text)
     source.errors.add(:base, "<script>unsafe</script>")

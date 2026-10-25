@@ -1,5 +1,6 @@
 <% content_for :account_tool_title, t("nosia.account_experience.sources") if @scoped_source_account %>
-<div class="n-workspace n-source-workspace" data-source-workspace>
+<div class="n-workspace n-source-workspace" data-source-workspace
+     data-controller="source-navigation" data-action="turbo:before-fetch-request@document->source-navigation#requestHTML">
   <%= turbo_stream_from source_account, "sources", I18n.locale %>
   <% unless @query %>
     <%= turbo_stream_from source_account, "sources", "list:#{@type}:#{@status}", I18n.locale %>
