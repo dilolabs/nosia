@@ -50,10 +50,10 @@
 .n-source-error-link { @apply inline-flex min-h-11 items-center rounded-sm underline underline-offset-4 focus:outline-2 focus:outline-offset-2 focus:outline-red-700 dark:focus:outline-red-300; overflow-wrap: anywhere; }
 .n-source-field-error { @apply text-sm text-red-800 dark:text-red-200; }
 .n-source-workspace .field_with_errors { display: contents; }
-.n-source-workspace [aria-invalid="true"] { @apply border-red-700 dark:border-red-300; }
 .n-source-workspace .n-source-editor { width: 100%; min-width: 0; max-width: 100%; padding: 0; border: 1px solid var(--color-neutral-500); border-radius: .5rem; background: var(--color-white); color: var(--color-neutral-900); --lexxy-editor-rows: 14lh; --lexxy-focus-ring-color: var(--color-green-700); }
 .dark .n-source-workspace .n-source-editor { background: var(--color-neutral-800); color: var(--color-neutral-100); --lexxy-focus-ring-color: var(--color-green-300); }
 .n-source-workspace .n-source-editor .lexxy-editor__content { min-block-size: 16rem; padding: 1rem; overflow-wrap: anywhere; }
 .n-source-workspace .n-source-editor lexxy-toolbar { flex-wrap: wrap; max-width: 100%; }
 .n-source-workspace .n-source-editor lexxy-toolbar button { min-width: 2.75rem; min-height: 2.75rem; }
+.n-source-workspace [aria-invalid="true"] { @apply border-red-700 dark:border-red-300; }
 .n-source-workspace [data-source-form-help] { @apply space-y-3; }
