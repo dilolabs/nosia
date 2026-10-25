@@ -7,20 +7,31 @@
   <%= render "workspaces/header", title: t("nosia.sources.title"), description: t("nosia.sources_workspace.description"), scope_label: source_workspace_scope(source_account, default: !@scoped_source_account), trail: source_workspace_trail, show_new_chat: !@scoped_source_account, actions: capture { render "sources/add_menu" } %>
   <div class="n-source-layout">
     <%= render "sources/source_filters", type: @type, status: @status, counts: @counts %>
-    <div class="min-w-0 flex-1" data-controller="dropzone"
+    <div class="min-w-0 flex-1" data-controller="dropzone source-upload" data-source-upload
          data-dropzone-messages-value="<%= t('nosia.sources.upload_messages').to_json %>"
          data-dropzone-url-value="<%= source_collection_path(:document) %>"
          <% if @scoped_source_account %>data-dropzone-account-id-value="<%= @scoped_source_account.id %>"<% end %>
+         data-dropzone-variant-value="dashboard"
+         data-source-upload-labels-value="<%= t('nosia.sources_workspace.upload_labels').to_json %>"
+         data-action="dropzone:state->source-upload#labelUploads"
          data-dropzone-max-file-size-value="50" data-dropzone-click-to-browse-value="false"
          data-dropzone-accepted-files-value="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">
       <%= render "sources/toolbar", type: @type, status: @status, sort: @sort, query: @query %>
-      <div data-dropzone-target="container" class="relative rounded-lg border-2 border-dashed n-main-border transition data-[active=true]:border-blue-500">
-        <input type="file" multiple class="hidden" data-dropzone-target="input" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">
+      <p class="n-workspace-help" data-source-results data-total="<%= @total %>"><%= t("nosia.sources_workspace.results", total: number_with_delimiter(@total)) %></p>
+      <div data-dropzone-target="container" class="n-source-dropzone">
+        <input type="file" id="source-upload-files" multiple class="hidden" data-dropzone-target="input" data-source-upload-target="input" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg">
         <div id="sources_list">
           <%= render "sources/rows", rows: @rows, has_more: @has_more, page: @page, type: @type, status: @status, sort: @sort, query: @query %>
         </div>
       </div>
-      <ul class="mt-3 hidden space-y-1" data-dropzone-target="list"></ul>
+      <div class="n-source-upload-strip">
+        <div>
+          <p class="font-medium"><%= t("nosia.sources_workspace.upload_title") %></p>
+          <p class="n-workspace-help"><%= t("nosia.sources_workspace.upload_help") %></p>
+        </div>
+        <button type="button" class="n-workspace-button" data-action="source-upload#browse"><%= t("nosia.sources_workspace.choose_files") %></button>
+      </div>
+      <ul class="n-source-upload-list hidden !list-none" data-dropzone-target="list" aria-live="polite" aria-relevant="additions text"></ul>
     </div>
   </div>
 </div>

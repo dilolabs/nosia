@@ -10,3 +10,18 @@ en:
       status_label: "Status"
       all_statuses: "All statuses"
       sort_label: "Sort by"
+      untitled_source: "Untitled %{type}"
+      delete_confirm: 'Delete “%{title}” from account “%{account}”? This cannot be undone.'
+      failed_help: "Processing failed. Retry or review the source."
+      empty_filtered: "No sources match these filters."
+      chunk_value: "Chunks: %{value}"
+      added: "Added %{time}"
+      results: "Matches on this load: %{total}"
+      upload_title: "Drop documents onto the list, or choose files"
+      upload_help: "Uploads use this account. Check each source’s status for indexing; reload to reapply filters and sorting."
+      choose_files: "Choose files"
+      upload_labels:
+        pending: "Waiting to upload"
+        uploading: "Uploading"
+        success: "Uploaded. Check source status for indexing."
+        error: "Not uploaded"

@@ -55,7 +55,7 @@ module Sourceable
       broadcast_localized_to :prepend, [ account, "sources", "list:#{scope}" ],
         target: "sources_list",
         partial: "sources/source",
-        locals: { row: SourceRow.new(self, chunks_count: chunks.count) }
+        locals: { row: SourceRow.new(self, chunks_count: chunks.count), account_name: account.name }
     end
     broadcast_source_counts
   end
@@ -64,7 +64,7 @@ module Sourceable
     broadcast_localized_to :replace, [ account, "sources" ],
       target: ActionView::RecordIdentifier.dom_id(self, :source_row),
       partial: "sources/source",
-      locals: { row: SourceRow.new(self, chunks_count: chunks.count) }
+      locals: { row: SourceRow.new(self, chunks_count: chunks.count), account_name: account.name }
     broadcast_source_counts
   end
 

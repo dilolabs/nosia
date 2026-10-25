@@ -10,3 +10,18 @@ fr:
       status_label: "État"
       all_statuses: "Tous les états"
       sort_label: "Trier par"
+      untitled_source: "%{type} sans titre"
+      delete_confirm: 'Supprimer « %{title} » du compte « %{account} » ? Cette action est irréversible.'
+      failed_help: "Le traitement a échoué. Réessayez ou consultez la source."
+      empty_filtered: "Aucune source ne correspond à ces filtres."
+      chunk_value: "Extraits : %{value}"
+      added: "Ajoutée %{time}"
+      results: "Résultats à ce chargement : %{total}"
+      upload_title: "Déposez des documents sur la liste ou choisissez des fichiers"
+      upload_help: "Les fichiers sont enregistrés dans ce compte. Consultez l’état des sources pour l’indexation ; rechargez pour réappliquer les filtres et le tri."
+      choose_files: "Choisir des fichiers"
+      upload_labels:
+        pending: "En attente d’importation"
+        uploading: "Importation en cours"
+        success: "Fichier importé. Consultez l’état de la source pour l’indexation."
+        error: "Non importé"

@@ -26,4 +26,17 @@ module SourcesWorkspaceHelper
       trail
     end
   end
+
+  # @param record [Document, Text, Qna, Website] Existing source; content may be empty
+  # @return [String] Presentation fallback only, without mutating stored content
+  def source_workspace_title(record)
+    record.display_title.presence || t("nosia.sources_workspace.untitled_source", type: record.source_type_label)
+  end
+
+  # @param record [Document, Text, Qna, Website] Source being deleted
+  # @param account_name [String, nil] Supplied by request/broadcast, never lazily loaded
+  # @return [String] Plain confirmation text; standalone rendering falls back to account ID
+  def source_delete_confirmation(record, account_name: nil)
+    t("nosia.sources_workspace.delete_confirm", title: source_workspace_title(record), account: account_name.presence || record.account_id.to_s)
+  end
 end
