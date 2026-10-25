@@ -1,0 +1,7 @@
+en:
+  nosia:
+    sources_workspace:
+      description: "Manage the knowledge available to conversations in this account."
+      setup_title: "Set up an account to manage sources"
+      setup_help: "Create or join an account before adding documents, websites, text, or Q&As."
+      setup_action: "Your accounts"

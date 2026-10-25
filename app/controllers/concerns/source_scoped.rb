@@ -5,6 +5,8 @@ module SourceScoped
 
   included do
     before_action :set_source_account
+    before_action :render_source_workspace_setup, if: -> { %w[ index new ].include?(action_name) }
+    before_action :require_source_read_account, if: -> { %w[ show edit ].include?(action_name) }
     helper_method :source_account
   end
 
@@ -20,6 +22,16 @@ module SourceScoped
 
     def source_account
       @source_account
+    end
+
+    def render_source_workspace_setup
+      if source_account.nil? && (controller_path == "sources" || action_name == "new")
+        render "sources/setup", formats: [ :html ]
+      end
+    end
+
+    def require_source_read_account
+      raise ActiveRecord::RecordNotFound unless source_account
     end
 
     def verify_scoped_source_account

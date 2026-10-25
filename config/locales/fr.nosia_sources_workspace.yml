@@ -1,0 +1,7 @@
+fr:
+  nosia:
+    sources_workspace:
+      description: "Gérez les connaissances disponibles pour les conversations de ce compte."
+      setup_title: "Configurez un compte pour gérer les sources"
+      setup_help: "Créez ou rejoignez un compte avant d’ajouter des documents, des sites web, des textes ou des questions-réponses."
+      setup_action: "Vos comptes"
