@@ -1,8 +1,10 @@
 require "application_system_test_case"
+require "turbo/broadcastable/test_helper"
 require_relative "../support/account_experience_fixtures"
 
 class SourcesWorkspaceTest < ApplicationSystemTestCase
   include AccountExperienceFixtures
+  include Turbo::Broadcastable::TestHelper
 
   setup do
     @original_window_size = page.current_window.size
@@ -219,6 +221,31 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
     end
     assert samples.all? { |sample| sample.fetch("headers").fetch("X-Source-Probe") == "unchanged" }
 
+    assert_selector "[data-source-workspace] form[data-source-retry]"
+    retry_samples = page.evaluate_script(<<~JS)
+      (()=>{
+        const workspace=document.querySelector('[data-source-workspace]');
+        const retry=workspace.querySelector('form[data-source-retry]');
+        const originalAccept='text/vnd.turbo-stream.html, text/html, application/xhtml+xml';
+        window.sampleSourceRetry=({method='POST',marked=true,inside=true}={})=>{
+          const form=retry.cloneNode(true);
+          if(!marked)form.removeAttribute('data-source-retry');
+          (inside&&workspace.isConnected?workspace:document.body).append(form);
+          const fetchOptions={method,headers:{Accept:originalAccept,'X-Source-Probe':'unchanged'}};
+          form.dispatchEvent(new CustomEvent('turbo:before-fetch-request',{bubbles:true,detail:{fetchOptions,url:new URL(form.action)}}));
+          form.remove();
+          return {method,marked,inside,headers:fetchOptions.headers};
+        };
+        return [sampleSourceRetry(),sampleSourceRetry({marked:false}),sampleSourceRetry({inside:false}),
+          ...['GET','DELETE','PATCH'].map(method=>sampleSourceRetry({method}))];
+      })()
+    JS
+    assert_equal "text/html, application/xhtml+xml", retry_samples.first.fetch("headers").fetch("Accept")
+    retry_samples.drop(1).each do |sample|
+      assert_equal "text/vnd.turbo-stream.html, text/html, application/xhtml+xml", sample.fetch("headers").fetch("Accept"), sample.to_json
+    end
+    assert retry_samples.all? { |sample| sample.fetch("headers").fetch("X-Source-Probe") == "unchanged" }
+
     page.execute_script(<<~JS, account_sources_path(@second, format: :turbo_stream, page: 2))
       window.sourceLoadMoreControl={};
       document.addEventListener('turbo:before-fetch-request',event=>{
@@ -242,7 +269,8 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
     assert_current_path accounts_path
     assert_selector ".n-account-cards"
     assert_equal "text/vnd.turbo-stream.html, text/html, application/xhtml+xml", page.evaluate_script("sampleSourceNavigation().headers.Accept")
-    File.write("#{@evidence_dir}/navigation-guards.json", { samples: samples, load_more: control, disconnected_action_unchanged: true }.to_json)
+    assert_equal "text/vnd.turbo-stream.html, text/html, application/xhtml+xml", page.evaluate_script("sampleSourceRetry().headers.Accept")
+    File.write("#{@evidence_dir}/navigation-guards.json", { samples: samples, retry_samples: retry_samples, load_more: control, disconnected_action_unchanged: true, disconnected_retry_unchanged: true }.to_json)
   end
 
   test "detail Retry navigates to its typed account list and queues the existing job once" do
@@ -263,6 +291,78 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
     assert_equal @second.id, source.account_id
     assert_equal other_before, other.reload.attributes
     assert_equal @first, @user.reload.first_account
+  end
+
+  test "a live failed row Retry preserves CSRF protection and navigates within its account" do
+    protection_classes = [ ActionController::Base, ApplicationController, Sources::Texts::RetriesController ]
+    previous_protection = protection_classes.to_h { |controller| [ controller, controller.allow_forgery_protection ] }
+    ActionController::Base.allow_forgery_protection = true
+    Capybara.reset_sessions!
+    sign_in_workspace_browser
+
+    source = experience(:texts, :overview_second_text)
+    other = experience(:texts, :overview_first_text)
+    other_before = other.attributes
+    source.update_columns(index_status: :pending)
+    row = "[data-source-id='#{source.id}']"
+    visit account_sources_path(@second)
+    assert_selector "meta[name='csrf-token'][content]:not([content=''])", visible: :all
+    assert_selector "turbo-cable-stream-source[connected]", count: 2, visible: :all
+    assert_selector "#{row} [data-source-index-status='pending']"
+    assert_no_selector "#{row} form"
+
+    Current.reset
+    source.mark_indexing_failed!
+    assert_selector "#{row} [data-source-index-status='failed']"
+    assert_selector "#{row} form button", text: "Retry"
+    assert_no_selector "#{row} form input[name='authenticity_token']", visible: :all
+    assert Sources::Texts::RetriesController.allow_forgery_protection
+    before_retry = source.reload.attributes
+    clear_enqueued_jobs
+    page.execute_script(<<~JS)
+      window.sourceRetryRequests=[];
+      document.addEventListener('turbo:before-fetch-request',event=>{
+        if(event.target instanceof HTMLFormElement&&event.target.querySelector('button')){
+          const headers=new Headers(event.detail.fetchOptions.headers);
+          sourceRetryRequests.push({method:event.detail.fetchOptions.method,accept:headers.get('Accept'),csrf:headers.has('X-CSRF-Token')});
+        }
+      });
+    JS
+
+    within(row) { click_on "Retry" }
+    assert_current_path account_sources_path(@second, type: "text")
+    assert_selector "#{row} [data-source-index-status='pending']"
+    assert source.reload.pending?
+    assert_equal @second.id, source.account_id
+    assert_equal other_before, other.reload.attributes
+    assert_equal @first, @user.reload.first_account
+    assert_enqueued_with job: AddTextJob, args: [ source.id ]
+    assert_enqueued_jobs 1, only: AddTextJob
+    requests = page.evaluate_script("window.sourceRetryRequests")
+    assert_equal 1, requests.size
+    assert_equal "POST", requests.first.fetch("method").upcase
+    assert_equal "text/html, application/xhtml+xml", requests.first.fetch("accept")
+    assert requests.first.fetch("csrf"), "Turbo must supply the session CSRF token for the tokenless broadcast form"
+    assert Sources::Texts::RetriesController.allow_forgery_protection
+    save_source_screenshot("live-retry-csrf")
+  ensure
+    begin
+      if source
+        evidence = {
+          protection_during_request: Sources::Texts::RetriesController.allow_forgery_protection,
+          navigation_status: page.evaluate_script("performance.getEntriesByType('navigation').at(-1)?.responseStatus"),
+          csrf_error: page.has_text?("InvalidAuthenticityToken", wait: 0),
+          source_status: source.reload.index_status,
+          unchanged: source.attributes == before_retry,
+          retry_jobs: enqueued_jobs.count { |job| job[:job] == AddTextJob }
+        }
+        puts "Live Retry CSRF evidence: #{evidence.to_json}"
+        File.write("#{@evidence_dir}/live-retry-csrf.json", evidence.to_json)
+      end
+    ensure
+      ActionController::Base.allow_forgery_protection = previous_protection.fetch(ActionController::Base)
+      assert_equal previous_protection, protection_classes.to_h { |controller| [ controller, controller.allow_forgery_protection ] }, "Forgery protection settings must not leak to other tests"
+    end
   end
 
   test "a duplicate website 422 focuses linked errors and retains the editor draft" do

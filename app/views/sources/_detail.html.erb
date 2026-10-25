@@ -7,7 +7,7 @@
 <% actions = capture do %>
   <%= link_to t("nosia.sources.#{type.pluralize}.edit_action"), source_edit_path(record), class: "n-workspace-button n-workspace-primary", data: { source_edit: true } %>
   <% if record.failed? %>
-    <%= button_to t("nosia.actions.retry"), source_retry_path(record), method: :post, class: "n-workspace-button", form: { data: { turbo: false } } %>
+    <%= button_to t("nosia.actions.retry"), source_retry_path(record), method: :post, class: "n-workspace-button", form: { data: { source_retry: true } } %>
   <% end %>
   <%= link_to t("nosia.sources.#{type.pluralize}.delete_action"), source_show_path(record), class: "n-workspace-button n-workspace-danger", data: { turbo_method: :delete, turbo_confirm: source_delete_confirmation(record, account_name: account.name) } %>
 <% end %>
