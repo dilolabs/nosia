@@ -14,6 +14,34 @@ class SourcesWorkspaceUploadTest < ApplicationSystemTestCase
     assert_selector "[data-source-upload]"
   end
 
+  test "the add source menu and every destination stay inside a 375px viewport" do
+    browser = page.driver.browser
+    browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
+    assert_equal [ 375, 812 ], page.evaluate_script("[window.innerWidth, window.innerHeight]")
+    @second.update!(name: "Research team with a deliberately long account name")
+    visit account_sources_path(@second)
+
+    find(".n-source-add-menu summary").click
+    assert_selector ".n-source-add-menu[open] .n-source-add-options a", count: 4
+    bounds = page.evaluate_script(<<~JS)
+      (() => {
+        const menu = document.querySelector('.n-source-add-options');
+        return [menu, ...menu.querySelectorAll('a')].map(element => {
+          const rect = element.getBoundingClientRect();
+          return { element: element.tagName, left: rect.left, right: rect.right };
+        });
+      })()
+    JS
+    puts "Sources add-menu bounds at 375x812: #{bounds.to_json}"
+    assert_equal 5, bounds.length
+    bounds.each do |rect|
+      assert_operator rect.fetch("left"), :>=, 0, "Add source destination clips the viewport: #{rect}"
+      assert_operator rect.fetch("right"), :<=, page.evaluate_script("window.innerWidth"), "Add source destination clips the viewport: #{rect}"
+    end
+  ensure
+    browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
+
   test "browse activates the existing input and real uploads stay in the URL account" do
     page.execute_script(<<~JS)
       const input = document.getElementById('source-upload-files');

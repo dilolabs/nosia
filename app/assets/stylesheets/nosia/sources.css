@@ -11,6 +11,7 @@
 .n-source-toolbar-field { flex: 1 1 9rem; min-width: 0; }
 .n-source-workspace .n-label { @apply mb-1 block text-sm font-medium; }
 .n-source-workspace .n-field, .n-source-workspace .n-select { @apply min-h-11 border-neutral-500 bg-white text-neutral-900 focus:outline-green-700 dark:bg-neutral-800 dark:text-neutral-100 dark:focus:outline-green-300; }
+.n-source-workspace .n-workspace-actions { margin-left: auto; }
 .n-source-workspace details[open] > summary { margin-bottom: 0; }
 .n-source-type-icon { @apply h-4 w-4 shrink-0; }
 .n-source-row { @apply grid min-w-0 grid-cols-1 items-center gap-3 border-b border-neutral-300 bg-white p-4 last:border-0 dark:border-neutral-600 dark:bg-neutral-800 xl:grid-cols-[minmax(0,1fr)_minmax(10rem,0.8fr)_auto]; }
