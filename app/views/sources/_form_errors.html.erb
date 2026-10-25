@@ -1,0 +1,17 @@
+<%# locals: (form:, fields:) %>
+<% if form.object.errors.any? %>
+  <div id="<%= form.field_id(:errors) %>" class="n-source-errors" role="alert" tabindex="-1" aria-labelledby="<%= form.field_id(:errors, :title) %>" data-source-form-target="errors">
+    <h2 id="<%= form.field_id(:errors, :title) %>" class="font-semibold"><%= t("nosia.sources_workspace.check_form") %></h2>
+    <ul class="!list-none">
+      <% form.object.errors.each do |error| %>
+        <li>
+          <% if fields.include?(error.attribute) %>
+            <%= link_to error.full_message, "##{form.field_id(error.attribute)}", class: "n-source-error-link" %>
+          <% else %>
+            <%= error.full_message %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

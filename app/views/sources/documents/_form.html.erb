@@ -1,19 +1,25 @@
-<%= form_with(model: source_form_model(document)) do |form| %>
-  <%= render "application/validation_errors", record: document %>
-  <div class="n-form-field">
+<%= form_with(model: source_form_model(document), class: "n-source-form", data: { controller: "source-form" }) do |form| %>
+  <%= render "sources/form_errors", form: form, fields: [ :title, :file ] %>
+  <div class="n-source-field">
     <%= form.label :title, t("nosia.sources.title_label"), class: "n-label" %>
-    <%= form.text_field :title, class: "n-field" %>
+    <%= form.text_field :title, **source_field_options(form, :title, help: form.field_id(:title, :help), class: "n-field") %>
+    <p id="<%= form.field_id(:title, :help) %>" class="n-workspace-help"><%= t("nosia.sources_workspace.optional_title") %></p>
+    <%= render "sources/field_error", form: form, attribute: :title %>
   </div>
 
-  <div class="n-form-field">
-    <%= form.label :file, t("nosia.sources.file_label"), class: "n-label" %>
-    <%= form.file_field :file, class: "n-field" %>
+  <div class="n-source-field">
+    <% if document.persisted? && document.file.attached? %>
+      <p class="n-workspace-help" data-source-current-file><%= t("nosia.sources_workspace.current_file", name: document.file.filename.to_s) %></p>
+    <% end %>
+    <%= form.label :file, document.persisted? ? t("nosia.sources_workspace.replacement_file") : t("nosia.sources.file_label"), class: "n-label" %>
+    <%= form.file_field :file, **source_field_options(form, :file, help: form.field_id(:file, :help), class: "n-field") %>
+    <p id="<%= form.field_id(:file, :help) %>" class="n-workspace-help"><%= t(document.persisted? ? "nosia.sources_workspace.keep_file" : "nosia.sources_workspace.select_file") %></p>
+    <% if document.errors.any? %>
+      <p class="n-workspace-help"><%= t("nosia.sources_workspace.reselect_file") %></p>
+    <% end %>
+    <%= render "sources/field_error", form: form, attribute: :file %>
   </div>
 
   <%= render "sources/account_field", form: form %>
-
-  <div class="n-form-actions">
-    <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
-    <%= link_to t("nosia.actions.cancel"), document.persisted? ? source_show_path(document) : source_index_path, class: "n-btn-secondary" %>
-  </div>
+  <%= render "sources/form_actions", form: form %>
 <% end %>

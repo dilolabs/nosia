@@ -1,11 +1,13 @@
-<div class="n-form-field">
-  <% if @scoped_source_account %>
+<%# locals: (form:) %>
+<div class="n-source-field">
+  <% if @scoped_source_account || form.object.persisted? %>
+    <% account = @scoped_source_account || form.object.account %>
     <p class="n-label"><%= t("nosia.sources.account_label") %></p>
-    <%= form.hidden_field :account_id, value: @scoped_source_account.id %>
-    <p class="text-sm text-neutral-700 dark:text-neutral-200"><%= @scoped_source_account.name %></p>
+    <%= form.hidden_field :account_id, value: account.id %>
+    <p class="n-source-fixed-account" data-source-fixed-account><%= account.name %></p>
   <% else %>
     <%= form.label :account_id, t("nosia.sources.account_label"), class: "n-label" %>
     <%= form.collection_select :account_id, Current.user.accounts, :id, :name,
-          { prompt: true, selected: source_account&.id, required: true }, { class: "n-select" } %>
+          { prompt: true, selected: form.object.account_id.presence || source_account&.id }, { class: "n-select" } %>
   <% end %>
 </div>

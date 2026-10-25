@@ -1,0 +1,5 @@
+<%# locals: (form:) %>
+<div class="n-source-form-actions">
+  <%= form.submit t("nosia.actions.save"), class: "n-workspace-button n-workspace-primary", data: { turbo_submits_with: t("nosia.sources_workspace.saving") } %>
+  <%= link_to t("nosia.actions.cancel"), form.object.persisted? ? source_show_path(form.object) : source_index_path, class: "n-workspace-link" %>
+</div>

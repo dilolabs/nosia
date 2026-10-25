@@ -1,11 +1,12 @@
-<%= form_with(model: source_form_model(website)) do |form| %>
-  <%= render "application/validation_errors", record: website %>
-  <div class="n-form-field">
+<%= form_with(model: source_form_model(website), class: "n-source-form", data: { controller: "source-form" }) do |form| %>
+  <%= render "sources/form_errors", form: form, fields: [ :url, :data ] %>
+  <div class="n-source-field">
     <%= form.label :url, t("nosia.sources.url_label"), class: "n-label" %>
-    <%= form.url_field :url, class: "n-field" %>
+    <%= form.url_field :url, **source_field_options(form, :url, class: "n-field") %>
+    <%= render "sources/field_error", form: form, attribute: :url %>
   </div>
 
-  <div class="n-form-field">
+  <div class="n-source-field">
     <%= form.label :data, t("nosia.sources.data_label"), class: "n-label" %>
     <%# website.to_html renders the body only (page_body strips the crawl's
         --- frontmatter --- block). Saving the edited body therefore writes
@@ -15,15 +16,13 @@
         attachments: "false" hides both toolbar upload buttons and disables
         uploads -- source editors are text-only. %>
     <%= form.lexxy_rich_text_area :data,
-          value: website.to_html,
-          class: "n-textarea",
-          attachments: "false" %>
+          **source_field_options(form, :data,
+            value: website.to_html,
+            class: "n-textarea n-source-editor",
+            attachments: "false") %>
+    <%= render "sources/field_error", form: form, attribute: :data %>
   </div>
 
   <%= render "sources/account_field", form: form %>
-
-  <div class="n-form-actions">
-    <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
-    <%= link_to t("nosia.actions.cancel"), website.persisted? ? source_show_path(website) : source_index_path, class: "n-btn-secondary" %>
-  </div>
+  <%= render "sources/form_actions", form: form %>
 <% end %>

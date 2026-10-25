@@ -46,12 +46,12 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
 
       get public_send("new_account_sources_#{type}_path", @second)
       assert_response :success
-      assert_select "a[href='#{index_path}'] .sr-only", text: I18n.t("nosia.actions.back")
+      assert_select "a[data-workspace-back][href='#{index_path}']", text: I18n.t("nosia.actions.back")
       assert_select "form a[href='#{account_sources_path(@second)}']", text: I18n.t("nosia.actions.cancel")
 
       get edit_path
       assert_response :success
-      assert_select "a[href='#{path}'] .sr-only", text: I18n.t("nosia.actions.back")
+      assert_select "a[data-workspace-back][href='#{path}']", text: I18n.t("nosia.actions.back")
       assert_select "form a[href='#{path}']", text: I18n.t("nosia.actions.cancel")
 
       get path

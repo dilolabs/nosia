@@ -39,3 +39,21 @@
 .n-source-add-options { @apply absolute right-0 top-full z-20 mt-2 min-w-56 max-w-[calc(100vw-3rem)] rounded-lg border border-neutral-500 bg-white p-1 shadow-sm dark:bg-neutral-800; }
 .n-source-add-option { @apply flex min-h-11 min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-green-50 focus:outline-2 focus:outline-green-700 dark:hover:bg-green-950 dark:focus:outline-green-300; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { .n-source-workspace .animate-pulse { animation: none; } }
+
+.n-source-form-layout { @apply grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,48rem)_minmax(14rem,1fr)]; }
+.n-source-form { @apply min-w-0 space-y-5; }
+.n-source-field { @apply min-w-0 space-y-2; }
+.n-source-field .n-field, .n-source-field .n-select { width: 100%; min-width: 0; max-width: 100%; }
+.n-source-fixed-account { overflow-wrap: anywhere; @apply rounded-md border border-neutral-500 bg-neutral-50 p-3 text-sm dark:bg-neutral-900; }
+.n-source-form-actions { @apply flex flex-wrap items-center gap-4 border-t border-neutral-400 pt-5 dark:border-neutral-500; }
+.n-source-errors { @apply space-y-2 rounded-md border border-red-700 bg-red-50 p-4 text-sm text-red-900 focus:outline-2 focus:outline-offset-2 focus:outline-red-700 dark:border-red-300 dark:bg-red-950 dark:text-red-100 dark:focus:outline-red-300; }
+.n-source-error-link { @apply inline-flex min-h-11 items-center rounded-sm underline underline-offset-4 focus:outline-2 focus:outline-offset-2 focus:outline-red-700 dark:focus:outline-red-300; overflow-wrap: anywhere; }
+.n-source-field-error { @apply text-sm text-red-800 dark:text-red-200; }
+.n-source-workspace .field_with_errors { display: contents; }
+.n-source-workspace [aria-invalid="true"] { @apply border-red-700 dark:border-red-300; }
+.n-source-workspace .n-source-editor { width: 100%; min-width: 0; max-width: 100%; padding: 0; border: 1px solid var(--color-neutral-500); border-radius: .5rem; background: var(--color-white); color: var(--color-neutral-900); --lexxy-editor-rows: 14lh; --lexxy-focus-ring-color: var(--color-green-700); }
+.dark .n-source-workspace .n-source-editor { background: var(--color-neutral-800); color: var(--color-neutral-100); --lexxy-focus-ring-color: var(--color-green-300); }
+.n-source-workspace .n-source-editor .lexxy-editor__content { min-block-size: 16rem; padding: 1rem; overflow-wrap: anywhere; }
+.n-source-workspace .n-source-editor lexxy-toolbar { flex-wrap: wrap; max-width: 100%; }
+.n-source-workspace .n-source-editor lexxy-toolbar button { min-width: 2.75rem; min-height: 2.75rem; }
+.n-source-workspace [data-source-form-help] { @apply space-y-3; }

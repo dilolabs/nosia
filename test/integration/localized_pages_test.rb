@@ -632,7 +632,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     get new_sources_qna_url, headers: { "Accept-Language" => "fr" }
 
     assert_response :success
-    assert_select "h2", text: "Nouvelle question-réponse"
+    assert_select "[data-source-workspace] .n-workspace-header h1", text: "Ajouter une question-réponse"
     assert_select "label", text: "Réponse"
     assert_select 'lexxy-editor[name="qna[answer]"]'
     assert_select 'textarea[name="qna[answer]"]', count: 0
