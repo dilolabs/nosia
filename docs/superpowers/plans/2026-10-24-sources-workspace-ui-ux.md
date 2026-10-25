@@ -27,8 +27,8 @@
 | List state and presentation | Modify `app/helpers/sources_helper.rb`, `app/views/sources/_source_filters.html.erb`, `_toolbar.html.erb`, `_rows.html.erb`, `_empty.html.erb`, `_add_menu.html.erb`, `_drop_hint.html.erb`, and `index.turbo_stream.erb`; keep `_counts.html.erb` unchanged; create Sources CSS and paired Sources-workspace catalogs | Composed URL filters, stable count IDs, responsive row metadata, clear empty states and actions. |
 | Reusable row / uploader | Modify `app/views/sources/_source.html.erb`, `_status.html.erb`, `app/models/concerns/sourceable.rb`; create `app/javascript/controllers/source_upload_controller.js` | Safe background-renderable row actions, account-aware confirmation text, explicit browse into the existing dropzone. No uploader transport rewrite. |
 | Forms | Create `app/helpers/source_forms_helper.rb`, `_form_page`, `_form_help`, `_form_errors`, `_field_error`, `_form_actions`, `app/javascript/controllers/source_form_controller.js`; modify four forms, `_account_field`, and eight new/edit templates | Existing fields/editors with truthful account identity, linked errors, retained values and focus. |
-| Details | Create `app/views/sources/_detail.html.erb`; modify four show templates and document preview partial | Meaningful titles, status/metadata, clear authorized actions, unchanged safe content/preview behavior. |
-| Verification | Create five focused request test files and two system files listed by task; update only obsolete presentation assertions in two existing scoped request files | New behavior first, retain existing permission/upload/JSON/broadcast/composer tests. |
+| Details | Create `app/views/sources/_detail.html.erb` and Sources-only document `_preview.html.erb`; modify four show templates; retain the shared document partial unchanged | Meaningful titles, status/metadata, clear authorized actions, unchanged safe content/preview behavior, including chat citations. |
+| Verification | Create five focused request test files and two system files listed by task; update obsolete scoped request presentation assertions plus the specifically reviewed French heading and two Stimulus token selectors recorded below | New behavior first, retain existing permission/upload/JSON/broadcast/composer assertions. |
 | Documentation | Create `docs/sources-workspace.md`; modify `docs/README.md`, `docs/DIAGRAMS.md` | Explain current scope, filters, forms, statuses, and honest verification limits. |
 
 `SourceRow`, source models' validations, source controllers' write actions, jobs, routes, shared composer JavaScript, the global validation partial, global fixtures, and the old browser suites remain unchanged unless an actual regression requires a separately reviewed correction.
@@ -41,11 +41,11 @@ These are exact shell functions for the execution shell, not repository files. I
 
 ```bash
 rails_test() {
-  RAILS_ENV=test DATABASE_URL=postgresql:///nosia_sources_workspace_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bin/rails "$@"
+  mise exec ruby@4.0.7 -- env RAILS_ENV=test DATABASE_URL=postgresql:///nosia_sources_workspace_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bin/rails "$@"
 }
 
 browser_test() {
-  RAILS_ENV=test DATABASE_URL=postgresql:///nosia_sources_workspace_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bundle exec ruby -rselenium-webdriver -e 'ENV.delete("CAPYBARA_SERVER_PORT"); Selenium::WebDriver::Chrome::Service.driver_path="/usr/bin/chromedriver"; Selenium::WebDriver::Chrome.path="/usr/bin/chromium"; load "bin/rails"' -- test "$@"
+  mise exec ruby@4.0.7 -- env RAILS_ENV=test DATABASE_URL=postgresql:///nosia_sources_workspace_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bundle exec ruby -rselenium-webdriver -e 'ENV.delete("CAPYBARA_SERVER_PORT"); Selenium::WebDriver::Chrome::Service.driver_path="/usr/bin/chromedriver"; Selenium::WebDriver::Chrome.path="/usr/bin/chromium"; load "bin/rails"' -- test "$@"
 }
 
 record_check() {
@@ -66,11 +66,138 @@ Do not enable shell `errexit` around expected RED commands. Read each saved log 
 
 Historical dashboard verification at `3040dc1`: focused 257 tests passed; full server suite 1,068 runs / 18,989 assertions / zero failures / one existing `Chat::RequestOptionsTest` missing-`augmented_context` error, exit 1. Its locations were `app/models/chat/completionable.rb:39` and `test/models/chat/request_options_test.rb:32` (test starts at 29). Brakeman exited 3 with existing API-token `PermitAttributes` and Rails EOL warnings. These are historical evidence, **not a fresh Sources baseline or a new failure waiver**. Do not fix, skip, or suppress unrelated issues; stop for user acceptance if the fresh baseline fails.
 
+## Execution record and verified corrections — 2026-10-25
+
+The user selected **Subagent-Driven execution**, then explicitly accepted the
+fresh Task 0 baseline with **“Yes”** before Task 1. Acceptance covers only the
+reproduced RequestOptions error, two scanner warnings, and duplicate-key JSON
+warnings. It does not waive new feature failures or permit weakened assertions.
+
+- Worktree: `/home/cbldev/gitd/dilolabs/nosia/.worktrees/sources-workspace-ui`;
+  branch: `feat/sources-workspace-ui`; immutable execution base:
+  `8c3328ef5ad028f0c8a02d0c7eb1d3b27459fa6e`.
+- Restarted shells selected Ruby 3.4.11 unless explicitly overridden. Execution
+  uses installed Ruby 4.0.7 via `mise exec ruby@4.0.7 --` for **every** Ruby/Bundler
+  invocation, including standalone lint and scanner examples below. No upgrade.
+- `/tmp/opencode/nosia-sources-test-helpers.zsh` supplies the launchers above and
+  a non-overwriting logger with commit, safe command, timestamps, and true exit.
+  Source it in each new execution shell; do not inspect or copy `.env`.
+- `/tmp/opencode/nosia-sources-workspace-execution.md` retains detailed task,
+  implementer/reviewer, RED/GREEN, failure-investigation, and evidence notes.
+  External artifacts are session evidence, not required files in a fresh clone.
+
+### Authoritative adaptations to the original stage snippets
+
+The task snippets below retain their original step-by-step context, not a second
+copy of the final application. These reviewed corrections supersede literal
+examples where they differ; use the committed code for the final implementation.
+
+1. **Shell callbacks:** shared `only:` action lists failed Rails' missing-action
+   check. Equivalent action-name predicates preserve behavior without weakening
+   framework configuration.
+2. **Rows and uploads:** Turbo injects model-named render locals, so `_source`
+   accepts `**_broadcast_locals` while still requiring `row`. A 375px browser RED
+   exposed a clipped chooser; Sources-only action alignment keeps it in view.
+   Upload failure copy is **“Upload not confirmed. Check sources or retry.”** /
+   **“Importation non confirmée. Consultez les sources ou réessayez.”** because
+   response loss can follow a committed document. The real retry test checks the
+   persisted document and single job before Retry, not merely after it.
+3. **Forms:** the invalid-editor border rule follows editor styles so a neutral
+   shorthand cannot override it. The focused light/dark browser probe was added
+   early in Task 4 and preserved when Task 6 extended that system file. Only one
+   obsolete French Q&A heading assertion changed to the action-oriented shared
+   `h1`; all rich-editor/textarea/submit assertions remain.
+4. **Details:** a custom/truncated Q&A title is not the full question. Details
+   retain the full escaped question when it differs, rather than discarding
+   content. Exact EN/FR status/count/ISO assertions were strengthened. An opt-in,
+   provider-free chunk fixture covers nonzero failed/pending counts; global
+   fixture tables remain unchanged. Missing-file tests preserve shared blobs.
+5. **Browser lifecycle:** 422 morphs preserve the form controller, so summary
+   focus follows the existing `turbo:render` listener/cleanup pattern. Ordinary
+   error links focus an existing same-form field without a GET/hash/cache visit
+   that would clear drafts; modified clicks retain their normal intent.
+   Website HTML drafts render through the existing normalization on a temporary
+   duplicate, leaving the source and stored content unchanged. Markdown,
+   frontmatter, sanitizer, model validation, and write contracts are unchanged.
+6. **Action negotiation and CSRF:** redirects inherited Turbo Stream Accept and
+   received the append-only Load more response. The Sources navigation controller
+   requests HTML only for current-workspace marked Retry POST forms and generated
+   hidden DELETE forms exactly matching a current workspace Delete link. Both
+   actions retain Turbo's CSRF handling. **The initial native Retry workaround in
+   `0cad9b2` is superseded by `407ae6e`:** a CSRF-enabled live-broadcast regression
+   proved tokenless background forms need Turbo's session header. Protection
+   settings are restored in `ensure`. Server redirects/formats, load-more
+   negotiation, permissions, and uploader transport remain unchanged.
+7. **Protected selectors:** only two exact `data-controller='dropzone'` selectors
+   in `chat_account_selection_test.rb` changed to whitespace-token matching,
+   because `dropzone source-upload` composes controllers. Every upload/account
+   assertion remains. The other five protected browser files are unchanged.
+8. **Final full-suite boundaries:** the legacy account-experience drawer test now
+   expects zero drawers on its existing Sources paths but still requires two on
+   unrelated tools. No path or assertion was removed. The document partial was
+   also used by chat citations; it is restored byte-for-byte to the execution
+   base. Sources details explicitly render a new Sources-only document preview,
+   preserving the citation heading, markup, and sizing. Citation tests remain
+   unchanged; an added workspace test protects the separation.
+9. **Separately authorized test isolation:** the initial full run also exposed
+   a pre-existing order-dependent RubyLLM registry leak. Unchanged committed-base
+   tests reproduced exactly three failures/nineteen errors: URL-race fixtures
+   initialized a fixture-only singleton, then MCP generation could not resolve
+   `gpt-4o-mini`. The user explicitly chose **“Fix test isolation (Recommended)”**,
+   not an expanded baseline waiver. Separate commit `62ba58e` snapshots and
+   restores prior registry definedness/object in test teardown, with a permanent
+   post-teardown guard. Race, job, provider, and production MCP behavior are
+   unchanged; no registry preload, network refresh, dependency or fixture change.
+
+Each adaptation followed an observed failure or a characterization coverage
+gap, with independent specification then quality review. Original failed logs
+were retained; no failure was skipped or suppressed. Task 6's final authorized
+scope is eleven paths, including the Sources-only helper/controllers/templates
+and new tests above; it is not limited to the original CSS-only assumption.
+
+### Completed task evidence
+
+All counts below are actual runs/assertions; seeds and exits are retained.
+Application tasks and documentation each passed independent specification and
+quality review. Native **200% browser zoom remains UNVERIFIED**; exact viewport
+emulation and measured contrast are not native-zoom evidence.
+
+| Gate/task | Commits / evidence | Result |
+| --- | --- | --- |
+| Fresh Task 0 focused | `sources-workspace-baseline-focused.log` | 223 / 12,835; seed 7240; exit 0 |
+| Fresh Task 0 full | `sources-workspace-baseline-full.log` | 1,068 / 18,989; seed 47125; 0 failures, 1 accepted RequestOptions error; **exit 1** |
+| Fresh Task 0 protected browsers | `sources-workspace-baseline-browser.log` | 100 / 4,721; seed 33735; exit 0 |
+| Fresh Task 0 Brakeman | `sources-workspace-baseline-brakeman.log` | 2 accepted warnings: API-token `PermitAttributes`, Rails EOL; **exit 3** |
+| Task 1 | `dc1249b`; `sources-workspace-task1-green-20261025T075227-775955.log` | 125 / 11,973; seed 21666; exit 0 |
+| Task 2 | `f762963`, `427eb13`; `sources-workspace-task2-copy-correction-green.log` | 27 / 10,112; seed 18562; exit 0 |
+| Task 3 | `bf83d1d`, `4d51c63`, `9a169c9`; `sources-workspace-task3-upload-uncertainty-*.log` | Requests 116 / 11,609, seed 14890; browsers 3 / 40, seed 33964; exits 0 |
+| Task 4 | `a2562e2`, `1eea370`; `sources-workspace-task4-editor-style-*.log` | Requests 162 / 12,928, seed 16360; style probe 1 / 11, seed 26662; exits 0 |
+| Task 5 | `4f4e207`, `c60b260`, `bd9944a`; `sources-workspace-task5-characterization-green.log` | 164 / 13,343; seed 60348; exit 0 |
+| Task 6 | `0cad9b2`, `407ae6e`; `sources-workspace-task6-csrf-*.log` | New browsers 19 / 1,809, seed 24130; protected 100 / 4,721, seed 5760; requests 240 / 14,405, seed 5916; exits 0 |
+| Task 7 | `ce86c98`; `sources-workspace-task7-*.log` | Three documentation paths; local links, scope/diff checks exit 0; no new application-test claim |
+
+Log filenames in this table are under `/tmp/opencode/`. Task 6's current evidence
+is `/tmp/opencode/sources-workspace-852967/`; earlier complete representative
+reviews are retained in `839871/` and `827079/`. The implementer and spec reviewer
+opened the sixteen specified list/form/detail/setup/422 images; the parent also
+opened representative lists, all four detail types, editors, both setup themes,
+and the retained bold draft after error-link focus. The follow-up additionally
+reviewed the live-CSRF Retry screenshot. Contrast samples per theme: 139; minima:
+
+| Theme | Normal text | Control border | Focus outline |
+| --- | ---: | ---: | ---: |
+| Light | 4.945457 | 4.349232 | 4.945457 |
+| Dark | 7.129980 | 3.780915 | 10.802270 |
+
+Task 8 final whole-feature verification/reviews are recorded separately below.
+No merge, push, PR, worktree removal, or later-tool implementation
+has been authorized by completing these tasks.
+
 ## Task 0: Establish an isolated, reproducible baseline
 
 **No application edits.** Create only an isolated worktree and dedicated test database, build the existing ignored CSS, and retain logs.
 
-- [ ] **Step 1: Verify clean planning checkout and create the feature worktree.** Run from the current dashboard worktree. If the branch/path already exists or the checkout is modified, inspect and ask rather than overwriting user work.
+- [x] **Step 1: Verify clean planning checkout and create the feature worktree.** Run from the current dashboard worktree. If the branch/path already exists or the checkout is modified, inspect and ask rather than overwriting user work.
 
 ```bash
 git status --short
@@ -81,11 +208,11 @@ git worktree add ../sources-workspace-ui -b feat/sources-workspace-ui HEAD
 
 Expected: a clean checkout, ignored `.worktrees` destination, and new branch/worktree at `/home/cbldev/gitd/dilolabs/nosia/.worktrees/sources-workspace-ui`. Move the harness session there with `tools.opencode.session_move` if using it as the primary worktree, or set every tool's working directory explicitly. Do not delete or move the dashboard worktree.
 
-- [ ] **Step 2: Check installed tooling and free space in the new worktree.**
+- [x] **Step 2: Check installed tooling and free space in the new worktree.**
 
 ```bash
-ruby --version
-bundle check
+mise exec ruby@4.0.7 -- ruby --version
+mise exec ruby@4.0.7 -- bundle check
 python3 --version
 /usr/bin/chromium --version
 /usr/bin/chromedriver --version
@@ -95,10 +222,10 @@ record_check /tmp/opencode/sources-workspace-execution-base.log git rev-parse HE
 
 Expected: installed dependencies and matching local Chromium/driver. If missing, ask; do not install packages. If disk space is insufficient, ask before any cleanup. The old worktree had limited root-disk headroom; do not delete caches or other databases on your own.
 
-- [ ] **Step 3: Prepare only the dedicated test database and existing CSS.** Verify the explicit process environment without printing environment contents.
+- [x] **Step 3: Prepare only the dedicated test database and existing CSS.** Verify the explicit process environment without printing environment contents.
 
 ```bash
-RAILS_ENV=test DATABASE_URL=postgresql:///nosia_sources_workspace_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bundle exec ruby -e 'abort "Unsafe test environment" unless ENV["RAILS_ENV"] == "test" && ENV["DATABASE_URL"] == "postgresql:///nosia_sources_workspace_test" && ENV["AI_API_KEY"] == "nosia-test-key" && ENV["PARALLEL_WORKERS"] == "1"; puts "Dedicated test environment verified"'
+mise exec ruby@4.0.7 -- env RAILS_ENV=test DATABASE_URL=postgresql:///nosia_sources_workspace_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bundle exec ruby -e 'abort "Unsafe test environment" unless ENV["RAILS_ENV"] == "test" && ENV["DATABASE_URL"] == "postgresql:///nosia_sources_workspace_test" && ENV["AI_API_KEY"] == "nosia-test-key" && ENV["PARALLEL_WORKERS"] == "1"; puts "Dedicated test environment verified"'
 rails_test db:prepare
 rails_test runner 'abort "Wrong database" unless Rails.env.test? && ActiveRecord::Base.connection.select_value("SELECT current_database()") == "nosia_sources_workspace_test"; puts "Dedicated test database verified"'
 rails_test tailwindcss:build
@@ -106,25 +233,25 @@ rails_test tailwindcss:build
 
 Never run `db:reset`, drop shared databases, start queue/provider workers, change dependencies, or copy environment files. Keep generated Tailwind output ignored.
 
-- [ ] **Step 4: Run focused/server/browser baselines and the scanner sequentially.**
+- [x] **Step 4: Run focused/server/browser baselines and the scanner sequentially.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-baseline-focused.log rails_test test test/controllers/sources_controller_test.rb test/controllers/sources/documents_controller_test.rb test/controllers/sources/texts_controller_test.rb test/controllers/sources/qnas_controller_test.rb test/controllers/sources/websites_controller_test.rb test/controllers/accounts/scoped_sources_test.rb test/controllers/accounts/scoped_source_operations_test.rb test/models/source_row_test.rb test/models/sourceable_test.rb test/models/sourceable_broadcast_test.rb test/models/account_source_broadcast_test.rb test/models/document_source_registration_test.rb test/integration/localized_pages_test.rb test/integration/localized_broadcasts_test.rb test/internationalization/catalogs_test.rb
 record_check /tmp/opencode/sources-workspace-baseline-full.log rails_test test
 record_check /tmp/opencode/sources-workspace-baseline-browser.log browser_test test/system/sources_dropzone_test.rb test/system/account_experience_test.rb test/system/localization_test.rb test/system/dashboard_test.rb test/system/chat_composer_ui_test.rb test/system/chat_account_selection_test.rb
-record_check /tmp/opencode/sources-workspace-baseline-brakeman.log bundle exec brakeman --no-pager
+record_check /tmp/opencode/sources-workspace-baseline-brakeman.log mise exec ruby@4.0.7 -- bundle exec brakeman --no-pager
 ```
 
 Read the logs. Expected: focused checks pass; full results and scanner warnings/exits must be freshly compared with the historical evidence above. Stop before Task 1 on any failure/error or scanner warning unless the user explicitly accepts that exact fresh baseline. No broad waiver is implied by approving this plan. Record the user's decision and actual counts in execution notes; never describe an exiting-1 full suite as green.
 
-- [ ] **Step 5: Retain the baseline and review readiness.** Run `git status --short` to confirm no tracked application changes. With subagent-driven execution, obtain independent spec and verification-quality reviews before Task 1. No source commit is required for environment-only work.
+- [x] **Step 5: Retain the baseline and review readiness.** Run `git status --short` to confirm no tracked application changes. With subagent-driven execution, obtain independent spec and verification-quality reviews before Task 1. No source commit is required for environment-only work.
 
 ## Task 1: Add the workspace shell and no-account GET guidance
 
 **Create:** `test/controllers/sources_workspace_shell_test.rb`, `app/helpers/sources_workspace_helper.rb`, `app/views/workspaces/_header.html.erb`, `app/views/sources/setup.html.erb`, `app/assets/stylesheets/nosia/workspace.css`, `config/locales/en.nosia_workspace.yml`, `config/locales/fr.nosia_workspace.yml`, `config/locales/en.nosia_sources_workspace.yml`, `config/locales/fr.nosia_sources_workspace.yml`.
 **Modify:** `app/controllers/concerns/source_scoped.rb`, `app/views/layouts/application.html.erb`, `app/views/sources/index.html.erb`, `app/views/sources/_toolbar.html.erb`, `app/assets/tailwind/application.css`.
 
-- [ ] **Step 1: Write the request tests before application edits.**
+- [x] **Step 1: Write the request tests before application edits.**
 
 ```ruby
 # test/controllers/sources_workspace_shell_test.rb
@@ -184,7 +311,7 @@ class SourcesWorkspaceShellTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] **Step 2: Run RED and inspect the actual failure.**
+- [x] **Step 2: Run RED and inspect the actual failure.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-task1-red.log rails_test test test/controllers/sources_workspace_shell_test.rb
@@ -192,7 +319,7 @@ record_check /tmp/opencode/sources-workspace-task1-red.log rails_test test test/
 
 Expected RED: missing workspace markup and existing nil-account rendering errors. These directly exercise the feature, not a missing database/asset/fixture. Do not add implementation until those causes are observed.
 
-- [ ] **Step 3: Add the helper, shared header, and setup page.**
+- [x] **Step 3: Add the helper, shared header, and setup page.**
 
 ```ruby
 # app/helpers/sources_workspace_helper.rb
@@ -337,7 +464,7 @@ Replace the index's existing title block with the shared header and wrap its ent
 
 Remove the single `<%= render "sources/add_menu" %>` line from the old toolbar; the chooser now appears once in the header. The toolbar itself is replaced in Task 2.
 
-- [ ] **Step 4: Add paired copy and shared styles.** No new plural branches are introduced.
+- [x] **Step 4: Add paired copy and shared styles.** No new plural branches are introduced.
 
 ```yaml
 # config/locales/en.nosia_workspace.yml
@@ -408,18 +535,18 @@ Import this file after `dashboard.css` in `app/assets/tailwind/application.css`:
 @import "../stylesheets/nosia/workspace.css" layer(utilities);
 ```
 
-- [ ] **Step 5: Build and run GREEN plus scope/layout regressions.**
+- [x] **Step 5: Build and run GREEN plus scope/layout regressions.**
 
 ```bash
 rails_test tailwindcss:build
 record_check /tmp/opencode/sources-workspace-task1-green.log rails_test test test/controllers/sources_workspace_shell_test.rb test/controllers/accounts/scoped_sources_test.rb test/controllers/accounts/scoped_source_operations_test.rb test/controllers/dashboards_controller_test.rb test/integration/header_navigation_test.rb test/internationalization/catalogs_test.rb
-RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_workspace_helper.rb app/controllers/concerns/source_scoped.rb test/controllers/sources_workspace_shell_test.rb
+mise exec ruby@4.0.7 -- env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_workspace_helper.rb app/controllers/concerns/source_scoped.rb test/controllers/sources_workspace_shell_test.rb
 git diff --check
 ```
 
 Expected: all focused checks pass; no existing drawer behavior changes outside Sources. Preserve only a fresh, explicitly accepted historical baseline exception, never new feature failures.
 
-- [ ] **Step 6: Commit explicit Task 1 paths.**
+- [x] **Step 6: Commit explicit Task 1 paths.**
 
 ```bash
 git add app/helpers/sources_workspace_helper.rb app/controllers/concerns/source_scoped.rb app/views/workspaces/_header.html.erb app/views/sources/setup.html.erb app/views/sources/index.html.erb app/views/sources/_toolbar.html.erb app/views/layouts/application.html.erb app/assets/stylesheets/nosia/workspace.css app/assets/tailwind/application.css config/locales/en.nosia_workspace.yml config/locales/fr.nosia_workspace.yml config/locales/en.nosia_sources_workspace.yml config/locales/fr.nosia_sources_workspace.yml test/controllers/sources_workspace_shell_test.rb
@@ -431,7 +558,7 @@ git commit -m "feat(sources): Add workspace shell and account setup guidance"
 **Create:** `test/controllers/sources_workspace_filters_test.rb`, `app/assets/stylesheets/nosia/sources.css`.
 **Modify:** `app/helpers/sources_helper.rb`, `app/views/sources/_source_filters.html.erb`, `_toolbar.html.erb`, index layout class, both Sources-workspace catalogs, both existing Sources catalogs, `test/controllers/accounts/scoped_sources_test.rb`, and the Tailwind import file.
 
-- [ ] **Step 1: Add behavior tests and replace the obsolete two-form/resetting-link contract.**
+- [x] **Step 1: Add behavior tests and replace the obsolete two-form/resetting-link contract.**
 
 ```ruby
 # test/controllers/sources_workspace_filters_test.rb
@@ -521,7 +648,7 @@ end
 
 All other scoped authorization, helper, load-more, stream, and account-default tests stay intact.
 
-- [ ] **Step 2: Observe RED before adding the filter helper/templates.**
+- [x] **Step 2: Observe RED before adding the filter helper/templates.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-task2-red.log rails_test test test/controllers/sources_workspace_filters_test.rb test/controllers/accounts/scoped_sources_test.rb
@@ -529,7 +656,7 @@ record_check /tmp/opencode/sources-workspace-task2-red.log rails_test test test/
 
 Expected: missing toolbar markers/status selection and links that still discard selections; not fixture failures.
 
-- [ ] **Step 3: Add composed navigation and one GET toolbar.** Add this public method before `source_new_path` in `SourcesHelper`; do not change `source_index_path` itself.
+- [x] **Step 3: Add composed navigation and one GET toolbar.** Add this public method before `source_new_path` in `SourcesHelper`; do not change `source_index_path` itself.
 
 ```ruby
 # @param changes [Hash] Selected type/status changes; pagination is never carried
@@ -596,7 +723,7 @@ end
 
 In the index replace `<div class="flex flex-col gap-4 md:flex-row">` with `<div class="n-source-layout">`. Keep `_counts.html.erb` unchanged: one responsive navigation renders each existing count ID exactly once.
 
-- [ ] **Step 4: Add list layout, paired labels, and emoji-free existing chooser/filter strings.**
+- [x] **Step 4: Add list layout, paired labels, and emoji-free existing chooser/filter strings.**
 
 ```css
 /* app/assets/stylesheets/nosia/sources.css — unlayered, strictly Sources-scoped */
@@ -666,12 +793,12 @@ pending_filter: "En cours de traitement"
 empty_failed: "Aucun échec — tout va bien."
 ```
 
-- [ ] **Step 5: Run GREEN, preserve scope/pagination/stream regressions, and commit.**
+- [x] **Step 5: Run GREEN, preserve scope/pagination/stream regressions, and commit.**
 
 ```bash
 rails_test tailwindcss:build
 record_check /tmp/opencode/sources-workspace-task2-green.log rails_test test test/controllers/sources_workspace_filters_test.rb test/controllers/sources_workspace_shell_test.rb test/controllers/accounts/scoped_sources_test.rb test/controllers/sources_controller_test.rb test/internationalization/catalogs_test.rb
-RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_helper.rb test/controllers/sources_workspace_filters_test.rb test/controllers/accounts/scoped_sources_test.rb
+mise exec ruby@4.0.7 -- env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_helper.rb test/controllers/sources_workspace_filters_test.rb test/controllers/accounts/scoped_sources_test.rb
 git diff --check
 git add app/helpers/sources_helper.rb app/views/sources/_source_filters.html.erb app/views/sources/_toolbar.html.erb app/views/sources/index.html.erb app/assets/stylesheets/nosia/sources.css app/assets/tailwind/application.css config/locales/en.nosia_sources_workspace.yml config/locales/fr.nosia_sources_workspace.yml config/locales/en.nosia_sources.yml config/locales/fr.nosia_sources.yml test/controllers/sources_workspace_filters_test.rb test/controllers/accounts/scoped_sources_test.rb
 git commit -m "feat(sources): Preserve composed filters and stable live counts"
@@ -684,7 +811,7 @@ Expected: all targeted tests pass. Do not change pagination/stream tests merely 
 **Create:** `test/controllers/sources_workspace_rows_test.rb`, `test/system/sources_workspace_upload_test.rb`, `app/javascript/controllers/source_upload_controller.js`.
 **Modify:** Sources row/status/rows/empty/drop-hint/add-menu/index/Turbo templates, `SourcesHelper`'s icon mapping, `SourcesWorkspaceHelper`, `Sourceable`'s row locals, Sources CSS, and paired Sources-workspace catalogs.
 
-- [ ] **Step 1: Write the row/background and real browse/retry tests.**
+- [x] **Step 1: Write the row/background and real browse/retry tests.**
 
 ```ruby
 # test/controllers/sources_workspace_rows_test.rb
@@ -839,7 +966,7 @@ class SourcesWorkspaceUploadTest < ApplicationSystemTestCase
 end
 ```
 
-- [ ] **Step 2: Observe RED in both request and browser tests.**
+- [x] **Step 2: Observe RED in both request and browser tests.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-task3-request-red.log rails_test test test/controllers/sources_workspace_rows_test.rb
@@ -848,7 +975,7 @@ record_check /tmp/opencode/sources-workspace-task3-browser-red.log browser_test 
 
 Expected: missing semantic row metadata/edit control, missing browse/upload marker or labels. Existing real upload behavior must not be replaced with fake responses; the second test deliberately drops only the first *successful response* after the real server commit.
 
-- [ ] **Step 3: Add safe row metadata and actions that also work in background renders.** Replace the existing icon constant/method in `SourcesHelper` with:
+- [x] **Step 3: Add safe row metadata and actions that also work in background renders.** Replace the existing icon constant/method in `SourcesHelper` with:
 
 ```ruby
 SOURCE_ICONS = { "document" => "files.svg", "text" => "file-lines.svg", "qna" => "question-circle.svg", "website" => "window.svg" }.freeze
@@ -939,7 +1066,7 @@ The new retry form omits the old `data-turbo-confirm="false"` attribute: that is
 a literal prompt string, not Turbo's boolean opt-out. Retry uses its existing
 authorized POST directly; only Delete requires the named destructive confirmation.
 
-- [ ] **Step 4: Reuse the existing uploader, adding only browse and truthful per-file labels.**
+- [x] **Step 4: Reuse the existing uploader, adding only browse and truthful per-file labels.**
 
 ```javascript
 // app/javascript/controllers/source_upload_controller.js
@@ -1004,7 +1131,7 @@ After the list container, replace the old upload `<ul>` with:
 
 The existing `dashboard` variant exposes its already-implemented retry/remove controls. The new controller reads the existing `data-upload-status` truth and labels it; it owns no upload state, requests, retry IDs, or server writes. Do not edit `dropzone_controller.js`.
 
-- [ ] **Step 5: Replace the chooser, drop hint, and empty-state markup.**
+- [x] **Step 5: Replace the chooser, drop hint, and empty-state markup.**
 
 ```erb
 <%# app/views/sources/_add_menu.html.erb %>
@@ -1052,7 +1179,7 @@ The existing `dashboard` variant exposes its already-implemented retry/remove co
 
 Keep the existing main stylesheet's `#sources_list:has([data-source-id]) .sources-empty` hiding rule. Do not give `.n-source-empty` an unlayered `display` value that would defeat it.
 
-- [ ] **Step 6: Append Sources-only styles and paired copy.**
+- [x] **Step 6: Append Sources-only styles and paired copy.**
 
 ```css
 /* Append to app/assets/stylesheets/nosia/sources.css */
@@ -1124,13 +1251,13 @@ upload_labels:
   error: "Non importé"
 ```
 
-- [ ] **Step 7: Run GREEN, existing broadcasts/uploads, and commit.**
+- [x] **Step 7: Run GREEN, existing broadcasts/uploads, and commit.**
 
 ```bash
 rails_test tailwindcss:build
 record_check /tmp/opencode/sources-workspace-task3-request-green.log rails_test test test/controllers/sources_workspace_rows_test.rb test/controllers/sources_workspace_filters_test.rb test/controllers/accounts/scoped_sources_test.rb test/models/sourceable_test.rb test/models/sourceable_broadcast_test.rb test/models/account_source_broadcast_test.rb test/models/document_source_registration_test.rb test/integration/localized_pages_test.rb test/integration/localized_broadcasts_test.rb test/internationalization/catalogs_test.rb
 record_check /tmp/opencode/sources-workspace-task3-browser-green.log browser_test test/system/sources_workspace_upload_test.rb
-RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_helper.rb app/helpers/sources_workspace_helper.rb app/models/concerns/sourceable.rb test/controllers/sources_workspace_rows_test.rb test/system/sources_workspace_upload_test.rb
+mise exec ruby@4.0.7 -- env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_helper.rb app/helpers/sources_workspace_helper.rb app/models/concerns/sourceable.rb test/controllers/sources_workspace_rows_test.rb test/system/sources_workspace_upload_test.rb
 git diff --check
 git add app/helpers/sources_helper.rb app/helpers/sources_workspace_helper.rb app/models/concerns/sourceable.rb app/javascript/controllers/source_upload_controller.js app/views/sources/_source.html.erb app/views/sources/_status.html.erb app/views/sources/_rows.html.erb app/views/sources/_empty.html.erb app/views/sources/_drop_hint.html.erb app/views/sources/_add_menu.html.erb app/views/sources/index.html.erb app/views/sources/index.turbo_stream.erb app/assets/stylesheets/nosia/sources.css config/locales/en.nosia_sources_workspace.yml config/locales/fr.nosia_sources_workspace.yml test/controllers/sources_workspace_rows_test.rb test/system/sources_workspace_upload_test.rb
 git commit -m "feat(sources): Improve rows and truthful upload feedback"
@@ -1143,7 +1270,7 @@ Expected: all targeted checks pass, including unchanged `AccountSourceBroadcastT
 **Create:** `test/controllers/sources_workspace_forms_test.rb`, `app/helpers/source_forms_helper.rb`, `app/javascript/controllers/source_form_controller.js`, `app/views/sources/_form_page.html.erb`, `_form_help.html.erb`, `_form_errors.html.erb`, `_field_error.html.erb`, `_form_actions.html.erb`.
 **Modify:** four source `_form` partials, `_account_field`, eight new/edit templates, Sources CSS/catalogs, and only the two obsolete new/edit Back selectors in the existing scoped operations test.
 
-- [ ] **Step 1: Add request tests for fixed edit identity, preserved failed filing, connected errors, and safe summaries.**
+- [x] **Step 1: Add request tests for fixed edit identity, preserved failed filing, connected errors, and safe summaries.**
 
 ```ruby
 # test/controllers/sources_workspace_forms_test.rb
@@ -1242,7 +1369,7 @@ assert_select "form a[href='#{path}']", text: I18n.t("nosia.actions.cancel")
 
 This replaces sr-only-label assumptions with equally strict visible-label/path assertions; do not remove or weaken account, format, content, or write/job assertions.
 
-- [ ] **Step 2: Run RED before the form implementation.**
+- [x] **Step 2: Run RED before the form implementation.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-task4-red.log rails_test test test/controllers/sources_workspace_forms_test.rb test/controllers/accounts/scoped_source_operations_test.rb
@@ -1250,7 +1377,7 @@ record_check /tmp/opencode/sources-workspace-task4-red.log rails_test test test/
 
 Expected: missing shared form markup/partial, editable legacy edit account selector, missing linked errors, and lost legacy selection. Do not invent new model validations to make tests fail.
 
-- [ ] **Step 3: Add the field options, error partials, and error-focus enhancement.**
+- [x] **Step 3: Add the field options, error partials, and error-focus enhancement.**
 
 ```ruby
 # app/helpers/source_forms_helper.rb
@@ -1336,7 +1463,7 @@ Replace `_account_field.html.erb` completely:
 
 No new account assignment is permitted. The hidden value retains the existing scoped contract and is ignored by unchanged legacy update strong parameters; never add `:account_id` to those update parameter lists.
 
-- [ ] **Step 4: Add the shared form page/help and replace all eight wrappers.**
+- [x] **Step 4: Add the shared form page/help and replace all eight wrappers.**
 
 ```erb
 <%# app/views/sources/_form_page.html.erb %>
@@ -1411,7 +1538,7 @@ Use each following complete line in the named file, replacing its old wrapper. T
 <%= render "sources/form_page", record: @website %>
 ```
 
-- [ ] **Step 5: Replace the four typed forms, retaining every current field and conversion.** Do not add a title field to Text, new required attributes to Text/Q&A, a crawl configuration, or a file MIME restriction to the document form.
+- [x] **Step 5: Replace the four typed forms, retaining every current field and conversion.** Do not add a title field to Text, new required attributes to Text/Q&A, a crawl configuration, or a file MIME restriction to the document form.
 
 ```erb
 <%# app/views/sources/documents/_form.html.erb %>
@@ -1495,7 +1622,7 @@ Use each following complete line in the named file, replacing its old wrapper. T
 <% end %>
 ```
 
-- [ ] **Step 6: Add bounded form/editor styling and paired help.** Append to `app/assets/stylesheets/nosia/sources.css`:
+- [x] **Step 6: Add bounded form/editor styling and paired help.** Append to `app/assets/stylesheets/nosia/sources.css`:
 
 ```css
 .n-source-form-layout { @apply grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,48rem)_minmax(14rem,1fr)]; }
@@ -1570,18 +1697,18 @@ form_help:
   website: "L’URL utilise le processus existant d’exploration et d’indexation. Vous pouvez modifier le contenu disponible ; aucun réglage d’exploration supplémentaire n’est proposé ici."
 ```
 
-- [ ] **Step 7: Run GREEN and every existing scoped/legacy write and conversion contract.**
+- [x] **Step 7: Run GREEN and every existing scoped/legacy write and conversion contract.**
 
 ```bash
 rails_test tailwindcss:build
 record_check /tmp/opencode/sources-workspace-task4-green.log rails_test test test/controllers/sources_workspace_forms_test.rb test/controllers/sources_workspace_shell_test.rb test/controllers/accounts/scoped_source_operations_test.rb test/controllers/sources/documents_controller_test.rb test/controllers/sources/texts_controller_test.rb test/controllers/sources/qnas_controller_test.rb test/controllers/sources/websites_controller_test.rb test/integration/localized_pages_test.rb test/internationalization/catalogs_test.rb
-RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/source_forms_helper.rb test/controllers/sources_workspace_forms_test.rb test/controllers/accounts/scoped_source_operations_test.rb
+mise exec ruby@4.0.7 -- env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/source_forms_helper.rb test/controllers/sources_workspace_forms_test.rb test/controllers/accounts/scoped_source_operations_test.rb
 git diff --check
 ```
 
 Expected: all focused tests pass, including unchanged filing rejection, legacy JSON versus scoped HTML negotiation, editor Markdown/frontmatter behavior, member permissions, and queued job assertions. A new field requirement, content rewrite, weakened assertion, or new update account parameter is not a presentation fix.
 
-- [ ] **Step 8: Commit only Task 4 paths.**
+- [x] **Step 8: Commit only Task 4 paths.**
 
 ```bash
 git add app/helpers/source_forms_helper.rb app/javascript/controllers/source_form_controller.js app/views/sources/_form_page.html.erb app/views/sources/_form_help.html.erb app/views/sources/_form_errors.html.erb app/views/sources/_field_error.html.erb app/views/sources/_form_actions.html.erb app/views/sources/_account_field.html.erb app/views/sources/documents/_form.html.erb app/views/sources/texts/_form.html.erb app/views/sources/qnas/_form.html.erb app/views/sources/websites/_form.html.erb app/views/sources/documents/new.html.erb app/views/sources/documents/edit.html.erb app/views/sources/texts/new.html.erb app/views/sources/texts/edit.html.erb app/views/sources/qnas/new.html.erb app/views/sources/qnas/edit.html.erb app/views/sources/websites/new.html.erb app/views/sources/websites/edit.html.erb app/assets/stylesheets/nosia/sources.css config/locales/en.nosia_sources_workspace.yml config/locales/fr.nosia_sources_workspace.yml test/controllers/sources_workspace_forms_test.rb test/controllers/accounts/scoped_source_operations_test.rb
@@ -1595,7 +1722,7 @@ Browser verification of focus, linked errors, submitting state, mobile editors, 
 **Create:** `test/controllers/sources_workspace_details_test.rb`, `app/views/sources/_detail.html.erb`.
 **Modify:** four show templates, `app/views/sources/documents/_document.html.erb`, Sources CSS/catalogs, and the remaining show presentation assertions in `test/controllers/accounts/scoped_source_operations_test.rb`.
 
-- [ ] **Step 1: Write read-only, navigation, safe-content, and file-preview tests.**
+- [x] **Step 1: Write read-only, navigation, safe-content, and file-preview tests.**
 
 ```ruby
 # test/controllers/sources_workspace_details_test.rb
@@ -1697,7 +1824,7 @@ assert_select "a[href='#{path}'][data-turbo-method='delete'][data-turbo-confirm]
   text: I18n.t("nosia.sources.#{type.to_s.pluralize}.delete_action")
 ```
 
-- [ ] **Step 2: Observe RED, then add the shared detail wrapper.**
+- [x] **Step 2: Observe RED, then add the shared detail wrapper.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-task5-red.log rails_test test test/controllers/sources_workspace_details_test.rb test/controllers/accounts/scoped_source_operations_test.rb
@@ -1740,7 +1867,7 @@ Expected: missing meaningful detail heading, metadata, wrapper markers, and labe
 </div>
 ```
 
-- [ ] **Step 3: Replace each complete show template, preserving its content policy.**
+- [x] **Step 3: Replace each complete show template, preserving its content policy.**
 
 ```erb
 <%# app/views/sources/documents/show.html.erb %>
@@ -1799,7 +1926,7 @@ The Q&A question is already the meaningful page heading via `Qna#display_title`;
 
 This retains PDF/DOCX iframe, PNG/JPEG image, and other-file link behavior. It does not claim DOCX has new browser-native support, change file authorization, or introduce a document converter. Text and Q&A remain escaped plain text; Website retains the exact existing allowlist. No `raw` or `html_safe` is added.
 
-- [ ] **Step 4: Add bounded content/preview styling and paired fallback copy.**
+- [x] **Step 4: Add bounded content/preview styling and paired fallback copy.**
 
 ```css
 /* Append to app/assets/stylesheets/nosia/sources.css */
@@ -1823,12 +1950,12 @@ no_file: "No file is available for this document."
 no_file: "Aucun fichier n’est disponible pour ce document."
 ```
 
-- [ ] **Step 5: Run GREEN and commit.**
+- [x] **Step 5: Run GREEN and commit.**
 
 ```bash
 rails_test tailwindcss:build
 record_check /tmp/opencode/sources-workspace-task5-green.log rails_test test test/controllers/sources_workspace_details_test.rb test/controllers/accounts/scoped_source_operations_test.rb test/controllers/sources/documents_controller_test.rb test/controllers/sources/texts_controller_test.rb test/controllers/sources/qnas_controller_test.rb test/controllers/sources/websites_controller_test.rb test/integration/localized_pages_test.rb test/internationalization/catalogs_test.rb
-RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop test/controllers/sources_workspace_details_test.rb test/controllers/accounts/scoped_source_operations_test.rb
+mise exec ruby@4.0.7 -- env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop test/controllers/sources_workspace_details_test.rb test/controllers/accounts/scoped_source_operations_test.rb
 git diff --check
 git add app/views/sources/_detail.html.erb app/views/sources/documents/show.html.erb app/views/sources/documents/_document.html.erb app/views/sources/texts/show.html.erb app/views/sources/qnas/show.html.erb app/views/sources/websites/show.html.erb app/assets/stylesheets/nosia/sources.css config/locales/en.nosia_sources_workspace.yml config/locales/fr.nosia_sources_workspace.yml test/controllers/sources_workspace_details_test.rb test/controllers/accounts/scoped_source_operations_test.rb
 git commit -m "feat(sources): Align details and preserve safe content previews"
@@ -1838,10 +1965,10 @@ Expected: every targeted check passes. Do not treat the document metadata branch
 
 ## Task 6: Verify workflows, responsive layouts, keyboard access, and measured contrast
 
-**Create:** `test/system/sources_workspace_test.rb`.
-**Modify:** only Sources-scoped reduced-motion rules in `app/assets/stylesheets/nosia/sources.css` if the new regression exposes the remaining field transitions. Preserve all existing system test files.
+**Extend:** `test/system/sources_workspace_test.rb`, preserving the earlier invalid-editor probe.
+**Modify:** Sources-scoped motion rules and the specifically reviewed navigation/form fixes recorded in the execution adaptations above. Preserve all existing behavioral assertions; only the two documented protected Stimulus selectors change.
 
-- [ ] **Step 1: Add the complete system test below.** Tests use fixture records, the test queue adapter, real authorized requests, and local browser rendering; no LLM, crawl, parsing, or embedding job is performed. Evidence is written only to the ignored external directory printed by the test.
+- [x] **Step 1: Add the complete system test below.** Tests use fixture records, the test queue adapter, real authorized requests, and local browser rendering; no LLM, crawl, parsing, or embedding job is performed. Evidence is written only to the ignored external directory printed by the test.
 
 ```ruby
 # test/system/sources_workspace_test.rb
@@ -2229,7 +2356,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
 end
 ```
 
-- [ ] **Step 2: Run the new browser file and inspect failures before changing presentation.**
+- [x] **Step 2: Run the new browser file and inspect failures before changing presentation.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-task6-first-browser.log browser_test test/system/sources_workspace_test.rb test/system/sources_workspace_upload_test.rb
@@ -2237,7 +2364,7 @@ record_check /tmp/opencode/sources-workspace-task6-first-browser.log browser_tes
 
 Expected: the remaining field/editor transition test is RED because global field rules still transition colors under reduced motion. Other failures, if any, must be diagnosed against the approved design and actual browser output. Do not loosen focus, size, contrast, account, or content assertions to accommodate a defect. If an assumption in this plan is wrong, document the correction and retain the original failed log.
 
-- [ ] **Step 3: Add the minimal reduced-motion fix after observing that failure.** Append to the Sources stylesheet:
+- [x] **Step 3: Add the minimal reduced-motion fix after observing that failure.** Append to the Sources stylesheet:
 
 ```css
 @media (prefers-reduced-motion: reduce) {
@@ -2248,23 +2375,23 @@ Expected: the remaining field/editor transition test is RED because global field
 }
 ```
 
-- [ ] **Step 4: Run GREEN and unchanged browser regressions sequentially.**
+- [x] **Step 4: Run GREEN and protected browser regressions sequentially.**
 
 ```bash
 rails_test tailwindcss:build
 record_check /tmp/opencode/sources-workspace-task6-browser-green.log browser_test test/system/sources_workspace_test.rb test/system/sources_workspace_upload_test.rb
 record_check /tmp/opencode/sources-workspace-task6-browser-regressions.log browser_test test/system/sources_dropzone_test.rb test/system/account_experience_test.rb test/system/localization_test.rb test/system/dashboard_test.rb test/system/chat_composer_ui_test.rb test/system/chat_account_selection_test.rb
-RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop test/system/sources_workspace_test.rb test/system/sources_workspace_upload_test.rb
+mise exec ruby@4.0.7 -- env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop test/system/sources_workspace_test.rb test/system/sources_workspace_upload_test.rb
 git diff --check
 ```
 
-Expected: both browser commands exit 0. The preexisting six browser files remain unchanged, including composer attachment and upload retry identity tests. Record actual counts, not the dashboard's historical browser totals.
+Expected: both browser commands exit 0. Existing composer attachment and upload retry identity assertions remain intact. Only the two reviewed Stimulus token selectors change in one protected file; the other five files remain unchanged. Record actual counts, not the dashboard's historical browser totals.
 
-- [ ] **Step 5: Inspect application evidence, not just test exits.** Use the file/image tool to inspect these actual screenshots from the evidence directory printed by the successful run: English 375px light list; French 375px dark list; French 812×375 dark list; English desktop light list; document edit; text editor; Q&A form; website edit; each detail type; no-account; and website 422. Read `contrast.jsonl` and report the measured minimum text/control/focus ratios per theme. Tests cover the matrix; the report must identify which images were actually reviewed.
+- [x] **Step 5: Inspect application evidence, not just test exits.** Use the file/image tool to inspect these actual screenshots from the evidence directory printed by the successful run: English 375px light list; French 375px dark list; French 812×375 dark list; English desktop light list; document edit; text editor; Q&A form; website edit; each detail type; no-account; and website 422. Read `contrast.jsonl` and report the measured minimum text/control/focus ratios per theme. Tests cover the matrix; the report must identify which images were actually reviewed.
 
 Check long words/URLs wrapping, visible type/status/counts/actions, native editor toolbar, paired Q&A spacing, file retention/reselection language, and last-action clearance above fixed navigation. A screenshot's CSS viewport is **not** native zoom evidence. If a native 200% browser-zoom/manual keyboard pass is available, record browser/viewport/pages/result separately; otherwise explicitly leave native 200% zoom unverified, without replacing it with CSS scaling or device-metric emulation.
 
-- [ ] **Step 6: Commit only the new system regression and scoped motion fix.**
+- [x] **Step 6: Commit the regression and reviewed Sources-only fixes.** Final authorized scope and the CSRF-preserving follow-up are recorded above; stage explicit files, not unrelated changes.
 
 ```bash
 git add test/system/sources_workspace_test.rb app/assets/stylesheets/nosia/sources.css
@@ -2276,7 +2403,7 @@ git commit -m "test(sources): Verify responsive workflows and accessibility"
 **Create:** `docs/sources-workspace.md`.
 **Modify:** `docs/README.md`, `docs/DIAGRAMS.md`.
 
-- [ ] **Step 1: Create the following user/developer documentation.** Documentation describes the resulting interface; this task is not evidence of tests having passed.
+- [x] **Step 1: Create the following user/developer documentation.** Documentation describes the resulting interface; this task is not evidence of tests having passed.
 
 ````markdown
 # Sources workspace
@@ -2376,7 +2503,7 @@ Token usage, Agent skills, and MCP redesigns remain separate subprojects. Their
 existing account/reporting behavior is not changed by the Sources foundation.
 ````
 
-- [ ] **Step 2: Add the documentation index link and the focused diagram.** Insert this line after the existing Signed-in dashboard link under `### Development` in `docs/README.md`:
+- [x] **Step 2: Add the documentation index link and the focused diagram.** Insert this line after the existing Signed-in dashboard link under `### Development` in `docs/README.md`:
 
 ```markdown
 - [Sources workspace](sources-workspace.md) — default/scoped lists, composed filters, uploads, forms, live status, and safe details.
@@ -2412,7 +2539,7 @@ promise live prepends. Read pages do not enqueue processing. See
 verification boundaries.
 ````
 
-- [ ] **Step 3: Check links, diff, and scope, then commit the documentation.**
+- [x] **Step 3: Check links, diff, and scope, then commit the documentation.**
 
 ```bash
 python3 - <<'PY'
@@ -2437,7 +2564,7 @@ Expected: all checked local links resolve. If an unrelated preexisting link is b
 
 **Modify:** this plan's execution checkboxes/evidence only after real execution; application fixes require a new observed RED/GREEN cycle. No automatic merge, push, PR, worktree deletion, or later-workflow implementation.
 
-- [ ] **Step 1: Inspect the complete feature diff against the clean execution base.**
+- [x] **Step 1: Inspect the complete feature diff against the clean execution base.**
 
 ```bash
 git status --short
@@ -2446,9 +2573,9 @@ git diff --stat "$(head -n1 /tmp/opencode/sources-workspace-execution-base.log)"
 git log --oneline -10
 ```
 
-The diff command uses the immutable base saved at Task 0, not a dashboard branch tip that might have moved. The new feature must not alter schema/dependencies, source model validations, queue transport, uploader intent/transport, legacy/scoped write formats, composer behavior, global fixtures, or permissions. Confirm only the two documented request-test presentation contracts changed in old tests; existing system tests remain unchanged.
+The diff command uses the immutable base saved at Task 0, not a dashboard branch tip that might have moved. The new feature must not alter schema/dependencies, source model validations, queue transport, uploader intent/transport, legacy/scoped write formats, composer behavior, global fixtures, or permissions. Old tests change only the documented scoped presentation contracts, single French heading, two protected Stimulus token selectors, Sources drawer expectation, and separately user-authorized test-registry isolation; all behavioral assertions remain intact.
 
-- [ ] **Step 2: Build and run the full focused server regression set sequentially.**
+- [x] **Step 2: Build and run the full focused server regression set sequentially.**
 
 ```bash
 rails_test tailwindcss:build
@@ -2457,7 +2584,12 @@ record_check /tmp/opencode/sources-workspace-final-focused.log rails_test test t
 
 Expected: exit 0, no failures/errors. Record actual run/assertion counts and seed from the saved log. Do not apply an unrelated full-suite waiver to this feature-focused gate.
 
-- [ ] **Step 3: Run the complete server suite, then the entire protected browser set, without shared-database concurrency.**
+The final focused rerun additionally includes `account_experience_test.rb`,
+`chat_account_citations_test.rb`, `chat_account_url_race_test.rb`, and
+`ruby_llm_mcp_generation_test.rb` after the observed full-suite failures. No
+original focused file was dropped. Exact command: `final-focused-02.log` below.
+
+- [x] **Step 3: Run the complete server suite, then the entire protected browser set, without shared-database concurrency.**
 
 ```bash
 record_check /tmp/opencode/sources-workspace-final-full.log rails_test test
@@ -2466,32 +2598,35 @@ record_check /tmp/opencode/sources-workspace-final-browser.log browser_test test
 
 Expected: browser exit 0. For the full server suite, compare the actual exit/failures with the fresh Task 0 baseline and the user's explicit acceptance, if any. A remaining accepted `Chat::RequestOptionsTest` error is still exit 1 and must be reported as such; new failures/errors block completion. Never skip a test, change unrelated behavior, or suppress warnings just to get a green headline.
 
-- [ ] **Step 4: Run lint and the security scanner with honest exits.**
+- [x] **Step 4: Run lint and the security scanner with honest exits.**
 
 ```bash
-record_check /tmp/opencode/sources-workspace-final-rubocop.log env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_helper.rb app/helpers/sources_workspace_helper.rb app/helpers/source_forms_helper.rb app/controllers/concerns/source_scoped.rb app/models/concerns/sourceable.rb test/controllers/sources_workspace_shell_test.rb test/controllers/sources_workspace_filters_test.rb test/controllers/sources_workspace_rows_test.rb test/controllers/sources_workspace_forms_test.rb test/controllers/sources_workspace_details_test.rb test/controllers/accounts/scoped_sources_test.rb test/controllers/accounts/scoped_source_operations_test.rb test/system/sources_workspace_test.rb test/system/sources_workspace_upload_test.rb
-record_check /tmp/opencode/sources-workspace-final-brakeman.log bundle exec brakeman --no-pager
+record_check /tmp/opencode/sources-workspace-final-rubocop.log mise exec ruby@4.0.7 -- env RUBOCOP_TARGET_RUBY_VERSION=4.0 bundle exec rubocop app/helpers/sources_helper.rb app/helpers/sources_workspace_helper.rb app/helpers/source_forms_helper.rb app/controllers/concerns/source_scoped.rb app/models/concerns/sourceable.rb test/controllers/sources_workspace_shell_test.rb test/controllers/sources_workspace_filters_test.rb test/controllers/sources_workspace_rows_test.rb test/controllers/sources_workspace_forms_test.rb test/controllers/sources_workspace_details_test.rb test/controllers/accounts/scoped_sources_test.rb test/controllers/accounts/scoped_source_operations_test.rb test/system/sources_workspace_test.rb test/system/sources_workspace_upload_test.rb test/integration/localized_pages_test.rb test/system/chat_account_selection_test.rb
+record_check /tmp/opencode/sources-workspace-final-brakeman.log mise exec ruby@4.0.7 -- bundle exec brakeman --no-pager
 git diff --check
 ```
 
 Expected: changed-file lint exit 0. Brakeman must have no new feature-introduced findings. Compare with a freshly saved baseline scanner result from Task 0, not only historical line numbers; existing EOL/`PermitAttributes` warnings retain their actual nonzero exit. Investigate any difference before requesting user acceptance. Do not update dependencies, suppress warnings, or claim a full `bin/ci` pass from this narrower command set.
 
-- [ ] **Step 5: Review the implementation against the specification and test evidence.** Under subagent-driven execution, request independent spec-compliance and code-quality reviews with the execution base/HEAD, both specifications, this plan, true test exits, and evidence paths. Under inline execution, perform those two review passes explicitly before reporting. Resolve feature findings, rerun every affected gate under a new log name, and preserve the old failures. No review agent is spawned while merely writing this plan.
+The actual final lint command also includes `account_experience_test.rb` and
+`chat_account_url_race_test.rb`, for eighteen changed Ruby files in total.
+
+- [x] **Step 5: Review the implementation against the specification and test evidence.** Under subagent-driven execution, request independent spec-compliance and code-quality reviews with the execution base/HEAD, both specifications, this plan, true test exits, and evidence paths. Under inline execution, perform those two review passes explicitly before reporting. Resolve feature findings, rerun every affected gate under a new log name, and preserve the old failures. No review agent is spawned while merely writing this plan.
 
 Acceptance checklist:
 
-- [ ] Both route families and all four source types have coherent list/new/edit/detail flows.
-- [ ] Default account, scoped membership isolation, ordinary member capabilities, 404/406/422 distinctions, HTML/JSON write contracts, content conversion, and queued jobs remain intact.
-- [ ] URL filters compose, page resets appropriately, Load more stays 50 rows, zero counts have seven unique targets, and account-wide versus loaded-match counts are labeled.
-- [ ] Rows show meaningful identity, type/status/chunks/time, separate View/Edit/Retry/Delete destinations, and source/account deletion confirmation without per-row account queries.
-- [ ] Existing browse/drop/retry/removal uses stable upload intent; Uploaded never promises Indexed; searched/live replacement limitations remain explicit.
-- [ ] Forms retain non-file values and legacy filing on 422, fix edit identity, explain file reselection, keep attachment-disabled native editors, and connect summary/inline errors with focus and pending Save feedback.
-- [ ] Details keep escaped Text/Q&A, allowlisted Website HTML, and the original document preview/link behavior; reads remain read-only.
-- [ ] Responsive/keyboard/contrast/light-dark/EN-FR/long-name/reduced-motion evidence was actually reviewed; native 200% zoom is separately verified or explicitly unverified.
-- [ ] No unrelated dashboard, composer, usage, Skills, or MCP change was smuggled into the shared foundation.
-- [ ] Actual test/scanner counts, seeds, exits, accepted baseline exceptions, image-review scope, and remaining manual limits are recorded.
+- [x] Both route families and all four source types have coherent list/new/edit/detail flows.
+- [x] Default account, scoped membership isolation, ordinary member capabilities, 404/406/422 distinctions, HTML/JSON write contracts, content conversion, and queued jobs remain intact.
+- [x] URL filters compose, page resets appropriately, Load more stays 50 rows, zero counts have seven unique targets, and account-wide versus loaded-match counts are labeled.
+- [x] Rows show meaningful identity, type/status/chunks/time, separate View/Edit/Retry/Delete destinations, and source/account deletion confirmation without per-row account queries.
+- [x] Existing browse/drop/retry/removal uses stable upload intent; Uploaded never promises Indexed; searched/live replacement limitations remain explicit.
+- [x] Forms retain non-file values and legacy filing on 422, fix edit identity, explain file reselection, keep attachment-disabled native editors, and connect summary/inline errors with focus and pending Save feedback.
+- [x] Details keep escaped Text/Q&A, allowlisted Website HTML, and the original document preview/link behavior; reads remain read-only.
+- [x] Responsive/keyboard/contrast/light-dark/EN-FR/long-name/reduced-motion evidence was actually reviewed; native 200% zoom is separately verified or explicitly unverified.
+- [x] No unrelated dashboard, composer, usage, Skills, or MCP change was smuggled into the shared foundation. The separate registry test-isolation correction was explicitly user-authorized, not a production behavior change.
+- [x] Actual test/scanner counts, seeds, exits, accepted baseline exceptions, image-review scope, and remaining manual limits are recorded.
 
-- [ ] **Step 6: Record final evidence and offer integration choices only after verification.** Add actual commands/results and acceptance decisions to the execution notes and this plan; mark steps complete only when done. If tracking changes are the only remaining diff, commit this plan explicitly:
+- [x] **Step 6: Record final evidence and prepare integration choices after verification.** Actual commands/results, acceptance decisions and review outcomes are recorded below and in the execution notes. Commit the tracking-only change explicitly, then present integration choices without choosing one on the user's behalf:
 
 ```bash
 git add docs/superpowers/plans/2026-10-24-sources-workspace-ui-ux.md
@@ -2500,6 +2635,101 @@ git status --short
 ```
 
 Invoke `finishing-a-development-branch` after implementation/review gates are satisfied to present integration options. Do not choose an option on the user's behalf. Later Token usage work still needs its independent detailed-design and written-spec approval gates.
+
+### Final execution evidence — application HEAD `590b30c`
+
+The first final full run was **not accepted**: 1,096 runs / 20,396 assertions,
+seed 16727, five failures/twenty errors, exit 1. It exposed the drawer/citation
+boundaries and the proven base registry leak described above. Evidence remains
+in `/tmp/opencode/sources-workspace-final-full.log`; diagnosis and exact base
+reproducer commands are in `sources-workspace-task8-registry-diagnosis-results.json`.
+
+- `62ba58e`: separately user-authorized registry test isolation. Permanent guard
+  RED 3 / 59 with one failure; race + MCP GREEN 25 / 256, seed 16727; formerly
+  failing ordered chain GREEN 2 / 26; preinitialized control GREEN 2 / 27.
+  Explicit cold/warm teardown-fault probes restored exact prior state.
+- `590b30c`: Sources/citation boundary and drawer presentation correction.
+  Boundary RED 47 / 1,286 with three failures; affected contracts GREEN
+  210 / 14,263, seed 16727. Shared citation partial restored to base bytes;
+  citation authorization/preview/CSP assertions were not edited.
+- Commands ran sequentially with dedicated database, Ruby 4.0.7, fixtures/test
+  queue and no performed ingestion/provider calls. All earlier failed logs remain.
+
+| Final gate | Runs / assertions and outcome | Seed | True exit | Log under `/tmp/opencode/` |
+| --- | --- | ---: | ---: | --- |
+| Tailwind build | Successful, v4.1.16 | — | 0 | `sources-workspace-final-build-02.log` |
+| Expanded focused | 407 / 16,282; no failures/errors/skips | 4013 | 0 | `sources-workspace-final-focused-02.log` |
+| Full, failed-order seed | 1,097 / 20,639; 0 failures, 1 accepted error, no skips | 16727 | **1** | `sources-workspace-final-full-02.log` |
+| Full, baseline seed | 1,097 / 20,642; 0 failures, 1 accepted error, no skips | 47125 | **1** | `sources-workspace-final-full-47125-02.log` |
+| All eight browser files | 119 / 6,530; no failures/errors/skips | 50589 | 0 | `sources-workspace-final-browser-02.log` |
+| Changed Ruby lint | 18 files, no offenses | — | 0 | `sources-workspace-final-rubocop-02.log` |
+| Brakeman | 0 scanner errors, 2 unchanged baseline warnings | — | **3** | `sources-workspace-final-brakeman-02.log` |
+
+The sole error in both full runs is exactly
+`Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`,
+missing `augmented_context`, `app/models/chat/completionable.rb:39` →
+`test/models/chat/request_options_test.rb:32` (test begins at 29). It remains an
+error/exit 1, not a passing suite. Brakeman retains only API-token
+`PermitAttributes` at `api_tokens_controller.rb:62` and Rails EOL at
+`Gemfile.lock:318`, exit 3. Duplicate-key JSON warnings remain unsuppressed.
+There is no new baseline waiver or claim of a full `bin/ci` pass.
+
+Detailed commands, RED/GREEN provenance, commit hashes and all final log paths:
+`/tmp/opencode/sources-workspace-task8-final-results-02.json`. Final browser
+images and 278 contrast samples:
+`/tmp/opencode/sources-workspace-883753/`. Eight fresh representative screenshots
+were reviewed by the verifier; the parent additionally opened the mobile
+document detail and Website 422 retained draft. Text/border/focus minima are
+unchanged from Task 6 and exceed their thresholds. Native 200% zoom is still
+**UNVERIFIED**, not replaced by emulation or a full manual-audit claim.
+
+### Latest reviewed revision — application HEAD `d5f7661`
+
+Whole-feature specification review found a remaining 24px-high row View/title
+target. It is an independent action covered by the approved 44px minimum. Commit
+`d5f7661` adds Sources-only minimum width/height and permanent coverage of all
+four types, ordinary and one-character titles, both themes, keyboard/focus and
+non-overlap. RED 1 / 11 failed on 24px; GREEN 1 / 645, seed 16727. All sixteen
+measured View targets were 44px high, at least 101.36px wide, with no overlaps.
+
+| Latest gate | Actual result | Seed | True exit | Log under `/tmp/opencode/` |
+| --- | --- | ---: | ---: | --- |
+| Build | Tailwind successful | — | 0 | `sources-workspace-final-build-03.log` |
+| Expanded focused | 407 / 16,282; no failures/errors/skips | 32985 | 0 | `sources-workspace-final-focused-03.log` |
+| Full | 1,097 / 20,639; 0 failures, only accepted RequestOptions error | 16727 | **1** | `sources-workspace-final-full-03.log` |
+| All eight browser files | 120 / 7,287; no failures/errors/skips | 47806 | 0 | `sources-workspace-final-browser-03.log` |
+| Changed Ruby lint | 18 files, no offenses | — | 0 | `sources-workspace-final-rubocop-03.log` |
+| Brakeman | 0 errors, exactly 2 baseline warnings | — | **3** | `sources-workspace-final-brakeman-03.log` |
+
+These checks ran on the exact working bytes committed as `d5f7661`; their logged
+parent HEAD is `590b30c`, with tested-file hashes and commit matching recorded in
+`/tmp/opencode/sources-workspace-task8-final-results-03.json`. The seed 47125 full
+result above is **reused from revision 02**, not represented as newly run after
+this CSS/system-test-only change. No server implementation changed between them.
+
+Fresh evidence: `/tmp/opencode/sources-workspace-897127/`, 310 passing contrast
+samples. The implementer and spec reviewer opened normal, short-title, ordinary
+View and focused-row mobile screenshots; earlier complete representative reviews
+remain valid historical evidence. Native 200% zoom remains **UNVERIFIED**.
+
+Whole-feature specification reviewer `ses_e8cd1c7e6ffew1CzkCf8le1LLp` re-approved
+`d5f7661`, independently rerunning the touch-target regression: 1 / 645, exit 0
+(`/tmp/opencode/sources-workspace-whole-spec-rereview-d5f7661-view-targets.log`).
+Whole-feature quality reviewer `ses_e8cb3fa00ffe1NDqfcFMtt2kwG` approved the
+complete `8c3328e` → `d5f7661` feature with no remaining Critical, Important or
+Minor findings. Independent request/citation/registry verification: 64 / 1,340,
+exit 0. Independent browser CSRF/navigation/error-focus verification: 4 / 104,
+exit 0. Logs:
+`/tmp/opencode/sources-workspace-whole-quality-d5f7661-targeted.log` and
+`/tmp/opencode/sources-workspace-whole-quality-d5f7661-browser.log`.
+
+Both independent whole-feature reviews are approved. The final tracking commit
+changes only this plan; application bytes remain those tested and reviewed at
+`d5f7661`. The remaining decision is integration, not a new feature failure or a
+claim that the full suite/scanner/native-zoom checks are green. Offer local merge,
+push/PR, keep-as-is, or explicitly confirmed discard. Nothing has been merged,
+pushed, submitted as a PR, or removed, and later Token usage design still needs
+its own approval gates.
 
 ## Planning self-review
 
