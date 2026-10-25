@@ -4,7 +4,9 @@
     <section class="n-workspace-panel" aria-labelledby="usage-overview-title">
       <h2 id="usage-overview-title" class="n-workspace-section-title"><%= t("nosia.usage_workspace.overview") %></h2>
       <p class="n-workspace-help"><%= t(account ? "nosia.usage_workspace.lifetime" : "nosia.usage.last_30_days") %></p>
-      <%= render "token_usages/metrics", totals: headline, prefix: account ? "lifetime" : "period" %>
+      <% cache_unless account.nil?, usage_lifetime_cache_key(account, "headline") do %>
+        <%= render "token_usages/metrics", totals: headline, prefix: account ? "lifetime" : "period" %>
+      <% end %>
     </section>
     <%= render "token_usages/activity", daily_totals: daily_totals, scoped: account.present?, starts_at: starts_at, ends_at: ends_at %>
   </div>
@@ -20,8 +22,12 @@
         <%= render "token_usages/metrics", totals: lifetime, prefix: "lifetime" %>
       </section>
     <% end %>
-    <%= render "token_usages/estimates", green_summary: green_summary %>
+    <% cache_unless account.nil?, usage_lifetime_cache_key(account, "estimates") do %>
+      <%= render "token_usages/estimates", green_summary: green_summary %>
+    <% end %>
   </aside>
 </div>
-<%= render "token_usages/breakdowns", green_summary: green_summary, tokens_by_kind: tokens_by_kind %>
+<% cache_unless account.nil?, usage_lifetime_cache_key(account, "breakdowns") do %>
+  <%= render "token_usages/breakdowns", green_summary: green_summary, tokens_by_kind: tokens_by_kind %>
+<% end %>
 <%= render "token_usages/methodology" %>
