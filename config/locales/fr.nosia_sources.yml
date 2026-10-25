@@ -40,7 +40,7 @@ fr:
         status: "État"
         chunks: "Nombre d’extraits"
       empty_query: "Aucune source ne correspond à « %{query} »."
-      empty_failed: "Aucun échec — tout va bien"
+      empty_failed: "Aucun échec — tout va bien."
       empty_pending: "Aucun traitement en cours."
       first: "Ajoutez votre première source"
       first_help: "Déposez des fichiers ci-dessus ou utilisez « Ajouter une source » pour les sites web, les textes et les questions-réponses."

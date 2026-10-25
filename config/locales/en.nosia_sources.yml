@@ -40,7 +40,7 @@ en:
         status: "Status"
         chunks: "Chunk count"
       empty_query: 'No sources match "%{query}".'
-      empty_failed: "Nothing failed — all good"
+      empty_failed: "Nothing failed — all good."
       empty_pending: "Nothing is processing right now."
       first: "Add your first source"
       first_help: 'Drop files above, or use "Add source" for websites, text, and Q&As.'
