@@ -1,0 +1,30 @@
+<%# locals: (record:, content:) %>
+<% content_for :account_tool_title, t("nosia.account_experience.sources") if @scoped_source_account %>
+<% type = record.model_name.element %>
+<% row = SourceRow.new(record, chunks_count: record.chunks.count) %>
+<% account = @scoped_source_account || record.account %>
+<% title = source_workspace_title(record) %>
+<% actions = capture do %>
+  <%= link_to t("nosia.sources.#{type.pluralize}.edit_action"), source_edit_path(record), class: "n-workspace-button n-workspace-primary", data: { source_edit: true } %>
+  <% if record.failed? %>
+    <%= button_to t("nosia.actions.retry"), source_retry_path(record), method: :post, class: "n-workspace-button" %>
+  <% end %>
+  <%= link_to t("nosia.sources.#{type.pluralize}.delete_action"), source_show_path(record), class: "n-workspace-button n-workspace-danger", data: { turbo_method: :delete, turbo_confirm: source_delete_confirmation(record, account_name: account.name) } %>
+<% end %>
+
+<div class="n-workspace n-source-workspace" data-source-workspace data-source-detail>
+  <%= render "workspaces/header", title: title, scope_label: source_workspace_scope(account), trail: source_workspace_trail(title: title), back_path: source_index_path(type: type), show_new_chat: !@scoped_source_account, actions: actions %>
+  <section class="n-workspace-panel n-source-detail-panel">
+    <div class="n-source-metadata">
+      <span data-source-type-label><%= record.source_type_label %></span>
+      <%= render "sources/status", row: row %>
+      <% value = record.pending? && row.chunks_count.zero? ? "—" : number_with_delimiter(row.chunks_count) %>
+      <span data-source-chunks><%= t("nosia.sources_workspace.chunk_value", value: value) %></span>
+      <time datetime="<%= record.created_at.iso8601 %>"><%= t("nosia.sources_workspace.added", time: t("nosia.time.ago", duration: time_ago_in_words(record.created_at))) %></time>
+    </div>
+    <% if record.failed? %>
+      <p class="n-workspace-help"><%= record.failure_reason.presence || t("nosia.sources_workspace.failed_help") %></p>
+    <% end %>
+    <div class="n-source-detail-content" data-source-detail-content><%= content %></div>
+  </section>
+</div>

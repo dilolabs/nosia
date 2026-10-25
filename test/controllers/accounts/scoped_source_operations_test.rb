@@ -56,9 +56,9 @@ class Accounts::ScopedSourceOperationsTest < ActionDispatch::IntegrationTest
 
       get path
       assert_response :success
-      assert_select "a[href='#{index_path}'] .sr-only", text: I18n.t("nosia.actions.back")
-      assert_select "a[href='#{edit_path}'] .sr-only", text: I18n.t("nosia.sources.#{type.to_s.pluralize}.edit_action")
-      assert_select "a[href='#{path}'][data-turbo-method='delete'][data-turbo-confirm] .sr-only",
+      assert_select "a[data-workspace-back][href='#{index_path}']", text: I18n.t("nosia.actions.back")
+      assert_select "a[data-source-edit][href='#{edit_path}']", text: I18n.t("nosia.sources.#{type.to_s.pluralize}.edit_action")
+      assert_select "a[href='#{path}'][data-turbo-method='delete'][data-turbo-confirm]",
         text: I18n.t("nosia.sources.#{type.to_s.pluralize}.delete_action")
     end
 

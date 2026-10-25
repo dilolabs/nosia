@@ -32,6 +32,7 @@ en:
       current_file: "Current file: %{name}"
       replacement_file: "Replacement file (optional)"
       keep_file: "Leave this empty to keep the current file, or choose a replacement."
+      no_file: "No file is available for this document."
       select_file: "Choose the document to add."
       reselect_file: "Browsers do not retain file selections after a failed save. Select the file again if adding or replacing one."
       form_help_title: "About this source"

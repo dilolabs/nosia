@@ -1,13 +1,13 @@
-<div id="<%= dom_id document %>">
-  <h2 class="n-title truncate"><%= document.title %></h2>
-  <div class="w-full h-[calc(100vh-16.5rem)] md:h-[calc(100vh-15rem)] lg:h-[calc(100vh-11.5rem)]">
+<div id="<%= dom_id document %>" data-source-document-preview>
+  <% if document.file.attached? %>
+    <%= link_to document.file.filename.to_s, url_for(document.file), target: "_blank", rel: "noopener", class: "n-workspace-link", data: { source_file_link: true } %>
     <% case document.file.blob.content_type %>
     <% when "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" %>
-      <iframe class="h-full w-full" src="<%= url_for(document.file) %>" title="<%= document.title %>"></iframe>
+      <iframe class="n-source-file-frame" src="<%= url_for(document.file) %>" title="<%= document.display_title %>"></iframe>
     <% when "image/png", "image/jpeg" %>
-      <img class="h-full w-auto mx-auto" src="<%= url_for(document.file) %>" alt="<%= document.title %>">
-    <% else %>
-      <%= link_to document.file.filename, url_for(document.file), target: "_blank", rel: "noopener" %>
+      <img class="n-source-file-image" src="<%= url_for(document.file) %>" alt="<%= document.display_title %>">
     <% end %>
-  </div>
+  <% else %>
+    <p class="n-workspace-help"><%= t("nosia.sources_workspace.no_file") %></p>
+  <% end %>
 </div>

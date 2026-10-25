@@ -32,6 +32,7 @@ fr:
       current_file: "Fichier actuel : %{name}"
       replacement_file: "Fichier de remplacement (facultatif)"
       keep_file: "Laissez ce champ vide pour conserver le fichier actuel ou choisissez un remplacement."
+      no_file: "Aucun fichier n’est disponible pour ce document."
       select_file: "Choisissez le document à ajouter."
       reselect_file: "Les navigateurs ne conservent pas le fichier sélectionné après un échec. Sélectionnez-le à nouveau pour l’ajouter ou le remplacer."
       form_help_title: "À propos de cette source"
