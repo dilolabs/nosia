@@ -4,6 +4,12 @@ module TokenUsagesHelper
     controller_path == "token_usages"
   end
 
+  # @param buckets [Hash{Date, String => Integer}] Existing SQL/report date buckets
+  # @return [Hash{Date => Integer}] Chronological buckets with quantities unchanged
+  def usage_display_days(buckets)
+    buckets.map { |date, tokens| [ date.to_date, tokens ] }.sort_by(&:first).to_h
+  end
+
   # @param daily_totals [Hash{Date => Integer}] Ordered daily token totals
   # @return [String] Numeric SVG coordinate pairs, never user-authored markup
   def usage_trend_points(daily_totals)
