@@ -91,6 +91,9 @@ class SourcesWorkspaceUploadTest < ApplicationSystemTestCase
     clear_enqueued_jobs
     find("#source-upload-files", visible: :all).set(file_fixture("account_source.txt"))
     assert_selector "[data-upload-status='error']"
+    assert_equal previous + 1, @second.documents.count
+    assert_enqueued_jobs 1, only: AddDocumentJob
+    assert_selector "[data-upload-status='error'] [data-source-upload-label]", text: "Upload not confirmed. Check sources or retry."
     within("[data-dropzone-target='list']") { click_on "Retry" }
 
     assert_selector "[data-upload-status='success'] [data-source-upload-label]", text: "Uploaded. Check source status for indexing."

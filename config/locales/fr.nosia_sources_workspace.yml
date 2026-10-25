@@ -24,4 +24,4 @@ fr:
         pending: "En attente d’importation"
         uploading: "Importation en cours"
         success: "Fichier importé. Consultez l’état de la source pour l’indexation."
-        error: "Non importé"
+        error: "Importation non confirmée. Consultez les sources ou réessayez."

@@ -24,4 +24,4 @@ en:
         pending: "Waiting to upload"
         uploading: "Uploading"
         success: "Uploaded. Check source status for indexing."
-        error: "Not uploaded"
+        error: "Upload not confirmed. Check sources or retry."
