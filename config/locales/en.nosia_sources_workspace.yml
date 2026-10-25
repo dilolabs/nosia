@@ -5,3 +5,8 @@ en:
       setup_title: "Set up an account to manage sources"
       setup_help: "Create or join an account before adding documents, websites, text, or Q&As."
       setup_action: "Your accounts"
+      search_label: "Search sources"
+      counts_scope: "Account-wide counts"
+      status_label: "Status"
+      all_statuses: "All statuses"
+      sort_label: "Sort by"

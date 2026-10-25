@@ -5,7 +5,7 @@
     <%= turbo_stream_from source_account, "sources", "list:#{@type}:#{@status}", I18n.locale %>
   <% end %>
   <%= render "workspaces/header", title: t("nosia.sources.title"), description: t("nosia.sources_workspace.description"), scope_label: source_workspace_scope(source_account, default: !@scoped_source_account), trail: source_workspace_trail, show_new_chat: !@scoped_source_account, actions: capture { render "sources/add_menu" } %>
-  <div class="flex flex-col gap-4 md:flex-row">
+  <div class="n-source-layout">
     <%= render "sources/source_filters", type: @type, status: @status, counts: @counts %>
     <div class="min-w-0 flex-1" data-controller="dropzone"
          data-dropzone-messages-value="<%= t('nosia.sources.upload_messages').to_json %>"

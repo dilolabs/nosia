@@ -1,17 +1,19 @@
-<%# locals: type, status, sort, query %>
-<div class="flex flex-wrap gap-3 items-center mb-4">
-  <%= form_with url: source_index_path, method: :get, class: "flex-1 min-w-[180px]" do |f| %>
-    <%= f.hidden_field :type, value: type %>
-    <%= f.hidden_field :status, value: status %>
-    <%= f.search_field :q, value: query, placeholder: t("nosia.sources.search"), class: "w-full n-field" %>
-  <% end %>
-  <%= form_with url: source_index_path, method: :get,
-        data: { controller: "auto-submit", action: "change->auto-submit#submit" } do |f| %>
-    <%= f.hidden_field :type, value: type %>
-    <%= f.hidden_field :status, value: status %>
-    <%= f.hidden_field :q, value: query %>
-    <%= f.select :sort,
-        options_for_select(%w[recent title status chunks].map { |key| [t("nosia.sources.sort.#{key}"), key] }, sort),
-        {}, class: "n-select" %>
-  <% end %>
-</div>
+<%# locals: (type:, status:, sort:, query:) %>
+<%= form_with url: source_index_path, method: :get, class: "n-source-toolbar", role: "search", data: { controller: "auto-submit", source_toolbar: true } do |form| %>
+  <%= form.hidden_field :type, value: type %>
+  <div class="n-source-search">
+    <%= label_tag "source-q", t("nosia.sources_workspace.search_label"), class: "n-label" %>
+    <%= form.search_field :q, id: "source-q", value: query, placeholder: t("nosia.sources.search"), class: "n-field" %>
+  </div>
+  <div class="n-source-toolbar-field">
+    <%= form.label :status, t("nosia.sources_workspace.status_label"), class: "n-label" %>
+    <% statuses = [ [ t("nosia.sources_workspace.all_statuses"), "all" ] ] + SourceRow::STATUSES.map { |key| [ t("nosia.sources.status.#{key == 'pending' ? 'processing' : key}"), key ] } %>
+    <%= form.select :status, options_for_select(statuses, status), {}, class: "n-select", data: { action: "change->auto-submit#submit" } %>
+  </div>
+  <div class="n-source-toolbar-field">
+    <%= form.label :sort, t("nosia.sources_workspace.sort_label"), class: "n-label" %>
+    <%= form.select :sort, options_for_select(SourceRow::SORTS.map { |key| [ t("nosia.sources.sort.#{key}"), key ] }, sort), {}, class: "n-select", data: { action: "change->auto-submit#submit" } %>
+  </div>
+  <%= form.submit t("nosia.actions.filter"), class: "n-workspace-button" %>
+  <%= link_to t("nosia.actions.reset"), source_index_path, class: "n-workspace-link", data: { source_reset: true } %>
+<% end %>

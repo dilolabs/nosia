@@ -5,3 +5,8 @@ fr:
       setup_title: "Configurez un compte pour gérer les sources"
       setup_help: "Créez ou rejoignez un compte avant d’ajouter des documents, des sites web, des textes ou des questions-réponses."
       setup_action: "Vos comptes"
+      search_label: "Rechercher des sources"
+      counts_scope: "Totaux du compte"
+      status_label: "État"
+      all_statuses: "Tous les états"
+      sort_label: "Trier par"

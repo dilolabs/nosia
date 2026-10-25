@@ -1,0 +1,14 @@
+.n-source-layout { @apply grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-[11rem_minmax(0,1fr)]; }
+.n-source-filters { @apply min-w-0 space-y-3; }
+.n-source-filter-types, .n-source-filter-attention { @apply flex min-w-0 flex-wrap gap-2 lg:flex-col; }
+.n-source-filter-attention > p { @apply w-full; }
+.n-source-filter { @apply inline-flex min-h-11 min-w-0 items-center justify-between gap-4 rounded-md border border-neutral-500 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:bg-neutral-800 dark:text-neutral-100 dark:focus:outline-green-300; }
+.n-source-filter > span:first-child { @apply inline-flex min-w-0 items-center gap-2; overflow-wrap: anywhere; }
+.n-source-filter[aria-current="true"] { @apply bg-green-50 font-semibold text-green-900 dark:bg-green-950 dark:text-green-200; }
+.n-source-workspace .n-count { @apply bg-transparent text-neutral-600 dark:text-neutral-300; }
+.n-source-toolbar { @apply mb-4 flex min-w-0 flex-wrap items-end gap-3; }
+.n-source-search { flex: 1 1 14rem; min-width: 0; }
+.n-source-toolbar-field { flex: 1 1 9rem; min-width: 0; }
+.n-source-workspace .n-label { @apply mb-1 block text-sm font-medium; }
+.n-source-workspace .n-field, .n-source-workspace .n-select { @apply min-h-11 border-neutral-500 bg-white text-neutral-900 focus:outline-green-700 dark:bg-neutral-800 dark:text-neutral-100 dark:focus:outline-green-300; }
+.n-source-workspace details[open] > summary { margin-bottom: 0; }

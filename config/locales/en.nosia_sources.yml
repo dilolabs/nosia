@@ -23,16 +23,16 @@ en:
     sources:
       title: "Sources"
       add: "+ Add source"
-      upload_documents: "📄 Upload documents"
-      add_website: "🌐 Add website"
-      paste_text: "📝 Paste text"
-      add_qna: "❓ Add Q&A"
+      upload_documents: "Upload documents"
+      add_website: "Add website"
+      paste_text: "Paste text"
+      add_qna: "Add Q&A"
       filters: "Source filters"
       all: "All"
       by_type: "By type"
       needs_attention: "Needs attention"
-      failed_filter: "⚠️ Failed"
-      pending_filter: "⏳ Processing"
+      failed_filter: "Failed"
+      pending_filter: "Processing"
       search: "Search sources…"
       sort:
         recent: "Recently added"
@@ -40,7 +40,7 @@ en:
         status: "Status"
         chunks: "Chunk count"
       empty_query: 'No sources match "%{query}".'
-      empty_failed: "Nothing failed — all good ✅"
+      empty_failed: "Nothing failed — all good"
       empty_pending: "Nothing is processing right now."
       first: "Add your first source"
       first_help: 'Drop files above, or use "Add source" for websites, text, and Q&As.'

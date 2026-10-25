@@ -45,6 +45,16 @@ module SourcesHelper
     end
   end
 
+  # @param changes [Hash] Selected type/status changes; pagination is never carried
+  # @return [String] Scoped or legacy list URL preserving the other current filters
+  def source_filter_path(**changes)
+    options = { type: @type, status: @status, sort: @sort, q: @query }.merge(changes).compact
+    options.delete(:type) if options[:type] == "all"
+    options.delete(:status) if options[:status] == "all"
+    options.delete(:sort) if options[:sort] == "recent"
+    source_index_path(**options)
+  end
+
   def source_new_path(type)
     parts = @scoped_source_account ? [ @scoped_source_account, :sources, type.to_sym ] : [ :sources, type.to_sym ]
     new_polymorphic_path(parts)
