@@ -12,13 +12,9 @@
     <p class="n-workspace-help" data-usage-no-memberships><%= t("nosia.usage_workspace.no_memberships") %> <%= link_to t("nosia.nav.accounts"), accounts_path, class: "n-workspace-link" %></p>
   <% end %>
   <% if @report %>
-    <%= render "overview", report: @report, title_id: "global-usage-title", show_report_link: false %>
-    <section id="global-lifetime-summary" aria-labelledby="global-lifetime-title">
-      <h2 id="global-lifetime-title"><%= t("nosia.dashboard.lifetime_details") %></h2>
-      <%= render "summary_content", token_totals: @report.lifetime_totals, green_summary: @report.green_summary, tokens_by_kind: @report.tokens_by_kind, tokens_by_day: {} %>
-    </section>
+    <%= render "workspace", account: nil, headline: @report.period_totals, lifetime: @report.lifetime_totals, green_summary: @report.green_summary, tokens_by_kind: @report.tokens_by_kind, daily_totals: @report.daily_totals, starts_at: @report.starts_at, ends_at: @report.ends_at %>
   <% else %>
-    <%= render "summary", account: @usage_account, token_totals: @token_totals, green_summary: @green_summary, tokens_by_kind: @tokens_by_kind, tokens_by_day: @tokens_by_day %>
+    <% lifetime = @token_totals.merge(total: @token_totals.fetch(:input) + @token_totals.fetch(:output)) %>
+    <%= render "workspace", account: @usage_account, headline: lifetime, lifetime: lifetime, green_summary: @green_summary, tokens_by_kind: @tokens_by_kind, daily_totals: usage_display_days(@tokens_by_day) %>
   <% end %>
-  <%= render "transparency" %>
 </div>

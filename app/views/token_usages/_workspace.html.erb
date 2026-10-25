@@ -1,0 +1,27 @@
+<%# locals: (account:, headline:, lifetime:, green_summary:, tokens_by_kind:, daily_totals:, starts_at: nil, ends_at: nil) %>
+<div class="n-usage-top">
+  <div class="n-usage-main">
+    <section class="n-workspace-panel" aria-labelledby="usage-overview-title">
+      <h2 id="usage-overview-title" class="n-workspace-section-title"><%= t("nosia.usage_workspace.overview") %></h2>
+      <p class="n-workspace-help"><%= t(account ? "nosia.usage_workspace.lifetime" : "nosia.usage.last_30_days") %></p>
+      <%= render "token_usages/metrics", totals: headline, prefix: account ? "lifetime" : "period" %>
+    </section>
+    <%= render "token_usages/activity", daily_totals: daily_totals, scoped: account.present?, starts_at: starts_at, ends_at: ends_at %>
+  </div>
+  <aside class="n-usage-rail" aria-label="<%= t('nosia.usage_workspace.context') %>">
+    <% if account %>
+      <section class="n-workspace-panel">
+        <h2 class="n-workspace-section-title"><%= t("nosia.usage_workspace.context") %></h2>
+        <p class="n-workspace-help"><%= t("nosia.usage_workspace.account_scope") %></p>
+      </section>
+    <% else %>
+      <section id="global-lifetime-summary" class="n-workspace-panel" aria-labelledby="global-lifetime-title">
+        <h2 id="global-lifetime-title" class="n-workspace-section-title"><%= t("nosia.dashboard.lifetime_details") %></h2>
+        <%= render "token_usages/metrics", totals: lifetime, prefix: "lifetime" %>
+      </section>
+    <% end %>
+    <%= render "token_usages/estimates", green_summary: green_summary %>
+  </aside>
+</div>
+<%= render "token_usages/breakdowns", green_summary: green_summary, tokens_by_kind: tokens_by_kind %>
+<%= render "token_usages/methodology" %>

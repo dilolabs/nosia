@@ -1,0 +1,39 @@
+<%# locals: (green_summary:, tokens_by_kind:) %>
+<% max_model = green_summary[:models].map { |entry| entry[:tokens] }.max.to_f; max_kind = tokens_by_kind.values.max.to_f %>
+<section class="n-workspace-panel" aria-labelledby="usage-breakdowns-title">
+  <h2 id="usage-breakdowns-title" class="n-workspace-section-title"><%= t("nosia.usage_workspace.lifetime_breakdowns") %></h2>
+  <div class="n-usage-breakdowns">
+    <section aria-labelledby="usage-models-title" data-usage-models>
+      <h3 id="usage-models-title"><%= t("nosia.usage.per_model") %></h3>
+      <ul class="!list-none">
+        <% green_summary[:models].each do |entry| %>
+          <li data-usage-model="<%= entry[:model_id] %>" data-value="<%= entry[:tokens] %>">
+            <div class="n-usage-row"><span><%= entry[:model_id] %></span><span><%= t("nosia.usage.token_quantity", count: entry[:tokens], formatted_count: number_with_delimiter(entry[:tokens])) %></span></div>
+            <div class="n-usage-bar" aria-hidden="true"><div style="width: <%= max_model.zero? ? 0 : (entry[:tokens].to_f / max_model * 100).round %>%"></div></div>
+            <p class="n-workspace-help"><%= number_with_precision(entry[:kwh], precision: 6) %> kWh<%= entry[:fallback] ? "*" : "" %></p>
+            <% if entry[:fallback] %>
+              <p class="n-workspace-help" data-usage-model-fallback><%= t("nosia.usage_workspace.fallback") %></p>
+            <% end %>
+          </li>
+        <% end %>
+        <% if green_summary[:models].empty? %>
+          <li class="n-workspace-help"><%= t("nosia.usage.none") %></li>
+        <% end %>
+      </ul>
+    </section>
+    <section aria-labelledby="usage-kinds-title" data-usage-kinds>
+      <h3 id="usage-kinds-title"><%= t("nosia.usage.per_kind") %></h3>
+      <ul class="!list-none">
+        <% tokens_by_kind.each do |kind, tokens| %>
+          <li data-usage-kind="<%= kind %>" data-value="<%= tokens %>">
+            <div class="n-usage-row"><span class="capitalize"><%= t("nosia.usage.kinds.#{kind}") %></span><span><%= t("nosia.usage.token_quantity", count: tokens, formatted_count: number_with_delimiter(tokens)) %></span></div>
+            <div class="n-usage-bar" aria-hidden="true"><div style="width: <%= max_kind.zero? ? 0 : (tokens.to_f / max_kind * 100).round %>%"></div></div>
+          </li>
+        <% end %>
+        <% if tokens_by_kind.empty? %>
+          <li class="n-workspace-help"><%= t("nosia.usage.none") %></li>
+        <% end %>
+      </ul>
+    </section>
+  </div>
+</section>

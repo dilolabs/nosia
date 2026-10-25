@@ -1,0 +1,14 @@
+<details class="n-workspace-panel n-usage-disclosure" data-usage-methodology>
+  <summary><%= t("nosia.usage.methodology_question") %></summary>
+  <div class="n-usage-methodology-content">
+    <p><%= t("nosia.usage.methodology_intro_html", ecologits: link_to("Ecologits", "https://ecologits.ai", target: "_blank", rel: "noopener", class: "n-workspace-link"), comparia: link_to("compar:IA", "https://comparia.beta.gouv.fr", target: "_blank", rel: "noopener", class: "n-workspace-link")) %></p>
+    <p><%= t("nosia.usage.methodology_lifecycle_html") %></p>
+    <p><%= t("nosia.usage.methodology_measurement_html") %></p>
+    <p><%= t("nosia.usage.methodology_caveat") %></p>
+    <section aria-labelledby="usage-data-source-title">
+      <h2 id="usage-data-source-title" class="n-workspace-section-title"><%= t("nosia.usage.data_source") %></h2>
+      <p><%= t("nosia.usage.dataset_source_html", dataset: link_to(t("nosia.usage.dataset_name"), "https://comparia.beta.gouv.fr/ranking", target: "_blank", rel: "noopener", class: "n-workspace-link"), date: l(Date.new(2026, 7, 2), format: :dataset_snapshot)) %></p>
+      <p><%= t("nosia.usage.dataset_fallback_html") %></p>
+    </section>
+  </div>
+</details>

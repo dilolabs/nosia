@@ -80,9 +80,9 @@ class DashboardSystemTest < ApplicationSystemTestCase
     visit token_usage_path(account_id: @second.id)
     assert_selector "[data-period-total][data-value='1057']"
     assert_selector "[data-lifetime-total][data-value='1065']"
-    find(".n-dashboard-daily-data summary").click
-    assert_selector ".n-dashboard-daily-data tbody tr", count: 30
-    assert_equal 1057, all(".n-dashboard-daily-data tbody td").sum { |cell| cell["data-value"].to_i }
+    find("[data-usage-daily] summary").click
+    assert_selector "[data-usage-daily] tbody tr", count: 30
+    assert_equal 1057, all("[data-usage-daily] tbody td").sum { |cell| cell["data-value"].to_i }
   end
 
   test "French long labels fit responsive layouts in both themes with visible keyboard actions" do

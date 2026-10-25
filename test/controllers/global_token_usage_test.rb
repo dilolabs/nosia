@@ -19,8 +19,8 @@ class GlobalTokenUsageTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-period-total][data-value='1057']"
     assert_select "[data-lifetime-total][data-value='1065']"
-    assert_select "#global-lifetime-summary section p", text: "959"
-    assert_select "#global-lifetime-summary section p", text: "106"
+    assert_select "#global-lifetime-summary [data-lifetime-input][data-value='959']"
+    assert_select "#global-lifetime-summary [data-lifetime-output][data-value='106']"
     assert_select "li", text: /private-model/, count: 0
     assert_select "details table tbody tr[data-usage-day]", count: 30
     assert_equal @first, @user.first_account
@@ -29,8 +29,8 @@ class GlobalTokenUsageTest < ActionDispatch::IntegrationTest
   test "account routes retain their own counters and authorization" do
     get account_token_usage_path(@second)
     assert_response :success
-    assert_select "section p", text: "942"
-    assert_select "section p", text: "103"
+    assert_select "[data-lifetime-input][data-value='942']"
+    assert_select "[data-lifetime-output][data-value='103']"
     assert_select "[data-period-total]", count: 0
 
     get account_token_usage_path(@foreign)

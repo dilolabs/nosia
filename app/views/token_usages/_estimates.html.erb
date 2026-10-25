@@ -1,0 +1,12 @@
+<%# locals: (green_summary:) %>
+<section class="n-workspace-panel" aria-labelledby="usage-estimates-title">
+  <h2 id="usage-estimates-title" class="n-workspace-section-title"><%= t("nosia.usage_workspace.estimates") %></h2>
+  <p class="n-workspace-help"><%= t("nosia.usage_workspace.lifetime") %></p>
+  <p class="n-workspace-help"><%= t("nosia.usage.energy") %></p>
+  <p class="n-usage-number" data-usage-energy data-value="<%= green_summary[:kwh] %>"><%= number_with_precision(green_summary[:kwh], precision: 6) %></p>
+  <p class="n-workspace-help">kWh · <%= number_with_precision(green_summary[:co2e_g], precision: 2) %> gCO₂e</p>
+  <p class="n-workspace-help" data-usage-estimate-caveat><%= t("nosia.usage_workspace.estimate_caveat") %></p>
+  <% if green_summary[:fallback_used] %>
+    <p class="n-workspace-help" data-usage-fallback><%= t("nosia.usage.fallback_note") %></p>
+  <% end %>
+</section>
