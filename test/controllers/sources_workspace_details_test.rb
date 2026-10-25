@@ -50,8 +50,13 @@ class SourcesWorkspaceDetailsTest < ActionDispatch::IntegrationTest
         assert_select "[data-source-detail] h1", text: source.display_title
         assert_select "[data-workspace-scope]", text: "Account: #{@second.name}"
         assert_select "[data-source-detail] [data-source-type-label]", text: source.source_type_label
-        assert_select "[data-source-detail] [data-source-chunks]"
-        assert_select "[data-source-detail] time[datetime]"
+        status_key = source.pending? ? (type == "website" ? "crawling" : "processing") : source.index_status
+        assert_select "[data-source-detail] [data-source-index-status='#{source.index_status}']",
+          text: I18n.t("nosia.sources.status.#{status_key}")
+        chunks_count = source.chunks.count
+        chunks_value = source.pending? && chunks_count.zero? ? "—" : ActiveSupport::NumberHelper.number_to_delimited(chunks_count)
+        assert_select "[data-source-detail] [data-source-chunks]", text: I18n.t("nosia.sources_workspace.chunk_value", value: chunks_value)
+        assert_select "[data-source-detail] time[datetime='#{source.created_at.iso8601}']"
         assert_select "[data-source-detail] a[data-source-edit][href='#{edit_path}']", text: I18n.t("nosia.sources.#{type.pluralize}.edit_action")
         assert_select "[data-source-detail] a[data-turbo-method='delete'][href='#{scoped}']" do |links|
           assert_includes links.first["data-turbo-confirm"], source.display_title
@@ -61,6 +66,46 @@ class SourcesWorkspaceDetailsTest < ActionDispatch::IntegrationTest
         assert_equal before, source.reload.attributes
         retry_path = public_send("account_sources_#{type}_retry_path", @second, source)
         assert_select "[data-source-detail] form[action='#{retry_path}']", count: source.failed? ? 1 : 0
+      end
+    end
+  end
+
+  {
+    en: { indexed: "Indexed", failed: "Failed", crawling: "Crawling…", processing: "Processing…", chunks: "Chunks: " },
+    fr: { indexed: "Indexé", failed: "En échec", crawling: "Exploration…", processing: "Traitement…", chunks: "Extraits : " }
+  }.each do |locale, labels|
+    test "#{locale} detail requests show localized statuses and distinguish pending chunks from real zero counts" do
+      SourceRow::TYPES.each do |type|
+        source = experience(type.pluralize, "overview_second_#{type}")
+        before = source.reload.attributes
+        chunks_count = source.chunks.count
+        assert_equal 0, chunks_count
+        status_key = source.pending? ? (type == "website" ? :crawling : :processing) : source.index_status.to_sym
+        chunks_value = source.pending? ? "—" : ActiveSupport::NumberHelper.number_to_delimited(chunks_count, locale: locale)
+        paths = [ public_send("sources_#{type}_path", source), public_send("account_sources_#{type}_path", @second, source) ]
+
+        paths.each do |path|
+          assert_no_enqueued_jobs { get path, headers: { "Accept-Language" => locale.to_s } }
+          assert_response :success
+          assert_select "[data-source-detail] [data-source-index-status='#{source.index_status}']", text: labels.fetch(status_key)
+          assert_select "[data-source-detail] [data-source-chunks]", text: "#{labels.fetch(:chunks)}#{chunks_value}"
+          assert_select "[data-source-detail] time[datetime='#{source.created_at.iso8601}']"
+          assert_equal before, source.reload.attributes
+        end
+      end
+
+      source = experience(:texts, :overview_second_text)
+      source.update_columns(index_status: :pending)
+      before = source.reload.attributes
+      assert_equal 0, source.chunks.count
+
+      [ sources_text_path(source), account_sources_text_path(@second, source) ].each do |path|
+        assert_no_enqueued_jobs { get path, headers: { "Accept-Language" => locale.to_s } }
+        assert_response :success
+        assert_select "[data-source-detail] [data-source-index-status='pending']", text: labels.fetch(:processing)
+        assert_select "[data-source-detail] [data-source-chunks]", text: "#{labels.fetch(:chunks)}—"
+        assert_select "[data-source-detail] time[datetime='#{source.created_at.iso8601}']"
+        assert_equal before, source.reload.attributes
       end
     end
   end
