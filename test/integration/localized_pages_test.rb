@@ -16,7 +16,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "title", text: /Utilisation des jetons et impact environnemental/
-    assert_select "h2", text: "Utilisation des jetons et impact environnemental"
+    assert_select "h1", text: "Utilisation des jetons et impact environnemental"
     [ "Entrée", "Sortie", "Total", "Énergie", "Par modèle (les 5 premiers)", "Par type", "Les 30 derniers jours" ].each do |label|
       assert_select "section", text: /#{Regexp.escape(label)}/
     end

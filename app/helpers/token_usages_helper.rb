@@ -1,4 +1,9 @@
 module TokenUsagesHelper
+  # @return [Boolean] Whether this request renders the Token usage workspace
+  def token_usage_workspace_page?
+    controller_path == "token_usages"
+  end
+
   # @param daily_totals [Hash{Date => Integer}] Ordered daily token totals
   # @return [String] Numeric SVG coordinate pairs, never user-authored markup
   def usage_trend_points(daily_totals)

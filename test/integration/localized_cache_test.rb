@@ -29,7 +29,7 @@ class LocalizedCacheTest < ActionDispatch::IntegrationTest
 
     get token_usage_url, headers: { "Accept-Language" => "fr" }
     assert_response :success
-    assert_select "h2", text: "Utilisation des jetons et impact environnemental"
+    assert_select "h1", text: "Utilisation des jetons et impact environnemental"
     assert_select "section", text: /Énergie/
     assert_select "section", text: /1[ \u00a0\u202f]234/
     refute_includes response.body, "1,234"

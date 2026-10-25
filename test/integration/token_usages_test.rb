@@ -15,7 +15,7 @@ class TokenUsagesTest < ActionDispatch::IntegrationTest
   test "token usage dashboard shows headline totals and per-kind breakdown" do
     get token_usage_path
     assert_response :success
-    assert_select "h2", text: /Token usage & environmental impact/
+    assert_select "h1", text: /Token usage & environmental impact/
     assert_select "li", text: /glm-5\.2/
     assert_select "li span.capitalize", text: /embedding/
   end

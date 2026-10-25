@@ -119,17 +119,19 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  test "global tools retain their navbar and only Sources omit conversation drawers" do
+  test "global tools retain navigation and workspace reports omit conversation drawers" do
     [ sources_path, new_sources_text_path, api_tokens_path, token_usage_path,
       system_prompt_path(experience(:prompts, :overview_second_shared)) ].each do |path|
       get path
       assert_response :success
       assert_select "nav[aria-label='Breadcrumb']", count: 0
       sources_workspace = [ sources_path, new_sources_text_path ].include?(path)
-      assert_select "#accordion-right-actions, #drawer-right", count: sources_workspace ? 0 : 2
-      if sources_workspace
-        assert_select "[data-source-workspace]", count: 1
-        assert_select "[data-source-workspace] a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
+      report_workspace = path == token_usage_path
+      assert_select "#accordion-right-actions, #drawer-right", count: sources_workspace || report_workspace ? 0 : 2
+      if sources_workspace || report_workspace
+        workspace = sources_workspace ? "[data-source-workspace]" : "[data-usage-workspace]"
+        assert_select workspace, count: 1
+        assert_select "#{workspace} a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
       end
     end
   end

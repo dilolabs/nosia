@@ -1,0 +1,20 @@
+fr:
+  nosia:
+    usage_workspace:
+      all_accounts: "Tous vos comptes"
+      purpose: "Comprendre l’activité des jetons et les estimations associées."
+      global_scope: "Utilisation de tous les comptes dont vous êtes membre, y compris l’activité des autres membres."
+      account_scope: "Utilisation de l’ensemble de ce compte, y compris l’activité des autres membres."
+      no_memberships: "Vous n’êtes membre d’aucun compte. Ce rapport présente une utilisation nulle."
+      overview: "Vue d’ensemble de l’utilisation"
+      lifetime: "Depuis la création"
+      recent: "Activité récente"
+      trend_title: "Activité quotidienne des jetons"
+      account_window: "Le rapport du compte utilise l’activité enregistrée après son seuil glissant de 30 jours, et non la période calendaire globale."
+      bucket_dates: "Dates d’activité renvoyées : %{start} – %{end}"
+      no_recent: "Aucune activité récente dans ce rapport. Une utilisation antérieure peut être présente."
+      estimates: "Estimations environnementales"
+      estimate_caveat: "Il s’agit d’estimations, et non d’une consommation mesurée. Les estimations des cinq premiers modèles et de la vectorisation depuis la création utilisent les coefficients existants."
+      context: "Contexte du rapport"
+      fallback: "Estimation de repli*"
+      lifetime_breakdowns: "Détails depuis la création"
