@@ -11,6 +11,8 @@ class ChatAccountUrlRaceTest < ActionDispatch::IntegrationTest
   fixtures :users, :accounts, :account_users, :ruby_llm_models
 
   setup do
+    @prior_registry_defined = RubyLLM::Models.instance_variable_defined?(:@instance)
+    @prior_registry = RubyLLM::Models.instance_variable_get(:@instance)
     @prior_tenant = ActsAsTenant.current_tenant
     @prior_adapter = ActiveJob::Base.queue_adapter
     ActsAsTenant.current_tenant = nil
@@ -32,11 +34,20 @@ class ChatAccountUrlRaceTest < ActionDispatch::IntegrationTest
       RubyLLM::ActiveRecord::Model.where(id: ruby_llm_models(:picker_model).id).delete_all
     end
   ensure
-    clear_enqueued_jobs
-    ActiveRecord::FixtureSet.reset_cache
-    ActiveJob::Base.queue_adapter = @prior_adapter
-    ActsAsTenant.current_tenant = @prior_tenant
-    Current.reset
+    begin
+      clear_enqueued_jobs
+      ActiveRecord::FixtureSet.reset_cache
+      ActiveJob::Base.queue_adapter = @prior_adapter
+      ActsAsTenant.current_tenant = @prior_tenant
+      Current.reset
+    ensure
+      # RubyLLM has no public registry reset; do not retain its fixture-only catalog.
+      if @prior_registry_defined
+        RubyLLM::Models.instance_variable_set(:@instance, @prior_registry)
+      elsif RubyLLM::Models.instance_variable_defined?(:@instance)
+        RubyLLM::Models.remove_instance_variable(:@instance)
+      end
+    end
   end
 
   test "concurrent typed URL registration preserves the new chat transaction" do
@@ -95,6 +106,15 @@ class ChatAccountUrlRaceTest < ActionDispatch::IntegrationTest
     assert_equal @winner_id, found.id
     assert_equal [ @winner_id ], @account.websites.where(url: @url).pluck(:id)
     assert_winner_crawl_only
+  end
+
+  def after_teardown
+    super
+  ensure
+    if instance_variable_defined?(:@prior_registry_defined)
+      assert_equal @prior_registry_defined, RubyLLM::Models.instance_variable_defined?(:@instance), "Race fixtures must not initialize the shared registry"
+      assert_same @prior_registry, RubyLLM::Models.instance_variable_get(:@instance) if @prior_registry_defined
+    end
   end
 
   private

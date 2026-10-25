@@ -1,0 +1,4 @@
+<%# locals: (form:, attribute:) %>
+<% if form.object.errors.include?(attribute) %>
+  <p id="<%= form.field_id(attribute, :error) %>" class="n-source-field-error"><%= form.object.errors.full_messages_for(attribute).to_sentence %></p>
+<% end %>

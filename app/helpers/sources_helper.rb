@@ -1,8 +1,10 @@
 module SourcesHelper
-  SOURCE_ICONS = { "document" => "📄", "text" => "📝", "qna" => "❓", "website" => "🌐" }.freeze
+  SOURCE_ICONS = { "document" => "files.svg", "text" => "file-lines.svg", "qna" => "question-circle.svg", "website" => "window.svg" }.freeze
 
+  # @param key [String] Existing source type; unknown types use the document icon
+  # @return [ActiveSupport::SafeBuffer] Decorative SVG from a fixed asset map
   def source_type_icon(key)
-    SOURCE_ICONS.fetch(key, "📄")
+    inline_svg "svg/#{SOURCE_ICONS.fetch(key, 'files.svg')}", aria_hidden: true, class: "n-source-type-icon"
   end
 
   # Returns [css_classes, label] for a source's status chip.
@@ -43,6 +45,16 @@ module SourcesHelper
     else
       sources_path(**options)
     end
+  end
+
+  # @param changes [Hash] Selected type/status changes; pagination is never carried
+  # @return [String] Scoped or legacy list URL preserving the other current filters
+  def source_filter_path(**changes)
+    options = { type: @type, status: @status, sort: @sort, q: @query }.merge(changes).compact
+    options.delete(:type) if options[:type] == "all"
+    options.delete(:status) if options[:status] == "all"
+    options.delete(:sort) if options[:sort] == "recent"
+    source_index_path(**options)
   end
 
   def source_new_path(type)

@@ -1,24 +1,23 @@
-<%= form_with(model: source_form_model(qna)) do |form| %>
-  <%= render "application/validation_errors", record: qna %>
-  <div class="n-form-field">
+<%= form_with(model: source_form_model(qna), class: "n-source-form", data: { controller: "source-form" }) do |form| %>
+  <%= render "sources/form_errors", form: form, fields: [ :question, :answer ] %>
+  <div class="n-source-field">
     <%= form.label :question, t("nosia.sources.question_label"), class: "n-label" %>
-    <%= form.text_field :question, class: "n-field" %>
+    <%= form.text_field :question, **source_field_options(form, :question, class: "n-field") %>
+    <%= render "sources/field_error", form: form, attribute: :question %>
   </div>
 
-  <div class="n-form-field">
+  <div class="n-source-field">
     <%= form.label :answer, t("nosia.sources.answer_label"), class: "n-label" %>
     <%# attachments: "false" hides both toolbar upload buttons (image + file)
         and disables uploads -- source editors are text-only. %>
     <%= form.lexxy_rich_text_area :answer,
-          value: Commonmarker.to_html(qna.answer.to_s.encode("UTF-8")),
-          class: "n-textarea",
-          attachments: "false" %>
+          **source_field_options(form, :answer,
+            value: Commonmarker.to_html(qna.answer.to_s.encode("UTF-8")),
+            class: "n-textarea n-source-editor",
+            attachments: "false") %>
+    <%= render "sources/field_error", form: form, attribute: :answer %>
   </div>
 
   <%= render "sources/account_field", form: form %>
-
-  <div class="n-form-actions">
-    <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
-    <%= link_to t("nosia.actions.cancel"), qna.persisted? ? source_show_path(qna) : source_index_path, class: "n-btn-secondary" %>
-  </div>
+  <%= render "sources/form_actions", form: form %>
 <% end %>

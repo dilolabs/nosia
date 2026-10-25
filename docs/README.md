@@ -73,6 +73,7 @@ Production deployment strategies, best practices, and operational guidance.
 - [Architecture](ARCHITECTURE.md) - Understand the codebase structure
 - [Account experience](account-experience.md) — overview hub, scoped tools, private history/tokens, and owner-only administration.
 - [Signed-in dashboard](dashboard.md) — inline conversations, cross-account token statistics, explicit tool shortcuts, and private recents.
+- [Sources workspace](sources-workspace.md) — default/scoped lists, composed filters, uploads, forms, live status, and safe details.
 - [Chat account selection](chat-account-selection.md) — picker behavior, account boundaries, and source request context.
 - [Chat composer](chat-composer.md) — shared presentation, native Lexxy controls, and UI verification.
 - [Internationalization](internationalization.md) — English/French language selection, rollout requirements, translation workflow, and verification.

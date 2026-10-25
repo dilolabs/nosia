@@ -1,42 +1,32 @@
-<%# locals: row (SourceRow) %>
-<div id="<%= dom_id(row.to_model, :source_row) %>"
-     data-source-id="<%= row.id %>"
-     class="n-main-hover relative grid grid-cols-[24px_1fr_auto] md:grid-cols-[24px_1fr_110px_120px_70px_110px_90px] gap-3 items-center px-2 py-3 border-b n-main-border">
-  <span class="text-xl leading-none"><%= source_type_icon(row.source_type_key) %></span>
-
-  <div class="min-w-0">
-    <%# Stretched link: ::after covers the whole row so the entire line is
-        clickable. Action buttons below opt out with relative z-10. %>
-    <%= link_to source_show_path(row.to_model), class: "n-main-focus block truncate font-medium after:absolute after:inset-0 after:content-['']" do %>
-      <%= row.display_title %>
-    <% end %>
-    <p class="truncate text-xs text-neutral-500 dark:text-neutral-400"><%= row.source_subtitle %></p>
+<%# locals: (row:, account_name: nil, **_broadcast_locals) %>
+<% record = row.to_model %>
+<div id="<%= dom_id(record, :source_row) %>" class="n-source-row" data-source-id="<%= row.id %>" data-source-type="<%= row.source_type_key %>">
+  <div class="n-source-identity">
+    <span data-source-type-icon><%= source_type_icon(row.source_type_key) %></span>
+    <div class="min-w-0">
+      <%= link_to source_workspace_title(record), source_show_path(record), class: "n-source-title n-main-focus" %>
+      <p class="n-source-subtitle"><%= row.source_subtitle %></p>
+      <% if record.failed? %>
+        <p class="n-source-subtitle"><%= record.failure_reason.presence || t("nosia.sources_workspace.failed_help") %></p>
+      <% end %>
+    </div>
   </div>
-
-  <span class="hidden md:inline-flex n-tag n-tag-disconnected"><%= row.source_type_label %></span>
-
-  <span class="hidden md:block"><%= render "sources/status", row: row %></span>
-
-  <span class="hidden md:block text-sm text-neutral-600 dark:text-neutral-300"><%= row.chunks_count.zero? ? "—" : number_with_delimiter(row.chunks_count) %></span>
-
-  <span class="hidden md:block text-xs text-neutral-400"><%= t("nosia.time.ago", duration: time_ago_in_words(row.created_at)) %></span>
-
-  <%# z-[1] lifts the actions above the stretched link's ::after so they stay
-      clickable, while staying below the toolbar's z-10 add-source dropdown. %>
-  <div class="relative z-[1] flex gap-2 justify-end">
-    <% if row.to_model.failed? %>
-      <%= button_to source_retry_path(row.to_model), method: :post,
-            title: t("nosia.actions.retry"), aria: { label: t("nosia.actions.retry") },
-            class: "n-btn-icon n-main-hover-tertiary n-main-focus-tertiary text-orange-600 dark:text-orange-300",
-            form: { data: { turbo_confirm: false } } do %>
-        <span aria-hidden="true" class="text-lg leading-none">↻</span>
+  <div class="n-source-metadata">
+    <span data-source-type-label><%= row.source_type_label %></span>
+    <%= render "sources/status", row: row %>
+    <% value = record.pending? && row.chunks_count.zero? ? "—" : number_with_delimiter(row.chunks_count) %>
+    <span data-source-chunks data-value="<%= row.chunks_count %>"><%= t("nosia.sources_workspace.chunk_value", value: value) %></span>
+    <time datetime="<%= row.created_at.iso8601 %>"><%= t("nosia.sources_workspace.added", time: t("nosia.time.ago", duration: time_ago_in_words(row.created_at))) %></time>
+  </div>
+  <div class="n-source-row-actions">
+    <%= link_to t("nosia.actions.edit"), source_edit_path(record), class: "n-workspace-button", data: { source_edit: true } %>
+    <% if record.failed? %>
+      <%= button_to source_retry_path(record), method: :post, aria: { label: t("nosia.actions.retry") }, class: "n-workspace-button n-main-focus-tertiary", form: { data: { source_retry: true } } do %>
+        <span aria-hidden="true"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></span><%= t("nosia.actions.retry") %>
       <% end %>
     <% end %>
-    <%= link_to source_show_path(row.to_model), title: t("nosia.actions.delete"),
-          aria: { label: t("nosia.actions.delete") },
-          data: { turbo_method: :delete, turbo_confirm: t("nosia.actions.confirm_delete") },
-          class: "n-btn-icon n-main-hover-danger n-main-focus-danger text-red-600 dark:text-red-300" do %>
-      <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "w-5 h-5" %>
+    <%= link_to source_show_path(record), aria: { label: t("nosia.actions.delete") }, class: "n-workspace-button n-workspace-danger n-main-focus-danger", data: { turbo_method: :delete, turbo_confirm: source_delete_confirmation(record, account_name: account_name) } do %>
+      <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "h-4 w-4" %><%= t("nosia.actions.delete") %>
     <% end %>
   </div>
 </div>

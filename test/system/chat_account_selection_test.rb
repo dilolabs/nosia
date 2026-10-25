@@ -1185,7 +1185,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
 
   test "generic dropzones without account context still upload into the default account" do
     visit sources_url
-    assert_selector "[data-controller='dropzone']:not([data-dropzone-account-id-value])"
+    assert_selector "[data-controller~='dropzone']:not([data-dropzone-account-id-value])"
     page.execute_script(<<~JS)
       const send = XMLHttpRequest.prototype.send;
       window.pickerUploadAccounts = [];
@@ -1195,7 +1195,7 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
       };
     JS
     2.times do |index|
-      page.execute_script("document.querySelector('[data-controller=dropzone]').dataset.dropzoneAccountIdValue = ' '") if index == 1
+      page.execute_script("document.querySelector('[data-controller~=dropzone]').dataset.dropzoneAccountIdValue = ' '") if index == 1
       with_picker_pdf do |path|
         find("[data-dropzone-target='input']", visible: :all).set(path)
         assert_selector "[data-upload-status='success']", count: index + 1

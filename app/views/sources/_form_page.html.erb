@@ -1,0 +1,22 @@
+<%# locals: (record:) %>
+<% content_for :account_tool_title, t("nosia.account_experience.sources") if @scoped_source_account %>
+<% type = record.model_name.element %>
+<% title = record.persisted? ? t("nosia.sources.#{type.pluralize}.edit_action") : t("nosia.sources.add_type.#{type}") %>
+<% account = @scoped_source_account || (record.account if record.persisted?) %>
+
+<div class="n-workspace n-source-workspace" data-source-workspace>
+  <%= render "workspaces/header",
+        title: title,
+        description: t("nosia.sources_workspace.form_description"),
+        scope_label: source_workspace_scope(account),
+        trail: source_workspace_trail(title: title),
+        back_path: record.persisted? ? source_show_path(record) : source_index_path(type: type),
+        show_new_chat: !@scoped_source_account %>
+
+  <div class="n-source-form-layout">
+    <section class="n-workspace-panel">
+      <%= render partial: "sources/#{type.pluralize}/form", locals: { type.to_sym => record } %>
+    </section>
+    <%= render "sources/form_help", record: record %>
+  </div>
+</div>

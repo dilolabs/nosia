@@ -1,19 +1,17 @@
-<%= form_with(model: source_form_model(text)) do |form| %>
-  <%= render "application/validation_errors", record: text %>
-  <div class="n-form-field">
+<%= form_with(model: source_form_model(text), class: "n-source-form", data: { controller: "source-form" }) do |form| %>
+  <%= render "sources/form_errors", form: form, fields: [ :data ] %>
+  <div class="n-source-field">
     <%= form.label :data, t("nosia.sources.text_label"), class: "n-label" %>
     <%# attachments: "false" hides both toolbar upload buttons (image + file)
         and disables uploads -- source editors are text-only. %>
     <%= form.lexxy_rich_text_area :data,
-          value: Commonmarker.to_html(text.data.to_s.encode("UTF-8")),
-          class: "n-textarea",
-          attachments: "false" %>
+          **source_field_options(form, :data,
+            value: Commonmarker.to_html(text.data.to_s.encode("UTF-8")),
+            class: "n-textarea n-source-editor",
+            attachments: "false") %>
+    <%= render "sources/field_error", form: form, attribute: :data %>
   </div>
 
   <%= render "sources/account_field", form: form %>
-
-  <div class="n-form-actions">
-    <%= form.submit t("nosia.actions.save"), class: "n-btn-primary" %>
-    <%= link_to t("nosia.actions.cancel"), text.persisted? ? source_show_path(text) : source_index_path, class: "n-btn-secondary" %>
-  </div>
+  <%= render "sources/form_actions", form: form %>
 <% end %>

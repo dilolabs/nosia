@@ -90,32 +90,36 @@ class Accounts::ScopedSourcesTest < ActionDispatch::IntegrationTest
   end
 
   test "filters toolbar add menu and empty states retain scoped or legacy paths" do
-    get "/accounts/#{@second.id}/sources", params: { type: "text", status: "failed", q: "Research", sort: "title" }
+    options = { type: "text", status: "failed", sort: "title", q: "Research" }
+    get account_sources_path(@second), params: options
     assert_response :success
-    assert_select "form[action='#{account_sources_path(@second)}'][method='get']", count: 2
-    assert_select "input[name='type'][value='text']", count: 2
-    assert_select "input[name='status'][value='failed']", count: 2
-    assert_select "input[name='q'][value='Research']", count: 2
+    assert_select "form[data-source-toolbar][action='#{account_sources_path(@second)}'][method='get']", count: 1
+    assert_select "input[name='type'][value='text']", count: 1
+    assert_select "select[name='status'] option[selected][value='failed']"
+    assert_select "input[name='q'][value='Research']", count: 1
     assert_select "select[name='sort'] option[selected][value='title']"
-    assert_select "a[href='#{account_sources_path(@second, status: 'failed')}']"
-    assert_select "a[href='#{account_sources_path(@second, status: 'pending')}']"
-
-    SourceRow::TYPES.each do |type|
-      assert_select "a[href='#{account_sources_path(@second, type: type)}']"
-      assert_select "a[href='#{public_send("new_account_sources_#{type}_path", @second)}']"
-      get "/accounts/#{@empty.id}/sources", params: { type: type }
-      assert_response :success
-      assert_select ".sources-empty a[href='#{public_send("new_account_sources_#{type}_path", @empty)}']"
-      get "/accounts/#{@second.id}/sources"
+    %w[failed pending].each do |status|
+      assert_select "a[href='#{account_sources_path(@second, **options.merge(status: status))}']"
     end
-
+    SourceRow::TYPES.each do |type|
+      assert_select "a[href='#{account_sources_path(@second, **options.merge(type: type))}']"
+      new_path = public_send("new_account_sources_#{type}_path", @second)
+      assert_select "a[href='#{new_path}']"
+    end
+    SourceRow::TYPES.each do |type|
+      get account_sources_path(@empty), params: { type: type }
+      assert_response :success
+      new_path = public_send("new_account_sources_#{type}_path", @empty)
+      assert_select ".sources-empty a[href='#{new_path}']"
+    end
     get sources_path
     assert_response :success
-    assert_select "form[action='#{sources_path}'][method='get']", count: 2
+    assert_select "form[data-source-toolbar][action='#{sources_path}'][method='get']", count: 1
     assert_select "[data-dropzone-url-value='#{sources_documents_path}']"
     assert_select "[data-dropzone-account-id-value]", count: 0
     SourceRow::TYPES.each do |type|
-      assert_select "a[href='#{public_send("new_sources_#{type}_path")}']"
+      new_path = public_send("new_sources_#{type}_path")
+      assert_select "a[href='#{new_path}']"
     end
   end
 

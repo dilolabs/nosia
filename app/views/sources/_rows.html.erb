@@ -4,7 +4,7 @@
 <% else %>
   <%= render "sources/drop_hint" %>
   <% rows.each do |row| %>
-    <%= render "sources/source", row: row %>
+    <%= render "sources/source", row: row, account_name: source_account.name %>
   <% end %>
   <% if has_more %>
     <div id="sources_load_more" class="py-4 text-center">

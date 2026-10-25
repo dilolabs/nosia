@@ -1,0 +1,8 @@
+<% 2.times do |position| %>
+overview_second_text_chunk_<%= position %>:
+  account_id: <%= ActiveRecord::FixtureSet.identify(:overview_second) %>
+  chunkable_id: <%= ActiveRecord::FixtureSet.identify(:overview_second_text) %>
+  chunkable_type: Text
+  content: Saved research chunk <%= position %>
+  embedding: null
+<% end %>

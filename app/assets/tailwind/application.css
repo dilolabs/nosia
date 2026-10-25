@@ -2,6 +2,8 @@
 
 @import "../stylesheets/nosia/accounts.css" layer(utilities);
 @import "../stylesheets/nosia/dashboard.css" layer(utilities);
+@import "../stylesheets/nosia/workspace.css" layer(utilities);
+@import "../stylesheets/nosia/sources.css";
 @import "../stylesheets/nosia/button.css" layer(utilities);
 @import "../stylesheets/nosia/card.css" layer(utilities);
 @import "../stylesheets/nosia/form.css" layer(utilities);

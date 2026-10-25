@@ -1,0 +1,8 @@
+<div class="n-workspace n-source-workspace" data-source-workspace data-source-setup>
+  <%= render "workspaces/header", title: t("nosia.sources.title"), trail: source_workspace_trail, show_new_chat: true %>
+  <section class="n-workspace-panel" aria-labelledby="sources-setup-title">
+    <h2 id="sources-setup-title" class="n-workspace-section-title"><%= t("nosia.sources_workspace.setup_title") %></h2>
+    <p class="n-workspace-help"><%= t("nosia.sources_workspace.setup_help") %></p>
+    <%= link_to t("nosia.sources_workspace.setup_action"), accounts_path, class: "n-workspace-button n-workspace-primary" %>
+  </section>
+</div>

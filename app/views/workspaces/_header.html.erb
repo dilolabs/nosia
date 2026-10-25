@@ -1,0 +1,34 @@
+<%# locals: (title:, description: nil, scope_label: nil, trail: [], back_path: nil, show_new_chat: false, actions: nil) %>
+<% content_for :title, title %>
+<header class="n-workspace-header">
+  <% if trail.any? %>
+    <nav aria-label="<%= t('nosia.workspace.breadcrumb') %>" class="n-workspace-help">
+      <ol class="n-workspace-trail !list-none">
+        <% trail.each_with_index do |item, index| %>
+          <% if index.positive? %><li aria-hidden="true">/</li><% end %>
+          <%= tag.li aria: { current: item[:path] ? nil : "page" } do %>
+            <% if item[:path] %>
+              <%= link_to item.fetch(:label), item.fetch(:path), class: "n-workspace-link" %>
+            <% else %>
+              <%= item.fetch(:label) %>
+            <% end %>
+          <% end %>
+        <% end %>
+      </ol>
+    </nav>
+  <% end %>
+  <div class="n-workspace-heading-row">
+    <div class="min-w-0">
+      <h1 class="n-workspace-title"><%= title %></h1>
+      <% if description %><p class="n-workspace-help"><%= description %></p><% end %>
+      <% if scope_label %><p class="n-workspace-scope" data-workspace-scope><%= scope_label %></p><% end %>
+    </div>
+    <div class="n-workspace-actions">
+      <% if back_path %><%= link_to t("nosia.actions.back"), back_path, class: "n-workspace-link", data: { workspace_back: true } %><% end %>
+      <% if show_new_chat %>
+        <div class="hidden lg:block"><%= link_to t("nosia.nav.new_chat"), new_chat_path, class: "n-workspace-link" %></div>
+      <% end %>
+      <%= actions %>
+    </div>
+  </div>
+</header>

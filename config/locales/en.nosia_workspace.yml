@@ -1,0 +1,6 @@
+en:
+  nosia:
+    workspace:
+      breadcrumb: "Workspace navigation"
+      account: "Account: %{name}"
+      default_account: "Default account: %{name}"
