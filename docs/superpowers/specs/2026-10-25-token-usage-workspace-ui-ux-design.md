@@ -1,6 +1,6 @@
 # Token usage workspace UI/UX
 
-Status: Design sections approved in conversation; user review of this written specification is pending. Implementation is not authorized.
+Status: Written specification approved by the user's “Go” on 2026-10-25; implementation planning is authorized. Application execution awaits the implementation plan and execution-method selection.
 
 Date: 2026-10-25
 
@@ -274,11 +274,14 @@ blue branding, alerts and forecasting recommendations were not adopted.
   normal reload and safe cache freshness, plus the accessibility/verification
   design. Rationale: improve presentation without new capabilities or hidden
   changes to reporting, privacy or data integrity.
+- User answered **“Go”** after reviewing the committed written specification
+  (`100bd1c`). Rationale: approve this document and proceed to implementation
+  planning; the execution method has not yet been selected for Token usage.
 
 ## Approval boundary and next step
 
-All three design sections are approved in conversation. This specification must
-now be committed, self-reviewed and reviewed by the user. Only after the user
-approves the written specification may writing-plans create an implementation
-plan. No Token usage application implementation, Agent skills/MCP redesign,
-merge into main or push is authorized by this document.
+All three design sections and the committed written specification are approved.
+The user's “Go” authorizes writing-plans to create the Token usage implementation
+plan. Finish and review that plan, then obtain the user's execution-method choice
+before application implementation. Agent skills/MCP redesign, merge into main
+and push remain outside this approval.
