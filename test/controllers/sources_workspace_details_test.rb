@@ -199,6 +199,25 @@ class SourcesWorkspaceDetailsTest < ActionDispatch::IntegrationTest
     assert_empty source.reload.data
   end
 
+  test "workspace document previews have one heading while the shared citation keeps its title" do
+    source = experience(:documents, :overview_second_document)
+    source.file.blob.update_columns(content_type: "application/pdf")
+    html = ApplicationController.render(partial: "sources/documents/document", locals: { document: source })
+    citation = Nokogiri::HTML.fragment(html)
+    assert_select citation, "h2.n-title.truncate", text: source.title
+    assert_select citation, "iframe.h-full.w-full[title='#{source.title}']"
+    assert_select citation, "[data-source-document-preview], [data-source-file-link]", count: 0
+
+    [ sources_document_path(source), account_sources_document_path(@second, source) ].each do |path|
+      assert_no_enqueued_jobs { get path }
+      assert_response :success
+      assert_select "[data-source-detail] h1", text: source.display_title, count: 1
+      assert_select "[data-source-document-preview] h1, [data-source-document-preview] h2", count: 0
+      assert_select "[data-source-file-link]", text: source.file.filename.to_s
+      assert_select "[data-source-document-preview] iframe.n-source-file-frame[title='#{source.display_title}']"
+    end
+  end
+
   test "document details keep the original file link and MIME-specific preview" do
     source = experience(:documents, :overview_second_document)
 

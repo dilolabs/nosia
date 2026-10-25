@@ -1,0 +1,13 @@
+<div id="<%= dom_id document %>" data-source-document-preview>
+  <% if document.file.attached? %>
+    <%= link_to document.file.filename.to_s, url_for(document.file), target: "_blank", rel: "noopener", class: "n-workspace-link", data: { source_file_link: true } %>
+    <% case document.file.blob.content_type %>
+    <% when "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" %>
+      <iframe class="n-source-file-frame" src="<%= url_for(document.file) %>" title="<%= document.display_title %>"></iframe>
+    <% when "image/png", "image/jpeg" %>
+      <img class="n-source-file-image" src="<%= url_for(document.file) %>" alt="<%= document.display_title %>">
+    <% end %>
+  <% else %>
+    <p class="n-workspace-help"><%= t("nosia.sources_workspace.no_file") %></p>
+  <% end %>
+</div>
