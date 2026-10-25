@@ -110,6 +110,62 @@ class SourcesWorkspaceDetailsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "saved chunks remain visible as a real count for failed and pending sources" do
+    ActiveRecord::FixtureSet.reset_cache
+    ActiveRecord::FixtureSet.create_fixtures(Rails.root.join("test/support/fixtures/sources_workspace").to_s, [ "chunks" ])
+    source = experience(:texts, :overview_second_text)
+    assert_equal 2, source.chunks.count
+    assert_equal [ @second.id ], source.chunks.distinct.pluck(:account_id)
+    assert source.chunks.all? { |chunk| chunk.embedding.nil? }
+    chunks_before = source.chunks.order(:id).map(&:attributes)
+
+    %i[ failed pending ].each do |status|
+      source.update_columns(index_status: status)
+      before = source.reload.attributes
+
+      { en: "Chunks: 2", fr: "Extraits : 2" }.each do |locale, label|
+        [ sources_text_path(source), account_sources_text_path(@second, source) ].each do |path|
+          assert_no_enqueued_jobs { get path, headers: { "Accept-Language" => locale.to_s } }
+          assert_response :success
+          assert_select "[data-source-detail] [data-source-index-status='#{status}']"
+          assert_select "[data-source-detail] [data-source-chunks]", text: label
+          assert_equal before, source.reload.attributes
+          assert_equal chunks_before, source.chunks.order(:id).map(&:attributes)
+        end
+      end
+    end
+  end
+
+  test "a persisted document without its attachment has a localized fallback and preserves the shared blob" do
+    source = experience(:documents, :overview_second_document)
+    other = experience(:documents, :overview_first_document)
+    blob = source.file.blob
+    other_attachment = other.file_attachment
+    assert_equal blob.id, other_attachment.blob_id
+    before = [ source.attributes, other_attachment.attributes, blob.attributes ]
+
+    assert_no_enqueued_jobs do
+      assert_difference "ActiveStorage::Attachment.count", -1 do
+        source.file_attachment.delete
+      end
+    end
+    assert source.reload.persisted?
+    assert_not source.file.attached?
+
+    { en: "No file is available for this document.", fr: "Aucun fichier n’est disponible pour ce document." }.each do |locale, label|
+      [ sources_document_path(source), account_sources_document_path(@second, source) ].each do |path|
+        assert_no_difference [ "Document.count", "ActiveStorage::Attachment.count", "ActiveStorage::Blob.count" ] do
+          assert_no_enqueued_jobs { get path, headers: { "Accept-Language" => locale.to_s } }
+        end
+        assert_response :success
+        assert_select "[data-source-document-preview] .n-workspace-help", text: label
+        assert_select "[data-source-document-preview] iframe, [data-source-document-preview] img, [data-source-file-link]", count: 0
+        assert_equal before, [ source.reload.attributes, other_attachment.reload.attributes, blob.reload.attributes ]
+        assert other.reload.file.attached?
+      end
+    end
+  end
+
   test "text and Q&A stay escaped while website HTML keeps its existing sanitizer" do
     text = experience(:texts, :overview_second_text)
     qna = experience(:qnas, :overview_second_qna)
