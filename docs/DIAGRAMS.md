@@ -127,6 +127,32 @@ on subsequent requests; conversation history and tokens remain personal even for
 owners. See [Account experience](account-experience.md) for boundaries and
 verification limits.
 
+## Sources Workspace Entry Points
+
+```text
+/sources (default account)       /accounts/:account_id/sources (URL account)
+          \                                  /
+           +-- type + status + query + sort --+
+                           |
+                 50-row list + Load more
+                 |                 |
+        existing dropzone     title -> detail -> edit
+        browse/drop/retry          |               |
+                 |             Retry/Delete    Save/Cancel
+                 +---------- existing CRUD/jobs ---+
+                                      |
+                     localized row + seven count targets
+
+Legacy new: membership filing picker; scoped new: fixed URL account
+All edit: fixed record account; neither changes the default account
+```
+
+Upload completion and indexing are different states. Live row replacement does
+not continuously re-sort or re-filter a loaded page, and searched lists do not
+promise live prepends. Reading workspace pages does not enqueue processing.
+See [Sources workspace](sources-workspace.md) for navigation, safety, and
+verification boundaries.
+
 ## RAG Pipeline Flow
 
 ```
