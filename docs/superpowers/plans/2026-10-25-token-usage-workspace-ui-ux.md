@@ -16,8 +16,358 @@
 - This plan is only Token usage. Agent skills and MCP each need their own detailed design/specification/plan cycle. No new routes, schema, reporting calculations, account/date selectors, billing, quotas, exports, forecasts, tracking writes or provider calls.
 - Preserve the exact global calendar window and thirty zero-filled dates, account lifetime headlines and its lower-bound-only recent query, all account query buckets (including future buckets), membership checks, counter/ledger distinctions and estimation policies.
 - Source branch `feat/sources-workspace-ui` remains `4be5ab1f0f7399b6f7766115fb709ee5929664cb`; `main` remains `c08cbfe22260059dd76a085a1c0aec1dfaeee17d`. No merge into `main`, push, PR or worktree removal is authorized here.
-- Writing this document does not execute it. No application edits, dependency setup, database preparation or application tests were performed during planning. Static snippet checks are not evidence that the application passes.
-- **Execution gate:** complete the plan, then ask the user for **Subagent-Driven** or **Inline Execution**. The previous Sources execution choice is not a Token usage choice.
+- Writing the original plan did not execute it. No application edits, dependency setup, database preparation or application tests were performed during planning. Static snippet checks were not application-test evidence; subsequent execution is recorded below.
+- **Execution gate satisfied:** after plan commit `d5f3961`, the user selected **1 — Subagent-Driven** on 2026-10-25. After the fresh Task 0 baseline and reviews, the user answered **“Yes”** to only the exact reproduced issues below. The previous Sources choice/acceptance was not reused as authorization.
+
+## Execution record — 2026-10-25
+
+**Outcome: execution complete with concerns, not a clean full suite or security
+scan.** Tasks 0–7 were completed using the user-selected Subagent-Driven method.
+Independent whole-feature specification and quality reviews approved both the
+implementation and completed final evidence without findings. The parent read the
+raw logs, baselines, command manifest and report and authorized this Phase B
+documentation-only record. No application checks were rerun for this record.
+
+### Decisions, revisions and safety
+
+- The user approved the written specification with **“Go”**, then selected
+  **1 — Subagent-Driven** after this plan was committed. Planning itself used
+  inline self-review, not a fresh-agent planning review.
+- Worktree: `/home/cbldev/gitd/dilolabs/nosia/.worktrees/token-usage-workspace-ui`;
+  branch: `feat/token-usage-workspace-ui`.
+- Immutable execution base: `d5f396108d1041c0ed5c6febf217f24bc3e85049`, validated
+  from `/tmp/opencode/token-usage-workspace-base.log`.
+- Final tested feature revision and Task 6 documentation HEAD:
+  `b94e35dd540ad20854d14307078517956b5563b9`. Last application commit:
+  `4db80a89c713fc3ffaf5305a20d596b06c5dee1c` (Task 5). This record references
+  that preceding tested revision, not its own future commit SHA. Phase B changes
+  only this plan; pre/post-commit byte-identity checks compare every other tracked
+  path, including all application/test/configuration files, to the tested HEAD.
+- Actual runtime: Ruby 4.0.7, Rails 8.0.5.1/PostgreSQL, Tailwind 4.1.16 and local
+  Chromium/ChromeDriver 156.0.8078.47. No packages were installed or upgraded.
+- Every final-verification shell sourced the external helpers. Ruby/Bundler ran through
+  `mise exec ruby@4.0.7`; Rails/browser launchers fixed `RAILS_ENV=test`, dedicated
+  `nosia_token_usage_workspace_test`, sentinel `AI_API_KEY=nosia-test-key`, and
+  `PARALLEL_WORKERS=1`. Database-sharing commands were sequential. Environment
+  files were only loaded nondisplaying by dotenv, never inspected/copied/edited.
+  No live provider, ingestion or queue worker was started.
+- Task 0 quality review found a minor external-recorder reuse risk, not an invalid
+  baseline: the original logger rewrote logs when adding trailers. Before Task 1,
+  the external helper was hardened to exclusive creation, append-only trailers,
+  refusal of existing files/symlinks, and recorder-failure exit 125 with the
+  original command exit reported separately. Sentinel checks verified exits
+  0/7, overwrite refusal 2 and recorder failure 125. Task 1 reviews approved it;
+  all old logs remained intact. The original logger snippet below is historical,
+  superseded by this reviewed helper, not the logger used for final execution.
+
+### Fresh Task 0 baseline and limited user acceptance
+
+Task 0 created/prepared only the isolated feature checkout and named test database,
+verified the environment/database, and built ignored CSS. There was no tracked
+source change or Task 0 source commit. The user answered **“Yes”** after the fresh
+results and Task 0 reviews, before application implementation.
+
+All log names in this record are under `/tmp/opencode/` unless another directory
+is stated. `F/E/S` means failures/errors/skips; exits are true command exits.
+
+| Fresh baseline | Tests/assertions | F/E/S | Seed | Exit | Log |
+| --- | --- | --- | --- | --- | --- |
+| Focused | 136 / 12,313 | 0/0/0 | 27318 | 0 | `token-usage-baseline-focused.log` |
+| Full | 1,097 / 20,642 | 0/1/0 | 20411 | **1, not green** | `token-usage-baseline-full.log` |
+| Browser | 117 / 7,247 | 0/0/0 | 52369 | 0 | `token-usage-baseline-browser.log` |
+| Brakeman | Two high-confidence warnings; zero scan errors | n/a | n/a | **3, not green** | `token-usage-baseline-brakeman.log` |
+
+Acceptance was limited to these unchanged existing issues:
+
+1. Full-suite error
+   `Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`:
+   `NoMethodError: undefined method 'augmented_context'`,
+   `app/models/chat/completionable.rb:39` →
+   `test/models/chat/request_options_test.rb:32` (test starts at line 29).
+2. Brakeman `PermitAttributes` at `app/controllers/api_tokens_controller.rb:62`
+   (`params.require(:api_token).permit(:account_id, :name)`) and `EOLRails` at
+   `Gemfile.lock:318`, support ended **2026-10-07**. Both high confidence.
+3. Seven JSON duplicate-key warnings in each focused/full run, for `tools_cache`
+   and `last_test_at`, from Active Support JSON encoding/decoding.
+4. Disclosed limited disk headroom: Task 0 ended with root 2.4G free/97% used.
+
+This was not a waiver for new regressions, permission to fix baseline bugs,
+suppress warnings/skip tests, alter reporting definitions, clean unrelated data,
+change other branches, merge/push/create a PR, or implement Agent skills/MCP.
+No accepted issue was fixed, skipped or suppressed by this feature.
+
+### Task commits and RED/GREEN evidence
+
+| Task | Commit(s) | Delivered responsibility |
+| --- | --- | --- |
+| 0 | No source commit; base `d5f396108d1041c0ed5c6febf217f24bc3e85049` | Isolated setup, fresh baseline, user acceptance |
+| 1 | `3efb464d72cdfa0d7d70b7b41025bb833471f9a1` | Report shell, true scope and navigation |
+| 2 | `b9e1c970e2ed6f6eaef08522afe23b135b0989a6`; test-only follow-up `04b2fbcc520802ec6fb0818aac1794ac5e249a8e` | Date-faithful activity and component contract coverage |
+| 3 | `4de98ba78665511ebddec6208f67d68f1e8185c6` | Exact overview/rail, breakdowns and full methodology |
+| 4 | `7dc2efcba4f9391a5856d8fe7db8c21e233255c0` | Scoped lifetime cache isolation and recent freshness |
+| 5 | `4db80a89c713fc3ffaf5305a20d596b06c5dee1c` | Scoped responsive CSS and browser verification |
+| 6 | `b94e35dd540ad20854d14307078517956b5563b9` | Guide/index/diagram only |
+| 7 | This documentation-only record references tested HEAD `b94e35d` | Final checks, whole-feature reviews and evidence |
+
+| Task/attempt | Tests/assertions | F/E/S | Seed | Exit | Exact log filename |
+| --- | --- | --- | --- | --- | --- |
+| 1 RED | 4 / 25 | 3/0/0 | 61562 | 1 | `token-usage-task1-red.log` |
+| 1 GREEN | 110 / 12,323 | 0/0/0 | 65410 | 0 | `token-usage-task1-green.log` |
+| 2 feature RED | 3 / 0 | 0/3/0 | 25074 | 1 | `token-usage-task2-red.log` |
+| 2 initial GREEN | 15 / 132 | 0/0/0 | 17190 | 0 | `token-usage-task2-green.log` |
+| 2 added characterization, first PASS | 5 / 83 | 0/0/0 | 33336 | 0 | `token-usage-task2-review-characterization.log` |
+| 2 combined final GREEN | 17 / 163 | 0/0/0 | 54113 | 0 | `token-usage-task2-review-regressions.log` |
+| 3 RED | 10 / 49 | 4/3/0 | 56712 | 1 | `token-usage-task3-red.log` |
+| 3 GREEN | 155 / 13,053 | 0/0/0 | 10041 | 0 | `token-usage-task3-green.log` |
+| 4 initial RED, missing cache hits | 3 / 43 | 1/0/0 | 58815 | 1 | `token-usage-task4-red.log` |
+| 4 literal `skip:` attempt, failed despite filename | 85 / 1,409 | 3/0/0 | 13247 | 1 | `token-usage-task4-green.log` |
+| 4 global cache-write coverage RED | 3 / 40 | 2/0/0 | 53104 | 1 | `token-usage-task4-global-cache-events-red.log` |
+| 4 corrected GREEN | 85 / 1,420 | 0/0/0 | 22750 | 0 | `token-usage-task4-cache-unless-green.log` |
+| 5 initial RED, including invalid arrangement | 3 / 35 | 1/1/0 | 26014 | 1 | `token-usage-task5-red.log` |
+| 5 corrected valid-counter RED | 3 / 70 | 2/0/0 | 53651 | 1 | `token-usage-task5-red-corrected-counters.log` |
+| 5 focused attempt 1, failed | 3 / 1,143 | 1/0/0 | 36369 | 1 | `token-usage-task5-green-focused-1.log` |
+| 5 focused attempt 2, failed | 3 / 1,143 | 1/0/0 | 33808 | 1 | `token-usage-task5-green-focused-2.log` |
+| 5 focus diagnostic, failed | 1 / 989 | 1/0/0 | 62771 | 1 | `token-usage-task5-focus-diagnostic.log` |
+| 5 focused attempt 3, settling alone failed | 3 / 1,143 | 1/0/0 | 15823 | 1 | `token-usage-task5-green-focused-3.log` |
+| 5 edge diagnostic, failed | 1 / 989 | 1/0/0 | 61507 | 1 | `token-usage-task5-focus-edge-diagnostic.log` |
+| 5 focused final GREEN | 3 / 8,507 | 0/0/0 | 33778 | 0 | `token-usage-task5-green-focused-4.log` |
+| 5 protected eight-file browser GREEN | 120 / 15,754 | 0/0/0 | 46584 | 0 | `token-usage-task5-green.log` |
+
+Task 2's specification review found missing localized text/first-date,
+singleton-marker and strict-local assertions. The same implementer added
+test-only characterization; its first PASS above is **not a new feature RED**.
+Re-review approved it. Task 3 subsequently added explicit global bounds/all-zero
+row coverage, resolving Task 2's optional quality coverage note.
+
+Task 1's six-file lint and scope checks passed (`token-usage-task1-rubocop.log`,
+`token-usage-task1-postcommit-scope.log`). Task 2 lint/boundary and follow-up checks
+passed (`token-usage-task2-rubocop.log`, `token-usage-task2-boundary.log`,
+`token-usage-task2-review-rubocop.log`, `token-usage-task2-review-boundary.log`).
+Task 3's five-file lint, scope and final status checks passed
+(`token-usage-task3-lint.log`, `token-usage-task3-scope-check.log`,
+`token-usage-task3-final-status.log`). Task 4's two-file lint, corrected scope and
+post-commit checks passed (`token-usage-task4-cache-unless-rubocop.log`,
+`token-usage-task4-cache-unless-scope.log`, `token-usage-task4-postcommit.log`).
+
+Task 5 build, link-spacing rebuild, lint and final boundaries passed
+(`token-usage-task5-build.log`, `token-usage-task5-build-link-spacing.log`,
+`token-usage-task5-rubocop.log`, `token-usage-task5-final-boundary.log`), exit 0.
+`token-usage-task5-attempts-before-full.json` indexes the preserved attempts.
+Task 6 verified 28 local Markdown targets, whitespace and documentation-only scope,
+all exit 0; evidence is in `/tmp/opencode/token-usage-task6-docs-RvR7UO2M/`, including
+`final-markdown-links.log`, `committed-diff-check.log`,
+`final-protected-boundary.log` and `final-status.log`. Task 6 had no artificial
+RED or new application-test claim; all application bytes remained unchanged.
+
+### Authoritative corrections — supersede historical proposed snippets
+
+The task bodies below preserve the original plan for traceability. These reviewed
+execution corrections are authoritative wherever an original example differs:
+
+1. **Task 4: SUPERSEDES all three literal `cache(..., skip:)` wrappers.** Installed
+   Rails 8.0.5.1 ignores `:skip`; the parent read `cache_helper.rb:176–240` and the
+   three failing tests before authorizing the narrow correction. Actual code uses
+   `cache_unless account.nil?, usage_lifetime_cache_key(account, section)` for
+   `headline`, `estimates` and `breakdowns`. The key still contains version,
+   locale, explicit authorized account, both counters and section. Global incurs
+   **no cache reads OR writes**; recent chart/table/date output stays outside
+   lifetime fragments. No query, policy or reporting change. See
+   `token-usage-task4-api-adaptation.log` and failed/corrected logs above.
+2. **Task 5: SUPERSEDES the persistent 9e12 counter sample and derived totals.**
+   Existing counters are int32; `9_123_456_789_012` raised `ActiveModel::RangeError`
+   before the matrix could exercise CSS. Parent approved test-only input
+   `2_123_456_789` plus output `1_234_567_890`, with lifetime account total
+   `3_358_024_679` and global total `3_358_024_699`. Aggregate totals still exceed
+   INT32. No schema/policy/production change; Task 3's pure-view
+   `9_123_456_789_012` example remains. The corrected RED genuinely measured 24px
+   summaries with 1px outlines; report CSS supplies at least 44px/2px.
+3. **Task 5 focus correction:** real edge hit-testing exposed adjacent text
+   obscuring inline-flex methodology links. Waiting two animation frames alone
+   still failed. Scoped `.n-usage-methodology-content .n-workspace-link` `mx-1`
+   margins fixed the overlap; settling remains for native autoscroll. No focus,
+   contrast, clipping, exact-value or protected-page assertion was weakened.
+4. **Recorder and final log identity:** use the hardened external recorder
+   described above, not the original rewrite-based snippet. The completed final
+   full-suite attempt is `token-usage-final-full-attempt2.log`, not the
+   incomplete `token-usage-final-full.log`. All failed/partial logs remain intact;
+   filenames containing “green” do not override actual nonzero statuses.
+
+### Independent review outcomes
+
+Each task had a fresh specification review followed by a fresh quality review;
+findings went back to the same implementer before re-review. Session IDs are
+recorded separately, not represented as extra tests or planning-agent review.
+
+| Task | Specification reviewer | Quality reviewer | Outcome |
+| --- | --- | --- | --- |
+| 0 | `ses_e8b4cff79ffep03vArJ2FXuAwT` | `ses_e8b4aee72ffesEQ71Y2U22HFE0` | Approved; minor recorder reuse note resolved/reviewed in Task 1; user baseline “Yes” followed |
+| 1 | `ses_e8b411d33ffe3T2FKIJpLihs6y` | `ses_e8b3fcd7fffe5nTiUGJYeP4Smy` | Approved, no findings |
+| 2 | `ses_e8b3b1088ffeVcG9v0Cwly7Gxm` | `ses_e8b36ffc4ffe5RltYYDkc8frvC` | Spec gaps fixed by test-only follow-up; spec re-review approved; quality approved; optional coverage resolved by Task 3 |
+| 3 | `ses_e8b2f3222ffelfJoFQ34JhIEpd` | `ses_e8b2e510fffeI178N8e1xMp7dc` | Approved, no findings |
+| 4 | `ses_e8b26d4e1ffenLuk3D1SbO7PRL` | `ses_e8b25dd48ffeG92iX17f3rN4P6` | Supported API correction approved, no findings |
+| 5 | `ses_e8b166108ffeO4sSbO6W2U1lpB` | `ses_e8b13d2f7ffeWqpx9cwiTFcvMx` | Approved after browser/artifact review, no findings |
+| 6 | `ses_e8b0e3eceffeSGw3RNpqMcPvcn` | `ses_e8b0d46c3fferz7D7U79ULGXRb` | Documentation scope approved, no findings |
+| 7 whole feature | `ses_e8b0540c7ffeeKvcnDTnZVcsuk` | `ses_e8b028ee0ffe2eUD5motVLB3Dk` | Implementation approved; both re-reviewed completed final evidence and approved without findings |
+
+The whole-feature reviewers initially deferred in-flight test results. Before
+Phase B, both checked raw baselines/logs, hashes, exact commands, interrupted-run
+separation and the final artifact matrix. The parent read/accepted the completed
+evidence and then explicitly authorized only this plan update and evidence commit.
+
+### Final Task 7 results — all six gates completed
+
+| Final gate | Tests/assertions or result | F/E/S | Seed | True exit | Exact log filename |
+| --- | --- | --- | --- | --- | --- |
+| Focused, prescribed 17 files | 158 / 13,104 | 0/0/0 | 13430 | 0 | `token-usage-final-focused.log` |
+| Full, completed rerun | 1,119 / 21,433 | 0/1/0 | 42700 | **1, NOT GREEN** | `token-usage-final-full-attempt2.log` |
+| Tailwind build | Tailwind 4.1.16, completed in 190ms | n/a | n/a | 0 | `token-usage-final-build.log` |
+| Browser, prescribed eight files | 120 / 15,754 | 0/0/0 | 16557 | 0 | `token-usage-final-browser.log` |
+| RuboCop | Prescribed 14 files, no offenses | n/a | n/a | 0 | `token-usage-final-lint.log` |
+| Brakeman 8.0.4 | Exactly two accepted high-confidence warnings; zero scan errors | n/a | n/a | **3, NOT GREEN** | `token-usage-final-brakeman.log` |
+
+Final full has only the exact accepted RequestOptions error/callsites above, with
+zero failures/skips. Final focused/full each contain seven duplicate-key JSON
+warnings, exactly baseline. Scanner warning detail matches baseline exactly.
+Focused/full gained 22 tests/791 assertions each; browser gained three tests/8,507
+assertions. Nothing was skipped, filtered or suppressed to achieve these results.
+The six command bodies were those prescribed in Task 7, in focused → full → build
+→ browser → lint → scanner order, except the separately preserved full retry.
+
+The first full attempt, `token-usage-final-full.log`, seed 59622, was interrupted
+by an incorrectly supplied **120-second harness timeout**. It has no suite summary
+or true-exit trailer: its actual command exit is **UNKNOWN**, not an invented 124
+and not a completed test result. The terminated test PID was confirmed absent
+before the same full command was rerun with timeout disabled and a new exclusive
+filename. No real database overlap occurred. An overbroad process guard first
+returned 1 on a pre-existing foreman `tailwindcss:watch` process; read-only
+classification distinguished it from a DB/test worker, and the corrected guard
+passed. That watcher was left untouched. The timeout/process-diagnostic artifacts
+are preserved separately; no source fix or warning waiver resulted.
+
+Final evidence lives outside Git:
+
+- `token-usage-task7-verification-report.md`: complete Phase A report and limits.
+- `token-usage-task7-command-manifest.json`: exact invocation/order/log identity.
+- `token-usage-task7-final-evidence-check.log`: parsed counts/seeds/exits, SHA-256
+  hashes, exact baseline comparison, final links/protected refs/cleanliness.
+- `token-usage-task7-baseline-comparison.log`,
+  `token-usage-task7-whole-diff.log`, `token-usage-task7-boundaries.log`,
+  `token-usage-task7-static-review.log`, `token-usage-task7-commits.log`,
+  `token-usage-task7-browser-artifacts.log`, `token-usage-task7-report-validation.log`.
+- `token-usage-task7-full-timeout-diagnosis.log` (conservative guard exit 1),
+  `token-usage-task7-process-inspection.log`,
+  `token-usage-task7-process-classification.log`,
+  `token-usage-task7-full-timeout-diagnosis-v2.log` (last three exit 0).
+- Phase B static/commit verification uses new
+  `token-usage-task7-phaseb-*.log` artifacts and
+  `token-usage-task7-phaseb-report.md`; no application/DB/build/test/scanner rerun.
+
+### Whole-feature scope, navigation and data boundaries
+
+The whole actual diff was inspected from immutable base, not only the Task 6
+commit: **29 files, 1,241 insertions and 45 deletions before this record**.
+Including this plan, the completed feature has **30 changed paths**. All 29 prior
+paths are the approved UI/tests/catalogs/guide/index/diagram files; this record is
+the only Phase B tracked change.
+
+Protected controller/report/account/token-model queries and estimators; legacy
+dashboard overview and standalone summary/summary-content/transparency; shared
+workspace header/CSS; Sources; composer/app JavaScript; routes; schema/database;
+dependencies; test support and fixtures remain unchanged from execution base.
+The existing numeric SVG helper is byte-identical. The only shared-layout edit is
+the approved report drawer predicate. New CSS is usage-scoped; authored strings
+are escaped and decorative widths are numeric. Legacy selector updates retain
+their exact values, counts, authorization, tenant/cache restoration and locale
+assertions, rather than weakening them.
+
+Global current-membership account-wide data still uses thirty local calendar
+dates/zero-filled days and separate lifetime counter sums. Account headlines remain
+lifetime; recent activity retains exclusive `created_at > 30.days.ago`, SQL DATE
+grouping, no upper bound and every returned future bucket. Permissions/data
+isolation/default account, read-only behavior, existing estimation policy and
+complete methodology remain intact. Global New chat stays generic; scoped Back
+returns to its account; unrelated drawers/Sources/composer remain unchanged.
+
+Protected refs remain `feat/sources-workspace-ui`
+`4be5ab1f0f7399b6f7766115fb709ee5929664cb`, `main`
+`c08cbfe22260059dd76a085a1c0aec1dfaeee17d`, and
+`docs/token-usage-workspace-design` `d5f396108d1041c0ed5c6febf217f24bc3e85049`.
+The feature tree was clean after Phase A. Main's unrelated local work was neither
+inspected nor discarded; **there is no claim that main's working tree is clean**.
+Protected-byte/allowed-path/whitespace and all 28 local targets in the three
+changed guide/index/diagram docs passed again after the final gates, including
+all 20 prescribed protected file/directory specifications.
+
+### Actual browser artifacts and manual limits
+
+Final directory: `/tmp/opencode/token-usage-workspace-1008233/`.
+`matrix.json` has **32 distinct states**: both scopes × EN/FR × 375×812, 768×1024,
+1440×1000 and 812×375 × light/dark. **72 PNGs** comprise 64 matrix images plus
+eight empty/global-old/account-old/no-membership images. All expected filenames
+exist, matrix PNG dimensions match viewports, and `contrast.jsonl` has **32
+records**. Every sampled ratio meets its target. Actual final minima:
+
+| Category | Light | Dark | Required | Samples per theme |
+| --- | --- | --- | --- | --- |
+| Normal text | 6.54163621921436 | 10.2097248855386 | 4.5:1 | 1,586 |
+| Chart | 4.945457412311979 | 10.802270175720084 | 3:1 | 16 |
+| Summary border | 4.741667181590045 | 5.857398603056878 | 3:1 | 32 |
+| Focus outline | 4.945457412311979 | 10.802270175720084 | 3:1 | 16 |
+
+The Phase A worker actually opened these **10 final-run images**, relative to that
+directory, not every final image or every content position:
+
+```text
+global-en-1440-1000-light-overview.png
+global-en-375-812-light-overview.png
+global-en-375-812-dark-methodology.png
+375-empty-dark.png
+375-no-memberships-light.png
+global-en-768-1024-dark-overview.png
+account-fr-375-812-dark-overview.png
+account-fr-375-812-dark-methodology.png
+account-en-812-375-light-methodology.png
+account-fr-1440-1000-light-overview.png
+```
+
+Task 5's implementer opened 40 images in
+`/tmp/opencode/token-usage-workspace-997488/`, recorded in
+`opened-manifest-and-ui-review.json`; the parent opened four; Task 5 spec and
+quality reviewers each opened 18 representatives. Its complete browser rerun
+directory was `token-usage-workspace-997937`, also 32 states/72 PNGs/32 contrast
+records. The whole-feature spec reviewer opened 22 prior images and 10 final;
+the whole-feature quality reviewer opened 14 prior and four final. These counts
+are per observer/run and **are not summed as unique images** because overlap is
+not established.
+
+Reviewed representatives show the desktop overview/detail rail, readable exact
+EN/FR quantities, wrapping long account/model names, clear native disclosure/link
+focus and honest empty guidance. A pathological mobile account name makes a long
+header requiring scrolling before metrics. Fixed mobile navigation can overlay
+unfocused mid-page content at rest; native-Tab autoscroll/edge hit-testing verifies
+sampled focused targets fully clear it. Viewport screenshots do not show every
+section at once; range-geometry tests cover number/model clipping across states.
+**Native 200% browser zoom remains UNVERIFIED**. CDP viewport emulation is not
+native zoom, and this is not a full screen-reader/assistive-technology audit or a
+blanket WCAG claim.
+
+Final Phase A disk: **root 2.1G free / 97% used**, `/tmp` 2.2G free / 45% used;
+available bytes 2,193,440,768 and 2,311,143,424 respectively. No cleanup occurred.
+
+### Completion boundary
+
+Task checkboxes below record completed work, including reviewed API/test-data
+adaptations, not a claim that every original proposal was used verbatim. Accepted
+full exit 1/scanner exit 3 and native-zoom limits remain explicit. Phase B performs
+only static documentation/link/checkbox/scope checks and a documentation commit;
+it does not claim a new application test, build, lint or scanner run. The parent
+will read this record and verify the final commit before user-facing completion.
+
+Agent skills and MCP remain unimplemented later subprojects requiring separate
+approval. No new account/date/report selectors, reporting metrics, billing,
+quotas, exports, forecasting, tracking or background work were added. No baseline
+bug fix, merge, push, PR, worktree removal, cleanup or integration action is
+authorized by this execution record.
 
 ## File responsibilities and contracts
 
@@ -38,7 +388,7 @@
 
 ## Safe launchers and evidence
 
-Execute from a new sibling feature worktree, not this documentation checkout. Every database-sharing command is sequential. Define these shell functions again in each fresh tool shell, or save their exact definitions to a new `/tmp/opencode/token-usage-workspace-helpers.zsh` and source that file. They are execution conveniences, not repository files.
+The following launchers are the original planning examples; the execution record's hardened external-recorder correction supersedes the historical `record_check` body. Execution used the isolated feature worktree, not the documentation checkout. Every database-sharing command was sequential. Source `/tmp/opencode/token-usage-workspace-helpers.zsh` in each fresh shell; these are external conveniences, not repository files. Do not overwrite preserved evidence to replay these historical commands.
 
 ```bash
 rails_test() {
@@ -71,7 +421,7 @@ Historical Sources evidence is only context: focused/browser runs passed; full s
 
 **Files:** No tracked application changes. Existing ignored CSS may be built. Keep evidence outside Git.
 
-- [ ] **Step 1: Verify the planning tree and create the execution worktree.** Inspect existing branches/paths instead of overwriting them. Run from this documentation worktree:
+- [x] **Step 1: Verify the planning tree and create the execution worktree.** Inspect existing branches/paths instead of overwriting them. Run from this documentation worktree:
 
 ```bash
 git status --short --branch
@@ -82,7 +432,7 @@ git worktree add ../token-usage-workspace-ui -b feat/token-usage-workspace-ui HE
 
 Expected: clean documentation tree; ignored destination; feature worktree `/home/cbldev/gitd/dilolabs/nosia/.worktrees/token-usage-workspace-ui` based on the committed plan. Move the session there using the harness session-move tool, or set every tool's working directory explicitly. Never modify Sources or `main` to establish the execution base.
 
-- [ ] **Step 2: Check installed tools and preserve the execution base.** All following commands use the new worktree.
+- [x] **Step 2: Check installed tools and preserve the execution base.** All following commands use the new worktree.
 
 ```bash
 mise exec ruby@4.0.7 -- ruby --version
@@ -95,7 +445,7 @@ record_check /tmp/opencode/token-usage-workspace-base.log git rev-parse HEAD
 
 Expected: installed dependencies, matching local browser/driver and adequate disk space. Ask if missing/insufficient; do not install or delete other work.
 
-- [ ] **Step 3: Verify the explicit environment and prepare only the new test database.**
+- [x] **Step 3: Verify the explicit environment and prepare only the new test database.**
 
 ```bash
 mise exec ruby@4.0.7 -- env RAILS_ENV=test DATABASE_URL=postgresql:///nosia_token_usage_workspace_test AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 bundle exec dotenv -f ../../.env -- bundle exec ruby -e 'abort "Unsafe test environment" unless ENV["RAILS_ENV"] == "test" && ENV["DATABASE_URL"] == "postgresql:///nosia_token_usage_workspace_test" && ENV["AI_API_KEY"] == "nosia-test-key" && ENV["PARALLEL_WORKERS"] == "1"; puts "Dedicated test environment verified"'
@@ -106,7 +456,7 @@ rails_test tailwindcss:build
 
 Expected: only the named test database is prepared; Tailwind output remains ignored.
 
-- [ ] **Step 4: Run fresh focused, full, browser and scanner baselines sequentially.**
+- [x] **Step 4: Run fresh focused, full, browser and scanner baselines sequentially.**
 
 ```bash
 record_check /tmp/opencode/token-usage-baseline-focused.log rails_test test test/models/token_usage/report_test.rb test/helpers/token_usages_helper_test.rb test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/dashboards_controller_test.rb test/controllers/account_experience_test.rb test/integration/token_summary_cache_test.rb test/integration/token_usages_test.rb test/integration/token_footer_test.rb test/integration/localized_pages_test.rb test/integration/localized_cache_test.rb test/internationalization/catalogs_test.rb
@@ -117,14 +467,14 @@ record_check /tmp/opencode/token-usage-baseline-brakeman.log mise exec ruby@4.0.
 
 Expected: focused/browser pass; full suite/scanner results are inspected, not assumed. Stop for acceptance of any reproduced existing failures/warnings; investigate new baseline differences rather than silently waiving them.
 
-- [ ] **Step 5: Record readiness.** `git status --short` must show no tracked application changes. Record immutable base SHA, exact counts/exits/logs and any user baseline acceptance in execution notes. If Subagent-Driven was selected, obtain the method's task reviews before proceeding. No environment-only source commit is needed.
+- [x] **Step 5: Record readiness.** `git status --short` must show no tracked application changes. Record immutable base SHA, exact counts/exits/logs and any user baseline acceptance in execution notes. If Subagent-Driven was selected, obtain the method's task reviews before proceeding. No environment-only source commit is needed.
 
 ## Task 1: Workspace header, scope and report-only navigation
 
 **Create:** `test/controllers/token_usage_workspace_shell_test.rb`, paired usage-workspace catalogs.
 **Modify:** `app/helpers/token_usages_helper.rb`, `app/views/token_usages/show.html.erb`, `app/views/layouts/application.html.erb`, `test/controllers/account_experience_test.rb`, and three report heading assertions identified below.
 
-- [ ] **Step 1: Add the failing shell tests.**
+- [x] **Step 1: Add the failing shell tests.**
 
 ```ruby
 # test/controllers/token_usage_workspace_shell_test.rb
@@ -193,7 +543,7 @@ class TokenUsageWorkspaceShellTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task1-red.log rails_test test test/controllers/token_usage_workspace_shell_test.rb
@@ -201,7 +551,7 @@ record_check /tmp/opencode/token-usage-task1-red.log rails_test test test/contro
 
 Expected: missing h1/workspace/scope/Accounts guidance and existing global drawers. Infrastructure errors are not a valid feature RED.
 
-- [ ] **Step 3: Add the shell predicate and catalogs.** Insert before `usage_trend_points`; retain that method byte-for-byte.
+- [x] **Step 3: Add the shell predicate and catalogs.** Insert before `usage_trend_points`; retain that method byte-for-byte.
 
 ```ruby
   # @return [Boolean] Whether this request renders the Token usage workspace
@@ -260,7 +610,7 @@ fr:
       lifetime_breakdowns: "Détails depuis la création"
 ```
 
-- [ ] **Step 4: Replace `show.html.erb` with this transitional shell.** It intentionally retains the old report components until Task 3.
+- [x] **Step 4: Replace `show.html.erb` with this transitional shell.** It intentionally retains the old report components until Task 3.
 
 ```erb
 <% content_for :account_tool_title, t("nosia.usage.title") if @account %>
@@ -289,7 +639,7 @@ In `app/views/layouts/application.html.erb`, change only the drawer condition to
 <% if Current.user && !account_page? && !dashboard_page? && !sources_workspace_page? && !token_usage_workspace_page? %>
 ```
 
-- [ ] **Step 5: Update only obsolete presentation assertions.** Change the report h2 assertions to h1 in `test/integration/token_usages_test.rb` (first test), `test/integration/localized_pages_test.rb` (French usage test) and `test/integration/localized_cache_test.rb` (French usage cache test). Keep the dashboard absence assertion as h2. Replace the complete account-experience test starting at its current line 122 with:
+- [x] **Step 5: Update only obsolete presentation assertions.** Change the report h2 assertions to h1 in `test/integration/token_usages_test.rb` (first test), `test/integration/localized_pages_test.rb` (French usage test) and `test/integration/localized_cache_test.rb` (French usage cache test). Keep the dashboard absence assertion as h2. Replace the complete account-experience test starting at its current line 122 with:
 
 ```ruby
   test "global tools retain navigation and workspace reports omit conversation drawers" do
@@ -317,7 +667,7 @@ assert_select "h1", text: /Token usage & environmental impact/
 assert_select "h1", text: "Utilisation des jetons et impact environnemental"
 ```
 
-- [ ] **Step 6: Run GREEN and commit the shell.**
+- [x] **Step 6: Run GREEN and commit the shell.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task1-green.log rails_test test test/controllers/token_usage_workspace_shell_test.rb test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/account_experience_test.rb test/integration/token_usages_test.rb test/integration/localized_pages_test.rb test/integration/localized_cache_test.rb test/internationalization/catalogs_test.rb
@@ -333,7 +683,7 @@ Expected: focused tests pass. No controller/model/query/default-account changes.
 **Create:** `test/helpers/token_usage_activity_test.rb`, `app/views/token_usages/_activity.html.erb`.
 **Modify:** `app/helpers/token_usages_helper.rb`. The dashboard numeric helper remains unchanged.
 
-- [ ] **Step 1: Write direct component tests with explicit locals and no session.**
+- [x] **Step 1: Write direct component tests with explicit locals and no session.**
 
 ```ruby
 # test/helpers/token_usage_activity_test.rb
@@ -388,7 +738,7 @@ class TokenUsageActivityTest < ActionView::TestCase
 end
 ```
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task2-red.log rails_test test test/helpers/token_usage_activity_test.rb
@@ -396,7 +746,7 @@ record_check /tmp/opencode/token-usage-task2-red.log rails_test test test/helper
 
 Expected: missing presentation method/partial. Then implement only those component contracts.
 
-- [ ] **Step 3: Add this helper before the unchanged SVG method.** Invalid internal date keys should raise, not silently disappear or become zero usage. SQL date grouping supplies unique Date/ISO-string keys; do not add unrelated input coercion/aggregation.
+- [x] **Step 3: Add this helper before the unchanged SVG method.** Invalid internal date keys should raise, not silently disappear or become zero usage. SQL date grouping supplies unique Date/ISO-string keys; do not add unrelated input coercion/aggregation.
 
 ```ruby
   # @param buckets [Hash{Date, String => Integer}] Existing SQL/report date buckets
@@ -406,7 +756,7 @@ Expected: missing presentation method/partial. Then implement only those compone
   end
 ```
 
-- [ ] **Step 4: Create the complete activity partial.** There is no invented account upper bound or forced thirty-day series. A singleton also gets a visible circle; an empty series has an explicit empty explanation and empty table.
+- [x] **Step 4: Create the complete activity partial.** There is no invented account upper bound or forced thirty-day series. A singleton also gets a visible circle; an empty series has an explicit empty explanation and empty table.
 
 ```erb
 <%# locals: (daily_totals:, scoped:, starts_at: nil, ends_at: nil) %>
@@ -444,7 +794,7 @@ Expected: missing presentation method/partial. Then implement only those compone
 </section>
 ```
 
-- [ ] **Step 5: Run GREEN including the unchanged dashboard helper contract; commit.**
+- [x] **Step 5: Run GREEN including the unchanged dashboard helper contract; commit.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task2-green.log rails_test test test/helpers/token_usage_activity_test.rb test/helpers/token_usages_helper_test.rb test/models/token_usage/report_test.rb
@@ -460,7 +810,7 @@ Expected: all pass; no query, aggregation, zero-fill or dashboard markup changes
 **Create:** `test/controllers/token_usage_workspace_test.rb`, `test/helpers/token_usage_workspace_content_test.rb` and five report-only partials listed in the file table.
 **Modify:** `show.html.erb`; narrowly adapt existing report-page selectors. CSS polish follows Task 5; do not add caching until Task 4's tests exist.
 
-- [ ] **Step 1: Add request coverage before switching the report.**
+- [x] **Step 1: Add request coverage before switching the report.**
 
 ```ruby
 # test/controllers/token_usage_workspace_test.rb
@@ -671,7 +1021,7 @@ class TokenUsageWorkspaceContentTest < ActionView::TestCase
 end
 ```
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task3-red.log rails_test test test/controllers/token_usage_workspace_test.rb test/helpers/token_usage_workspace_content_test.rb
@@ -679,7 +1029,7 @@ record_check /tmp/opencode/token-usage-task3-red.log rails_test test test/contro
 
 Expected: missing semantic metrics, account daily table/future bucket, explicit estimate/fallback metadata and methodology marker. Existing passing characterization cases are not relabeled RED.
 
-- [ ] **Step 3: Create the metrics and estimates components.** Exact formatting uses existing locale helpers; no compact K/M values, estimation recalculation or changed precision.
+- [x] **Step 3: Create the metrics and estimates components.** Exact formatting uses existing locale helpers; no compact K/M values, estimation recalculation or changed precision.
 
 ```erb
 <%# app/views/token_usages/_metrics.html.erb %>
@@ -709,7 +1059,7 @@ Expected: missing semantic metrics, account daily table/future bucket, explicit 
 </section>
 ```
 
-- [ ] **Step 4: Create the full breakdown partial.** Ratios are only decorative widths from existing counts. All supplied rows are retained; text carries the exact values. Preserve the existing asterisk as well as adding its readable fallback label.
+- [x] **Step 4: Create the full breakdown partial.** Ratios are only decorative widths from existing counts. All supplied rows are retained; text carries the exact values. Preserve the existing asterisk as well as adding its readable fallback label.
 
 ```erb
 <%# app/views/token_usages/_breakdowns.html.erb %>
@@ -748,7 +1098,7 @@ Expected: missing semantic metrics, account daily table/future bucket, explicit 
 </section>
 ```
 
-- [ ] **Step 5: Create the report-only methodology wrapper, retaining every existing text key/link/snapshot.** Native summary marker replaces structural icons. Shared translation content remains the authoritative methodology, including caveats rather than rewriting scientific claims.
+- [x] **Step 5: Create the report-only methodology wrapper, retaining every existing text key/link/snapshot.** Native summary marker replaces structural icons. Shared translation content remains the authoritative methodology, including caveats rather than rewriting scientific claims.
 
 ```erb
 <%# app/views/token_usages/_methodology.html.erb %>
@@ -768,7 +1118,7 @@ Expected: missing semantic metrics, account daily table/future bucket, explicit 
 </details>
 ```
 
-- [ ] **Step 6: Create the uncached workspace composition.** Its DOM reading order is main overview/trend → rail → lifetime breakdowns → methodology; the desktop layout does not change that order.
+- [x] **Step 6: Create the uncached workspace composition.** Its DOM reading order is main overview/trend → rail → lifetime breakdowns → methodology; the desktop layout does not change that order.
 
 ```erb
 <%# app/views/token_usages/_workspace.html.erb %>
@@ -811,7 +1161,7 @@ In `show.html.erb`, retain the header, scope paragraph and no-memberships block 
 
 The one addition above is display of the existing lifetime input+output total, not a new recent-period account calculation. No controller edit is needed.
 
-- [ ] **Step 7: Adapt legacy selectors precisely, retaining their expected quantities.** These are presentation updates, not permission to delete failing tests. Leave direct `_summary` rendering tests unchanged.
+- [x] **Step 7: Adapt legacy selectors precisely, retaining their expected quantities.** These are presentation updates, not permission to delete failing tests. Leave direct `_summary` rendering tests unchanged.
 
 In `test/controllers/global_token_usage_test.rb`, use these replacements:
 
@@ -852,7 +1202,7 @@ assert_equal 1057, all("[data-usage-daily] tbody td").sum { |cell| cell["data-va
 
 All dashboard-page selectors/values, shortcut links, composer and layout checks stay unchanged.
 
-- [ ] **Step 8: Run GREEN and commit the report composition.**
+- [x] **Step 8: Run GREEN and commit the report composition.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task3-green.log rails_test test test/controllers/token_usage_workspace_test.rb test/controllers/token_usage_workspace_shell_test.rb test/helpers/token_usage_activity_test.rb test/helpers/token_usage_workspace_content_test.rb test/helpers/token_usages_helper_test.rb test/models/token_usage/report_test.rb test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/dashboards_controller_test.rb test/controllers/account_experience_test.rb test/integration/token_usages_test.rb test/integration/localized_pages_test.rb test/integration/localized_cache_test.rb test/integration/token_summary_cache_test.rb test/integration/token_footer_test.rb test/internationalization/catalogs_test.rb
@@ -868,7 +1218,11 @@ Expected: all focused tests pass, including existing global local-zone/endpoints
 **Create:** `test/integration/token_usage_workspace_cache_test.rb`.
 **Modify:** `app/helpers/token_usages_helper.rb`, `app/views/token_usages/_workspace.html.erb`.
 
-- [ ] **Step 1: Add the cache regression suite before adding fragment blocks.** Real MemoryStore, real requests, restored controller/Rails stores; no providers or jobs.
+**Historical-snippet correction:** the execution record explicitly supersedes
+Step 4's proposed `cache(..., skip:)` with supported `cache_unless` wrappers.
+Those original snippets are retained only to explain the failed attempt.
+
+- [x] **Step 1: Add the cache regression suite before adding fragment blocks.** Real MemoryStore, real requests, restored controller/Rails stores; no providers or jobs.
 
 ```ruby
 # test/integration/token_usage_workspace_cache_test.rb
@@ -958,7 +1312,7 @@ class TokenUsageWorkspaceCacheTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task4-red.log rails_test test test/integration/token_usage_workspace_cache_test.rb
@@ -966,7 +1320,7 @@ record_check /tmp/opencode/token-usage-task4-red.log rails_test test test/integr
 
 Expected: the cache-hit assertion fails because Task 3 deliberately has no lifetime fragments; the existing freshness assertions may already pass. Do not count that as a stale-window regression reproduction. The suite permanently protects against later caching the entire report.
 
-- [ ] **Step 3: Add the documented explicit-account cache key.** Before the existing numeric helper:
+- [x] **Step 3: Add the documented explicit-account cache key.** Before the existing numeric helper:
 
 ```ruby
   # @param account [Account, nil] Already-authorized scoped account; nil is uncached global
@@ -978,7 +1332,7 @@ Expected: the cache-hit assertion fails because Task 3 deliberately has no lifet
   end
 ```
 
-- [ ] **Step 4: Wrap exactly these three existing render statements in `_workspace.html.erb`.** Global skips **every** cache read/write; activity/dates remain outside all three blocks. The separate global lifetime metrics render is also left uncached.
+- [x] **Step 4: Wrap exactly these three existing render statements in `_workspace.html.erb`.** Global skips **every** cache read/write; activity/dates remain outside all three blocks. The separate global lifetime metrics render is also left uncached.
 
 ```erb
 <% cache usage_lifetime_cache_key(account, "headline"), skip: account.nil? do %>
@@ -1000,7 +1354,7 @@ Expected: the cache-hit assertion fails because Task 3 deliberately has no lifet
 
 This preserves the current lifetime invalidation policy; it does not promise to repair estimator freshness after out-of-band ledger edits with unchanged counters. The recent series **does** refresh independently in that scenario.
 
-- [ ] **Step 5: Run GREEN and commit.**
+- [x] **Step 5: Run GREEN and commit.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task4-green.log rails_test test test/integration/token_usage_workspace_cache_test.rb test/integration/token_summary_cache_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/global_token_usage_test.rb test/controllers/token_usage_workspace_test.rb test/controllers/token_usage_workspace_shell_test.rb test/integration/localized_pages_test.rb
@@ -1016,7 +1370,12 @@ Expected: three or more scoped lifetime hits on the repeat request, fresh recent
 **Create:** `test/system/token_usage_workspace_test.rb`, `app/assets/stylesheets/nosia/usage_workspace.css`.
 **Modify:** `app/assets/tailwind/application.css`. No JavaScript or shared design-system edits.
 
-- [ ] **Step 1: Add the browser suite before report-specific CSS.** Use these complete tests and helpers in one file. Browser data mutations are test-only arrangements; reads must still enqueue no jobs. Evidence is written under a new process directory, not committed.
+**Historical-sample correction:** the execution record supersedes the persistent
+9e12 counter/derived-total sample below with parent-approved int32-safe counters,
+and records the final scoped link-margin/autoscroll correction. The pure-view
+large-number test remains unchanged; no schema or assertion was weakened.
+
+- [x] **Step 1: Add the browser suite before report-specific CSS.** Use these complete tests and helpers in one file. Browser data mutations are test-only arrangements; reads must still enqueue no jobs. Evidence is written under a new process directory, not committed.
 
 ```ruby
 # test/system/token_usage_workspace_test.rb
@@ -1240,7 +1599,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
 end
 ```
 
-- [ ] **Step 2: Run browser RED and inspect the real cause.**
+- [x] **Step 2: Run browser RED and inspect the real cause.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task5-red.log browser_test test/system/token_usage_workspace_test.rb
@@ -1248,7 +1607,7 @@ record_check /tmp/opencode/token-usage-task5-red.log browser_test test/system/to
 
 Expected: missing grid columns, oversized/unwrapped chart or absent summary outline/44px target. Some navigation/data tests may already pass. If a test instead fails because of a fixture/locale/browser race, correct the test setup before treating it as CSS evidence. Native `details` interaction is real Enter/Space after Tab traversal; test-only opening/closing resets do not replace that assertion.
 
-- [ ] **Step 3: Add the complete report-only CSS.** These values continue the approved neutral/green/system-font foundation. The normal-text target remains 4.5:1 even for large metrics; chart/summary-border/focus targets are 3:1. Browser measurements, not the palette names, decide acceptance.
+- [x] **Step 3: Add the complete report-only CSS.** These values continue the approved neutral/green/system-font foundation. The normal-text target remains 4.5:1 even for large metrics; chart/summary-border/focus targets are 3:1. Browser measurements, not the palette names, decide acceptance.
 
 ```css
 /* app/assets/stylesheets/nosia/usage_workspace.css */
@@ -1298,7 +1657,7 @@ Add exactly one import after the shared workspace/Sources imports in `app/assets
 @import "../stylesheets/nosia/usage_workspace.css" layer(utilities);
 ```
 
-- [ ] **Step 4: Build, run browser GREEN and preserve protected regressions.**
+- [x] **Step 4: Build, run browser GREEN and preserve protected regressions.**
 
 ```bash
 record_check /tmp/opencode/token-usage-task5-build.log rails_test tailwindcss:build
@@ -1307,11 +1666,11 @@ record_check /tmp/opencode/token-usage-task5-green.log browser_test test/system/
 
 Expected: new suite plus existing browser regressions pass. Read logs for counts/exits/evidence path. If CSS needs correction, reproduce the specific failing viewport/theme first, change only the report stylesheet and preserve the failed log. Do not lower contrast/target assertions, truncate data, hide rows, change chart data, or weaken protected-page checks.
 
-- [ ] **Step 5: Inspect actual screenshots and record manual boundaries.** Open at minimum the EN global and FR account overview/methodology at 375px in both themes; both route scopes at tablet, desktop and narrow landscape; all three empty/lifetime states and no-membership screenshots in both themes. Confirm exact-number wrapping remains readable, model names are fully visible, disclosure markers/focus are clear, the chart has room and mobile actions are not obscured. Record which files were actually opened and the measured contrast minima from `contrast.jsonl`.
+- [x] **Step 5: Inspect actual screenshots and record manual boundaries.** Open at minimum the EN global and FR account overview/methodology at 375px in both themes; both route scopes at tablet, desktop and narrow landscape; all three empty/lifetime states and no-membership screenshots in both themes. Confirm exact-number wrapping remains readable, model names are fully visible, disclosure markers/focus are clear, the chart has room and mobile actions are not obscured. Record which files were actually opened and the measured contrast minima from `contrast.jsonl`.
 
 Native 200% browser zoom requires actual native-browser evidence separately. If unavailable, retain **UNVERIFIED** in the evidence/summary; CDP viewport emulation above verifies viewport size only. Do not claim a screen-reader audit, all WCAG compliance or native zoom based on these tests. If manual zoom is performed, record browser/version/OS, both scopes/themes and overlap/scroll results in a separate evidence note; do not overwrite the automated matrix's truthful limitation.
 
-- [ ] **Step 6: Commit only the browser tests, import and scoped stylesheet.**
+- [x] **Step 6: Commit only the browser tests, import and scoped stylesheet.**
 
 ```bash
 git diff --check
@@ -1324,7 +1683,7 @@ git commit -m "feat(usage): Polish responsive reporting and keyboard access"
 **Create:** `docs/token-usage-workspace.md`.
 **Modify:** `docs/README.md`, `docs/DIAGRAMS.md`.
 
-- [ ] **Step 1: Create the report guide with this content.** Documentation describes implemented behavior, not a promise that verification has already succeeded.
+- [x] **Step 1: Create the report guide with this content.** Documentation describes implemented behavior, not a promise that verification has already succeeded.
 
 ```markdown
 # Token usage workspace
@@ -1407,13 +1766,13 @@ Agent skills and MCP are later independently approved subprojects. No new report
 filters, dates, account switchers, quotas, billing, exports or forecasts are added.
 ```
 
-- [ ] **Step 2: Add the guide to the docs index.** After the existing Sources workspace item in `docs/README.md`, add:
+- [x] **Step 2: Add the guide to the docs index.** After the existing Sources workspace item in `docs/README.md`, add:
 
 ```markdown
 - [Token usage workspace](token-usage-workspace.md) — global/account reporting periods, overview/detail layout, estimates, accessibility and cache freshness.
 ```
 
-- [ ] **Step 3: Add this diagram before `## RAG Pipeline Flow` in `docs/DIAGRAMS.md`.**
+- [x] **Step 3: Add this diagram before `## RAG Pipeline Flow` in `docs/DIAGRAMS.md`.**
 
 ````markdown
 ## Token Usage Workspace
@@ -1439,7 +1798,7 @@ See [Token usage workspace](token-usage-workspace.md) for scope and limitations.
 
 ````
 
-- [ ] **Step 4: Verify local links/whitespace and commit documentation.**
+- [x] **Step 4: Verify local links/whitespace and commit documentation.**
 
 ```bash
 python3 - <<'PY'
@@ -1464,7 +1823,12 @@ Expected: links/check pass. This is not a new application-test claim.
 
 **Files:** Review the entire feature diff against the immutable Task 0 base. Update only this plan's execution record after actual evidence; corrections require their own failing test and narrow fix.
 
-- [ ] **Step 1: Run the complete focused acceptance set and existing server suite sequentially.**
+**Recorded log correction:** the original full-run filename in the historical
+command block below is the preserved interrupted attempt, not final evidence.
+Use the completed `token-usage-final-full-attempt2.log` result in the execution
+record; do not overwrite either file. Phase B does not rerun these commands.
+
+- [x] **Step 1: Run the complete focused acceptance set and existing server suite sequentially.**
 
 ```bash
 record_check /tmp/opencode/token-usage-final-focused.log rails_test test test/controllers/token_usage_workspace_shell_test.rb test/controllers/token_usage_workspace_test.rb test/helpers/token_usage_activity_test.rb test/helpers/token_usage_workspace_content_test.rb test/integration/token_usage_workspace_cache_test.rb test/models/token_usage/report_test.rb test/helpers/token_usages_helper_test.rb test/controllers/global_token_usage_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/dashboards_controller_test.rb test/controllers/account_experience_test.rb test/integration/token_summary_cache_test.rb test/integration/token_usages_test.rb test/integration/token_footer_test.rb test/integration/localized_pages_test.rb test/integration/localized_cache_test.rb test/internationalization/catalogs_test.rb
@@ -1477,7 +1841,7 @@ record_check /tmp/opencode/token-usage-final-brakeman.log mise exec ruby@4.0.7 -
 
 Expected: focused/browser/build/lint pass. Full/scanner exits are reported exactly and compared against the explicitly accepted fresh Task 0 baseline; even a reproduced accepted exit 1/3 is not called green. Do not skip tests or suppress warnings. Unexpected differences block completion.
 
-- [ ] **Step 2: Verify protected bytes, change scope and documentation.** Read the Task 0 base SHA from its evidence file, then use it explicitly in these checks; do not compare only with the last commit.
+- [x] **Step 2: Verify protected bytes, change scope and documentation.** Read the Task 0 base SHA from its evidence file, then use it explicitly in these checks; do not compare only with the last commit.
 
 ```bash
 python3 - <<'PY'
@@ -1505,9 +1869,9 @@ git status --short
 
 Inspect the whole feature's `git diff <base> --stat` and full diff as well as the working-tree stat. Review CSS selectors, raw HTML interpolation, cache blocks and all legacy assertion edits. Protected byte checks are scope guards, not a substitute for tests. If a protected file genuinely needs a change, stop, explain the evidence and obtain explicit scope approval instead of bypassing the guard.
 
-- [ ] **Step 3: Perform final specification and code-quality/security review.** Use `requesting-code-review` and Rails review skills. With Subagent-Driven execution, request independent whole-feature spec and quality reviews against the immutable base; include approved spec/plan, actual diff, task review history, baseline acceptance, test logs, screenshots actually inspected and truthful limitations. With Inline Execution, self-review and request an independent review only if authorized by the applicable skill/user. Fix real findings with RED/GREEN evidence, then rerun affected checks. Never dispatch two implementers into this shared branch/database concurrently.
+- [x] **Step 3: Perform final specification and code-quality/security review.** Use `requesting-code-review` and Rails review skills. With Subagent-Driven execution, request independent whole-feature spec and quality reviews against the immutable base; include approved spec/plan, actual diff, task review history, baseline acceptance, test logs, screenshots actually inspected and truthful limitations. With Inline Execution, self-review and request an independent review only if authorized by the applicable skill/user. Fix real findings with RED/GREEN evidence, then rerun affected checks. Never dispatch two implementers into this shared branch/database concurrently.
 
-- [ ] **Step 4: Record evidence and completion accurately.** Mark only completed steps, and append an execution record to this plan containing the immutable base/final application SHA, commit per task, test counts/assertions/seeds/exits, user acceptance of specific baseline issues, review outcomes, screenshot paths actually opened, contrast minima by theme and native-zoom status. Keep transient logs/screenshots out of Git; record enough detail to understand the outcome without those files. A documentation-only evidence update may reference the preceding application revision, avoiding a self-referential commit SHA.
+- [x] **Step 4: Record evidence and completion accurately.** Mark only completed steps, and append an execution record to this plan containing the immutable base/final application SHA, commit per task, test counts/assertions/seeds/exits, user acceptance of specific baseline issues, review outcomes, screenshot paths actually opened, contrast minima by theme and native-zoom status. Keep transient logs/screenshots out of Git; record enough detail to understand the outcome without those files. A documentation-only evidence update may reference the preceding application revision, avoiding a self-referential commit SHA.
 
 ```bash
 git diff --check
@@ -1545,4 +1909,11 @@ catalogs (17 paired keys), Markdown fences/links, test-file references and the
 documentation-only change boundary. These checks do not boot Rails or prove that
 the proposed implementation/tests pass. No subagent was dispatched for plan review.
 
-Plan written; execution method not yet selected. No application implementation or application verification has occurred for Token usage. Task checkboxes intentionally remain unchecked.
+The paragraph above records planning-time facts only. Subsequently the user chose
+**1 — Subagent-Driven** and accepted only the exact fresh baseline issues with
+**“Yes”**. Tasks 0–7 are complete as documented in the dated execution record;
+whole-feature specification and quality reviews, including final evidence, are
+approved. This documentation-only evidence commit preserves the tested application
+revision. Full suite exit 1 and scanner exit 3 remain accepted nonzero outcomes,
+not a clean suite/security scan; native 200% zoom remains **UNVERIFIED**. No merge,
+push, PR, cleanup or later-tool work follows without separate authorization.
