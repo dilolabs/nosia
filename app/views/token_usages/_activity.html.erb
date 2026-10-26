@@ -1,0 +1,43 @@
+<%# locals: (daily_totals:, scoped:, starts_at: nil, ends_at: nil) %>
+<section class="n-workspace-panel n-usage-activity" aria-labelledby="usage-activity-title">
+  <h2 id="usage-activity-title" class="n-workspace-section-title"><%= t("nosia.usage_workspace.recent") %></h2>
+  <% if scoped %>
+    <p class="n-workspace-help"><%= t("nosia.usage_workspace.account_window") %></p>
+  <% else %>
+    <p class="n-workspace-help" data-usage-window><%= l(starts_at.to_date, format: :short) %> – <%= l(ends_at.to_date, format: :short) %></p>
+  <% end %>
+  <% if daily_totals.any? %>
+    <p class="n-workspace-help" data-usage-bucket-dates><%= t("nosia.usage_workspace.bucket_dates", start: l(daily_totals.keys.first, format: :short), end: l(daily_totals.keys.last, format: :short)) %></p>
+  <% end %>
+  <% if daily_totals.values.all?(&:zero?) %>
+    <p class="n-workspace-help" data-usage-no-recent><%= t("nosia.usage_workspace.no_recent") %></p>
+  <% end %>
+  <svg viewBox="0 0 300 40" class="n-usage-chart" preserveAspectRatio="none" role="img" aria-labelledby="usage-trend-title usage-trend-description">
+    <title id="usage-trend-title"><%= t("nosia.usage_workspace.trend_title") %></title>
+    <desc id="usage-trend-description"><%= t("nosia.dashboard.trend_description") %></desc>
+    <polyline fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" points="<%= usage_trend_points(daily_totals) %>"></polyline>
+    <% if daily_totals.one? %>
+      <circle cx="0" cy="<%= usage_trend_points(daily_totals).split(',').last %>" r="2" fill="currentColor"></circle>
+    <% end %>
+  </svg>
+  <details class="n-usage-disclosure" data-usage-daily>
+    <summary><%= t("nosia.dashboard.daily_data") %></summary>
+    <table>
+      <caption class="sr-only"><%= t("nosia.dashboard.daily_data") %></caption>
+      <thead>
+        <tr>
+          <th scope="col"><%= t("nosia.dashboard.date") %></th>
+          <th scope="col"><%= t("nosia.usage.tokens_title") %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% daily_totals.each do |date, tokens| %>
+          <tr data-usage-day="<%= date.iso8601 %>">
+            <th scope="row"><%= l(date, format: :short) %></th>
+            <td data-value="<%= tokens %>"><%= number_with_delimiter(tokens) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </details>
+</section>

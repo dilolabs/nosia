@@ -1,0 +1,20 @@
+en:
+  nosia:
+    usage_workspace:
+      all_accounts: "All your accounts"
+      purpose: "Understand token activity and the estimates behind it."
+      global_scope: "Account-wide usage across your current memberships, including other members’ activity."
+      account_scope: "Account-wide usage, including other members’ activity in this account."
+      no_memberships: "You have no account memberships. This report contains zero usage."
+      overview: "Usage overview"
+      lifetime: "Lifetime"
+      recent: "Recent activity"
+      trend_title: "Daily token activity"
+      account_window: "The account report uses activity recorded after its rolling 30-day cutoff, not the global calendar window."
+      bucket_dates: "Returned activity dates: %{start} – %{end}"
+      no_recent: "No recent activity in this report. Lifetime usage may still be present."
+      estimates: "Environmental estimates"
+      estimate_caveat: "Estimates, not measured consumption. Lifetime top-five model estimates plus embedding energy use the existing coefficients."
+      context: "Report context"
+      fallback: "Fallback estimate*"
+      lifetime_breakdowns: "Lifetime breakdowns"

@@ -1,0 +1,10 @@
+<%# locals: (totals:, prefix:) %>
+<dl class="n-usage-metrics">
+  <% [:total, :input, :output].each do |kind| %>
+    <div class="n-usage-stat">
+      <dt class="n-workspace-help"><%= t("nosia.usage.#{kind}") %></dt>
+      <%= tag.dd number_with_delimiter(totals.fetch(kind)), class: kind == :total ? "n-usage-number n-usage-primary-number" : "n-usage-number", data: { "#{prefix}_#{kind}" => true, value: totals.fetch(kind) } %>
+      <dd class="n-workspace-help"><%= t("nosia.usage.token_unit", count: totals.fetch(kind)) %></dd>
+    </div>
+  <% end %>
+</dl>

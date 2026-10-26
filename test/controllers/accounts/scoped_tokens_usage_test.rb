@@ -95,15 +95,15 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
 
     get "/accounts/#{@second.id}/token_usage"
     assert_response :success
-    assert_select "section p", text: "900"
-    assert_select "section p", text: "100"
+    assert_select "[data-lifetime-input][data-value='900']"
+    assert_select "[data-lifetime-output][data-value='100']"
     assert_select "section li", text: /1,000/
     assert_equal @first, restored_tenant
     sign_in_overview(@member)
     get account_token_usage_path(@second)
     assert_response :success
-    assert_select "section p", text: "900"
-    assert_select "section p", text: "100"
+    assert_select "[data-lifetime-input][data-value='900']"
+    assert_select "[data-lifetime-output][data-value='100']"
     get account_token_usage_path(@foreign)
     assert_response :not_found
   ensure
@@ -233,12 +233,12 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
   test "global usage aggregates memberships after viewing a scoped account" do
     get account_token_usage_path(@second)
     assert_response :success
-    assert_select "section p", text: "900"
+    assert_select "[data-lifetime-input][data-value='900']"
 
     get token_usage_path
     assert_response :success
-    assert_select "#global-lifetime-summary section p", text: "910"
-    assert_select "#global-lifetime-summary section p", text: "102"
+    assert_select "#global-lifetime-summary [data-lifetime-input][data-value='910']"
+    assert_select "#global-lifetime-summary [data-lifetime-output][data-value='102']"
     assert_select "[data-lifetime-total][data-value='1012']"
   end
 
@@ -255,19 +255,19 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
       [ token_usage_path, "910", "102" ] ].each do |path, input, output|
       get path
       assert_response :success
-      assert_select "section p", text: input
-      assert_select "section p", text: output
+      assert_select "[data-lifetime-input][data-value='#{input}']"
+      assert_select "[data-lifetime-output][data-value='#{output}']"
     end
 
     @second.update_columns(input_tokens_count: 901, output_tokens_count: 101)
     get account_token_usage_path(@second)
     assert_response :success
-    assert_select "section p", text: "901"
-    assert_select "section p", text: "101"
+    assert_select "[data-lifetime-input][data-value='901']"
+    assert_select "[data-lifetime-output][data-value='101']"
     get token_usage_path
     assert_response :success
-    assert_select "#global-lifetime-summary section p", text: "911"
-    assert_select "#global-lifetime-summary section p", text: "103"
+    assert_select "#global-lifetime-summary [data-lifetime-input][data-value='911']"
+    assert_select "#global-lifetime-summary [data-lifetime-output][data-value='103']"
   ensure
     Rails.cache = previous_cache
     ActionController::Base.cache_store = previous_controller_store

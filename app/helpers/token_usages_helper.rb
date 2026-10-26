@@ -1,4 +1,23 @@
 module TokenUsagesHelper
+  # @return [Boolean] Whether this request renders the Token usage workspace
+  def token_usage_workspace_page?
+    controller_path == "token_usages"
+  end
+
+  # @param buckets [Hash{Date, String => Integer}] Existing SQL/report date buckets
+  # @return [Hash{Date => Integer}] Chronological buckets with quantities unchanged
+  def usage_display_days(buckets)
+    buckets.map { |date, tokens| [ date.to_date, tokens ] }.sort_by(&:first).to_h
+  end
+
+  # @param account [Account, nil] Already-authorized scoped account; nil is uncached global
+  # @param section [String] Headline, estimates or breakdowns presentation identity
+  # @return [Array] Locale/account/counter/version identity, never a recent-window key
+  def usage_lifetime_cache_key(account, section)
+    [ "usage-workspace-v1", I18n.locale, account, account&.input_tokens_count,
+      account&.output_tokens_count, section ]
+  end
+
   # @param daily_totals [Hash{Date => Integer}] Ordered daily token totals
   # @return [String] Numeric SVG coordinate pairs, never user-authored markup
   def usage_trend_points(daily_totals)
