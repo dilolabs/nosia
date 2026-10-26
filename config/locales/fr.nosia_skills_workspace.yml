@@ -1,0 +1,7 @@
+fr:
+  nosia:
+    skills_workspace:
+      setup_title: "Choisissez ou créez d’abord un compte"
+      setup_help: "Un compte est nécessaire pour gérer les compétences d’agent."
+      setup_action: "Voir les comptes"
+      action_failed: "La compétence n’a pas pu être modifiée. Veuillez réessayer."

@@ -1,0 +1,7 @@
+en:
+  nosia:
+    skills_workspace:
+      setup_title: "Choose or create an account first"
+      setup_help: "An account is needed before you can manage agent skills."
+      setup_action: "View accounts"
+      action_failed: "The skill could not be changed. Please try again."

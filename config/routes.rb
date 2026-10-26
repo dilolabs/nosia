@@ -34,6 +34,7 @@ Rails.application.routes.draw do
       resources :chats, only: :index, module: :accounts
       resources :sources, only: :index
       resource :token_usage, only: :show, controller: "token_usages"
+      resources :agent_skills
       resources :api_tokens, only: [ :index, :create, :destroy ]
       namespace :sources do
         resources :documents, except: :index do
