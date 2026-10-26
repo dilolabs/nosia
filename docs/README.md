@@ -75,6 +75,7 @@ Production deployment strategies, best practices, and operational guidance.
 - [Signed-in dashboard](dashboard.md) — inline conversations, cross-account token statistics, explicit tool shortcuts, and private recents.
 - [Sources workspace](sources-workspace.md) — default/scoped lists, composed filters, uploads, forms, live status, and safe details.
 - [Token usage workspace](token-usage-workspace.md) — global/account reporting periods, overview/detail layout, estimates, accessibility and cache freshness.
+- [Agent skills workspace](agent-skills-workspace.md) — default/scoped management, structured rows, raw source editing, parser limits and accessible feedback.
 - [Chat account selection](chat-account-selection.md) — picker behavior, account boundaries, and source request context.
 - [Chat composer](chat-composer.md) — shared presentation, native Lexxy controls, and UI verification.
 - [Internationalization](internationalization.md) — English/French language selection, rollout requirements, translation workflow, and verification.

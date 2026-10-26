@@ -174,6 +174,30 @@ Global and account recent periods deliberately remain different. All supplied
 account date buckets are preserved; neither route changes the default account.
 See [Token usage workspace](token-usage-workspace.md) for scope and limitations.
 
+## Agent Skills Workspace Entry Points
+
+```text
+Settings -> /agent_skills (default account)
+Account hub -> /accounts/:account_id/agent_skills (authorized URL account)
+                              |
+                     Structured rows + counts
+                       |       |        |
+                    Create   View     Enable/Disable
+                       |       |        |
+                       |   Full details + saved raw SKILL.md
+                       |       |                     |
+                       +---- Edit                Confirm Delete
+                              |                     |
+                  Source + Behavior + Advanced     Existing execution cleanup
+                              |                     |
+                   Save -> same-context list <-----+
+                   422 -> retained form + linked errors
+```
+
+URL account context is not a global preference. Enabled is not verified execution;
+source parsing, runtime behavior and API contracts remain unchanged. See
+[Agent skills workspace](agent-skills-workspace.md) for compatibility limits.
+
 ## RAG Pipeline Flow
 
 ```
