@@ -42,4 +42,35 @@ module AgentSkillsWorkspaceHelper
   def skill_workspace_enablement_path(skill)
     skills_workspace_scoped? ? account_agent_skill_enablement_path(@account, skill) : agent_skill_enablement_path(skill)
   end
+
+  # @return [String, nil] Localized account scope, escaped by normal ERB
+  def skill_workspace_scope
+    if @account
+      t(skills_workspace_scoped? ? "nosia.workspace.account" : "nosia.workspace.default_account", name: @account.name)
+    end
+  end
+
+  # @param title [String, nil] Current detail/form title
+  # @return [Array<Hash>] Complete breadcrumb for this route family
+  def skill_workspace_trail(title: nil)
+    trail = if skills_workspace_scoped?
+      [ { label: t("nosia.nav.accounts"), path: accounts_path }, { label: @account.name, path: account_path(@account) } ]
+    else
+      [ { label: t("nosia.nav.home"), path: user_root_path } ]
+    end
+    trail << { label: t("nosia.skills.title"), path: title ? skill_workspace_index_path : nil }
+    trail << { label: title, path: nil } if title
+    trail
+  end
+
+  # @return [String] Existing composer URL, contextual when a URL account exists
+  def skill_workspace_new_chat_path
+    skills_workspace_scoped? ? new_chat_path(account_id: @account.id) : new_chat_path
+  end
+
+  # @param skill [AgentSkill] Authorized deletion target
+  # @return [String] Plain confirmation, never marked HTML-safe
+  def skill_workspace_delete_confirmation(skill)
+    t("nosia.skills_workspace.delete_confirm", name: skill.name, account: @account.name)
+  end
 end

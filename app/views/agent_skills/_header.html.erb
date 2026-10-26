@@ -1,0 +1,6 @@
+<%# locals: (title:, current: nil, description: nil, back_path: nil, primary: nil) %>
+<% actions = capture do %>
+  <div class="hidden lg:block"><%= link_to t("nosia.nav.new_chat"), skill_workspace_new_chat_path, class: "n-workspace-link" %></div>
+  <%= primary %>
+<% end %>
+<%= render "workspaces/header", title: title, description: description, scope_label: skill_workspace_scope, trail: skill_workspace_trail(title: current), back_path: back_path, actions: actions %>

@@ -1,57 +1,24 @@
-<div class="n-title-container flex justify-between items-center">
-  <h2 class="n-main-title"><%= @agent_skill.name %></h2>
-  <div class="flex items-center gap-2">
-    <%= link_to t("nosia.actions.edit"), edit_agent_skill_path(@agent_skill), class: "n-btn-primary" %>
-    <%= link_to t("nosia.actions.back"), agent_skills_path, class: "n-btn" %>
-  </div>
-</div>
-
-<div class="my-4 max-w-4xl space-y-4">
-  <div class="n-card n-main-border">
-    <div class="m-6 space-y-4">
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="n-tag <%= @agent_skill.enabled? ? "n-tag-ready" : "n-tag-disconnected" %>">
-          <%= t(@agent_skill.enabled? ? "nosia.skills.enabled" : "nosia.skills.disabled") %>
-        </span>
-        <span class="n-tag n-tag-disconnected"><%= t("nosia.skills.execution.#{@agent_skill.execution_mode}") %></span>
-        <span class="n-tag n-tag-disconnected"><%= t("nosia.skills.trigger.#{@agent_skill.trigger_mode}") %></span>
-        <% if @agent_skill.requires_rag_context %>
-          <span class="n-tag n-tag-connecting"><%= t("nosia.skills.requires_rag") %></span>
-        <% end %>
-      </div>
-
-      <div>
-        <p class="n-label font-medium"><%= t("nosia.skills.description") %></p>
-        <div class="text-sm text-neutral-700 dark:text-neutral-300">
-          <%= simple_format(@agent_skill.description) %>
-        </div>
-      </div>
-
-      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-        <div>
-          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.execution_mode") %></dt>
-          <dd class="font-medium"><%= t("nosia.skills.execution.#{@agent_skill.execution_mode}") %></dd>
-        </div>
-        <div>
-          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.trigger_mode") %></dt>
-          <dd class="font-medium"><%= t("nosia.skills.trigger.#{@agent_skill.trigger_mode}") %></dd>
-        </div>
-        <div>
-          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.rag_context") %></dt>
-          <dd class="font-medium"><%= t(@agent_skill.requires_rag_context ? "nosia.skills.yes" : "nosia.skills.no") %></dd>
-        </div>
-        <div>
-          <dt class="text-neutral-500 dark:text-neutral-400"><%= t("nosia.skills.priority") %></dt>
-          <dd class="font-medium"><%= @agent_skill.priority %></dd>
-        </div>
-      </dl>
+<div class="n-workspace n-skills-workspace" data-skills-workspace data-skill-detail>
+  <%= render "agent_skills/header", title: @agent_skill.name, current: @agent_skill.name, back_path: skill_workspace_index_path, primary: link_to(t("nosia.skills.edit"), skill_workspace_edit_path(@agent_skill), class: "n-workspace-button n-workspace-primary") %>
+  <%= render "agent_skills/feedback" %>
+  <section class="n-workspace-panel n-skills-detail">
+    <div class="n-skills-actions">
+      <span class="n-skills-badge" data-skill-enabled="<%= @agent_skill.enabled? %>"><%= t(@agent_skill.enabled? ? "nosia.skills.enabled" : "nosia.skills.disabled") %></span>
+      <%= render "agent_skills/state_action", skill: @agent_skill %>
     </div>
-  </div>
-
-  <div class="n-card n-main-border">
-    <div class="m-6 space-y-3">
-      <h3 class="font-semibold"><%= t("nosia.skills.content") %></h3>
-      <pre class="bg-neutral-100 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap"><%= @agent_skill.skill_content_text %></pre>
-    </div>
-  </div>
+    <h2 class="n-workspace-section-title"><%= t("nosia.skills.description") %></h2>
+    <div data-skill-description><%= simple_format(@agent_skill.description) %></div>
+    <% if @agent_skill.tags_list.present? %><p class="n-workspace-help"><span><%= t("nosia.skills.tags") %></span> <%= @agent_skill.tags_list %></p><% end %>
+    <%= render "agent_skills/settings", skill: @agent_skill %>
+    <p class="n-workspace-help"><%= t("nosia.skills_workspace.availability_note") %></p>
+  </section>
+  <section class="n-workspace-panel" aria-labelledby="skill-source-title">
+    <h2 id="skill-source-title" class="n-workspace-section-title"><%= t("nosia.skills.content") %></h2>
+    <pre data-skill-source class="n-skills-source"><%= @agent_skill.skill_content_text %></pre>
+  </section>
+  <section class="n-workspace-panel n-skills-danger" data-skill-delete-section aria-labelledby="skill-delete-title">
+    <h2 id="skill-delete-title" class="n-workspace-section-title"><%= t("nosia.skills.delete") %></h2>
+    <p class="n-workspace-help"><%= t("nosia.skills_workspace.delete_help") %></p>
+    <%= button_to t("nosia.skills.delete"), skill_workspace_path(@agent_skill), method: :delete, class: "n-workspace-button n-workspace-danger", data: { skill_delete: true, turbo_submits_with: t("nosia.skills_workspace.deleting") }, form: { data: { skill_delete: true, turbo_confirm: skill_workspace_delete_confirmation(@agent_skill), controller: "html-form", action: "turbo:before-fetch-request->html-form#requestHTML" } } %>
+  </section>
 </div>

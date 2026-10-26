@@ -107,8 +107,8 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 
     get agent_skills_url, headers: headers
     assert_response :success
-    assert_select "h2", text: "Compétences d’agent"
-    assert_select "span.sr-only", text: "Désactiver la compétence"
+    assert_select "h1", text: "Compétences d’agent"
+    assert_select "button", text: "Désactiver la compétence"
     assert_select "span", text: "Étiquettes :"
     assert_select ".n-tag", text: "LLM"
     assert_select ".n-tag", text: "Explicite"
@@ -116,7 +116,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 
     get agent_skill_url(skill), headers: headers
     assert_response :success
-    assert_select "h2", text: skill.name
+    assert_select "h1", text: skill.name
     assert_select "p", text: "Original skill description"
     assert_select "pre", text: skill.skill_content
     assert_select "dt", text: "Contexte RAG"

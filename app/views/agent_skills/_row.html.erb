@@ -1,0 +1,15 @@
+<%# locals: (skill:) %>
+<li id="<%= dom_id(skill) %>" class="n-skills-row" data-skill-id="<%= skill.id %>">
+  <div class="n-skills-identity">
+    <h2><%= link_to skill.name, skill_workspace_path(skill), class: "n-workspace-link" %></h2>
+    <p class="n-workspace-help"><%= truncate(skill.description.to_s, length: 140) %></p>
+    <% if skill.tags_list.present? %><p class="n-workspace-help"><span><%= t("nosia.skills.tags") %></span> <%= skill.tags_list %></p><% end %>
+  </div>
+  <%= render "agent_skills/settings", skill: skill %>
+  <div><span class="n-skills-badge" data-skill-enabled="<%= skill.enabled? %>"><%= t(skill.enabled? ? "nosia.skills.enabled" : "nosia.skills.disabled") %></span></div>
+  <div class="n-skills-actions">
+    <%= link_to t("nosia.skills_workspace.view"), skill_workspace_path(skill), class: "n-workspace-link", aria: { label: "#{t('nosia.skills_workspace.view')}: #{skill.name}" } %>
+    <%= link_to t("nosia.skills.edit"), skill_workspace_edit_path(skill), class: "n-workspace-link", aria: { label: "#{t('nosia.skills.edit')}: #{skill.name}" } %>
+    <%= render "agent_skills/state_action", skill: skill %>
+  </div>
+</li>
