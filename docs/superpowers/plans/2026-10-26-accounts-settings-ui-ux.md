@@ -1,5 +1,7 @@
 # Accounts Navigation and Settings UI/UX Implementation Plan
 
+**Status: execution complete with accepted baseline concerns, not a clean full-suite/security gate.** Tasks 0–4 and Task 5 verification/reviews/record are complete; parent documentation-record re-review, handoff and the user's integration choice remain pending. Application evidence covers the freshly tested revision `bc94c1ed8eee7f958bf969310cd6a25ccf4a3a68`, not this later documentation-only record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers-ruby:subagent-driven-development (recommended) or superpowers-ruby:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver the approved Accounts breadcrumbs/actions and balanced four-card Settings hub without changing account behavior or redesigning Settings destinations.
@@ -8,9 +10,135 @@
 
 **Tech Stack:** Observed checkout: Ruby 4.0.7, Rails 8.0.5.1, PostgreSQL, Minitest/fixtures, Selenium/Capybara, Turbo/Stimulus, Importmap, Propshaft, Tailwind 4.1.16. Do not alter dependencies to match the generic stack description in AGENTS.md.
 
+## Execution record — 2026-10-26
+
+### Authority, revision and scope
+
+- The user approved the written specification with **“go”**, then selected **“1 — Subagent-driven”** after plan commit `e3c475b`. After fresh Task 0 baselines, the user selected **“Proceed (Recommended)”**, accepting only the exact full/browser/security/JSON issues recorded below for this feature. This did **not** authorize fixing, skipping or suppressing them, or waiving new failures. Limited disk headroom was reported, not represented as an explicit user waiver.
+- Immutable feature base: `e3c475b46e58b783c38de8057c6377784696f5ac`. Worktree: `/home/cbldev/gitd/dilolabs/nosia/.worktrees/accounts-settings-ui`; branch: `feat/accounts-settings-ui`.
+- Freshly tested revision: **`bc94c1ed8eee7f958bf969310cd6a25ccf4a3a68`**; tree: **`7cbb07600578c6a20accdafb56456e2d18e52fe9`**. Last application/test commit: `9c5f796d64687abe327d02de84ab06c69ce3cc2a`.
+- Runtime: Ruby **4.0.7**, Rails **8.0.5.1**, PostgreSQL **18.6**, Tailwind **4.1.16**, Brakeman **8.0.4**, Chromium/ChromeDriver **156.0.8078.47**, Minitest fixtures, single worker, local Selenium/Puma. Every execution shell sourced `/tmp/opencode/accounts-settings-env.sh`. Nondisplaying dotenv loaded the main environment only before fixed test/database/sentinel-key/worker overrides; no main `.env` was read, printed or copied. Database-sharing checks were sequential in the dedicated `nosia_accounts_settings_ui_test` database.
+- Before this record, the complete feature diff was exactly **25 allowed files, 642 insertions / 59 deletions**. No controllers/models/auth/routes/dependencies/schema/JavaScript/destination views changed. Shared-header default labels, nested account/form and Skills guards, escaping, 403/404 behavior, read-only routing and default-account preservation were reviewed and tested. This record changes **only this plan**, making 26 feature-diff paths without changing code.
+
+| Task | Actual commit(s) |
+| --- | --- |
+| 0: isolated baseline / external recorder correction | No application commit |
+| 1: Accounts header/actions; review-driven title correction | `7be274895ac8705f3ea0512774424098d69f9ba8`, `5cc21b666347a67990d703519783e62407d2c061` |
+| 2: four-card Settings hub | `b73bfda1da469b180f078ec08a3e8d0a0a0dfbfb` |
+| 3: scoped styling/browser coverage; review-driven genuine-hover correction | `25c02862bacb41b4eb39070823fa8b10bfaac9b0`, `9c5f796d64687abe327d02de84ab06c69ce3cc2a` |
+| 4: navigation guide / documentation links | `bc94c1ed8eee7f958bf969310cd6a25ccf4a3a68` |
+
+### Baseline versus fresh final verification
+
+External evidence root **E** is `/tmp/opencode/accounts-settings-f6n4RE/`; log names in this record are relative to E unless otherwise specified. Every recorded log has a same-stem `.exit` retaining its actual status. Result notation below is **runs/assertions; failures/errors/skips; seed; exit**. Reviews are not tests and are not added to these counts.
+
+| Category | Fresh Task 0 baseline | Fresh final at tested revision |
+| --- | --- | --- |
+| Focused | 253/15124; 0/0/0; 3761; **0** — `baseline-focused.OGEmjD.log` | 261/15499; 0/0/0; 22112; **0** — `final-focused.CVZ20E.log` |
+| Full | 1152/22566; 0/1/0; 27439; **1** — `baseline-full.kHrIDg.log` | 1160/22941; 0/1/0; 21917; **1** — `final-full.dldN1i.log` |
+| Browser | 44/18632; 0/6/0; 36679; **1** — `baseline-browser.yyfERE.log` | Combined six files: 47/23986; 0/6/0; 59252; **1** — `final-browser.BcbAho.log` |
+| Brakeman | 79 checks, 0 scan errors, 2 high-confidence warnings; **3** — `baseline-security.nAVHxa.log` | 79 checks, 0 scan errors, same 2 warnings; **3** — `final-security.V0OhJA.log` |
+| Build | Tailwind build; **0** — `baseline-build.AJB0wp.log` | Tailwind 4.1.16, 197ms; **0** — `final-build.eR9vXt.log` |
+| Targeted lint | Not a Task 0 category | 8 files, no offenses; **0** — `final-lint.XCIypV.log` |
+
+The exact six final commands are retained in Task 5 Step 1 below and in **`E/task5-phase-a-qba8uzgs/command-manifest.json`**. That directory also contains `results.json` (commands/logs/counts/seeds/exits/hashes), `support-command-manifest.sh`, `report.md`, `complete-feature.diff`, `source-boundary.json`, `baseline-comparison.json`, `artifact-summary.json` and `final-checkpoint.json`. These are local external evidence, not portable repository attachments. Selected task-level commands/raw paths are in the task reports listed below. No previous redesign evidence substitutes for this final run.
+
+Final supporting raw logs (all exit **0**) are `final-tree-check.VOAQw4.log`, `final-status.2tDfpi.log`, `final-log.EgEhLh.log`, `final-diff-stat.YdkGoS.log`, `final-feature-whitespace.rVnru3.log`, `final-source-artifact-audit.Gmhh03.log`, `final-runtime.CIVFcl.log`, `final-disk.5Vz9FW.log`, `final-browser-version.jmsnN0.log`, `final-driver-version.FHjtcS.log` and `final-return-checkpoint.5OLFmC.log`. Final focused/full/browser runtimes were **72.047241s / 441.663029s / 281.494399s**; Brakeman **1.441690156s**. The final clean checkpoint was 22:11:01 UTC, 1145.054815s after Phase A began.
+
+**Exact accepted issues, still not green:**
+
+- Full: `Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults` — `NoMethodError: undefined method 'augmented_context'` on the Struct double; `app/models/chat/completionable.rb:39`, called from `test/models/chat/request_options_test.rb:32` (test starts 29).
+- Browser: all six are `ProfileManagementTest`, `Capybara::ElementNotFound: Unable to find css "button[type=submit]"` in the language-preference form, from `switch_language` at `test/system/profile_management_test.rb:272` (block starts 270):
+  - `test_long_email_and_French_validation_errors_stay_contained_in_the_mobile_scrolling_region` (test 171, call 173).
+  - `test_signed_language_preferences_keep_mobile_profile_controls_contained_and_keyboard_accessible_in_both_themes` (test 126, call 130).
+  - `test_native_Tab_keeps_every_en_light_mobile_profile_control_fully_above_the_bottom_navigation`.
+  - `test_native_Tab_keeps_every_en_dark_mobile_profile_control_fully_above_the_bottom_navigation`.
+  - `test_native_Tab_keeps_every_fr_light_mobile_profile_control_fully_above_the_bottom_navigation`.
+  - `test_native_Tab_keeps_every_fr_dark_mobile_profile_control_fully_above_the_bottom_navigation` (four generated tests start 147, call 149).
+- Brakeman: high-confidence **`PermitAttributes`**, `params.require(:api_token).permit(:account_id, :name)`, `app/controllers/api_tokens_controller.rb:62`; high-confidence **`EOLRails`**, “Support for Rails 8.0.5.1 ended on 2026-10-07”, `Gemfile.lock:318`. Neither warning was suppressed.
+- Focused and full each emit **7 JSON duplicate-key warnings**: `tools_cache` twice, `last_test_at` five times; ActiveSupport `encoding.rb:110` / `decoding.rb:25` warn about JSON 3.0 without `allow_duplicate_key: true`.
+
+Final comparison used exact test identities/messages (normalizing only the transient object address for the full error), the complete identical Brakeman warning sections and byte-identical error source files at immutable base/tested HEAD/working tree, **not merely equal counts**. There were no new failures/errors/warnings observed. Affected later Profile assertions did not execute and are not claimed passing. All three new feature browser tests passed within the combined run; per-file assertion totals are not invented.
+
+### TDD and review-driven corrections — selected preserved evidence
+
+All test rows use the notation above; original failed attempts remain intact. Full command arguments and additional diagnostic/build/lint/commit evidence are in `task1-final-report.md`, `task1-title-fix-supplement.md`, `task2-implementation-report-b73bfda.md`, `task3-implementer-report-yw7xuq.md` and `task3-hover-fix-report-d9svw7.md` under E.
+
+| Check | Actual result | Raw log |
+| --- | --- | --- |
+| Task 1 scoped feature RED before app edits | 5/30; 3/0/0; 32805; **1** | `accounts-red-scoped.sJB9Py.log` |
+| Task 1 request GREEN after pagination scope adapter | 187/14069; 0/0/0; 12300; **0** | `accounts-green-scoped.JOJuEn.log` |
+| Task 1 exact-title RED before title fix | 5/26; 2/0/0; 49443; **1** | `accounts-title-red.PtsnbQ.log` |
+| Task 1 bilingual title/request GREEN | 187/14077; 0/0/0; 35278; **0** | `accounts-title-green.yguXHM.log` |
+| Task 2 feature RED | 3/12; 3/0/0; 59680; **1** | `settings-red.DWjiUY.log` |
+| Task 2 root/descendant selector probe | 1/17; 0/0/0; 38810; **0** | `settings-selector-probe.GhxQcX.log` |
+| Task 2 request GREEN | 52/12084; 0/0/0; 1189; **0** | `settings-green.Cx04iR.log` |
+| Task 3 unstyled-card browser RED before CSS | 3/921; 2/0/0; 60112; **1** | `browser-red.3RvPfW.log` |
+| Task 3 initial browser GREEN — **not genuine-hover proof** | 3/5180; 0/0/0; 17783; **0** | `browser-green.c8PYpo.log` |
+| Task 3 actual-hover regression RED before capability fix | 3/1068; 1/0/0; 10392; **1** | `task3-hover-red.hTtWi5.log` |
+| Task 3 genuine-hover browser GREEN | 3/5333; 0/0/0; 5223; **0** | `task3-hover-green.Q8Nwmk.log` |
+| Task 3 corrected protected suite — not green | 44/18653; 0/6/0; 15099; **1** | `task3-hover-protected-browser.y50bGc.log` |
+
+Task 4 was prose-only, with static documentation/link/YARD/source-byte checks, **no artificial RED or app reruns**; see `E/task4-documentation-report-bc94c1e.md` and `E/task4-static-checks-20261026-implementer.json` / `.exit`. Final Phase A then freshly verified the complete implementation.
+
+### AUTHORITATIVE PLAN CORRECTIONS
+
+These corrections **supersede the historical snippets below**; checked boxes mean completion as actually corrected and evidenced, not that every original snippet was correct or native zoom was verified.
+
+1. **Task 0 recorder:** the original snippet conflated logfile-open failure with command status and failed to classify a failed final `printf`. The external helper was hardened with a separately opened FD and recorder-error exit **125**, preserving actual command exits in sidecars. Harmless local sentinels passed **11/11 assertions in each of Bash and zsh**; original helper failed 3/11 in each (suite exits 1 versus corrected 0). Evidence: `E/recorder-review-cl8WOv/recorder-supplement-cl8WOv.md`, `recorder-review-cl8WOv/patched-bash-eEZSe1/sentinel-report.log`, `recorder-review-cl8WOv/patched-zsh-Sk3Wy8/sentinel-report.log`, original-shell counterparts, and `recorder-review-cl8WOv/supplemental-integrity.Oa4sC9.log`. All **47 original evidence files** were byte-preserved. This was external-only; no baseline app/build/DB checks were repeated for the recorder correction. Use this actual implementation, not the original Task 0 version:
+
+   ```sh
+   record() {
+     local label="$1" log result log_fd recorder_result=0
+     shift
+     log="$(mktemp "$EVIDENCE/$label.XXXXXX.log")" || return 125
+     exec {log_fd}>"$log" || return 125
+     if "$@" >&"$log_fd" 2>&1; then result=0; else result=$?; fi
+     printf '%s\n' "$result" >"${log%.log}.exit" || recorder_result=125
+     exec {log_fd}>&- || recorder_result=125
+     if test "$recorder_result" -ne 0; then
+       printf 'Recorder failed; command exit was %s\n' "$result" >&2
+       return 125
+     fi
+     tail -n 25 "$log" || return 125
+     printf 'Evidence: %s (command exit %s)\n' "$log" "$result" || return 125
+     return "$result"
+   }
+   ```
+
+2. **Task 1 selectors and titles:** `main nav` scoping excludes the global Home-logo link from overview/form assertions; directory trail count uses its exact localized breadcrumb label to exclude preserved pagination navigation. Counts, paths, labels, keyboard/contrast thresholds and form contracts were retained. Original diagnostic logs include `accounts-red.92pPrR.log` and `accounts-green.JULkOp.log`. The plan had retained duplicate `content_for :title` writers; Action View appends, producing `AccountsAccounts` / `ComptesComptes` and doubled account names. The approved requirement to preserve titles took precedence: remove the two redundant Accounts assignments, leaving the shared header the **sole writer**, with exact EN/FR count/equality RED→GREEN coverage. No unrelated shared `flush` change.
+3. **Task 2 selected-anchor root:** nested `assert_select "a, button, input, select"` includes the selected card anchor itself. Use explicit descendants (`[data-settings-card] a`, `button`, `input`, `select` with the same prefix each), preserving zero nested controls. The in-memory probe injected **each of all four controls** and confirmed the corrected assertion rejects them; no semantic weakening. Initial selector failure remains in `settings-green.HEmDaC.log`.
+4. **Task 3 actual hover:** initial headless Chromium advertised `hover:none` / `pointer:none`, so the media-gated card backgrounds never activated despite `:hover` and heading underline. **The old hover-contrast claim is WITHDRAWN**; initial `contrast.jsonl` is not actual hovered-surface proof. The new RED required effective hover/fine media, real pointer-off/default background, native pointer-on/`:hover`, changed expected computed background and stable bounds. CDP touch/media probes did not enable effective capability; failures/probes remain in `E/task3-hover-investigation-l08kug.md` and `/tmp/opencode/accounts-settings-browser-20261026-98080-l08kug/hover.jsonl`. Parent approved only `--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4` in dedicated driver `accounts_settings_workspace_desktop_hover` and unique `accounts_settings_workspace_<object-id>` session. Phase/capability/background metadata and nested-ensure quit/selection/default-registration restoration were added; no forced CSS/pseudostyles, default-driver overwrite or production CSS change. The portability correction creates the evidence parent before `Dir.mktmpdir` (`task3-parent-directory-probe.vCzPf7.log`, exit 0). Both review findings were resolved and re-reviewed.
+
+### Fresh browser artifacts and remaining limits
+
+- Final source: `/tmp/opencode/accounts-settings-browser-20261026-105885-sw46v0`. Snapshots: **`E/task5-phase-a-qba8uzgs/browser-snapshots/accounts-settings-browser-20261026-105885-sw46v0/`** (`matrix.json`, `hover.jsonl`, `contrast.jsonl`, `driver-cleanup.json`, 40 feature PNGs). The sibling `accounts-settings-browser-20261026-105885-tmmxcw` and `accounts-settings-browser-20261026-105885-uldbul` snapshot directories contain the other two successful cleanup records. Paths/hashes are in `artifact-summary.json`.
+- **48 unique states**: directory/account/settings × en/fr × light/dark × 375×812, 768×1024, 1440×1000, 812×375. Native Tab/Shift+Tab/Enter, >=44px target heights, >=2px outlines, full focused-action containment/four-edge visibility, no horizontal overflow/clipping, reduced motion, 768px two-column Settings grid, mobile clearance and exact routes/context/record/job invariants passed.
+- **16 genuine hover pairs**, all effective hover/fine, actual false→true `:hover`, correct changed backgrounds and identical bounds. **64 contrast records / 1256 samples**, including 16 unhovered and 16 hovered Settings records: minimum text **4.9454574123:1** (>=4.5), non-text/focus **3.1916051526:1** (>=3). Actual light backgrounds `[255,255,255,255]`→`[250,250,250,255]`, dark `[38,38,38,255]`→`[23,23,23,255]`; first-card inner-border ratios change 4.7416671816→4.5428484140 and 3.1916051526→3.7809149328. **All three cleanup records** restore `selenium` / `default` and unchanged original registration. Combined protected execution introduced no new failure/error.
+- Phase A implementer opened **32/40 final PNGs**: all 8 directory and 8 account images for `{en,fr}` × `{375-812,1440-1000}` × `{light,dark}`, plus all 16 corresponding Settings `{unhovered,hovered}` pairs. Exact selection is in `final-checkpoint.json` and `report.md`. The 8 additional Settings images without phase suffixes were preserved, not separately opened. Viewport/post-reset/intentional-hover-scroll images are **not focused-state proof**; strict keyboard visibility assertions run before those later captures. Long headings can naturally extend below the viewport. Parent opened selected prior-phase images and final reviewers inspected final representatives; no claim that parent/reviewers opened all final screenshots.
+- **Native headed/manual 200% browser zoom remains UNVERIFIED.** Viewport/CDP/device-scale and the startup flag are not zoom proof. The flag is explicitly **desktop-input capability emulation, not physical hardware evidence**. Remote configuration is structurally preserved but unexercised; the local wrapper clears `CAPYBARA_SERVER_PORT`. These sampled checks are not an exhaustive screen-reader/assistive-technology/device or target-width audit.
+- Final root headroom was about **7.3 GiB** (89% used); `/tmp` about **3.7 GiB**. No observed disk blocker, no cleanup. No merge/push/PR/worktree removal/discard authorization. Main user work and the parent's ignored tracker were not touched; no unsupported assertion about other worktree contents.
+
+### Independent review record and docs-only handoff boundary
+
+| Task | Implementer session | Specification review | Quality review |
+| --- | --- | --- | --- |
+| 0 | `ses_e8638c64effe3yQ4yLIggmzhTi` | `ses_e86283450ffe53tTrsZgWp4y3o` | `ses_e8625cf71ffeN7oevyOCfFJE6I` |
+| 1 | `ses_e861a01a0ffeMoOK8YRQXqUE8K` | `ses_e8610377effeERhtQ2CFL9qsIS` | `ses_e86097144ffeJzd6t7lsQSsRBD` |
+| 2 | `ses_e86063001ffevkslKx26iVXPzf` | `ses_e860130b1ffefYapAWp4ATu6LB` | `ses_e85ff8bc5ffeuCNt3vRfgSp4rK` |
+| 3 | `ses_e85fb99a4ffe0VIgM7YMnfiacY` | `ses_e85f25115ffeiqvgu1uQXbNKRm` | `ses_e85eff1a7ffeh8hMISCWZHy4fH` |
+| 4 | `ses_e85d615d9ffeNQxoaHGD9XYvEU` | `ses_e85d2319bffewTfimu3d2dO01H` | `ses_e85d08bd0ffeXHRPcHu8SzU13m` |
+| 5 Phase A / whole feature | `ses_e85cd7f95ffeOw4mftYSIVoNAS` | `ses_e85b9ff1fffeweT1sCwpYNqXsf` | `ses_e85b60ed7ffeIigWB59k7ssFvl` |
+
+Tasks 0–4 received independent spec/quality approval: Task 0 reviewers re-reviewed the recorder correction; Task 1 spec's duplicate-title finding was fixed/re-reviewed; Task 3's genuine-hover and evidence-parent findings were fixed/re-reviewed. Fresh whole-feature SPEC found implementation + Phase A evidence compliant, no issues; final QUALITY approved the implementation + fresh evidence for documentation record/handoff, no issues. Parent independently read the actual final raw logs/diff and confirmed results. **These verdicts are not a clean full-suite/security gate or merge approval.**
+
+Phase B is this authorized plan-only record. No app/test/build/DB/security reruns are needed or claimed for unchanged bytes. Before editing, all **1223 other tracked paths** (including modes/index) matched the exact tested revision; digest of their complete manifest: `4255d4df65f3178bb412169413e6547e2ec2b3f7b06b2aba8cfb1afceda4e98b`. Helper SHA-256: `46b34e5925b8395831df7653f31be98decdbcbfe795a2eab05bcad878aa9c241`; Phase A `source-boundary.json` SHA-256: `77f3bc051f9c765473d1d1f33a4164a3ba6e8f1606f654eb6cb225ab2c7513a3`. New static docs, before/after identity proofs, exact documentation commit identity and a separate Phase B report are retained under **`E/task5-phase-b-P8xZeN/`**; that external report, not a self-referential future SHA here, records the docs commit. Parent documentation-record re-review/handoff and Task 5 Step 5/user integration choice remain pending.
+
 ---
 
 ## Authority and execution boundary
+
+**Historical planning context:** the original task bodies and planning-only self-review below are retained for traceability. Pending-tense execution instructions here describe the pre-execution state; the execution record and authoritative corrections above supersede them. Checked steps include disclosed baseline/zoom limitations, not unqualified green gates.
 
 - Approved [specification](../specs/2026-10-26-accounts-settings-ui-ux-design.md), originally committed as `52f026b`; user answered **“go”** to written-spec review.
 - Scope is `/accounts`, `/accounts/:id`, `/settings`. Preserve account New/Edit and nested tool pages. Settings still has exactly Agent skills, API tokens, MCP servers and System prompts, in that order.
@@ -50,7 +178,7 @@ Do not modify controllers, models, authentication, routes, database files, JavaS
 
 **Files:** No tracked application edits. External evidence under `/tmp/opencode/`; a dedicated worktree/database for this task only.
 
-- [ ] **Step 1: Inspect the current checkout and create isolation.** Use using-git-worktrees before creating the worktree. From the main repository, verify the branch/path do not already exist; if they do, investigate rather than overwrite. Run:
+- [x] **Step 1: Inspect the current checkout and create isolation.** Use using-git-worktrees before creating the worktree. From the main repository, verify the branch/path do not already exist; if they do, investigate rather than overwrite. Run:
 
 ```sh
 git status --short
@@ -61,7 +189,7 @@ git worktree add .worktrees/accounts-settings-ui -b feat/accounts-settings-ui HE
 
 Move the session to `/home/cbldev/gitd/dilolabs/nosia/.worktrees/accounts-settings-ui` when it becomes the execution directory. PostgreSQL is in use; do not copy development databases or `.env` files into it. Record `git rev-parse HEAD` as the immutable feature base.
 
-- [ ] **Step 2: Save these shell helpers outside the repository.** Create `/tmp/opencode/accounts-settings-env.sh` with this content; source it in each execution shell. Commands assume the worktree is the working directory. Loading the existing environment through dotenv is allowed; do not display its contents or real keys.
+- [x] **Step 2: Save these shell helpers outside the repository.** Create `/tmp/opencode/accounts-settings-env.sh` with this content; source it in each execution shell. Commands assume the worktree is the working directory. Loading the existing environment through dotenv is allowed; do not display its contents or real keys.
 
 ```sh
 export NOSIA_MAIN=/home/cbldev/gitd/dilolabs/nosia
@@ -99,7 +227,7 @@ record() {
 
 Keep the first `EVIDENCE` directory when sourcing in later shells: replace the `mktemp` assignment in the saved helper with that actual absolute directory after the first source. Every `record` call creates a new filename; failed runs remain intact. No pipeline may hide the original exit. No provider/ingestion/queue workers. Do not install missing packages without permission.
 
-- [ ] **Step 3: Check prerequisites and prepare only the named test database.** Run sequentially:
+- [x] **Step 3: Check prerequisites and prepare only the named test database.** Run sequentially:
 
 ```sh
 mise exec ruby@4.0.7 -- ruby --version
@@ -114,7 +242,7 @@ record baseline-build rails_test tailwindcss:build
 
 If database preparation, extensions, runtime or browser prerequisites are unavailable, stop and report the blocker. Never reset/drop a shared database or change the app to make setup easier.
 
-- [ ] **Step 4: Record fresh baselines before new tests/application edits.** Run sequentially:
+- [x] **Step 4: Record fresh baselines before new tests/application edits.** Run sequentially:
 
 ```sh
 record baseline-focused rails_test test test/controllers/account_experience_test.rb test/controllers/accounts_controller_test.rb test/controllers/accounts test/controllers/sources_workspace_shell_test.rb test/controllers/token_usage_workspace_shell_test.rb test/controllers/agent_skills_workspace_shell_test.rb test/controllers/dashboards_controller_test.rb test/integration/token_usages_test.rb test/integration/header_navigation_test.rb test/integration/localized_pages_test.rb test/internationalization/catalogs_test.rb
@@ -125,13 +253,13 @@ record baseline-security mise exec ruby@4.0.7 -- bundle exec brakeman --no-pager
 
 Previous work reported a missing `augmented_context` method in a `Chat::RequestOptionsTest` double, Brakeman `PermitAttributes`/`EOLRails` warnings, JSON duplicate-key warnings and limited disk headroom. These are historical clues, not current acceptance. Record actual errors/warnings/exits and obtain explicit user acceptance of any reproduced baseline failures before proceeding. Do not fix, suppress or skip unrelated failures.
 
-- [ ] **Step 5: Checkpoint.** Confirm no tracked application files changed and no generated CSS is staged. No source commit is needed for environment preparation.
+- [x] **Step 5: Checkpoint.** Confirm no tracked application files changed and no generated CSS is staged. No source commit is needed for environment preparation.
 
 ## Task 1: Accounts workspace breadcrumbs and actions
 
 **Files:** `test/controllers/accounts_workspace_shell_test.rb`; `app/helpers/accounts_helper.rb`; `app/views/accounts/{index,show}.html.erb`; `app/views/workspaces/_header.html.erb`; `app/views/layouts/application.html.erb`; the two Accounts workspace locale files; `test/system/account_experience_test.rb`.
 
-- [ ] **Step 1: Write this complete request test file before application edits.**
+- [x] **Step 1: Write this complete request test file before application edits.**
 
 ```ruby
 require "test_helper"
@@ -220,7 +348,7 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 ```sh
 record accounts-red rails_test test test/controllers/accounts_workspace_shell_test.rb
@@ -228,7 +356,7 @@ record accounts-red rails_test test test/controllers/accounts_workspace_shell_te
 
 Expected new-feature failures: directory lacks a semantic trail/workspace header; overview lacks the Home ancestor/new action styling. Existing form/member/404 characterization may already pass. Missing fixture/setup/runtime failures are not a valid RED.
 
-- [ ] **Step 3: Implement the minimal header contracts.** Append these public helpers inside `AccountsHelper`, keeping existing helpers unchanged:
+- [x] **Step 3: Implement the minimal header contracts.** Append these public helpers inside `AccountsHelper`, keeping existing helpers unchanged:
 
 ```ruby
 # @return [Boolean] Whether the page owns an Accounts workspace header/trail
@@ -317,7 +445,7 @@ fr:
       description: "Ouvrez un compte pour gérer ses sources et ses conversations."
 ```
 
-- [ ] **Step 4: Preserve the existing account browser contrast test after the markup migration.** In `record_account_contrast`, replace its initial action lookup with:
+- [x] **Step 4: Preserve the existing account browser contrast test after the markup migration.** In `record_account_contrast`, replace its initial action lookup with:
 
 ```ruby
 tab_to_account_action(URI(find(".n-workspace-header .n-workspace-primary", match: :first)[:href]).request_uri)
@@ -335,7 +463,7 @@ Replace only the text sample selector array in its JavaScript with:
 
 Retain icon/focus samples, all thresholds, keyboard order assertions and every other test. This is an intentional selector update, not permission to skip failing accessibility checks.
 
-- [ ] **Step 5: Run GREEN and protected regressions.**
+- [x] **Step 5: Run GREEN and protected regressions.**
 
 ```sh
 record accounts-green rails_test test test/controllers/accounts_workspace_shell_test.rb test/controllers/account_experience_test.rb test/controllers/accounts_controller_test.rb test/controllers/accounts test/controllers/sources_workspace_shell_test.rb test/controllers/token_usage_workspace_shell_test.rb test/controllers/agent_skills_workspace_shell_test.rb test/internationalization/catalogs_test.rb
@@ -345,7 +473,7 @@ record accounts-browser browser_test test/system/account_experience_test.rb
 
 Expected: new account tests pass; existing account forms/nested trails, workspace default breadcrumb labels, owner/member permissions and context remain unchanged. Investigate any new failure rather than changing unrelated behavior.
 
-- [ ] **Step 6: Review the exact diff and commit.**
+- [x] **Step 6: Review the exact diff and commit.**
 
 ```sh
 git diff --check
@@ -357,7 +485,7 @@ git commit -m "feat: align accounts navigation and actions with workspace header
 
 **Files:** New Settings request test/helper/card/locale/SVG files; `settings/show.html.erb`; exact Settings drawer guard; existing Skills shell and Token usage navigation tests.
 
-- [ ] **Step 1: Write `test/controllers/settings_workspace_test.rb`.**
+- [x] **Step 1: Write `test/controllers/settings_workspace_test.rb`.**
 
 ```ruby
 require "test_helper"
@@ -423,7 +551,7 @@ class SettingsWorkspaceTest < ActionDispatch::IntegrationTest
 end
 ```
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 ```sh
 record settings-red rails_test test test/controllers/settings_workspace_test.rb
@@ -431,7 +559,7 @@ record settings-red rails_test test test/controllers/settings_workspace_test.rb
 
 Expected: missing Settings `h1`, semantic trail/descriptive card anchors and drawer suppression. Do not treat missing helper methods that tests never call as valid setup errors.
 
-- [ ] **Step 3: Add the exact-page helper and the card partial.**
+- [x] **Step 3: Add the exact-page helper and the card partial.**
 
 ```ruby
 # app/helpers/settings_helper.rb
@@ -521,7 +649,7 @@ Create the two assets, matching the existing small outline SVG style:
 </svg>
 ```
 
-- [ ] **Step 4: Update only intentionally changed legacy assertions.** In `test/controllers/agent_skills_workspace_shell_test.rb`, replace its Settings request/assertion pair with:
+- [x] **Step 4: Update only intentionally changed legacy assertions.** In `test/controllers/agent_skills_workspace_shell_test.rb`, replace its Settings request/assertion pair with:
 
 ```ruby
 get settings_path
@@ -538,7 +666,7 @@ assert_select "[data-settings-card]", count: 4
 assert_select "a[data-settings-card][href='#{token_usage_path}']", count: 0
 ```
 
-- [ ] **Step 5: Run GREEN.**
+- [x] **Step 5: Run GREEN.**
 
 ```sh
 record settings-green rails_test test test/controllers/settings_workspace_test.rb test/controllers/accounts_workspace_shell_test.rb test/controllers/agent_skills_workspace_shell_test.rb test/controllers/account_experience_test.rb test/integration/token_usages_test.rb test/integration/header_navigation_test.rb test/internationalization/catalogs_test.rb
@@ -546,7 +674,7 @@ record settings-green rails_test test test/controllers/settings_workspace_test.r
 
 Expected: all new semantic/scope/shell tests pass. Cards are intentionally not styled yet; Task 3 must prove the responsive visual gap before adding CSS. No new Settings data queries or connection checks are needed.
 
-- [ ] **Step 6: Commit only this task's files.**
+- [x] **Step 6: Commit only this task's files.**
 
 ```sh
 git diff --check
@@ -558,7 +686,7 @@ git commit -m "feat: organize settings into descriptive navigation cards"
 
 **Files:** New system test; Settings CSS/import. Keep existing account panel styles unchanged unless a new scoped browser assertion demonstrates a required header-only fix.
 
-- [ ] **Step 1: Create the complete `test/system/accounts_settings_workspace_test.rb` below.** It uses existing fixture contracts and the actual browser theme/language controls, not injected replacement UI.
+- [x] **Step 1: Create the complete `test/system/accounts_settings_workspace_test.rb` below.** It uses existing fixture contracts and the actual browser theme/language controls, not injected replacement UI.
 
 ```ruby
 require "tmpdir"
@@ -793,7 +921,7 @@ end
 
 `tmpdir` is Ruby standard library, not a dependency change. Preserve the explicit require so evidence-directory creation does not depend on another test loading it first.
 
-- [ ] **Step 2: Run the browser RED before adding CSS.**
+- [x] **Step 2: Run the browser RED before adding CSS.**
 
 ```sh
 record browser-red browser_test test/system/accounts_settings_workspace_test.rb
@@ -801,7 +929,7 @@ record browser-red browser_test test/system/accounts_settings_workspace_test.rb
 
 Expected: the unstyled Settings grid lacks the two-column layout and cards lack the required focus treatment. Log each real failure; fix test syntax/setup errors before counting RED. Do not assert every page is broken: Accounts already reuses tested workspace styles.
 
-- [ ] **Step 3: Add Settings-only presentation.** Create `app/assets/stylesheets/nosia/settings.css`:
+- [x] **Step 3: Add Settings-only presentation.** Create `app/assets/stylesheets/nosia/settings.css`:
 
 ```css
 .n-settings-grid { @apply grid min-w-0 grid-cols-1 items-stretch gap-4 md:grid-cols-2; }
@@ -822,7 +950,7 @@ Add this single import after the existing workspace import, preserving every oth
 
 No transitions, transforms, fixed action bars, fixed card heights, gradients, new fonts or global selector restyling. Existing `.n-workspace` supplies bottom clearance and reduced-motion behavior. If focused keyboard edge tests identify a genuine new Accounts header wrapping/clearance problem, reproduce it with the browser test first, then add only a `.n-accounts > .n-workspace-header` scoped fix. Do not weaken hit testing, text contrast or overflow checks.
 
-- [ ] **Step 4: Run GREEN and inspect actual screenshots.**
+- [x] **Step 4: Run GREEN and inspect actual screenshots.**
 
 ```sh
 record styled-build rails_test tailwindcss:build
@@ -834,7 +962,7 @@ Read the screenshot paths printed by the test and inspect representative directo
 
 Attempt a headed/manual native 200% browser zoom check if available and record the actual result separately. Otherwise explicitly keep it UNVERIFIED; CDP viewport/device scale and CSS zoom do not substitute. Do not mark the whole visual/accessibility verification complete without disclosing that limitation.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```sh
 git diff --check
@@ -848,7 +976,7 @@ If a reproduced Accounts-only CSS fix was required, stage its exact stylesheet e
 
 **Files:** `docs/accounts-settings-navigation.md`, `docs/account-experience.md`, `docs/README.md`; new public helper YARD comments already supplied in Tasks 1–2.
 
-- [ ] **Step 1: Create `docs/accounts-settings-navigation.md` with this content.**
+- [x] **Step 1: Create `docs/accounts-settings-navigation.md` with this content.**
 
 ```markdown
 # Accounts navigation and Settings
@@ -885,7 +1013,7 @@ and the [approved design](superpowers/specs/2026-10-26-accounts-settings-ui-ux-d
 for scope and acceptance requirements.
 ```
 
-- [ ] **Step 2: Add a short cross-link without rewriting historical verification.** In `docs/account-experience.md`, after the opening paragraph add:
+- [x] **Step 2: Add a short cross-link without rewriting historical verification.** In `docs/account-experience.md`, after the opening paragraph add:
 
 ```markdown
 The directory and overview now use the shared workspace header, complete Home /
@@ -900,7 +1028,7 @@ In the Development quick links in `docs/README.md`, immediately after Account ex
 - [Accounts navigation and Settings](accounts-settings-navigation.md) — workspace breadcrumbs/actions and the four-card Settings hub.
 ```
 
-- [ ] **Step 3: Review docs and YARD against actual code.** Confirm both new helper predicates identify exact controllers/actions and `account_workspace_trail` documents the authorized-account precondition. Do not add action/private-method comments or new documentation dependencies. Check links and whitespace:
+- [x] **Step 3: Review docs and YARD against actual code.** Confirm both new helper predicates identify exact controllers/actions and `account_workspace_trail` documents the authorized-account precondition. Do not add action/private-method comments or new documentation dependencies. Check links and whitespace:
 
 ```sh
 test -f docs/accounts-settings-navigation.md
@@ -909,7 +1037,7 @@ git diff --check
 git diff --stat
 ```
 
-- [ ] **Step 4: Commit only the documentation.**
+- [x] **Step 4: Commit only the documentation.**
 
 ```sh
 git add docs/accounts-settings-navigation.md docs/account-experience.md docs/README.md
@@ -922,7 +1050,7 @@ No artificial failing test is required for prose. Do not insert unrun test count
 
 **Files:** No application changes unless a newly reproduced in-scope defect has its own failing test. Record evidence externally, then update this plan with an honest execution record.
 
-- [ ] **Step 1: Run fresh final checks sequentially in the isolated environment.**
+- [x] **Step 1: Run fresh final checks sequentially in the isolated environment.**
 
 ```sh
 record final-build rails_test tailwindcss:build
@@ -938,11 +1066,11 @@ git log --oneline -6
 
 Do not combine database-sharing runs in parallel. Expected feature outcome: all focused/new/browser tests pass. Report full-suite/security nonzero exits exactly, compared with the fresh Task 0 baseline and explicit user acceptance. A known error does not make the suite green. Any new failure blocks completion until investigated. No exclusions, changed thresholds, warning suppressions or unrelated fixes.
 
-- [ ] **Step 2: Compare the complete diff to the immutable Task 0 base.** Run `git diff --stat BASE..HEAD` and `git diff --check BASE..HEAD`, substituting the exact recorded SHA for `BASE`. Verify only the mapped files changed; no controller/model/auth/route/dependency/schema/JavaScript files or destination templates changed. Inspect shared-header default output, exact Settings drawer predicate, preserved Skills guards, account 403/404 paths, escaped names/UIDs and default-account preservation.
+- [x] **Step 2: Compare the complete diff to the immutable Task 0 base.** Run `git diff --stat BASE..HEAD` and `git diff --check BASE..HEAD`, substituting the exact recorded SHA for `BASE`. Verify only the mapped files changed; no controller/model/auth/route/dependency/schema/JavaScript files or destination templates changed. Inspect shared-header default output, exact Settings drawer predicate, preserved Skills guards, account 403/404 paths, escaped names/UIDs and default-account preservation.
 
-- [ ] **Step 3: Run the approved execution method's specification and quality reviews.** Review the specification's Decisions section against the implemented tasks. Confirm all links, English/French descriptions, icons, responsive breakpoint, single-heading/single-trail semantics and account action behavior. Check YARD, scoped CSS, no extra Settings queries and test evidence. If subagent execution was selected, use its required fresh reviews; otherwise perform the executing-plans review checkpoints without spawning unauthorized agents.
+- [x] **Step 3: Run the approved execution method's specification and quality reviews.** Review the specification's Decisions section against the implemented tasks. Confirm all links, English/French descriptions, icons, responsive breakpoint, single-heading/single-trail semantics and account action behavior. Check YARD, scoped CSS, no extra Settings queries and test evidence. If subagent execution was selected, use its required fresh reviews; otherwise perform the executing-plans review checkpoints without spawning unauthorized agents.
 
-- [ ] **Step 4: Record the actual outcome in this plan, then commit documentation only.** Include immutable base, tested revision, task commits, commands/log paths, counts/exits, browser matrix/screenshots, baseline acceptance and remaining limitations. Record native zoom as verified only with real evidence; otherwise UNVERIFIED. Do not manufacture a success outcome or treat mockups as screenshots. A prose-only evidence record does not require rerunning unchanged application bytes, but state exactly which revision the evidence covers.
+- [x] **Step 4: Record the actual outcome in this plan, then commit documentation only.** Include immutable base, tested revision, task commits, commands/log paths, counts/exits, browser matrix/screenshots, baseline acceptance and remaining limitations. Record native zoom as verified only with real evidence; otherwise UNVERIFIED. Do not manufacture a success outcome or treat mockups as screenshots. A prose-only evidence record does not require rerunning unchanged application bytes, but state exactly which revision the evidence covers.
 
 - [ ] **Step 5: Offer the user the completed result and integration choices.** Implementation execution does not authorize merging to main, pushing, opening a PR, deleting a worktree or discarding local work. Keep the feature branch/worktree intact until the user chooses.
 
