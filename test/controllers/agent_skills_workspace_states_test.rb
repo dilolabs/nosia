@@ -82,4 +82,55 @@ class AgentSkillsWorkspaceStatesTest < ActionDispatch::IntegrationTest
     assert_equal other, workspace_skill(:skills_first).reload.attributes
     assert_equal other_execution, workspace_execution(:skills_first_execution).reload.attributes
   end
+
+  test "aborted destruction reports failure and rolls back dependent deletion" do
+    before = workspace_records
+    callbacks_before = AgentSkill._destroy_callbacks.to_a
+    blocker = ->(record) { record.errors.add(:base, "Deletion blocked"); throw :abort }
+    AgentSkill.set_callback(:destroy, :before, blocker)
+    begin
+      delete account_agent_skill_path(@second, workspace_skill(:skills_second))
+      assert_response :see_other
+      assert_redirected_to account_agent_skills_path(@second)
+      assert_equal "Deletion blocked", flash[:alert]
+      assert_nil flash[:notice]
+      assert_equal before, workspace_records
+    ensure
+      AgentSkill.skip_callback(:destroy, :before, blocker)
+      assert_equal callbacks_before, AgentSkill._destroy_callbacks.to_a
+    end
+  end
+
+  test "unexpected query failure stays observable and tenant context is restored" do
+    before = workspace_records
+    callbacks_before = AgentSkillsController._process_action_callbacks.to_a
+    foreign = @foreign
+    restored_tenants = []
+    # Observe restoration inside the request executor, outside the scoped callback.
+    with_ambient_tenant = ->(_controller, action) do
+      ActsAsTenant.with_tenant(foreign) do
+        begin
+          action.call
+        ensure
+          restored_tenants << ActsAsTenant.current_tenant
+        end
+      end
+    end
+    failure = ->(*event) do
+      sql = event.last.fetch(:sql)
+      raise ActiveRecord::StatementInvalid, "Skills failure probe" if sql.match?(/\ASELECT/i) && sql.include?('"agent_skills"')
+    end
+    AgentSkillsController.prepend_around_action with_ambient_tenant, only: :index
+    begin
+      error = assert_raises(ActiveRecord::StatementInvalid, ActionView::Template::Error) do
+        ActiveSupport::Notifications.subscribed(failure, "sql.active_record") { get account_agent_skills_path(@second) }
+      end
+      assert_includes error.message, "Skills failure probe"
+      assert_equal [ @foreign ], restored_tenants
+      assert_equal before, workspace_records
+    ensure
+      AgentSkillsController.skip_around_action with_ambient_tenant, raise: false
+      assert_equal callbacks_before, AgentSkillsController._process_action_callbacks.to_a
+    end
+  end
 end

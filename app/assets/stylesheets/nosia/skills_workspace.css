@@ -42,7 +42,8 @@ main:has([data-skills-workspace]) { min-width: 0; scroll-padding-block-end: 7rem
 .n-skills-workspace .n-skills-label { @apply block text-sm font-medium; }
 .n-skills-workspace .n-skills-input { @apply block min-h-11 w-full min-w-0 rounded-md border border-neutral-500 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:border-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:outline-green-300; }
 .n-skills-workspace .n-skills-editor { @apply resize-y font-mono leading-relaxed; }
-.n-skills-workspace .n-skills-editor::placeholder { @apply text-neutral-600 opacity-100 dark:text-neutral-300; }
+.n-skills-workspace .n-skills-editor::placeholder { @apply text-neutral-600 opacity-100; }
+.dark .n-skills-workspace .n-skills-editor::placeholder { @apply text-neutral-300; }
 .n-skills-workspace .n-skills-input[aria-invalid="true"] { @apply border-red-700 dark:border-red-300; }
 .n-skills-workspace .n-skills-check { @apply flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium; }
 .n-skills-workspace .n-skills-check input { @apply h-5 w-5 shrink-0 accent-green-700 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:focus:outline-green-300; }

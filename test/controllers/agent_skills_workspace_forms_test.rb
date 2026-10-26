@@ -68,4 +68,16 @@ class AgentSkillsWorkspaceFormsTest < ActionDispatch::IntegrationTest
     assert_redirected_to account_agent_skills_path(@second)
     assert_equal "", skill.reload.skill_content
   end
+
+  test "base errors remain escaped summary text and do not invent an input target" do
+    skill = workspace_skill(:skills_second)
+    skill.errors.add(:base, "<script>unsafe()</script>")
+    form = ActionView::Helpers::FormBuilder.new(:agent_skill, skill, controller.view_context, {})
+    html = ApplicationController.render(partial: "agent_skills/form_errors", locals: { form: form })
+    fragment = Nokogiri::HTML.fragment(html)
+    assert_select fragment, "[role='alert'] li", text: "<script>unsafe()</script>"
+    assert_select fragment, "script, li a", count: 0
+    get "/accounts/#{@second.id}/agent_skills/not-a-skill"
+    assert_response :not_found
+  end
 end
