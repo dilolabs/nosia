@@ -1,0 +1,25 @@
+<% { first: ["first", 5, true, "llm", "explicit", "2026-01-01"],
+     second: ["second", 80, true, "llm", "explicit", "2026-01-01"],
+     second_later: ["second", 80, true, "llm", "combined", "2026-01-02"],
+     second_ruby: ["second", 20, false, "ruby", "explicit", "2026-01-03"],
+     foreign: ["foreign", 100, true, "llm", "auto", "2026-01-01"] }.each do |key, (account, priority, enabled, execution, trigger, created)| %>
+skills_<%= key %>:
+  account: overview_<%= account %>
+  name: workspace-<%= key.to_s.tr("_", "-") %>
+  description: Original <%= key %> description
+  execution_mode: <%= execution %>
+  trigger_mode: <%= trigger %>
+  enabled: <%= enabled %>
+  priority: <%= priority %>
+  requires_rag_context: false
+  metadata: { tags: [original, English] }
+  skill_content: |
+    ---
+    name: workspace-<%= key.to_s.tr("_", "-") %>
+    description: Original <%= key %> description
+    ---
+
+    Keep **original <%= key %>** instructions.
+  created_at: <%= created %> 00:00:00
+  updated_at: <%= created %> 00:00:00
+<% end %>
