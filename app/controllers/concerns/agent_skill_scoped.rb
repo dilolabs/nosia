@@ -11,7 +11,7 @@ module AgentSkillScoped
     def with_agent_skill_account
       @scoped_skill_account = request.path_parameters.key?(:account_id)
       @account = if @scoped_skill_account
-        member_account(request.path_parameters.fetch(:account_id))
+        member_account(validated_skill_path_id(request.path_parameters.fetch(:account_id)))
       else
         Current.account
       end
@@ -25,8 +25,16 @@ module AgentSkillScoped
       end
     end
 
+    def validated_skill_path_id(id)
+      if id.is_a?(String) && id.match?(/\A[0-9]+\z/)
+        id
+      else
+        raise ActiveRecord::RecordNotFound
+      end
+    end
+
     def set_scoped_agent_skill
       id = request.path_parameters[:agent_skill_id] || request.path_parameters[:id]
-      @agent_skill = @account.agent_skills.find(id)
+      @agent_skill = @account.agent_skills.find(validated_skill_path_id(id))
     end
 end

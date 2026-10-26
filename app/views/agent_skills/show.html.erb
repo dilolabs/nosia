@@ -14,7 +14,7 @@
   </section>
   <section class="n-workspace-panel" aria-labelledby="skill-source-title">
     <h2 id="skill-source-title" class="n-workspace-section-title"><%= t("nosia.skills.content") %></h2>
-    <pre data-skill-source class="n-skills-source"><%= @agent_skill.skill_content_text %></pre>
+    <pre data-skill-source class="n-skills-source"><%= "\n#{@agent_skill.skill_content_text}" %></pre>
   </section>
   <section class="n-workspace-panel n-skills-danger" data-skill-delete-section aria-labelledby="skill-delete-title">
     <h2 id="skill-delete-title" class="n-workspace-section-title"><%= t("nosia.skills.delete") %></h2>

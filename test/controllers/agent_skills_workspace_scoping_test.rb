@@ -97,6 +97,54 @@ class AgentSkillsWorkspaceScopingTest < ActionDispatch::IntegrationTest
     assert_equal before, workspace_records
   end
 
+  test "numeric prefix malformed account path ids reject every read and mutation" do
+    skill = workspace_skill(:skills_second)
+    before = workspace_records.deep_dup
+    %w[junk -suffix].each do |suffix|
+      account_id = "#{@second.id}#{suffix}"
+      collection = account_agent_skills_path(account_id)
+      record = account_agent_skill_path(account_id, skill)
+      enablement = account_agent_skill_enablement_path(account_id, skill)
+      [ [ :get, collection ], [ :get, new_account_agent_skill_path(account_id) ],
+        [ :get, record ], [ :get, edit_account_agent_skill_path(account_id, skill) ],
+        [ :post, collection ], [ :patch, record ], [ :delete, record ],
+        [ :post, enablement ], [ :delete, enablement ] ].each do |method, path|
+        assert_no_enqueued_jobs do
+          public_send(method, path, params: { account_id: @first.id,
+            agent_skill: { skill_content: workspace_source("strict-account-id"), priority: 61 } })
+        end
+        assert_response :not_found, "#{method.upcase} #{path} must reject the whole malformed account ID"
+        assert_equal before, workspace_records
+        assert_equal @first, @user.reload.first_account
+      end
+    end
+  end
+
+  %i[legacy scoped].each do |family|
+    test "numeric prefix malformed #{family} skill path ids reject every read and mutation" do
+      skill = workspace_skill(family == :legacy ? :skills_first : :skills_second)
+      before = workspace_records.deep_dup
+      %w[junk -suffix].each do |suffix|
+        id = "#{skill.id}#{suffix}"
+        record = family == :legacy ? agent_skill_path(id) : account_agent_skill_path(@second, id)
+        edit = family == :legacy ? edit_agent_skill_path(id) : edit_account_agent_skill_path(@second, id)
+        enablement = family == :legacy ? agent_skill_enablement_path(id) : account_agent_skill_enablement_path(@second, id)
+        requests = [ [ :get, record ], [ :get, edit ], [ :patch, record ], [ :delete, record ],
+          [ :post, enablement ], [ :delete, enablement ] ]
+        requests << [ :patch, toggle_agent_skill_path(id) ] if family == :legacy
+        requests.each do |method, path|
+          assert_no_enqueued_jobs do
+            public_send(method, path, params: { account_id: @foreign.id, id: skill.id,
+              agent_skill_id: skill.id, agent_skill: { priority: 61 } })
+          end
+          assert_response :not_found, "#{method.upcase} #{path} must reject the whole malformed skill ID"
+          assert_equal before, workspace_records
+          assert_equal @first, @user.reload.first_account
+        end
+      end
+    end
+  end
+
   test "tenant context is bounded on successful and failing lookups" do
     second = workspace_skill(:skills_second)
     first = workspace_skill(:skills_first)

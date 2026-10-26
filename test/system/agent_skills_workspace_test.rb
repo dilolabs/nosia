@@ -182,6 +182,25 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
     end
   end
 
+  test "details keep exact source whitespace as escaped browser text in both route families" do
+    body = "</pre><script>window.skillsSourceExecuted=true</script><em>literal & source</em>  \n\t "
+    [ [ workspace_skill(:skills_first), :legacy ], [ workspace_skill(:skills_second), :scoped ] ].each do |skill, family|
+      path = family == :legacy ? agent_skill_path(skill) : account_agent_skill_path(@second, skill)
+      [ body, "\n#{body}", "\n\n\n#{body}", "" ].each do |source|
+        skill.update_columns(skill_content: source)
+        assert_equal source, skill.reload.skill_content
+        before = workspace_records.deep_dup
+        assert_no_enqueued_jobs { visit path }
+        assert_selector "pre[data-skill-source]", visible: :all
+        assert_equal source, page.evaluate_script("document.querySelector('[data-skill-source]').textContent")
+        assert_no_selector "[data-skills-workspace] script, [data-skill-source] *", visible: :all
+        assert_nil page.evaluate_script("window.skillsSourceExecuted")
+        assert_equal before, workspace_records
+        assert_equal @first, @user.reload.first_account
+      end
+    end
+  end
+
   test "all Skills page kinds fit locales themes long content and responsive viewports" do
     first = workspace_skill(:skills_first)
     second = workspace_skill(:skills_second)
