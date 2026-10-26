@@ -13,13 +13,21 @@ class AgentSkillsWorkspaceStatesTest < ActionDispatch::IntegrationTest
       assert_no_enqueued_jobs do
         2.times do
           delete path
+          assert_response :see_other
+          assert_redirected_to index
+          assert_not skill.reload.enabled?
+          delete path
+          assert_response :see_other
           assert_redirected_to index
           assert_not skill.reload.enabled?
           post path
+          assert_response :see_other
           assert_redirected_to index
           assert skill.reload.enabled?
         end
         post path
+        assert_response :see_other
+        assert_redirected_to index
         assert skill.reload.enabled?
       end
       assert_equal work_before, [ AgentSkillExecution.count, TokenUsage.count ]
@@ -53,6 +61,7 @@ class AgentSkillsWorkspaceStatesTest < ActionDispatch::IntegrationTest
     skill.update_columns(priority: 101)
     before = skill.reload.attributes
     delete account_agent_skill_enablement_path(@second, skill)
+    assert_response :see_other
     assert_redirected_to account_agent_skills_path(@second)
     assert flash[:alert].present?
     assert_nil flash[:notice]
