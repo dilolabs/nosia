@@ -10,6 +10,9 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
     %i[en fr].each do |locale|
       get accounts_path, headers: { "Accept-Language" => locale.to_s }
       assert_response :success
+      assert_select "head title", count: 1 do |titles|
+        assert_equal I18n.t("nosia.nav.accounts", locale: locale), titles.first.text
+      end
       assert_select "main h1", text: I18n.t("nosia.nav.accounts", locale: locale), count: 1
       assert_select "main nav[aria-label='#{I18n.t('nosia.account_experience.breadcrumb', locale: locale)}']", count: 1
       assert_select "nav[aria-label='#{I18n.t('nosia.account_experience.breadcrumb', locale: locale)}']" do
@@ -34,6 +37,9 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
     %i[en fr].each do |locale|
       get account_path(@second), headers: { "Accept-Language" => locale.to_s }
       assert_response :success
+      assert_select "head title", count: 1 do |titles|
+        assert_equal @second.name, titles.first.text
+      end
       assert_select "main h1", text: @second.name, count: 1
       assert_select "main nav", count: 1
       assert_select "main nav" do

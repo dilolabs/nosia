@@ -1,5 +1,3 @@
-<% content_for :title, @account.name %>
-
 <section class="n-accounts" data-account-overview="<%= @account.id %>">
   <%= render "workspaces/header", title: @account.name,
       description: "#{@account.uid} · #{account_role_label(@account)}",
