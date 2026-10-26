@@ -72,6 +72,7 @@ Production deployment strategies, best practices, and operational guidance.
 ### Development
 - [Architecture](ARCHITECTURE.md) - Understand the codebase structure
 - [Account experience](account-experience.md) — overview hub, scoped tools, private history/tokens, and owner-only administration.
+- [Accounts navigation and Settings](accounts-settings-navigation.md) — workspace breadcrumbs/actions and the four-card Settings hub.
 - [Signed-in dashboard](dashboard.md) — inline conversations, cross-account token statistics, explicit tool shortcuts, and private recents.
 - [Sources workspace](sources-workspace.md) — default/scoped lists, composed filters, uploads, forms, live status, and safe details.
 - [Token usage workspace](token-usage-workspace.md) — global/account reporting periods, overview/detail layout, estimates, accessibility and cache freshness.

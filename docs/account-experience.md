@@ -5,6 +5,11 @@ your recent conversations, account-wide usage, default system prompt, users,
 and your API tokens. **New conversation** preselects that account in the existing
 composer; you may still switch before the first message using its normal rules.
 
+The directory and overview now use the shared workspace header, complete Home /
+Accounts breadcrumbs, and distinct primary/secondary header actions. Account
+forms and nested-tool trails retain their existing presentation contracts. See
+[Accounts navigation and Settings](accounts-settings-navigation.md).
+
 Documents, Texts, Q&As, and Websites open the existing source interface scoped to
 that account. Filters, upload forms, retries, source links, and pagination preserve
 its URL context. Visiting another account does not change a global preference or
