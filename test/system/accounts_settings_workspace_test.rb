@@ -5,9 +5,14 @@ require_relative "../support/account_experience_fixtures"
 class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
   include AccountExperienceFixtures
 
+  DESKTOP_INPUT_ARGUMENT = "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4".freeze
+  DESKTOP_INPUT_DRIVER = :accounts_settings_workspace_desktop_hover
+
   setup do
-    @original_window_size = page.current_window.size
+    FileUtils.mkdir_p("/tmp/opencode")
     @evidence_dir = Dir.mktmpdir("accounts-settings-browser-", "/tmp/opencode")
+    start_workspace_browser
+    @original_window_size = page.current_window.size
     visit root_url
     fill_in "email", with: @user.email
     fill_in "password", with: AccountExperienceFixtures::PASSWORD
@@ -16,14 +21,32 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   teardown do
-    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
-    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride") if @viewport_override
-    page.current_window.resize_to(*@original_window_size) if @original_window_size
-    if page.current_url.start_with?("http")
-      page.driver.browser.manage.delete_cookie("locale")
-      page.execute_script("localStorage.removeItem('color-theme')")
+    begin
+      if @workspace_session
+        page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
+        page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride") if @viewport_override
+        page.current_window.resize_to(*@original_window_size) if @original_window_size
+        if page.current_url.start_with?("http")
+          page.driver.browser.manage.delete_cookie("locale")
+          page.execute_script("localStorage.removeItem('color-theme')")
+        end
+      end
+    ensure
+      begin
+        @workspace_session&.quit
+      ensure
+        Capybara.current_driver = @previous_driver if @previous_driver
+        Capybara.session_name = @previous_session_name if @previous_session_name
+      end
     end
-    Capybara.reset_sessions!
+    assert_equal @previous_driver, Capybara.current_driver
+    assert_equal @previous_session_name, Capybara.session_name
+    assert_same @previous_driver_registration, Capybara.drivers[@previous_driver]
+    File.write(File.join(@evidence_dir, "driver-cleanup.json"), {
+      input_capability_emulation: workspace_input_emulation,
+      dedicated_session_quit: true, restored_driver: Capybara.current_driver,
+      restored_session_name: Capybara.session_name, original_driver_registration_unchanged: true
+    }.to_json)
   end
 
   test "header creation actions work by keyboard without starting generation" do
@@ -106,22 +129,16 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             assert page.evaluate_script("document.activeElement.matches(arguments[0])", selectors[-2])
             assert_focused_action
             assert_text_unclipped(root)
-            measure_workspace_contrast(root)
             if name == :settings
-              card = first("[data-settings-card]")
-              page.execute_script("arguments[0].scrollIntoView({block:'center'})", card)
-              wait_for_keyboard_scroll
-              before_hover = page.evaluate_script("(()=>{const r=arguments[0].getBoundingClientRect();return [r.x,r.y,r.width,r.height];})()", card)
-              card.hover
-              wait_for_keyboard_scroll
-              assert_equal before_hover, page.evaluate_script("(()=>{const r=arguments[0].getBoundingClientRect();return [r.x,r.y,r.width,r.height];})()", card)
+              assert_settings_hover(root)
+            else
               measure_workspace_contrast(root)
             end
             page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
             image = "#{name}-#{locale}-#{width}-#{height}-#{theme}.png"
             page.save_screenshot(File.join(@evidence_dir, image)) if [ 375, 1440 ].include?(width)
             states << { page: name, locale: locale, viewport: [ width, height ], theme: theme }
-            File.write(File.join(@evidence_dir, "matrix.json"), { states: states, native_200_percent_zoom: "UNVERIFIED" }.to_json)
+            File.write(File.join(@evidence_dir, "matrix.json"), { states: states, input_capability_emulation: workspace_input_emulation, native_200_percent_zoom: "UNVERIFIED" }.to_json)
           end
         end
       end
@@ -138,6 +155,26 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def start_workspace_browser
+      @previous_driver = Capybara.current_driver
+      @previous_session_name = Capybara.session_name
+      @previous_driver_registration = Capybara.drivers[@previous_driver]
+      options = { name: DESKTOP_INPUT_DRIVER }
+      options.merge!(browser: :remote, url: "http://:4444") if ENV["CAPYBARA_SERVER_PORT"]
+      ActionDispatch::SystemTesting::Driver.new(:selenium, using: :headless_chrome,
+        screen_size: [ 1400, 1400 ], options: options) do |browser_options|
+        browser_options.add_argument(DESKTOP_INPUT_ARGUMENT)
+      end.use
+      Capybara.session_name = "accounts_settings_workspace_#{object_id}"
+      @workspace_session = Capybara.current_session
+    end
+
+    def workspace_input_emulation
+      { driver: DESKTOP_INPUT_DRIVER, startup_argument: DESKTOP_INPUT_ARGUMENT,
+        browser_mode: ENV["CAPYBARA_SERVER_PORT"] ? "remote" : "local",
+        description: "desktop-input capability emulation", physical_hardware_proof: false }
+    end
+
     def resize_workspace(width, height)
       page.current_window.resize_to(width, height)
       if page.evaluate_script("[innerWidth,innerHeight]") != [ width, height ]
@@ -201,7 +238,66 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
       end
     end
 
-    def measure_workspace_contrast(root)
+    def assert_settings_hover(root)
+      card = first("[data-settings-card]")
+      page.execute_script("arguments[0].scrollIntoView({block:'center'})", card)
+      wait_for_keyboard_scroll
+      find("#theme-toggle").hover
+      wait_for_keyboard_scroll
+      before_hover = settings_card_sample(card)
+      refute before_hover.fetch("hovered"), before_hover.to_json
+      assert_equal before_hover.fetch("expected_unhovered_rgba"), before_hover.fetch("background_rgba"), before_hover.to_json
+      measure_workspace_contrast(root, phase: "unhovered", card_state: before_hover)
+      save_settings_hover_screenshot(before_hover)
+      card.hover
+      wait_for_keyboard_scroll
+      after_hover = settings_card_sample(card)
+      File.open(File.join(@evidence_dir, "hover.jsonl"), "a") do |file|
+        file.puts({ input_capability_emulation: workspace_input_emulation, before: before_hover, after: after_hover }.to_json)
+      end
+      diagnostic = "#{@evidence_dir}/hover.jsonl: #{after_hover.to_json}"
+      assert before_hover.fetch("capabilities").fetch("hover"), diagnostic
+      assert after_hover.fetch("capabilities").fetch("hover"), diagnostic
+      assert before_hover.fetch("capabilities").fetch("fine"), diagnostic
+      assert after_hover.fetch("capabilities").fetch("fine"), diagnostic
+      assert after_hover.fetch("hovered"), diagnostic
+      refute_equal before_hover.fetch("background_rgba"), after_hover.fetch("background_rgba"), diagnostic
+      assert_equal after_hover.fetch("expected_hovered_rgba"), after_hover.fetch("background_rgba"), diagnostic
+      assert_equal before_hover.fetch("bounds"), after_hover.fetch("bounds"), diagnostic
+      measure_workspace_contrast(root, phase: "hovered", card_state: after_hover)
+      save_settings_hover_screenshot(after_hover)
+    end
+
+    def save_settings_hover_screenshot(sample)
+      width, height = sample.fetch("viewport")
+      if [ 375, 1440 ].include?(width)
+        theme = sample.fetch("dark") ? "dark" : "light"
+        image = "settings-#{sample.fetch('locale')}-#{width}-#{height}-#{theme}-#{sample.fetch('phase')}.png"
+        page.save_screenshot(File.join(@evidence_dir, image))
+      end
+    end
+
+    def settings_card_sample(card)
+      page.evaluate_script(<<~JS, card)
+        (()=>{
+          const e=arguments[0],r=e.getBoundingClientRect(),s=getComputedStyle(e),html=document.documentElement,vars=getComputedStyle(html);
+          const canvas=document.createElement('canvas');canvas.width=canvas.height=1;
+          const ctx=canvas.getContext('2d',{willReadFrequently:true});
+          function rgba(color){ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return Array.from(ctx.getImageData(0,0,1,1).data);}
+          const dark=html.classList.contains('dark');
+          return {phase:e.matches(':hover')?'hovered':'unhovered',background:s.backgroundColor,background_rgba:rgba(s.backgroundColor),
+            expected_unhovered_rgba:rgba(vars.getPropertyValue(dark?'--color-neutral-800':'--color-white')),
+            expected_hovered_rgba:rgba(vars.getPropertyValue(dark?'--color-neutral-900':'--color-neutral-50')),
+            unhovered_token:dark?'neutral-800':'white',hovered_token:dark?'neutral-900':'neutral-50',
+            hovered:e.matches(':hover'),bounds:[r.x,r.y,r.width,r.height],locale:html.lang,dark,viewport:[innerWidth,innerHeight],
+            capabilities:{hover:matchMedia('(hover: hover)').matches,any_hover:matchMedia('(any-hover: hover)').matches,
+              fine:matchMedia('(pointer: fine)').matches,coarse:matchMedia('(pointer: coarse)').matches,
+              none:matchMedia('(pointer: none)').matches,max_touch_points:navigator.maxTouchPoints}};
+        })()
+      JS
+    end
+
+    def measure_workspace_contrast(root, phase: "keyboard", card_state: nil)
       rows = page.evaluate_script(<<~JS, root)
         (()=>{
           const root=document.querySelector(arguments[0]),canvas=document.createElement('canvas');canvas.width=canvas.height=1;
@@ -210,7 +306,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
           function blend(a,b){return a.slice(0,3).map((v,i)=>v*a[3]+b[i]*(1-a[3]));}
           function background(e){const ancestors=[];for(let a=e;a;a=a.parentElement)ancestors.unshift(a);return ancestors.reduce((bg,a)=>{const s=getComputedStyle(a);if(s.backgroundImage!=='none'||s.opacity!=='1')throw new Error('Unmeasured surface');return blend(rgba(s.backgroundColor),bg);},[255,255,255]);}
           function luminance(rgb){return rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);}
-          function measure(e,property,minimum,parent=false){const s=getComputedStyle(e),bg=background(parent?e.parentElement:e),fg=blend(rgba(s[property]),bg),a=luminance(fg),b=luminance(bg);return {text:e.textContent.trim().slice(0,100),property,minimum,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};}
+          function measure(e,property,minimum,parent=false){const s=getComputedStyle(e),bg=background(parent?e.parentElement:e),fg=blend(rgba(s[property]),bg),a=luminance(fg),b=luminance(bg);return {text:e.textContent.trim().slice(0,100),property,minimum,surface:parent?'outside':'inside',background_rgb:bg,foreground_rgb:fg,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};}
           const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
           const rows=Array.from(root.querySelectorAll('h1,h2,p,a,svg')).filter(visible).map(e=>measure(e,'color',e.tagName.toLowerCase()==='svg'?3:4.5));
           root.querySelectorAll('[data-settings-card]').forEach(e=>{rows.push(measure(e,'borderTopColor',3,true));rows.push(measure(e,'borderTopColor',3));});
@@ -221,7 +317,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
       assert_not_empty rows
       rows.each { |row| assert_operator row.fetch("ratio"), :>=, row.fetch("minimum"), row.to_json }
       File.open(File.join(@evidence_dir, "contrast.jsonl"), "a") do |file|
-        file.puts({ path: URI(page.current_url).path, viewport: page.evaluate_script("[innerWidth,innerHeight]"), locale: find("html", visible: :all)["lang"], dark: page.evaluate_script("document.documentElement.classList.contains('dark')"), samples: rows }.to_json)
+        file.puts({ path: URI(page.current_url).path, viewport: page.evaluate_script("[innerWidth,innerHeight]"), locale: find("html", visible: :all)["lang"], dark: page.evaluate_script("document.documentElement.classList.contains('dark')"), input_capability_emulation: workspace_input_emulation, phase: phase, card_state: card_state, samples: rows }.to_json)
       end
     end
 end
