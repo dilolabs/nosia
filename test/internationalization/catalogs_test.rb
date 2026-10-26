@@ -15,6 +15,7 @@ class CatalogsTest < ActiveSupport::TestCase
     nosia.sources.types.website
     nosia.mcp.errors
     nosia.skills.errors
+    nosia.skills_workspace.counts
     nosia.usage.token_unit
     nosia.usage.token_quantity
   ].freeze
@@ -64,8 +65,9 @@ class CatalogsTest < ActiveSupport::TestCase
       PLURAL_PATHS.each do |key|
         [ 0, 1, 2, 1_000_000 ].each do |count|
           branch = (locale == :fr ? count < 2 : count == 1) ? "one" : "other"
-          expected = catalog.dig(*key.split("."), branch) % { count: count, formatted_count: count.to_s }
-          actual = I18n.t(key, locale: locale, count: count, formatted_count: count.to_s, fallback: false, raise: true)
+          interpolations = { count: count, formatted_count: count.to_s, total: count.to_s, enabled: [ count, 1 ].min.to_s }
+          expected = catalog.dig(*key.split("."), branch) % interpolations
+          actual = I18n.t(key, locale: locale, **interpolations, fallback: false, raise: true)
 
           assert_equal expected, actual, "#{locale}.#{key} count=#{count}"
           refute_match(/translation missing|%\{/, actual)
