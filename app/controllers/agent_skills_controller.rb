@@ -1,6 +1,6 @@
 class AgentSkillsController < ApplicationController
   include AgentSkillScoped
-  before_action :set_scoped_agent_skill, only: [ :show, :edit, :update, :destroy, :toggle ]
+  before_action :set_scoped_agent_skill, only: [ :show, :edit, :update, :destroy ]
 
   def index
     @agent_skills = @account.agent_skills.order(priority: :desc, created_at: :asc)
@@ -41,11 +41,6 @@ class AgentSkillsController < ApplicationController
     else
       redirect_to skill_workspace_index_path, alert: @agent_skill.errors.full_messages.to_sentence.presence || t("nosia.skills_workspace.action_failed"), status: :see_other
     end
-  end
-
-  def toggle
-    @agent_skill.update!(enabled: !@agent_skill.enabled)
-    redirect_to skill_workspace_index_path, notice: t(@agent_skill.enabled? ? "nosia.skills.now_enabled" : "nosia.skills.now_disabled")
   end
 
   private

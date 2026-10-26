@@ -36,4 +36,10 @@ module AgentSkillsWorkspaceHelper
   def skill_workspace_form_model(skill)
     skills_workspace_scoped? ? [ @account, skill ] : skill
   end
+
+  # @param skill [AgentSkill] An authorized existing skill
+  # @return [String] Explicit enable/disable resource URL
+  def skill_workspace_enablement_path(skill)
+    skills_workspace_scoped? ? account_agent_skill_enablement_path(@account, skill) : agent_skill_enablement_path(skill)
+  end
 end
