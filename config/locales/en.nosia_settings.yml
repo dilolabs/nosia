@@ -1,0 +1,8 @@
+en:
+  nosia:
+    settings:
+      description: "Configure assistant behavior and integrations."
+      skills_description: "Manage reusable instructions and how they are triggered."
+      tokens_description: "Create and revoke your personal API access tokens."
+      mcp_description: "Connect external tools and resources through MCP."
+      prompts_description: "Review the instructions that guide your assistants."
