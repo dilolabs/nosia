@@ -17,6 +17,7 @@ class AgentSkillPresentationContractTest < ActiveSupport::TestCase
 
   test "frontmatter merges metadata but does not synchronize stored identity and modes" do
     skill = workspace_skill(:skills_second)
+    assert_no_enqueued_jobs { assert skill.update(metadata: skill.metadata.merge("retained" => "original")) }
     original = skill.attributes.slice("name", "description", "execution_mode", "trigger_mode")
     source = "---\nname: other-name\ndescription: Other description\nexecution_mode: ruby\ntrigger_mode: auto\ntags: [updated]\n---\nKeep source."
     assert_no_enqueued_jobs { assert skill.update(skill_content: source) }
@@ -24,6 +25,7 @@ class AgentSkillPresentationContractTest < ActiveSupport::TestCase
     assert_equal source, skill.skill_content
     assert_equal "other-name", skill.metadata.fetch("name")
     assert_equal [ "updated" ], skill.metadata.fetch("tags")
+    assert_equal "original", skill.metadata.fetch("retained")
   end
 
   test "RAG keeps the existing frontmatter fallback and boolean conversion" do
