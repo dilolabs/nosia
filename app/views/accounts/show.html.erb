@@ -1,18 +1,19 @@
 <% content_for :title, @account.name %>
 
 <section class="n-accounts" data-account-overview="<%= @account.id %>">
-  <header class="n-account-header">
-    <div>
-      <h1 class="n-main-title n-account-name"><%= @account.name %></h1>
-      <p class="n-account-help"><%= @account.uid %> · <%= account_role_label(@account) %></p>
-    </div>
-    <div class="n-account-actions">
-      <% if account_owner? %>
-        <%= link_to t("nosia.account_experience.edit_account"), edit_account_path(@account), class: "n-account-secondary" %>
-      <% end %>
-      <%= link_to t("nosia.account_experience.new_conversation"), new_chat_path(account_id: @account.id), class: "n-account-primary" %>
-    </div>
-  </header>
+  <%= render "workspaces/header", title: @account.name,
+      description: "#{@account.uid} · #{account_role_label(@account)}",
+      trail: account_workspace_trail(account: @account),
+      breadcrumb_label: t("nosia.account_experience.breadcrumb"),
+      actions: capture {
+        if account_owner?
+          concat link_to(t("nosia.account_experience.edit_account"), edit_account_path(@account), class: "n-workspace-button")
+        end
+        concat(link_to(new_chat_path(account_id: @account.id), class: "n-workspace-button n-workspace-primary") do
+          concat inline_svg("svg/chats.svg", aria_hidden: true, class: "h-5 w-5 shrink-0")
+          concat tag.span(t("nosia.account_experience.new_conversation"))
+        end)
+      } %>
 
   <div class="n-account-columns">
     <div class="n-account-stack">

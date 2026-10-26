@@ -1,10 +1,16 @@
 <% content_for :title, t("nosia.nav.accounts") %>
 
 <section class="n-accounts">
-  <header class="n-account-header">
-    <h1 class="n-main-title"><%= t("nosia.nav.accounts") %></h1>
-    <%= link_to t("nosia.accounts.add"), new_account_path, class: "n-account-primary" %>
-  </header>
+  <%= render "workspaces/header", title: t("nosia.nav.accounts"),
+      description: t("nosia.accounts_workspace.description"),
+      trail: account_workspace_trail,
+      breadcrumb_label: t("nosia.account_experience.breadcrumb"),
+      actions: capture {
+        link_to(new_account_path, class: "n-workspace-button n-workspace-primary") do
+          concat inline_svg("svg/plus.svg", aria_hidden: true, class: "h-5 w-5 shrink-0")
+          concat tag.span(t("nosia.accounts.add"))
+        end
+      } %>
 
   <% if @accounts.empty? %>
     <div class="n-account-panel">
