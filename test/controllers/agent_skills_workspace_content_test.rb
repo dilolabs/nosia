@@ -10,6 +10,7 @@ class AgentSkillsWorkspaceContentTest < ActionDispatch::IntegrationTest
   test "structured rows preserve order settings tags counts and contextual actions" do
     get account_agent_skills_path(@second)
     assert_response :success
+    assert_select 'ul.n-skills-rows[role="list"]'
     expected = [ :skills_second, :skills_second_later, :skills_second_ruby ].map { |name| workspace_skill(name).id.to_s }
     assert_equal expected, css_select("[data-skill-id]").map { |row| row["data-skill-id"] }
     assert_select "[data-skills-count][data-total='3'][data-enabled='2']"
