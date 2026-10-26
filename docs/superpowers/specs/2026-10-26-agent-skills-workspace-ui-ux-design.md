@@ -1,7 +1,7 @@
 # Agent skills workspace UI/UX
 
-Status: Design sections approved; written-specification review pending.
-Planning and application implementation are not yet authorized.
+Status: Written specification approved by the user (“Go”); implementation planning
+authorized. Application execution still requires the plan execution handoff.
 
 Date: 2026-10-26
 
@@ -327,14 +327,18 @@ self-contained and does not depend on that local server or its ignored files.
 - User answered **“Yes”** to section 5: Rails architecture and verification.
   Rationale: isolate the UI changes, retain legacy compatibility, and verify account
   safety/content preservation on a fresh baseline before claiming completion.
+- User answered **“Go”** after reviewing the committed specification `ea1564d`.
+  Rationale: approve the written design and authorize writing the Skills plan,
+  not skip the execution-choice or fresh-baseline gates.
 
 ## Approval and next gate
 
-All five design sections are approved. This written specification still requires
-user review after its documentation-only commit and spec review. No application
-setup, database changes, provider calls or implementation have occurred in this
-design cycle. No merge into main or push is part of this documentation task.
+All five design sections and the committed written specification are approved.
+Inline and fresh-context specification reviews approved `ea1564d` without issues.
+The user's “Go” authorized writing-plans, which has been invoked for Skills.
+No application setup, database changes, provider calls or implementation have
+occurred during design/planning. No merge into main or push is authorized here.
 
-After the user approves the written specification, invoke writing-plans to produce
-the Skills implementation plan. Design approval alone does not authorize code
-execution or skip that planning gate. MCP remains its own subsequent cycle.
+Finish and review the implementation plan, then offer the execution-method choice.
+Application work begins only after that handoff and its fresh-baseline gate.
+MCP remains its own subsequent cycle.
