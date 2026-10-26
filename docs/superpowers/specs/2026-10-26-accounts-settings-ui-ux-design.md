@@ -1,6 +1,6 @@
 # Accounts navigation and Settings UI/UX
 
-Status: Design sections approved; written-specification review pending.
+Status: Written specification approved by the user's “go”; implementation planning authorized.
 
 Date: 2026-10-26
 
@@ -57,6 +57,9 @@ Use brainstorming and ui-ux-pro-max research before implementation planning.
   test-first implementation and responsive/localized/accessibility verification.
   Rationale: keep the UI improvement focused and verifiable without functional
   regressions or unrelated application changes.
+- User answered **“go”** after reviewing the specification committed as `52f026b`.
+  Rationale: approve the written design and proceed to writing the implementation
+  plan; application execution still awaits the execution-method choice.
 
 ## Selected approach
 
@@ -66,9 +69,9 @@ approaches used the same account breadcrumb and action treatment. **B — Compac
 directory** would reduce mobile scrolling but offers less visual separation.
 
 The browser comparison is an illustrative study, not application screenshots or
-accessibility/test evidence. All three design sections are approved; application
-implementation still awaits written-specification review and implementation
-planning.
+accessibility/test evidence. All three design sections and the committed written
+specification are approved; application implementation still awaits the
+implementation plan and execution-method choice.
 
 ## Design section 1 — Accounts headers (approved)
 
@@ -224,8 +227,9 @@ this specification is authoritative.
 
 ## Approval boundary and next step
 
-The Accounts, Settings, and architecture/verification design sections are approved.
-This document must be committed and reviewed by the user before invoking
-writing-plans to create the implementation plan. No application code, tests,
-routes, schema or dependencies have been changed for this design. Spec approval
-does not authorize redesigning the Settings destinations, merging or pushing.
+The Accounts, Settings, and architecture/verification design sections and the
+committed written specification are approved. writing-plans has been invoked to
+create the implementation plan. No application code, tests, routes, schema or
+dependencies have been changed for this design. Finish and review the plan, then
+obtain the execution-method choice before application changes. Spec approval does
+not authorize redesigning the Settings destinations, merging or pushing.
