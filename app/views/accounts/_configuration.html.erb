@@ -22,3 +22,8 @@
   <% end %>
   <%= link_to t("nosia.account_experience.manage_tokens"), account_api_tokens_path(@account), class: "n-account-link" %>
 </section>
+
+<section class="n-account-panel">
+  <h2><%= t("nosia.skills.title") %></h2>
+  <%= link_to t("nosia.skills.manage"), account_agent_skills_path(@account), class: "n-account-link" %>
+</section>

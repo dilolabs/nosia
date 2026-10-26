@@ -1,0 +1,7 @@
+<%# locals: (skill:) %>
+<dl class="n-skills-settings">
+  <div><dt><%= t("nosia.skills.execution_mode") %></dt><dd data-skill-execution><span class="n-tag"><%= t("nosia.skills.execution.#{skill.execution_mode}") %></span></dd></div>
+  <div><dt><%= t("nosia.skills.trigger_mode") %></dt><dd data-skill-trigger><span class="n-tag"><%= t("nosia.skills.trigger.#{skill.trigger_mode}") %></span></dd></div>
+  <div><dt><%= t("nosia.skills.priority") %></dt><dd data-skill-priority><%= skill.priority %></dd></div>
+  <div><dt><%= t("nosia.skills.rag_context") %></dt><dd data-skill-rag><%= t(skill.requires_rag_context ? "nosia.skills.yes" : "nosia.skills.no") %></dd></div>
+</dl>

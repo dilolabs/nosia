@@ -34,6 +34,11 @@ Rails.application.routes.draw do
       resources :chats, only: :index, module: :accounts
       resources :sources, only: :index
       resource :token_usage, only: :show, controller: "token_usages"
+      resources :agent_skills do
+        scope module: :agent_skills do
+          resource :enablement, only: [ :create, :destroy ]
+        end
+      end
       resources :api_tokens, only: [ :index, :create, :destroy ]
       namespace :sources do
         resources :documents, except: :index do
@@ -63,10 +68,11 @@ Rails.application.routes.draw do
     resources :dashboards, only: [ :show ]
     resource :token_usage, only: [ :show ], controller: "token_usages"
     resources :agent_skills, only: [ :index, :new, :create, :show, :edit, :update, :destroy ] do
-      member do
-        patch :toggle
+      scope module: :agent_skills do
+        resource :enablement, only: [ :create, :destroy ]
       end
     end
+    patch "agent_skills/:id/toggle", to: "agent_skills/toggles#update", as: :toggle_agent_skill
     resources :mcp_catalog, only: [ :index, :show, :create ]
     resources :mcp_servers do
       member do

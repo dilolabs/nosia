@@ -1,0 +1,5 @@
+<% %i[notice alert].each do |kind| %>
+  <% if flash[kind].present? %>
+    <div data-skills-feedback class="n-skills-feedback <%= kind == :alert ? 'n-skills-feedback-error' : '' %>" role="<%= kind == :alert ? 'alert' : 'status' %>"><%= flash[kind] %></div>
+  <% end %>
+<% end %>

@@ -1,24 +1,16 @@
-<div class="n-title-container flex justify-between items-center">
-  <h2 class="n-main-title"><%= t("nosia.skills.title") %></h2>
-  <%= link_to new_agent_skill_path, class: "n-btn-primary inline-flex items-center gap-2" do %>
-    <%= inline_svg "svg/plus.svg", aria_hidden: true, class: "w-5 h-5" %>
-    <span><%= t("nosia.skills.create") %></span>
+<div class="n-workspace n-skills-workspace" data-skills-workspace>
+  <%= render "agent_skills/header", title: t("nosia.skills.title"), description: t("nosia.skills_workspace.description"), primary: (@agent_skills.any? ? link_to(t("nosia.skills.create"), skill_workspace_new_path, class: "n-workspace-button n-workspace-primary") : nil) %>
+  <%= render "agent_skills/feedback" %>
+  <% total = @agent_skills.size; enabled = @agent_skills.count(&:enabled?) %>
+  <p class="n-workspace-help" data-skills-count data-total="<%= total %>" data-enabled="<%= enabled %>"><%= t("nosia.skills_workspace.counts", count: total, total: number_with_delimiter(total), enabled: number_with_delimiter(enabled)) %></p>
+  <% if @agent_skills.any? %>
+    <ul class="n-skills-rows !list-none" role="list"><%= render partial: "agent_skills/row", collection: @agent_skills, as: :skill %></ul>
+    <p class="n-workspace-help"><%= t("nosia.skills_workspace.availability_note") %></p>
+  <% else %>
+    <section class="n-workspace-panel" data-skills-empty>
+      <p class="n-workspace-section-title"><%= t("nosia.skills.none") %></p>
+      <p class="n-workspace-help"><%= t("nosia.skills.none_help") %></p>
+      <%= link_to t("nosia.skills.create"), skill_workspace_new_path, class: "n-workspace-button n-workspace-primary" %>
+    </section>
   <% end %>
 </div>
-
-<% if @agent_skills.any? %>
-  <ul class="n-cards-grid !list-none">
-    <% @agent_skills.each do |skill| %>
-      <%= render "skill_card", skill: skill %>
-    <% end %>
-  </ul>
-<% else %>
-  <div class="n-card n-main-border my-4 lg:col-span-2">
-    <div class="m-6 flex flex-col items-center text-center gap-3 py-8">
-      <%= inline_svg "svg/code-bracket.svg", aria_hidden: true, class: "w-12 h-12 text-neutral-400" %>
-      <p class="n-card-title text-wrap"><%= t("nosia.skills.none") %></p>
-      <p class="n-card-subtitle text-wrap"><%= t("nosia.skills.none_help") %></p>
-      <%= link_to t("nosia.skills.create"), new_agent_skill_path, class: "n-btn-primary mt-2" %>
-    </div>
-  </div>
-<% end %>

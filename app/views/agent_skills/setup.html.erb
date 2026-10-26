@@ -1,0 +1,9 @@
+<div class="n-workspace n-skills-workspace" data-skills-workspace data-skills-setup>
+  <%= render "agent_skills/header", title: t("nosia.skills.title") %>
+  <%= render "agent_skills/feedback" %>
+  <section class="n-workspace-panel" aria-labelledby="skills-setup-title">
+    <h2 id="skills-setup-title" class="n-workspace-section-title"><%= t("nosia.skills_workspace.setup_title") %></h2>
+    <p class="n-workspace-help"><%= t("nosia.skills_workspace.setup_help") %></p>
+    <%= link_to t("nosia.skills_workspace.setup_action"), accounts_path, class: "n-workspace-button n-workspace-primary" %>
+  </section>
+</div>

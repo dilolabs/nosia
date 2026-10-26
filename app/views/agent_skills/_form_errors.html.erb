@@ -1,0 +1,18 @@
+<%# locals: (form:) %>
+<% if form.object.errors.any? %>
+  <div id="<%= form.field_id(:errors) %>" class="n-skills-errors" data-form-errors-target="summary" role="alert" tabindex="-1" aria-labelledby="<%= form.field_id(:errors, :title) %>">
+    <h2 id="<%= form.field_id(:errors, :title) %>"><%= t("nosia.skills.errors", count: form.object.errors.count) %></h2>
+    <ul class="!list-none" role="list">
+      <% form.object.errors.each do |error| %>
+        <li>
+          <% attribute = skill_workspace_error_attribute(error.attribute) %>
+          <% if attribute %>
+            <%= link_to error.full_message, "##{form.field_id(attribute)}", class: "n-workspace-link", data: { error_field: form.field_id(attribute) } %>
+          <% else %>
+            <%= error.full_message %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

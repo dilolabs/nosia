@@ -1,0 +1,6 @@
+<%# locals: (skill:) %>
+<%= button_to t(skill.enabled? ? "nosia.skills.disable" : "nosia.skills.enable"), skill_workspace_enablement_path(skill),
+      method: skill.enabled? ? :delete : :post, class: "n-workspace-button",
+      aria: { label: "#{t(skill.enabled? ? 'nosia.skills.disable' : 'nosia.skills.enable')}: #{skill.name}" },
+      data: { skill_state_action: true, turbo_submits_with: t(skill.enabled? ? "nosia.skills_workspace.disabling" : "nosia.skills_workspace.enabling") },
+      form: { data: { controller: "html-form", action: "turbo:before-fetch-request->html-form#requestHTML" } } %>
