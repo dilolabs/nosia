@@ -2329,3 +2329,349 @@ This plan does not execute itself. After it is saved/committed and self-reviewed
 offer the user **1 — Subagent-Driven (recommended)** or **2 — Inline Execution**.
 Wait for the selection, invoke the chosen execution skill, and begin with Task 0.
 No prior feature's execution-method choice or baseline acceptance carries over.
+
+---
+
+## Actual execution record — 2026-10-26
+
+**Outcome: reviewed with accepted concerns, not all green.** The user approved
+the written specification with **“Go”**, then chose **1 — Subagent-Driven**
+execution. Independent SPEC review preceded QUALITY review at each task and at
+whole-feature delivery. MCP remains a separate, unstarted design/implementation
+cycle; no merge, push, PR or worktree cleanup is authorized by this record.
+
+This appendix records actual execution without rewriting the approved instructions
+or code examples above. Their original unchecked planning boxes are preserved;
+the execution-status checklist below distinguishes completed work from this
+document's pending publication/post-commit checks.
+
+### Fixed revision, environment and provenance
+
+- **Final application/test/configuration revision tested and reviewed:**
+  `bb041d7395bed1c67c4df4895c2f2dd776116873`.
+- **Tested tree:** `b9c0e5703beca5d4435c69a7e46c14902f0a7191`.
+- Immutable application exploration base:
+  `6cd1dd03b78a6723a8c31e947f381bda9bf5af1d`.
+- Committed specification/plan execution base:
+  `df3d02c13e58622d020786e6cda60a63df6c0a26`.
+- Branch/worktree: `feat/agent-skills-workspace-ui` in
+  `/home/cbldev/gitd/dilolabs/nosia/.worktrees/agent-skills-workspace-ui`.
+- Actual runtime: Ruby **4.0.7**, Rails **8.0.5.1**, PostgreSQL/pgvector,
+  Tailwind **4.1.16**, Chromium/ChromeDriver **156.0.8078.47**, Minitest/fixtures,
+  Turbo/Stimulus/Importmap. Generic AGENTS.md stack descriptions were not used to
+  authorize a dependency, database or ID-schema upgrade.
+- All application checks ran sequentially through the unchanged external
+  `/tmp/opencode/agent-skills-workspace-check.py`, SHA-256
+  `6d4264e38b24ccd6c817422ed906395b5b36cad8bc52c39d1cba8adea2872dba`,
+  foreground timeout **0**, `RAILS_ENV=test`, local-socket dedicated
+  `postgresql:///nosia_agent_skills_workspace_test`, one worker and test-only AI
+  sentinel. No provider credentials were disclosed; configuration loading was
+  nondisplaying, not an environment-file read/dump. No real provider, worker or
+  ingestion operation was started.
+
+**Evidence limitation:** restart removed original Tasks 0–5 raw logs, screenshots,
+reports and the original external checklist. Their conclusions/reviews below are
+historical conversation provenance, reconstructed in
+`/tmp/opencode/2026-10-26-agent-skills-execution-checklist.md`, **not recovered
+on-disk outputs**. The user requested continuation without repeating completed
+work. The recorder was restored byte-identically; the existing local test DB
+passed the read-only recovery guard (`skills-resume-db-guard.log`), without another
+DB creation/preparation. Task 6 onward has current explicit artifacts and report
+manifests under `/tmp/opencode/`; these are host-local evidence, not committed
+logs or a promise of permanent availability.
+
+Existing externally introduced merge `d97eabe8050bb3b934b1fab050e01567d21e221d`
+has the same tree `8d38afee2b984d9c0b333c86783e802caca57813` as reviewed Task 5
+`a6ef6bfc4c034aab1d105e970210c50491c855b5`; the assistant did not merge/push it.
+Upstream also advanced externally to the tested SHA during final reviews; no
+assistant push/fetch/merge occurred. A **new phase-2 snapshot** of all 194 current
+refs is `/tmp/opencode/skills-phase2-refs-before.log`, SHA-256
+`0de352363b3dd67cfd440fddad6ffc840c1d3f4893d07c567b9a6a0862663a05`.
+Earlier unchanged-ref claims apply only to their actual intervals, not to later
+outside changes (including the unrelated inference-providers branch).
+
+### Task commits and ordered review outcomes
+
+Rows 0–5 use the historical provenance limit above. Rows 6–8 also have retained
+post-restart logs/reports. Review identifiers are controller-reported session
+references, not newly queried or newly dispatched agents in this documentation
+step. Commit IDs below were checked against actual Git history.
+
+| Task | Commits / scope | SPEC first, then QUALITY | Outcome |
+|---|---|---|---|
+| 0 | No source commit; isolated checkout, dedicated DB and fresh baseline | `ses_e87bdaaddffenKgeU9vHjtIe4U` → `ses_e87b9a436ffeilisXtGM3XzAgu` | Approved safety/truthful reporting; exact baseline concerns accepted, not green |
+| 1 | `9844a13`, `f3ff3c9`; fixtures and parser/runtime characterization | `ses_e873d7514ffeOgUg4bGZ4OAPah` → `ses_e873b695bffei8vKgYxc2wrCMp` | Re-approved after deep-snapshot/metadata-retention hardening |
+| 2 | `bbefdb2`; authorized scoped CRUD, helper and setup | `ses_e8727007cffejfl8LneyceagED` → `ses_e8725341dffenI6ccH2Aq4L4w7` | Approved; request-bound tenant restoration observation corrected |
+| 3 | `1876eac`, `43a86d6`; enablement and legacy toggle | `ses_e871cd0a9ffeZQF3jjtqK57hMS` → `ses_e871b6714ffeQZ3gygLrbDCEAf` | Re-approved with consecutive DELETE idempotence and exact 303 coverage |
+| 4 | `a07875c`, `c09f9b9`; shell, rows and details | `ses_e8708e275ffeBHRHK2jb3CH5FR` → `ses_e8706f02affeFCuSK6DfxJKFw7` | Re-approved after header qualification and markerless-list semantics |
+| 5 | `a6ef6bf`; exactly 11 form paths | `ses_e86f593a8ffeLFm9FjBm5lBWgJ` → `ses_e86f33801ffeJC66OzvK2hlIkV` | Approved; QUALITY inspection resumed after restart on the identical tree |
+| 6 | `66661c4`; four test paths plus explicitly approved placeholder-CSS exception | `ses_e86cb2832ffeOQmjzzFAsfkl6F` → `ses_e86c6562effeJLn3n2rrlIjPEA` | Approved complete API/adverse/normal-matrix/native-zoom evidence |
+| 7 | `f1f67f2`; guide, docs index and diagram only | `ses_e86beb243ffeIfBKI16KACBTPN` → `ses_e86bd3205ffeG5AypwwWWG7g0F` | Approved; 31 local links checked, optional diagram clarification only |
+| 8 | `679dd8a` catalog contract; `bb041d7` strict path IDs and exact browser source | Final whole SPEC `ses_e8699038bffe2rKLMhNxenpjiV` → fresh whole QUALITY/architecture/security/UI `ses_e866ff885ffe3R0HfcIPKM0oCB` | Final fresh-evidence recheck and QUALITY approved the same tested SHA with accepted concerns; no Critical/Important or new actionable Minor findings |
+
+The controller read the actual final fixes/RED–GREEN evidence and all seven latest
+raw outputs. Whole-feature SPEC initially withheld approval for the two gaps
+described below, approved their corrections, then approved the fresh broad
+evidence at the fixed tested SHA. Only after that did fresh whole-feature QUALITY
+approve; the automated scanner is not a substitute for that independent review.
+
+### Actual adaptations and genuine regressions
+
+- Task 1's supplied shallow attributes snapshot aliased mutable state; the test
+  used `deep_dup` and added unrelated-metadata retention coverage. This corrected
+  the characterization, not production persistence.
+- Task 2's supplied tenant-restoration assertion observed outside Rails' request
+  executor, where CurrentAttributes reset. A bounded prepend-around callback
+  observed restoration inside the executor, captured ensure-path observations and
+  restored the exact callback chain. Task 6's query-error probe used the same
+  boundary; unexpected faults remained observable.
+- Task 4 qualified `application/header` to avoid the new Skills `_header` partial
+  colliding with the shared layout's relative render. `role="list"` was added by
+  regression coverage for markerless list semantics, also retained for the form
+  error list. No Safari/assistive-technology execution was claimed.
+- Task 5's **10 → 11** file count was a clerical correction before commit, not an
+  expanded scope. Native form source assertions stayed intact; no normalization
+  or parser rewrite was needed.
+- Task 6 exposed a real **2.294:1 dark placeholder contrast failure**, not a
+  fabricated RED: the emitted pseudo/dark selector did not match. The controller
+  authorized only the explicit dark-ancestor placeholder selector and a permanent
+  focused regression. RED **1/137, seed 61358, exit 1** preceded CSS/build; GREEN
+  **1/305, seed 242, exit 0** measured about **7.814 light / 12.095 dark**. Narrow
+  SPEC `ses_e86da6835ffeL83HH6baAksRd3` then QUALITY
+  `ses_e86d8c53effeQrUZ5RY4bi1U3I` approved before complete coverage resumed.
+- Task 8's first final focused run genuinely failed the new Skills plural
+  inventory: **130/11710, seed 37235, 1 failure, exit 1**. Authorized test-only
+  `679dd8a` registered `nosia.skills_workspace.counts` and supplied actual
+  `total`/`enabled` values to both expected formatting and real I18n translation,
+  retaining exact inventory equality, all keys/locales/counts and all assertions.
+  Targeted **4/10815, seed 34260, exit 0** and lint passed; narrow SPEC
+  `ses_e86b03072ffegB7RGJa93hrHaH` then QUALITY
+  `ses_e86af165fffeBuSX7dl3BKnetN` approved.
+- Whole SPEC then found integer lookups accepting numeric-prefix malformed IDs
+  and HTML `<pre>` consuming one authored leading LF. Exactly four files in
+  `bb041d7` addressed these: whole-string ASCII-decimal validation of Skills path
+  IDs before membership/association lookup, and one escaped presentation LF
+  before raw source. No shared AccountScoped/auth/Current/model/parser/API/schema
+  change. Real HTTP RED **3/12, seed 680, 3 failures, exit 1** and browser RED
+  **1/15, seed 176, 1 failure, exit 1** preceded production edits. Full scoping
+  GREEN **9/318, seed 3295** and Skills browser GREEN **10/9077, seed 32050**, plus
+  three-file lint, all exited 0 with no failures/errors/skips. The 44 malformed
+  read/mutation cases and eight exact JavaScript `pre.textContent` cases preserve
+  account/record/no-job invariants, escaped hostile text, leading LFs, trailing
+  whitespace and empty content. Previous tests/thresholds were not weakened.
+
+Available failed attempts, corrective runs and prior-revision final gates are
+retained separately in `/tmp/opencode/agent-skills-task8-report.md` and
+`agent-skills-task6-report.md`, with actual commands/hashes/revisions. In
+particular, `skills-final-focused.log`, `skills-task6-placeholder-red.log`,
+`skills-final-strict-ids-red.log` and `skills-final-source-whitespace-red.log` were
+not overwritten by GREEN. A transient harness-managed initial diff capture later
+expired; explicit current diff snapshots replaced it as **fresh captures**, not
+pretended recovered evidence.
+
+### Limited baseline acceptance — not clean gates
+
+The user's explicit **“Yes”** permitted proceeding with Skills despite only the
+disclosed unchanged errors/warnings below. This summarizes the accepted scope,
+not a reconstructed verbatim question or recovered baseline log. It did not
+authorize new failures/errors/skips/warnings, unrelated fixes, skips, suppression
+or upgrades. Direct installed-scanner comparisons were separately authorized
+without changing warning exits; the version gate must still be reported apart.
+
+| Historical baseline (raw evidence lost in restart) | Exactly accepted concern |
+|---|---|
+| Focused **100/12056**, seed **2600**, exit **0** | Passing baseline, feature tests subsequently increase counts |
+| Full **1119/21433**, seed **5673**, F/E/S **0/1/0**, exit **1** | Undefined `augmented_context`, `app/models/chat/completionable.rb:39` → `test/models/chat/request_options_test.rb:32` |
+| Browser **158/16441**, seed **54721**, F/E/S **0/7/0**, exit **1** | Six ProfileManagement language-submit-selector errors and one ChatWaitingUx login/Email setup error |
+| JSON warnings | Existing duplicate `tools_cache` / `last_test_at` keys and JSON 3.0 advisory only |
+| Original Brakeman wrapper | Installed **8.0.4** versus latest **8.1.0**, ensure-latest exit **5** |
+| Authorized installed Brakeman | **79 checks, 0 scan errors**, same two **High-confidence** warnings, exit **3**: PermitAttributes at `app/controllers/api_tokens_controller.rb:62`; EOLRails at `Gemfile.lock:318` |
+
+### Latest complete final commands at the tested SHA
+
+These seven commands actually ran sequentially at **bb041d7**. Each exclusive raw
+log was opened in full, including `COMMAND_EXIT`; no filters, warning-suppression
+flags, auto-correct or upgrades were used. Earlier final gates at **679dd8a** are
+not substitutes for these corrected-candidate runs. These application checks
+were **not rerun** for the documentation-only record.
+
+```bash
+python3 /tmp/opencode/agent-skills-workspace-check.py /tmp/opencode/skills-final-after-review-focused.log rails test test/models/agent_skill_test.rb test/models/agent_skill_presentation_contract_test.rb test/controllers/agent_skills_workspace_scoping_test.rb test/controllers/agent_skills_workspace_states_test.rb test/controllers/agent_skills_workspace_shell_test.rb test/controllers/agent_skills_workspace_content_test.rb test/controllers/agent_skills_workspace_forms_test.rb test/integration/agent_skills_api_compatibility_test.rb test/integration/localized_pages_test.rb test/controllers/account_experience_test.rb test/controllers/sources_workspace_shell_test.rb test/controllers/token_usage_workspace_shell_test.rb test/internationalization/catalogs_test.rb
+python3 /tmp/opencode/agent-skills-workspace-check.py /tmp/opencode/skills-final-after-review-full.log rails test
+python3 /tmp/opencode/agent-skills-workspace-check.py /tmp/opencode/skills-final-after-review-build.log rails tailwindcss:build
+python3 /tmp/opencode/agent-skills-workspace-check.py /tmp/opencode/skills-final-after-review-browser.log browser test/system
+python3 /tmp/opencode/agent-skills-workspace-check.py /tmp/opencode/skills-final-after-review-lint.log lint app/controllers/agent_skills_controller.rb app/controllers/concerns/agent_skill_scoped.rb app/controllers/agent_skills/enablements_controller.rb app/controllers/agent_skills/toggles_controller.rb app/helpers/agent_skills_workspace_helper.rb test/support/agent_skills_workspace_fixtures.rb test/models/agent_skill_presentation_contract_test.rb test/controllers/agent_skills_workspace_scoping_test.rb test/controllers/agent_skills_workspace_states_test.rb test/controllers/agent_skills_workspace_shell_test.rb test/controllers/agent_skills_workspace_content_test.rb test/controllers/agent_skills_workspace_forms_test.rb test/integration/agent_skills_api_compatibility_test.rb test/integration/localized_pages_test.rb test/system/agent_skills_workspace_test.rb test/internationalization/catalogs_test.rb
+python3 /tmp/opencode/agent-skills-workspace-check.py /tmp/opencode/skills-final-after-review-security.log scan --no-pager
+python3 /tmp/opencode/agent-skills-workspace-check.py /tmp/opencode/skills-final-after-review-security-installed.log ruby -e 'load Gem.bin_path("brakeman", "brakeman")' -- --no-pager
+```
+
+| Final log suffix after `skills-final-after-review-` | Seed | Tests / assertions or result | F/E/S | True exit |
+|---|---|---|---|---|
+| `focused.log` | **14497** | **133 / 13189** | **0/0/0** | **0** |
+| `full.log` | **11244** | **1152 / 22566** | **0/1/0** | **1** |
+| `build.log` | n/a | Tailwind **4.1.16**, successful build | n/a | **0** |
+| `browser.log` | **35112** | **168 / 25527** | **0/7/0** | **1** |
+| `lint.log` | n/a | **16 Ruby files, no offenses**, including catalog test | n/a | **0** |
+| `security.log` | n/a | ensure-latest wrapper: **8.0.4 vs 8.1.0** | not a completed scan | **5** |
+| `security-installed.log` | n/a | **79 checks / 0 scan errors / 2 warnings** | n/a | **3** |
+
+Fresh full-suite error:
+`Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`,
+`NoMethodError: undefined method 'augmented_context'`, at
+`app/models/chat/completionable.rb:39` (map/with_index at 35) →
+`test/models/chat/request_options_test.rb:32` (test defined at 29).
+
+Fresh browser errors are exactly these six `ProfileManagementTest` methods plus
+the one `ChatWaitingUxTest` method; the complete name sets matched the preceding
+raw run, not merely its error count:
+
+```text
+ProfileManagementTest#test_native_Tab_keeps_every_en_dark_mobile_profile_control_fully_above_the_bottom_navigation
+ProfileManagementTest#test_native_Tab_keeps_every_en_light_mobile_profile_control_fully_above_the_bottom_navigation
+ProfileManagementTest#test_native_Tab_keeps_every_fr_dark_mobile_profile_control_fully_above_the_bottom_navigation
+ProfileManagementTest#test_native_Tab_keeps_every_fr_light_mobile_profile_control_fully_above_the_bottom_navigation
+ProfileManagementTest#test_long_email_and_French_validation_errors_stay_contained_in_the_mobile_scrolling_region
+ProfileManagementTest#test_signed_language_preferences_keep_mobile_profile_controls_contained_and_keyboard_accessible_in_both_themes
+ChatWaitingUxTest#test_the_composer_locks,_phases_show,_the_placeholder_appears,_then_content,_then_unlock
+```
+
+The six profile errors are `Capybara::ElementNotFound` for
+`button[type=submit]`, `test/system/profile_management_test.rb:272`, via
+`switch_language:270` (callers 149/173/129–130). ChatWaitingUx cannot find enabled
+**Email** in setup at `test/system/chat_waiting_ux_test.rb:15` after login_url
+(test defined at 22). No new failure/error/skip or Skills browser error occurred.
+
+Installed Brakeman **8.0.4** completed **79 checks**, **0 scan errors**, with the
+same warning-details section as its prior run: **High confidence** (not severity),
+Mass Assignment / **PermitAttributes**, `app/controllers/api_tokens_controller.rb:62`,
+`params.require(:api_token).permit(:account_id, :name)`; and **High confidence**,
+Unmaintained Dependency / **EOLRails**, `Gemfile.lock:318`, support for Rails
+**8.0.5.1** ended **2026-10-07** per that scanner. The original wrapper's exit 5
+and completed installed scan's warning exit 3 remain distinct and **non-green**.
+No claim that a newer scanner passed or that security is clean. Accepted duplicate
+JSON-key warnings remain unchanged and unsuppressed.
+
+Latest raw-log SHA-256 manifest, all under `/tmp/opencode/`:
+
+```text
+0cec2edb3c288a0dea63c5a11373385ac40c18ba2eef6cb05587bec5fc338875  skills-final-after-review-focused.log
+b0878ceca8ba189d3a789eab4ee90107c4d1f1588d51c870dd8940b127ff62b8  skills-final-after-review-full.log
+5519a8f07eb9e6be11ae25ec19974c5bf80389d5096919fe4c2934b264dd2128  skills-final-after-review-build.log
+5ba49bd95cad7c423bfa65599498f2317c2ce0fdce2ce2faf899ee707173b1d8  skills-final-after-review-browser.log
+fd56565744ce2e91250d230cd4474f2f86a1de126cff9326e3e120fefed51222  skills-final-after-review-lint.log
+f0ac5efa31c44476eb68e88d62655d967a65f70891c1b9badecf891b3c67d033  skills-final-after-review-security.log
+ecfe21ef58da6cb471035415b3cb2303f2076aed3c92c7ebf1c704462d6448a3  skills-final-after-review-security-installed.log
+```
+
+### Browser, contrast and native-zoom evidence
+
+Fresh bb041d7 evidence: `/tmp/opencode/agent-skills-workspace-70358/`.
+The **96/96** normal matrix covers two route families × four page kinds × EN/FR ×
+light/dark × three viewports (375×812, 768×1024, 1440×1000), plus empty/setup/error
+states, permanent placeholder coverage, reduced-motion and strong keyboard-focus/
+whole-control hit-testing checks. There are **112 contrast records / 3754 samples**,
+1877 samples per theme; **117 PNGs generated is not 117 visually reviewed**.
+
+| Fresh selected-sample minimum | Light | Dark |
+|---|---:|---:|
+| Text | 4.945457412311979 | 8.228034925049096 |
+| Placeholder | 7.81388303728913 | 12.09488625090816 |
+| Control border | 4.536155586951846 | 3.1916051526448737 |
+| Focus outline | 4.536155586951846 | 9.341138249313333 |
+
+The normal matrix correctly retains native zoom **UNVERIFIED**. Separate Task 6
+native evidence is `/tmp/opencode/skills-task6-native-200-18744/` and
+`skills-task6-native-200.log`: **48/48 states, 1 test / 5597 assertions, seed
+23022, F/E/S 0/0/0, exit 0**. Actual Chromium Settings selected **200%**, independent
+native API returned **2**; outer size stayed 1400×1400, CSS viewport changed from
+1400×1257 to 700×628, DPR 1→2, visual scale 1. Temporary Selenium profile/settings
+were restored to native 100%; CSS zoom/transform/CDP scaling or viewport proxies
+were not substituted. The 32 ordinary and 16 server-validation states cover both
+families/locales/themes with bottom-navigation clearance (minimum recorded 24 CSS
+px); native contrast has **64 records / 2288 samples**.
+
+**Native attribution limit:** this native proof belongs to the actual Task 6
+candidate (raw header d97eabe, subsequently committed as **66661c4**), not a new
+bb041d7 native run. The current details view and strict-ID concern differ from
+that candidate. The controller explicitly retained the earlier native proof
+without repeating the one-off because CSS/layout/zoom mechanism did not change;
+the source-LF correction has exact real-browser `textContent` proof and the fresh
+complete normal matrix. Stored artifact hashes being retained does not assert
+that current application bytes still equal Task 6's candidate.
+
+**Actual image inspection by role:** this Task 8 implementer opened **no images**.
+The Task 6 implementer opened 26 final normal and 27 native images; its complete
+opened-file manifests are in `/tmp/opencode/agent-skills-task6-report.md`, separate
+from generated totals. Representative actually opened normal paths under
+`/tmp/opencode/agent-skills-workspace-13497/` include
+`legacy_list-fr-375-light.png`, `scoped_detail-fr-375-dark.png`,
+`legacy_new-fr-375-dark.png`, `errors-fr-dark.png`, `setup-fr-dark.png`; native
+examples include `browser-settings-200.png`, `legacy-list-fr-light.png` and
+`scoped-edit-fr-dark-validation-priority.png` under the native directory above.
+The parent reports inspecting earlier normal images in 13497, native
+`browser-settings-200.png` and two native state images, and reading all seven
+latest raw outputs. The two parent state filenames are not named in the
+reconstructed checklist/handoff and are not invented here.
+
+The **fresh whole QUALITY reviewer**, not this implementer, actually opened these
+11 normal images under `/tmp/opencode/agent-skills-workspace-70358/`:
+
+```text
+rows-1440-light.png
+rows-375-dark.png
+scoped_list-fr-1440-dark.png
+scoped_detail-fr-375-light.png
+legacy_edit-fr-375-dark.png
+placeholder-scoped-dark.png
+errors-fr-dark.png
+setup-fr-light.png
+empty-en-dark.png
+legacy_new-en-1440-light.png
+scoped_edit-fr-768-light.png
+```
+
+It also actually opened these seven retained native images under
+`/tmp/opencode/skills-task6-native-200-18744/`:
+
+```text
+browser-settings-200.png
+legacy-list-fr-light.png
+scoped-detail-en-dark-top.png
+scoped-detail-fr-dark.png
+scoped-new-fr-light.png
+legacy-edit-fr-dark-validation-summary.png
+scoped-edit-fr-dark-validation-priority.png
+```
+
+Standard framework screenshots for accepted browser errors reuse filenames and
+were automatically overwritten by later runs; no separate old image copies are
+claimed. Unique Task 6 artifacts and explicit raw logs remain distinct.
+Optional nonblocking observations remain **not fixed and not requirements
+defects**: contrast query does not directly select `pre`/`legend` (current UI
+reviewed readable); native viewport halving is recorded/proven but lacks a
+separate explicit halving assertion; diagram nodes/arrows could be clearer; the
+679dd8a commit body has cosmetic literal newline separators. No new actionable
+whole-QUALITY finding or baseline waiver resulted.
+
+### Execution status and documentation-only publication boundary
+
+- [x] Tasks 0–5 executed and reviewed; historical-only original artifacts lost in restart, as disclosed.
+- [x] Task 6 coverage/native evidence and ordered reviews completed; retained evidence attributed to its actual candidate.
+- [x] Task 7 documentation and ordered reviews completed.
+- [x] Task 8 Step 1: clean feature/protected-subsystem/complete-diff checks completed.
+- [x] Task 8 Step 2: all seven final checks completed at the fixed tested SHA, preserving true nonzero results.
+- [x] Task 8 Step 3: final SPEC evidence approval followed by fresh QUALITY/architecture/security/UI approval.
+- [ ] Task 8 Step 4 publication: this record is prepared before its docs-only commit; commit identity and actual documentation checks are reported externally after creation.
+- [ ] Task 8 Step 5: post-commit single-path manifest, all-other-tracked-byte equality, clean tree/ref verification and final controller/user report occur externally after that commit.
+
+These last boxes intentionally do not claim future events at record-writing
+time; the controller may close the external execution checklist after post-commit
+verification. No future self-referential documentation-commit SHA is embedded.
+Publication is limited to this plan. All other tracked bytes must equal the fixed
+tested SHA; only the feature branch ref may advance from the new phase-2 snapshot.
+Only local documentation links/fences/whitespace/scope are checked for this record,
+not a repetition of completed application suites. Full-suite/browser/security
+concerns remain disclosed and non-green; reviewed delivery is not merge authority.
+
+See the [approved specification](../specs/2026-10-26-agent-skills-workspace-ui-ux-design.md)
+and [delivered workspace guide](../../agent-skills-workspace.md) for product scope.
