@@ -42,6 +42,81 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
     end
   end
 
+  test "create and edit stay in both route families without changing stored identity" do
+    [ [ @first, agent_skills_path, new_agent_skill_path ],
+      [ @second, account_agent_skills_path(@second), new_account_agent_skill_path(@second) ] ].each do |account, index, new_path|
+      name = "browser-#{account.id}"
+      source = workspace_source(name)
+      visit new_path
+      fill_in "agent_skill_skill_content", with: source
+      focus_skill_by_tab("[data-skill-advanced] summary")
+      page.send_keys(:enter)
+      assert_selector "[data-skill-advanced][open]"
+      fill_in "agent_skill_priority", with: 42
+      find("[data-skill-save]").click
+      assert_current_path index
+      record = account.agent_skills.find_by!(name: name)
+      assert_equal source, record.skill_content
+      assert_equal 42, record.priority
+      row = "[data-skill-id='#{record.id}']"
+      within(row) { find("a[href$='/edit']").click }
+      assert_field "agent_skill_skill_content", with: source
+      assert_selector "[data-skill-saved-identity]", text: name
+      fill_in "agent_skill_skill_content", with: workspace_source("new-frontmatter-name")
+      find("[data-skill-save]").click
+      assert_current_path index
+      assert_equal name, record.reload.name
+      assert_equal "Keep this description", record.description
+      assert_equal workspace_source("new-frontmatter-name"), record.skill_content
+    end
+    assert_equal @first, @user.reload.first_account
+    assert_no_enqueued_jobs
+  end
+
+  test "server errors focus the summary retain input and reopen a manually closed advanced field" do
+    record = workspace_skill(:skills_second)
+    before = record.attributes
+    source = "---\nname: new-frontmatter-name\nrequires_rag_context: true\n---\nKeep the edited source."
+    visit edit_account_agent_skill_path(@second, record)
+    fill_in "agent_skill_skill_content", with: source
+    find("[data-skill-advanced] summary").click
+    fill_in "agent_skill_priority", with: 101
+    uncheck "agent_skill_requires_rag_context"
+    page.execute_script("document.querySelector('form[data-skill-form]').noValidate=true")
+    find("[data-skill-save]").click
+    assert_selector "[data-form-errors-target='summary']"
+    assert_selector "[data-form-errors-target='summary']:focus"
+    assert_field "agent_skill_skill_content", with: source
+    assert_field "agent_skill_priority", with: "101"
+    assert_unchecked_field "agent_skill_requires_rag_context"
+    assert_selector "[data-skill-advanced][open]"
+    find("[data-skill-advanced] summary").click
+    assert_no_selector "[data-skill-advanced][open]"
+    focus_skill_by_tab("[data-form-errors-target='summary'] a[href='#agent_skill_priority']")
+    page.send_keys(:enter)
+    assert_selector "[data-skill-advanced][open]"
+    assert_selector "#agent_skill_priority:focus"
+    assert_skills_focus
+    page.save_screenshot("#{@evidence_dir}/advanced-validation.png")
+    assert_equal before, record.reload.attributes
+  end
+
+  test "native validation reveals a closed invalid advanced field before focusing it" do
+    before = workspace_records
+    visit new_account_agent_skill_path(@second)
+    fill_in "agent_skill_skill_content", with: workspace_source("native-validation")
+    find("[data-skill-advanced] summary").click
+    fill_in "agent_skill_priority", with: 101
+    find("[data-skill-advanced] summary").click
+    page.execute_script("window.skillsNativeRequests=[];document.addEventListener('turbo:before-fetch-request',e=>{if(e.target.matches('form[data-skill-form]'))window.skillsNativeRequests.push(e.detail.url.toString());})")
+    find("[data-skill-save]").click
+    assert_selector "[data-skill-advanced][open]"
+    assert_selector "#agent_skill_priority:focus"
+    assert_empty page.evaluate_script("window.skillsNativeRequests")
+    assert_no_selector "[data-form-errors-target='summary']"
+    assert_equal before, workspace_records
+  end
+
   private
     def resize_skills_viewport(width, height)
       page.current_window.resize_to(width, height)

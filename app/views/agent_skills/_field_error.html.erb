@@ -1,0 +1,5 @@
+<%# locals: (form:, attribute:) %>
+<% errors = skill_workspace_field_errors(form.object, attribute) %>
+<% if errors.any? %>
+  <p id="<%= form.field_id(attribute, :error) %>" class="n-skills-field-error"><%= errors.to_sentence %></p>
+<% end %>

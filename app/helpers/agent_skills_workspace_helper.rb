@@ -73,4 +73,48 @@ module AgentSkillsWorkspaceHelper
   def skill_workspace_delete_confirmation(skill)
     t("nosia.skills_workspace.delete_confirm", name: skill.name, account: @account.name)
   end
+
+  # @param skill [AgentSkill] Form object, possibly invalid
+  # @param attribute [Symbol] An existing permitted field
+  # @return [Object] Submitted value on 422, otherwise model value
+  def skill_workspace_value(skill, attribute)
+    if @submitted_skill_values&.key?(attribute.to_s)
+      @submitted_skill_values.fetch(attribute.to_s)
+    else
+      skill.public_send(attribute)
+    end
+  end
+
+  # @param attribute [Symbol] Model error attribute
+  # @return [Symbol, nil] Editable field, mapping frontmatter identity to content
+  def skill_workspace_error_attribute(attribute)
+    if [ :name, :description ].include?(attribute.to_sym)
+      :skill_content
+    elsif [ :skill_content, :execution_mode, :trigger_mode, :priority, :requires_rag_context, :enabled ].include?(attribute.to_sym)
+      attribute.to_sym
+    end
+  end
+
+  # @param skill [AgentSkill] Form object
+  # @param attribute [Symbol] Editable field
+  # @return [Array<String>] Connected model error messages
+  def skill_workspace_field_errors(skill, attribute)
+    skill.errors.select { |error| skill_workspace_error_attribute(error.attribute) == attribute }.map(&:full_message)
+  end
+
+  # @param form [ActionView::Helpers::FormBuilder] Current form
+  # @param attribute [Symbol] Editable field
+  # @return [Hash] Accessible hint/error attributes
+  def skill_workspace_field_options(form, attribute)
+    invalid = skill_workspace_field_errors(form.object, attribute).any?
+    ids = [ form.field_id(attribute, :help) ]
+    ids << form.field_id(attribute, :error) if invalid
+    { aria: { invalid: invalid ? "true" : nil, describedby: ids.join(" ") } }
+  end
+
+  # @param skill [AgentSkill] Form object
+  # @return [Boolean] Whether advanced content must be exposed
+  def skill_workspace_advanced_invalid?(skill)
+    [ :priority, :requires_rag_context ].any? { |attribute| skill.errors.include?(attribute) }
+  end
 end

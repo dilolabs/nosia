@@ -82,7 +82,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     get new_agent_skill_url, headers: { "Accept-Language" => "fr" }
 
     assert_response :success
-    assert_select "h2", text: "Créer une compétence d’agent"
+    assert_select "h1", text: "Créer une compétence d’agent"
     assert_select 'option[value="explicit"]', text: "Explicite"
     assert_select 'option[value="llm"]', text: "LLM"
     assert_select 'textarea[name="agent_skill[skill_content]"]'
@@ -124,7 +124,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 
     get edit_agent_skill_url(skill), headers: headers
     assert_response :success
-    assert_select "h2", text: "Modifier la compétence d’agent"
+    assert_select "h1", text: "Modifier la compétence d’agent"
     assert_select 'textarea[name="agent_skill[skill_content]"]', text: skill.skill_content
     assert_select 'input[type="submit"][value="Mettre à jour la compétence"]'
     assert_select 'main svg:not([aria-hidden="true"])', count: 0
@@ -174,7 +174,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     { "valid-skill" => "1 erreur empêche l’enregistrement de cette compétence :", "1bad" => "2 erreurs empêchent l’enregistrement de cette compétence :" }.each do |name, heading|
       post agent_skills_url, params: { agent_skill: { name: name, priority: 101, skill_content: "Keep these instructions." } }, headers: headers
       assert_response :unprocessable_entity
-      assert_select "h4", text: heading
+      assert_select "[data-form-errors-target='summary'] h2", text: heading
       assert_select "li", text: "Priorité doit être inférieur ou égal à 100"
     end
   end

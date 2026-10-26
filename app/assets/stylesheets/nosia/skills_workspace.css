@@ -35,3 +35,22 @@ main:has([data-skills-workspace]) { min-width: 0; scroll-padding-block-end: 7rem
 @media (prefers-reduced-motion: reduce) {
   .n-skills-workspace a, .n-skills-workspace button, .n-skills-workspace summary { transition: none; animation: none; }
 }
+.n-skills-workspace .n-skills-form { @apply space-y-6; }
+.n-skills-workspace .n-skills-form-layout { @apply grid min-w-0 grid-cols-1 items-start gap-6; }
+.n-skills-workspace .n-skills-form .n-workspace-panel { @apply min-w-0 space-y-3; }
+.n-skills-workspace .n-skills-form [data-skill-saved-identity] p { overflow-wrap: anywhere; }
+.n-skills-workspace .n-skills-label { @apply block text-sm font-medium; }
+.n-skills-workspace .n-skills-input { @apply block min-h-11 w-full min-w-0 rounded-md border border-neutral-500 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:border-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:outline-green-300; }
+.n-skills-workspace .n-skills-editor { @apply resize-y font-mono leading-relaxed; }
+.n-skills-workspace .n-skills-editor::placeholder { @apply text-neutral-600 opacity-100 dark:text-neutral-300; }
+.n-skills-workspace .n-skills-input[aria-invalid="true"] { @apply border-red-700 dark:border-red-300; }
+.n-skills-workspace .n-skills-check { @apply flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium; }
+.n-skills-workspace .n-skills-check input { @apply h-5 w-5 shrink-0 accent-green-700 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:focus:outline-green-300; }
+.n-skills-workspace .n-skills-advanced { @apply space-y-4 border-t border-neutral-500 pt-4 dark:border-neutral-400; }
+.n-skills-workspace .n-skills-advanced summary { overflow-wrap: anywhere; @apply min-h-11 cursor-pointer rounded-md px-2 py-3 text-sm font-semibold focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:focus:outline-green-300; }
+.n-skills-workspace .n-skills-errors { overflow-wrap: anywhere; @apply rounded-lg border border-red-700 bg-red-50 p-4 text-red-900 focus:outline-2 focus:outline-offset-2 focus:outline-red-700 dark:border-red-300 dark:bg-red-950 dark:text-red-100 dark:focus:outline-red-300; }
+.n-skills-workspace .n-skills-errors h2 { @apply font-semibold; }
+.n-skills-workspace .n-skills-field-error { overflow-wrap: anywhere; @apply text-sm text-red-800 dark:text-red-200; }
+@media (min-width: 1280px) {
+  .n-skills-workspace .n-skills-form-layout { grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); }
+}
