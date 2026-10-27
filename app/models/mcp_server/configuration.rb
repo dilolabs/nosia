@@ -24,7 +24,7 @@ module McpServer::Configuration
   # @return [Boolean] Whether the value must never be repopulated
   def secret_configuration_field?(field) = %w[secret password].include?(field[:type].to_s)
 
-  # Saves declared edits and removes matching header copies of removed credentials.
+  # Saves declared edits and retires matching header copies when credentials change.
   # @param attributes [Hash] Whitelisted ordinary model attributes
   # @param values [Hash] Whitelisted declared configuration inputs
   # @param removals [Array<String>] Explicit saved-secret removals
@@ -52,6 +52,7 @@ module McpServer::Configuration
       elsif remove
         remove_workspace_credential_header(key, config.delete(key))
       elsif incoming.key?(key) && (!secret || incoming[key].present?)
+        remove_workspace_credential_header(key, config[key]) if secret && incoming[key].to_s != config[key]
         config[key] = incoming[key].to_s
       end
       @workspace_public_values[key] = config[key] unless secret

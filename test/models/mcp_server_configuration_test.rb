@@ -35,6 +35,51 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
   end
 
   { "token" => [ "Authorization", "Bearer remote-secret" ], "api_key" => [ "X-API-Key", "remote-secret" ] }.each do |credential, (header, injected_value)|
+    test "replacing #{credential} retires its saved header before removal without another connection test" do
+      public_headers = { "X-Custom" => "keep" }
+      @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
+        auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers, env: { "UNEDITED" => "keep" } })
+      outgoing = []
+      remote_client = Struct.new(:tools).new([])
+      replacement = ->(config:, **_) { outgoing << config.deep_dup; remote_client }
+
+      with_singleton_replacement(RubyLLM::MCP, :client, replacement) do
+        assert @second.mcp_servers.find(@second_server.id).test_connection!
+        tested = @second.mcp_servers.find(@second_server.id)
+        assert_equal injected_value, tested.headers.fetch(header)
+        connection = tested.connection_config.deep_dup
+        [ {}, { credential => "" }, { credential => "remote-secret" } ].each do |values|
+          assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: values)
+          unchanged = @second.mcp_servers.find(@second_server.id)
+          assert_equal "remote-secret", unchanged.auth_config.fetch(credential)
+          assert_equal connection, unchanged.connection_config
+        end
+
+        editable = @second.mcp_servers.find(@second_server.id)
+        before = editable.attributes.deep_dup
+        refute editable.save_workspace({ name: "" }, values: { credential => "replacement-secret" })
+        assert_equal before, @second.mcp_servers.find(@second_server.id).attributes
+
+        assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: { credential => "replacement-secret" })
+        replaced = @second.mcp_servers.find(@second_server.id)
+        assert_equal "replacement-secret", replaced.auth_config.fetch(credential)
+        assert_equal public_headers, replaced.headers
+        assert_equal({ "UNEDITED" => "keep" }, replaced.env)
+        assert_equal 1, outgoing.size
+
+        assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: {}, removals: [ credential ])
+        removed = @second.mcp_servers.find(@second_server.id)
+        refute removed.auth_config.key?(credential)
+        assert_equal public_headers, removed.headers
+        assert_equal({ "UNEDITED" => "keep" }, removed.env)
+        assert_same remote_client, removed.client
+        assert_equal 2, outgoing.size
+        assert_equal public_headers, outgoing.last.fetch(:headers)
+        refute_includes outgoing.last.to_json, "remote-secret"
+        refute_includes outgoing.last.to_json, "replacement-secret"
+      end
+    end
+
     test "removing #{credential} clears its persisted HTTP header copy without changing other configuration" do
       other_header = header == "Authorization" ? "X-API-Key" : "Authorization"
       public_headers = { "X-Custom" => "keep", other_header => "custom-auth" }
@@ -69,15 +114,28 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
       end
     end
 
-    test "removing #{credential} preserves a header that does not match the saved credential" do
+    test "replacing and removing #{credential} preserves a header that does not match the saved credential" do
       custom_headers = { header => "custom-auth", "X-Custom" => "keep" }
       @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
         auth_config: { credential => "remote-secret" }, connection_config: { headers: custom_headers })
 
-      assert @second_server.save_workspace({}, values: {}, removals: [ credential ])
+      assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: { credential => "replacement-secret" })
+      assert_equal custom_headers, @second.mcp_servers.find(@second_server.id).headers
+      assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: {}, removals: [ credential ])
       saved = @second.mcp_servers.find(@second_server.id)
       refute saved.auth_config.key?(credential)
       assert_equal custom_headers, saved.headers
+    end
+
+    test "changing #{credential} preserves a legacy header when the old credential is unknown" do
+      unknown_headers = { header => injected_value, "X-Custom" => "keep" }
+      @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
+        auth_config: {}, connection_config: { headers: unknown_headers })
+
+      assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: { credential => "replacement-secret" })
+      assert_equal unknown_headers, @second.mcp_servers.find(@second_server.id).headers
+      assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: {}, removals: [ credential ])
+      assert_equal unknown_headers, @second.mcp_servers.find(@second_server.id).headers
     end
 
     { transition: false, persisted_stdio: true }.each do |stage, already_stdio|
@@ -123,10 +181,12 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
     end
   end
 
-  test "local credential removal preserves registered connection configuration" do
+  test "local credential changes preserve registered connection configuration" do
     connection = { "headers" => { "X-API-Key" => "optional-secret" }, "env" => { "LOCAL" => "keep" } }
     @second_server.update!(metadata: { engine: "open_alex" }, auth_config: { api_key: "optional-secret" }, connection_config: connection)
 
+    assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: { "api_key" => "replacement-secret" })
+    assert_equal connection, @second.mcp_servers.find(@second_server.id).connection_config
     assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: {}, removals: [ "api_key" ])
     assert_equal connection, @second.mcp_servers.find(@second_server.id).connection_config
   end
