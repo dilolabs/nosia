@@ -65,7 +65,7 @@ module McpServer::Configuration
 
   private
     def remove_workspace_credential_header(key, value)
-      return unless value.present? && %w[streamable sse].include?(transport_type)
+      return if value.blank? || local?
 
       header, expected = case key
       when "token" then [ "Authorization", "Bearer #{value}" ]

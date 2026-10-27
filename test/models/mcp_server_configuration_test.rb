@@ -79,6 +79,56 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
       refute saved.auth_config.key?(credential)
       assert_equal custom_headers, saved.headers
     end
+
+    { transition: false, persisted_stdio: true }.each do |stage, already_stdio|
+      test "removing #{credential} at #{stage} clears its HTTP header copy before returning to HTTP" do
+        previous = ENV["MCP_STDIO_ENABLED"]
+        ENV["MCP_STDIO_ENABLED"] = "true"
+        public_headers = { "X-Custom" => "keep" }
+        @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
+          auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers, env: { "UNEDITED" => "keep" } })
+        outgoing = []
+        remote_client = Struct.new(:tools).new([])
+        replacement = ->(transport_type:, config:, **_) { outgoing << [ transport_type, config.deep_dup ]; remote_client }
+
+        with_singleton_replacement(RubyLLM::MCP, :client, replacement) do
+          assert @second.mcp_servers.find(@second_server.id).test_connection!
+          tested = @second.mcp_servers.find(@second_server.id)
+          assert_equal injected_value, tested.headers.fetch(header)
+          stdio_attributes = { transport_type: "stdio", endpoint: nil, command: "must-not-run" }
+          if already_stdio
+            assert tested.save_workspace(stdio_attributes, values: {})
+            tested = @second.mcp_servers.find(@second_server.id)
+            assert_equal injected_value, tested.headers.fetch(header)
+          end
+
+          assert tested.save_workspace(stdio_attributes, values: {}, removals: [ credential ])
+          saved = @second.mcp_servers.find(@second_server.id)
+          assert_equal "stdio", saved.transport_type
+          refute saved.auth_config.key?(credential)
+          refute saved.headers.key?(header)
+          assert_equal public_headers, saved.headers
+          assert_equal({ "UNEDITED" => "keep" }, saved.env)
+
+          assert saved.save_workspace({ transport_type: "streamable", endpoint: "https://other.example.org/mcp" }, values: {})
+          assert_same remote_client, @second.mcp_servers.find(@second_server.id).client
+          assert_equal [ :streamable, :streamable ], outgoing.map(&:first)
+          assert_equal "https://other.example.org/mcp", outgoing.last.last.fetch(:url)
+          assert_equal public_headers, outgoing.last.last.fetch(:headers)
+          assert_equal({ "UNEDITED" => "keep" }, @second.mcp_servers.find(@second_server.id).env)
+        end
+      ensure
+        ENV["MCP_STDIO_ENABLED"] = previous
+      end
+    end
+  end
+
+  test "local credential removal preserves registered connection configuration" do
+    connection = { "headers" => { "X-API-Key" => "optional-secret" }, "env" => { "LOCAL" => "keep" } }
+    @second_server.update!(metadata: { engine: "open_alex" }, auth_config: { api_key: "optional-secret" }, connection_config: connection)
+
+    assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: {}, removals: [ "api_key" ])
+    assert_equal connection, @second.mcp_servers.find(@second_server.id).connection_config
   end
 
   test "local transport cannot be coerced and unknown registrations preserve data" do
