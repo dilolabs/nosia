@@ -1,106 +1,16 @@
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.breadcrumb"), mcp_servers_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.catalog"), mcp_catalog_index_path, class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="n-title-container md:flex md:justify-between md:items-center">
-  <div>
-    <h2 class="n-main-title"><%= t("nosia.mcp.catalog_title") %></h2>
-    <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-      <%= t("nosia.mcp.catalog_help") %>
-    </p>
-  </div>
-  <%= link_to mcp_servers_path, class: "n-btn border n-main-border n-main-hover n-main-focus inline-flex items-center gap-2" do %>
-    <%= inline_svg_tag "svg/chevron-left.svg", aria: { hidden: true }, class: "w-5 h-5" %>
-    <span><%= t("nosia.mcp.my_servers") %></span>
+<div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="catalog">
+  <%= render "mcp_workspace/header", title: t("nosia.mcp.catalog_title"), catalog: true, description: t("nosia.mcp.catalog_help"), actions: link_to(t("nosia.mcp.my_servers"), mcp_index_path, class: "n-workspace-link") %>
+  <%= render "mcp_workspace/feedback" %>
+  <% if @servers_by_category.any? %>
+    <% @categories.each do |category| %>
+      <% entries = @servers_by_category[category[:id].to_s]; next if entries.blank? %>
+      <section class="space-y-4">
+        <h2 class="n-workspace-section-title"><%= catalog_category_name(category) %></h2>
+        <% if category[:description] %><p class="n-workspace-help"><%= catalog_category_description(category) %></p><% end %>
+        <ul class="n-mcp-grid !list-none" role="list"><%= render partial: "entry", collection: entries, as: :entry %></ul>
+      </section>
+    <% end %>
+  <% else %>
+    <section class="n-workspace-panel"><h2><%= t("nosia.mcp.catalog_empty") %></h2></section>
   <% end %>
 </div>
-
-<% if @servers_by_category.any? %>
-  <div class="space-y-12 my-4">
-    <% @categories.each do |category| %>
-      <% servers = @servers_by_category[category[:id].to_s] %>
-      <% next if servers.blank? %>
-
-      <div>
-        <div class="mb-6">
-          <h3 class="flex items-center gap-2 text-xl font-semibold">
-            <span class="text-2xl" aria-hidden="true"><%= category[:icon] %></span>
-            <%= catalog_category_name(category) %>
-          </h3>
-          <% if category[:description] %>
-            <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400"><%= catalog_category_description(category) %></p>
-          <% end %>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <% servers.each do |server| %>
-            <% is_activated = @activated_ids.include?(server[:id]) %>
-
-            <div class="relative n-card !block <%= is_activated ? "border-green-500 dark:border-green-600" : "n-main-border" %>">
-              <div class="m-6 space-y-4">
-                <% if is_activated %>
-                  <div class="absolute top-4 right-4">
-                    <span class="n-tag n-tag-ready">
-                      <span class="h-2 w-2 rounded-full bg-green-600"></span>
-                      <%= t("nosia.mcp.activated") %>
-                    </span>
-                  </div>
-                <% end %>
-
-                <div class="flex items-start gap-4">
-                  <span class="text-4xl shrink-0" aria-hidden="true"><%= server[:icon] %></span>
-
-                  <div class="flex-1 min-w-0">
-                    <h4 class="n-card-title text-wrap"><%= server[:name] %></h4>
-                    <p class="n-card-subtitle text-wrap line-clamp-3 !whitespace-normal"><%= catalog_entry_description(server) %></p>
-                  </div>
-                </div>
-
-                <% if server[:capabilities]&.any? %>
-                  <div class="flex flex-wrap gap-2">
-                    <% server[:capabilities].take(3).each do |capability| %>
-                      <span class="n-tag n-tag-disconnected"><%= catalog_capability_label(capability) %></span>
-                    <% end %>
-                    <% if server[:capabilities].size > 3 %>
-                      <span class="n-tag n-tag-disconnected">+<%= server[:capabilities].size - 3 %></span>
-                    <% end %>
-                  </div>
-                <% end %>
-
-                <% if is_activated %>
-                  <button disabled class="w-full n-btn-not-allowed n-main-bg text-neutral-500 dark:text-neutral-400">
-                    <%= t("nosia.mcp.already_activated") %>
-                  </button>
-                <% elsif server[:requires_config]&.any? %>
-                  <%= link_to t("nosia.mcp.configure_activate"), mcp_catalog_path(server[:id]), class: "block w-full text-center n-btn-primary" %>
-                <% else %>
-                  <%= button_to t("nosia.mcp.activate"), mcp_catalog_index_path,
-                    method: :post,
-                    params: { id: server[:id] },
-                    class: "w-full n-btn-primary" %>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
-  </div>
-<% else %>
-  <div class="n-card n-main-border my-4">
-    <div class="m-6 flex flex-col items-center text-center gap-3 py-8">
-      <%= inline_svg_tag "svg/folders.svg", aria: { hidden: true }, class: "w-12 h-12 text-neutral-400" %>
-      <p class="n-card-title text-wrap"><%= t("nosia.mcp.catalog_empty") %></p>
-    </div>
-  </div>
-<% end %>

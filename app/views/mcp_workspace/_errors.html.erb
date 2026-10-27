@@ -1,0 +1,17 @@
+<%# locals: (record:, catalog: false) %>
+<% if record.errors.any? %>
+  <section class="n-mcp-errors" data-form-errors-target="summary" role="alert" tabindex="-1" aria-labelledby="mcp-errors-title">
+    <h2 id="mcp-errors-title" class="n-workspace-section-title"><%= t("nosia.mcp.errors", count: record.errors.count) %></h2>
+    <ul class="!list-none" role="list">
+      <% mcp_error_items(record, catalog: catalog).each do |item| %>
+        <li>
+          <% if item[:target] %>
+            <%= link_to item[:message], "##{item[:target]}", class: "n-workspace-link", data: { error_field: item[:target] } %>
+          <% else %>
+            <%= item[:message] %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+<% end %>

@@ -1,0 +1,28 @@
+<%# locals: (fields:, values:, record:, catalog: true, template: nil) %>
+<% fields.each do |field| %>
+  <% key = field[:name].to_s; attribute = "configuration.#{key}"; secret = %w[secret password].include?(field[:type].to_s) %>
+  <% id = mcp_field_id(attribute, catalog: catalog); input_name = catalog ? "config[#{key}]" : "mcp_server[configuration_values][#{key}]" %>
+  <% saved = !catalog && record.persisted? && secret && (record.attribute_in_database("auth_config") || {})[key].present? %>
+  <% options = mcp_field_options(record, attribute, catalog: catalog).merge(class: "n-mcp-input", required: field[:required] && !saved) %>
+  <div class="n-mcp-field">
+    <%= label_tag id, class: "n-mcp-label" do %>
+      <%= mcp_configuration_label(field, template: template) %> · <%= t(field[:required] ? "nosia.mcp_workspace.required" : "nosia.mcp_workspace.optional") %>
+    <% end %>
+    <% if saved %><p class="n-workspace-help"><%= t("nosia.mcp_workspace.saved") %></p><% end %>
+    <% if secret %>
+      <%= password_field_tag input_name, "", options.merge(autocomplete: "off", data: { mcp_secret: true }) %>
+    <% elsif field[:type].to_s == "select" %>
+      <%= select_tag input_name, options_for_select(field[:options] || [], values[key]), options %>
+    <% elsif field[:type].to_s == "textarea" %>
+      <%= text_area_tag input_name, values[key], options.merge(rows: 3) %>
+    <% else %>
+      <%= text_field_tag input_name, values[key], options %>
+    <% end %>
+    <p id="<%= id %>_help" class="n-workspace-help"><%= template ? catalog_field_text(template, field, :description) : field[:description] %> <%= t(saved ? "nosia.mcp_workspace.keep_secret" : "nosia.mcp_workspace.secret_reentry") if secret %></p>
+    <% errors = mcp_error_items(record, catalog: catalog).select { |item| item[:target] == id } %>
+    <% if errors.any? %><p id="<%= id %>_error" class="n-mcp-error"><%= errors.map { |item| item[:message] }.join(" ") %></p><% end %>
+    <% if saved %>
+      <label class="n-mcp-check"><%= check_box_tag "mcp_server[remove_credentials][]", key, false %><span><%= t("nosia.mcp_workspace.remove_secret") %></span></label>
+    <% end %>
+  </div>
+<% end %>

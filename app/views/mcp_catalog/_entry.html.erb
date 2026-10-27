@@ -1,0 +1,20 @@
+<%# locals: (entry:) %>
+<% added = @added_servers.fetch(entry[:id], []); blocked = entry[:transport_type] == "stdio" && !McpServer.stdio_enabled? %>
+<li class="n-mcp-card" data-mcp-entry="<%= entry[:id] %>">
+  <span class="n-mcp-icon"><%= inline_svg mcp_icon(entry[:id]), aria_hidden: true, class: "h-6 w-6" %></span>
+  <h3 class="n-workspace-section-title"><%= link_to entry[:name], mcp_template_path(entry[:id]), class: "n-workspace-link" %></h3>
+  <p class="n-workspace-help"><%= catalog_entry_description(entry) %></p>
+  <p class="n-workspace-help"><%= Array(entry[:capabilities]).map { |value| catalog_capability_label(value) }.join(" · ") %></p>
+  <% if added.any? %><p class="n-workspace-help"><%= t("nosia.mcp_workspace.added") %></p><% end %>
+  <div class="n-workspace-actions">
+    <% if added.any? %>
+      <%= link_to t(added.one? ? "nosia.mcp_workspace.manage" : "nosia.mcp_workspace.manage_many"), added.one? ? mcp_record_path(added.first) : mcp_index_path, class: "n-workspace-button" %>
+    <% elsif blocked %>
+      <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
+    <% elsif Array(entry[:requires_config]).any? %>
+      <%= link_to t("nosia.mcp_workspace.configure"), mcp_template_path(entry[:id]), class: "n-workspace-button n-workspace-primary" %>
+    <% else %>
+      <%= button_to t("nosia.mcp_workspace.add"), mcp_catalog_list_path, params: { id: entry[:id] }, class: "n-workspace-button n-workspace-primary", data: { turbo_submits_with: t("nosia.mcp_workspace.adding") } %>
+    <% end %>
+  </div>
+</li>

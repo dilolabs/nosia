@@ -8,7 +8,7 @@ class McpCatalogController < ApplicationController
   def index
     @categories = McpCatalog.categories
     @servers_by_category = McpCatalog.all.group_by { |entry| entry[:category] }
-    @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata["catalog_id"] }
+    @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata&.fetch("catalog_id", nil) }
     @activated_ids = @added_servers.keys.compact
   end
 
@@ -18,7 +18,7 @@ class McpCatalogController < ApplicationController
     if @template
       @mcp_server = @account.mcp_servers.build
       @configuration_values = {}
-      @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata["catalog_id"] }
+      @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata&.fetch("catalog_id", nil) }
     else
       redirect_to mcp_catalog_list_path, alert: t("nosia.mcp.server_not_found")
     end
@@ -54,7 +54,7 @@ class McpCatalogController < ApplicationController
 
     def render_configuration_error(values)
       @configuration_values = McpCatalog.public_configuration_values(@template, values)
-      @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata["catalog_id"] }
+      @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata&.fetch("catalog_id", nil) }
       render :show, status: :unprocessable_entity
     end
 end
