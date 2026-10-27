@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { Turbo } from "@hotwired/turbo-rails"
 
 // Progressively enhances local, preloaded sections with manually activated tabs.
 export default class extends Controller {
@@ -27,7 +28,7 @@ export default class extends Controller {
     event.preventDefault()
     const key = event.currentTarget.dataset.tabKey
     this.activate(key)
-    history.pushState(null, "", `#${key}`)
+    this.updateHash(key)
   }
 
   key(event) {
@@ -45,8 +46,14 @@ export default class extends Controller {
       event.preventDefault()
       const key = event.currentTarget.dataset.tabKey
       this.activate(key)
-      history.pushState(null, "", `#${key}`)
+      this.updateHash(key)
     }
+  }
+
+  updateHash(key) {
+    // Keep Turbo restoration entries and cached local panels without moving focus.
+    Turbo.navigator.history.push(new URL(`#${key}`, location.href))
+    Turbo.session.view.cacheSnapshot()
   }
 
   resetRoving() {

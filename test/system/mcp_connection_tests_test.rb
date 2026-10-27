@@ -95,7 +95,9 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
 
   private
     def assert_test_button_contrast
-      contrast = page.evaluate_script(<<~JS)
+      selector = "form[action='#{test_connection_mcp_server_path(@server)}'] button[data-turbo-submits-with]"
+      assert_selector selector, text: I18n.t("nosia.mcp.test_connection_short", locale: find("html")[:lang])
+      contrast = page.evaluate_script(<<~JS, selector)
         (() => {
           document.getAnimations().forEach(animation => animation.finish());
           const context = document.createElement('canvas').getContext('2d');
@@ -108,7 +110,7 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
             });
             return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
           };
-          const button = document.querySelector('button[data-turbo-submits-with]');
+          const button = document.querySelector(arguments[0]);
           const foreground = luminance(getComputedStyle(button).color);
           const background = luminance(getComputedStyle(button).backgroundColor);
           return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);

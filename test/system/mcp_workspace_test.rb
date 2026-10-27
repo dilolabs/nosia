@@ -70,6 +70,68 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
 
+  test "detail tab history restores detail and edit DOM across browser navigation" do
+    detail_path = account_mcp_server_path(@second, @second_server)
+    edit_path = edit_account_mcp_server_path(@second, @second_server)
+    visit detail_path
+    assert_selector "#mcp-tab-overview[aria-selected=true]"
+    page.execute_script("window.mcpTabRequests = 0; document.addEventListener('turbo:before-fetch-request', () => window.mcpTabRequests += 1)")
+
+    find("#mcp-tab-tools").click
+    assert_selector "#mcp-tab-tools[aria-selected=true]"
+    assert_selector "#tools[role=tabpanel]"
+    assert_equal 0, page.evaluate_script("window.mcpTabRequests")
+
+    page.go_back
+    assert_current_path detail_path
+    assert_selector "#mcp-tab-overview[aria-selected=true]"
+    assert_selector "#overview[role=tabpanel]"
+    page.go_forward
+    assert_current_path detail_path, ignore_query: true
+    assert_equal "tools", URI.parse(page.current_url).fragment
+    assert_selector "#mcp-tab-tools[aria-selected=true]"
+    assert_selector "#tools[role=tabpanel]"
+    assert_equal 0, page.evaluate_script("window.mcpTabRequests")
+
+    within "[data-mcp-screen=detail]" do
+      find("a[href='#{edit_path}']").click
+    end
+    assert_current_path edit_path
+    assert_field "mcp_server_name", with: @second_server.name
+    assert_no_selector "[data-mcp-screen=detail]"
+
+    page.go_back
+    assert_current_path detail_path, ignore_query: true
+    assert_equal "tools", URI.parse(page.current_url).fragment
+    assert_selector "[data-mcp-screen=detail] h1", text: @second_server.name
+    assert_selector "#mcp-tab-tools[aria-selected=true]"
+    assert_selector "#tools[role=tabpanel]"
+    assert_no_selector "input#mcp_server_name"
+
+    page.go_forward
+    assert_current_path edit_path
+    assert_field "mcp_server_name", with: @second_server.name
+    assert_no_selector "[data-mcp-screen=detail]"
+
+    page.go_back
+    assert_current_path detail_path, ignore_query: true
+    assert_equal "tools", URI.parse(page.current_url).fragment
+    assert_selector "#mcp-tab-tools[aria-selected=true]"
+    page.refresh
+    assert_current_path detail_path, ignore_query: true
+    assert_equal "tools", URI.parse(page.current_url).fragment
+    assert_selector "#mcp-tab-tools[aria-selected=true]"
+    assert_selector "#tools[role=tabpanel]"
+
+    page.execute_script("location.hash = 'unknown'")
+    assert_selector "#mcp-tab-overview[aria-selected=true]"
+    assert_selector "#overview[role=tabpanel]"
+    page.go_back
+    assert_equal "tools", URI.parse(page.current_url).fragment
+    assert_selector "#mcp-tab-tools[aria-selected=true]"
+    assert_selector "#tools[role=tabpanel]"
+  end
+
   test "mobile New chat opens the scoped account composer by keyboard without creating a chat" do
     before = Chat.count
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
