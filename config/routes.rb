@@ -40,6 +40,14 @@ Rails.application.routes.draw do
         end
       end
       resources :api_tokens, only: [ :index, :create, :destroy ]
+      resources :mcp_catalog, only: [ :index, :show, :create ]
+      resources :mcp_servers do
+        scope module: :mcp_servers do
+          resource :connection, only: [ :create, :destroy ]
+          resource :connection_test, only: :create
+          resource :tool_execution, only: :create
+        end
+      end
       namespace :sources do
         resources :documents, except: :index do
           resource :retry, only: :create, module: :documents
@@ -76,10 +84,10 @@ Rails.application.routes.draw do
     resources :mcp_catalog, only: [ :index, :show, :create ]
     resources :mcp_servers do
       member do
-        post :test_connection
-        post :connect
-        post :disconnect
-        post :execute_tool
+        post :test_connection, to: "mcp_servers/connection_tests#create"
+        post :connect, to: "mcp_servers/connections#create"
+        post :disconnect, to: "mcp_servers/connections#destroy"
+        post :execute_tool, to: "mcp_servers/tool_executions#create"
       end
     end
     resources :models, only: [ :index, :show ] do
