@@ -33,6 +33,46 @@ class McpWorkspaceFormsTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "saved-secret"
   end
 
+  %i[en fr].each do |locale|
+    test "failed credential replacement explains reentry and saved fallback in #{locale}" do
+      original = @second_server.reload.attributes.deep_dup
+      patch account_mcp_server_path(@second, @second_server), params: { mcp_server: {
+        name: "", notes: "Retained recovery note", configuration_values: { api_key: "never-render-replacement", team: "Retained public team" } } }, headers: { "Accept-Language" => locale.to_s }
+
+      assert_response :unprocessable_entity
+      assert_select "input#mcp_server_configuration_values_api_key[value=''][aria-describedby=mcp_server_configuration_values_api_key_help]"
+      assert_select "input#mcp_server_configuration_values_team[value='Retained public team']"
+      assert_select "textarea#mcp_server_notes", text: "Retained recovery note"
+      assert_select "a[data-error-field=mcp_server_name]"
+      assert_select "input#mcp_server_name[aria-invalid=true]"
+      refute_includes response.body, "never-render-replacement"
+      refute_includes response.body, "saved-secret"
+      assert_equal original, @second_server.reload.attributes
+      assert_equal "saved-secret", @second_server.auth_config.fetch("api_key")
+      assert_select "p#mcp_server_configuration_values_api_key_help", text: /#{Regexp.escape(I18n.t('nosia.mcp_workspace.keep_secret', locale: locale))}/
+      assert_select "p#mcp_server_configuration_values_api_key_help", text: /#{Regexp.escape(I18n.t('nosia.mcp_workspace.secret_reentry', locale: locale))}/
+    end
+
+    test "local authentication heading leaves requirements to declared fields in #{locale}" do
+      get new_account_mcp_server_path(@second), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "[data-mcp-form] h2", text: I18n.t("nosia.mcp.authentication", locale: locale)
+      assert_select "label[for=mcp_server_configuration_values_token]", text: /#{Regexp.escape(I18n.t('nosia.mcp_workspace.optional', locale: locale))}/
+      assert_select "input#mcp_server_configuration_values_token[type=password][value='']"
+      assert_select "p#mcp_server_configuration_values_token_help", text: /#{Regexp.escape(I18n.t('nosia.mcp_workspace.secret_reentry', locale: locale))}/
+
+      get edit_account_mcp_server_path(@second, @second_server), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "label[for=mcp_server_configuration_values_api_key]", text: "Demo key · #{I18n.t('nosia.mcp_workspace.required', locale: locale)}"
+      assert_select "label[for=mcp_server_configuration_values_team]", text: "Team · #{I18n.t('nosia.mcp_workspace.required', locale: locale)}"
+      assert_select "input#mcp_server_configuration_values_team[required]"
+      assert_select "p#mcp_server_configuration_values_api_key_help", text: /#{Regexp.escape(I18n.t('nosia.mcp_workspace.keep_secret', locale: locale))}/
+      refute_includes css_select("p#mcp_server_configuration_values_api_key_help").first.text, I18n.t("nosia.mcp_workspace.secret_reentry", locale: locale)
+      assert_select "[data-mcp-form] h2", text: locale == :en ? "Authentication" : "Authentification"
+      assert_select "[data-mcp-form] h2", text: I18n.t("nosia.mcp.authentication", locale: locale), count: 0
+    end
+  end
+
   test "422 keeps non-secret values and connects errors without echoing replacement" do
     %i[en fr].each do |locale|
       original = @second_server.reload.attributes.deep_dup

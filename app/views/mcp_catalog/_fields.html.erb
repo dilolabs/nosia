@@ -18,7 +18,13 @@
     <% else %>
       <%= text_field_tag input_name, values[key], options %>
     <% end %>
-    <p id="<%= id %>_help" class="n-workspace-help"><%= template ? catalog_field_text(template, field, :description) : field[:description] %> <%= t(saved ? "nosia.mcp_workspace.keep_secret" : "nosia.mcp_workspace.secret_reentry") if secret %></p>
+    <p id="<%= id %>_help" class="n-workspace-help">
+      <%= template ? catalog_field_text(template, field, :description) : field[:description] %>
+      <% if secret %>
+        <%= t("nosia.mcp_workspace.keep_secret") if saved %>
+        <%= t("nosia.mcp_workspace.secret_reentry") if !saved || record.errors.any? %>
+      <% end %>
+    </p>
     <% errors = mcp_error_items(record, catalog: catalog).select { |item| item[:target] == id } %>
     <% if errors.any? %><p id="<%= id %>_error" class="n-mcp-error"><%= errors.map { |item| item[:message] }.join(" ") %></p><% end %>
     <% if saved %>

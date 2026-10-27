@@ -12,6 +12,7 @@ en:
       apply_filters: Apply filters
       all: All
       availability: Availability
+      authentication: Authentication
       enabled: Enabled for conversations
       disabled: Disabled for conversations
       open: Open

@@ -27,7 +27,7 @@
   <% engine = mcp_server.metadata&.[]("engine") if mcp_server.local? %>
   <% if fields.any? %>
     <%= tag.section class: "n-workspace-panel space-y-4", data: (mcp_server.local? ? {} : { mcp_form_target: "httpFields" }) do %>
-      <h2 class="n-workspace-section-title"><%= t("nosia.mcp.authentication") %></h2>
+      <h2 class="n-workspace-section-title"><%= t(mcp_server.local? ? "nosia.mcp_workspace.authentication" : "nosia.mcp.authentication") %></h2>
       <%= render "mcp_catalog/fields", fields: fields, values: mcp_server.workspace_public_values, record: mcp_server, catalog: false, template: (McpCatalog.find(engine) if mcp_server.local?) %>
     <% end %>
   <% elsif mcp_server.local? && !Engines::Registry[engine] %>
