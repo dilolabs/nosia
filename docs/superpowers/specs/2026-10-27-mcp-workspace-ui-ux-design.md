@@ -1,7 +1,7 @@
 # MCP workspace UI/UX design
 
-Status: All four design sections approved in chat; written specification pending
-user review. Implementation planning and application changes are not authorized.
+Status: Written specification approved by the user's “Go”; implementation
+planning authorized. Application changes still require the execution gates.
 
 Date: 2026-10-27
 
