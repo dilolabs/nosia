@@ -34,6 +34,53 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
     assert_equal "saved-secret", @second_server.reload.auth_config.fetch("api_key")
   end
 
+  { "token" => [ "Authorization", "Bearer remote-secret" ], "api_key" => [ "X-API-Key", "remote-secret" ] }.each do |credential, (header, injected_value)|
+    test "removing #{credential} clears its persisted HTTP header copy without changing other configuration" do
+      other_header = header == "Authorization" ? "X-API-Key" : "Authorization"
+      public_headers = { "X-Custom" => "keep", other_header => "custom-auth" }
+      @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
+        auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers, env: { "UNEDITED" => "keep" } })
+      outgoing = []
+      remote_client = Struct.new(:tools).new([])
+      replacement = ->(config:, **_) { outgoing << config.deep_dup; remote_client }
+
+      with_singleton_replacement(RubyLLM::MCP, :client, replacement) do
+        assert @second.mcp_servers.find(@second_server.id).test_connection!
+        tested = @second.mcp_servers.find(@second_server.id)
+        assert_equal injected_value, tested.headers.fetch(header)
+        before = tested.attributes.deep_dup
+
+        refute tested.save_workspace({ name: "" }, values: {}, removals: [ credential ])
+        assert_equal before, @second.mcp_servers.find(@second_server.id).attributes
+        conflicted = @second.mcp_servers.find(@second_server.id)
+        refute conflicted.save_workspace({}, values: { credential => "replacement" }, removals: [ credential ])
+        assert_equal before, @second.mcp_servers.find(@second_server.id).attributes
+
+        editable = @second.mcp_servers.find(@second_server.id)
+        assert editable.save_workspace({ endpoint: "https://other.example.org/mcp" }, values: {}, removals: [ credential ])
+        saved = @second.mcp_servers.find(@second_server.id)
+        refute saved.auth_config.key?(credential)
+        assert_equal({ "UNEDITED" => "keep" }, saved.env)
+        assert_same remote_client, saved.client
+        assert_equal "https://other.example.org/mcp", outgoing.last.fetch(:url)
+        refute outgoing.last.fetch(:headers).key?(header)
+        assert_equal public_headers, outgoing.last.fetch(:headers)
+        assert_equal public_headers, @second.mcp_servers.find(@second_server.id).headers
+      end
+    end
+
+    test "removing #{credential} preserves a header that does not match the saved credential" do
+      custom_headers = { header => "custom-auth", "X-Custom" => "keep" }
+      @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
+        auth_config: { credential => "remote-secret" }, connection_config: { headers: custom_headers })
+
+      assert @second_server.save_workspace({}, values: {}, removals: [ credential ])
+      saved = @second.mcp_servers.find(@second_server.id)
+      refute saved.auth_config.key?(credential)
+      assert_equal custom_headers, saved.headers
+    end
+  end
+
   test "local transport cannot be coerced and unknown registrations preserve data" do
     refute @second_server.save_workspace({ transport_type: "streamable" }, values: {})
     assert_equal "local", @second_server.reload.transport_type

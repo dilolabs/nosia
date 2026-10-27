@@ -24,6 +24,7 @@ module McpServer::Configuration
   # @return [Boolean] Whether the value must never be repopulated
   def secret_configuration_field?(field) = %w[secret password].include?(field[:type].to_s)
 
+  # Saves declared edits and removes matching header copies of removed credentials.
   # @param attributes [Hash] Whitelisted ordinary model attributes
   # @param values [Hash] Whitelisted declared configuration inputs
   # @param removals [Array<String>] Explicit saved-secret removals
@@ -49,7 +50,7 @@ module McpServer::Configuration
       if remove && incoming[key].present?
         @workspace_configuration_errors << [ :"configuration.#{key}", I18n.t("nosia.mcp_workspace.credential_conflict") ]
       elsif remove
-        config.delete(key)
+        remove_workspace_credential_header(key, config.delete(key))
       elsif incoming.key?(key) && (!secret || incoming[key].present?)
         config[key] = incoming[key].to_s
       end
@@ -63,6 +64,18 @@ module McpServer::Configuration
   end
 
   private
+    def remove_workspace_credential_header(key, value)
+      return unless value.present? && %w[streamable sse].include?(transport_type)
+
+      header, expected = case key
+      when "token" then [ "Authorization", "Bearer #{value}" ]
+      when "api_key" then [ "X-API-Key", value ]
+      end
+      if header && headers&.[](header) == expected
+        self.headers = headers.except(header)
+      end
+    end
+
     def validate_workspace_configuration
       Array(@workspace_configuration_errors).each { |attribute, message| errors.add(attribute, message) }
     end

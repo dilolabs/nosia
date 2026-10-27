@@ -3,6 +3,7 @@ class McpServersController < ApplicationController
   include McpScoped
 
   before_action :set_mcp_server, only: [ :show, :edit, :update, :destroy ]
+  before_action :validate_configuration_values, only: [ :create, :update ]
 
   # @return [void] Renders the account's servers with allowlisted filters
   def index
@@ -23,7 +24,7 @@ class McpServersController < ApplicationController
     @mcp_server = @account.mcp_servers.build(transport_type: "streamable")
   end
 
-  # @return [void] Creates an account server or renders validation errors
+  # @return [void] Creates an account server or returns input/validation errors
   def create
     @mcp_server = @account.mcp_servers.build(transport_type: mcp_server_params[:transport_type])
 
@@ -38,7 +39,7 @@ class McpServersController < ApplicationController
   def edit
   end
 
-  # @return [void] Updates an account server or renders validation errors
+  # @return [void] Updates an account server or returns input/validation errors
   def update
     if @mcp_server.save_workspace(mcp_server_params, values: configuration_values, removals: configuration_removals)
       redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.updated")
@@ -54,6 +55,13 @@ class McpServersController < ApplicationController
   end
 
   private
+    def validate_configuration_values
+      root = params.require(:mcp_server)
+      if root.key?(:configuration_values) && !root[:configuration_values].is_a?(ActionController::Parameters)
+        head :bad_request
+      end
+    end
+
     def mcp_server_params
       params.require(:mcp_server).permit(:name, :transport_type, :endpoint, :enabled, :notes, :tags, :command, :args)
     end

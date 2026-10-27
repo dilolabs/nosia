@@ -2,6 +2,8 @@
 class McpCatalogController < ApplicationController
   include McpScoped
 
+  before_action :validate_configuration, only: :create
+
   # @return [void] Renders catalog entries and the account's activated IDs
   def index
     @categories = McpCatalog.categories
@@ -22,7 +24,7 @@ class McpCatalogController < ApplicationController
     end
   end
 
-  # @return [void] Activates a template without changing the account context
+  # @return [void] Activates an account template or returns input/validation errors
   def create
     @template = McpCatalog.find(params[:id] || params[:server_id])
     if @template
@@ -44,6 +46,12 @@ class McpCatalogController < ApplicationController
   end
 
   private
+    def validate_configuration
+      if params.key?(:config) && !params[:config].is_a?(ActionController::Parameters)
+        head :bad_request
+      end
+    end
+
     def render_configuration_error(values)
       @configuration_values = McpCatalog.public_configuration_values(@template, values)
       @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata["catalog_id"] }
