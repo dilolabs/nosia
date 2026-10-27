@@ -20,14 +20,14 @@ class McpServersController < ApplicationController
 
   # @return [void] Renders a new server form in the current MCP context
   def new
-    @mcp_server = @account.mcp_servers.build
+    @mcp_server = @account.mcp_servers.build(transport_type: "streamable")
   end
 
   # @return [void] Creates an account server or renders validation errors
   def create
-    @mcp_server = @account.mcp_servers.build(mcp_server_params)
+    @mcp_server = @account.mcp_servers.build(transport_type: mcp_server_params[:transport_type])
 
-    if @mcp_server.save
+    if @mcp_server.save_workspace(mcp_server_params, values: configuration_values, removals: configuration_removals)
       redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.created")
     else
       render :new, status: :unprocessable_entity
@@ -40,7 +40,7 @@ class McpServersController < ApplicationController
 
   # @return [void] Updates an account server or renders validation errors
   def update
-    if @mcp_server.update(mcp_server_params)
+    if @mcp_server.save_workspace(mcp_server_params, values: configuration_values, removals: configuration_removals)
       redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.updated")
     else
       render :edit, status: :unprocessable_entity
@@ -55,21 +55,17 @@ class McpServersController < ApplicationController
 
   private
     def mcp_server_params
-      params.require(:mcp_server).permit(
-        :name,
-        :transport_type,
-        :endpoint,
-        :enabled,
-        :notes,
-        :tags,
-        :command,
-        :args,
-        :env,
-        :url,
-        :token,
-        :api_key,
-        connection_config: {},
-        auth_config: {}
-      )
+      params.require(:mcp_server).permit(:name, :transport_type, :endpoint, :enabled, :notes, :tags, :command, :args)
+    end
+
+    def configuration_values
+      root = params.require(:mcp_server)
+      allowed = @mcp_server.workspace_configuration_fields.map { |field| field[:name].to_s }
+      legacy = root.permit(:token, :api_key).to_h.slice(*allowed)
+      legacy.merge(root.fetch(:configuration_values, ActionController::Parameters.new).permit(*allowed).to_h)
+    end
+
+    def configuration_removals
+      params.require(:mcp_server).permit(remove_credentials: []).fetch(:remove_credentials, [])
     end
 end

@@ -5,39 +5,48 @@ class McpCatalogController < ApplicationController
   # @return [void] Renders catalog entries and the account's activated IDs
   def index
     @categories = McpCatalog.categories
-    @servers = McpCatalog.all
-    @servers_by_category = @servers.group_by { |s| s[:category] }
-
-    # Get list of already activated server IDs
-    @activated_ids = @account.mcp_servers
-      .where("metadata->>'catalog_id' IS NOT NULL")
-      .pluck(Arel.sql("metadata->>'catalog_id'"))
+    @servers_by_category = McpCatalog.all.group_by { |entry| entry[:category] }
+    @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata["catalog_id"] }
+    @activated_ids = @added_servers.keys.compact
   end
 
   # @return [void] Renders a catalog template or redirects when it is missing
   def show
-    @template = McpCatalog.find(params[:id])
-    redirect_to mcp_catalog_list_path, alert: t("nosia.mcp.server_not_found") unless @template
+    @template = McpCatalog.find(request.path_parameters[:id])
+    if @template
+      @mcp_server = @account.mcp_servers.build
+      @configuration_values = {}
+      @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata["catalog_id"] }
+    else
+      redirect_to mcp_catalog_list_path, alert: t("nosia.mcp.server_not_found")
+    end
   end
 
   # @return [void] Activates a template without changing the account context
   def create
-    server_id = params[:id] || params[:server_id]
-    template = McpCatalog.find(server_id)
-
-    unless template
+    @template = McpCatalog.find(params[:id] || params[:server_id])
+    if @template
+      values = params.fetch(:config, ActionController::Parameters.new).permit(*Array(@template[:requires_config]).map { |field| field[:name].to_s }).to_h
+      begin
+        @mcp_server = McpCatalog.activate_for_account(@account, @template[:id], values)
+        redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.activated_named", name: @template[:name])
+      rescue ActiveRecord::RecordInvalid => error
+        @mcp_server = error.record
+        render_configuration_error(values)
+      rescue StandardError
+        @mcp_server = @account.mcp_servers.build
+        @mcp_server.errors.add(:base, I18n.t("nosia.mcp.connection_failed"))
+        render_configuration_error(values)
+      end
+    else
       redirect_to mcp_catalog_list_path, alert: t("nosia.mcp.server_not_found")
-      return
-    end
-
-    # Get config values from params
-    config_values = params[:config] || {}
-
-    begin
-      @mcp_server = McpCatalog.activate_for_account(@account, server_id, config_values)
-      redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.activated_named", name: template[:name])
-    rescue => e
-      redirect_to mcp_catalog_list_path, alert: t("nosia.mcp.activation_error", error: e.message)
     end
   end
+
+  private
+    def render_configuration_error(values)
+      @configuration_values = McpCatalog.public_configuration_values(@template, values)
+      @added_servers = @account.mcp_servers.to_a.group_by { |server| server.metadata["catalog_id"] }
+      render :show, status: :unprocessable_entity
+    end
 end

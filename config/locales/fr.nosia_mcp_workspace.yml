@@ -1,0 +1,48 @@
+fr:
+  nosia:
+    mcp_workspace:
+      description: Gérez les outils et les ressources disponibles pour vos assistants.
+      custom_add: Ajouter un serveur personnalisé
+      empty: Aucun serveur MCP pour le moment
+      empty_help: Choisissez une intégration du catalogue ou ajoutez un serveur personnalisé.
+      filtered_empty: Aucun serveur ne correspond à ces filtres.
+      reset: Réinitialiser les filtres
+      browse_catalog: Parcourir le catalogue
+      connection_status: État de la connexion
+      apply_filters: Appliquer les filtres
+      all: Tous
+      availability: Disponibilité
+      enabled: Activé pour les conversations
+      disabled: Désactivé pour les conversations
+      open: Ouvrir
+      manage: Gérer le serveur
+      manage_many: Gérer les serveurs
+      added: Ajouté à ce compte
+      add: Ajouter au compte
+      adding: Ajout…
+      configure: Configurer et ajouter
+      saving: Enregistrement…
+      connection: Connexion
+      historical: État enregistré, sans surveillance continue de la connexion.
+      latest_latency: "Dernier temps de réponse mesuré : %{latency}"
+      not_loaded: Connectez le serveur pour découvrir ses fonctionnalités.
+      unavailable: Impossible de charger les fonctionnalités. Vérifiez la connexion et réessayez.
+      count_unavailable: indisponible
+      no_items: Ce serveur n’a signalé aucun élément dans cette section.
+      schema: Voir le schéma des paramètres
+      required: Obligatoire
+      delete_title: Retirer ce serveur
+      delete_help: Retirez la configuration de ce compte, sans supprimer le service externe.
+      delete_confirm: "Retirer %{name} de %{account} ? Le service externe ne sera pas supprimé."
+      organization: Organisation (facultatif)
+      keep_secret: Laissez vide pour conserver l’identifiant enregistré.
+      saved: Identifiant enregistré
+      remove_secret: Supprimer l’identifiant enregistré lors de l’enregistrement
+      secret_reentry: Les champs secrets ne sont pas restaurés après un échec. Saisissez à nouveau le remplacement si nécessaire.
+      saved_test: Tester la configuration enregistrée
+      saved_test_help: Les modifications ne sont ni enregistrées ni testées. Vous reviendrez aux détails du serveur et perdrez les modifications non enregistrées.
+      local_transport_fixed: Les intégrations natives conservent leur transport local enregistré.
+      missing_registration: La définition de cette intégration est indisponible. Les paramètres existants sont conservés.
+      stdio_unavailable: Les connexions par processus local sont désactivées sur ce déploiement.
+      credential_conflict: Choisissez un remplacement ou une suppression, pas les deux.
+      optional: Facultatif
