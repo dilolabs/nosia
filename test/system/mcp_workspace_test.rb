@@ -176,7 +176,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     assert_current_path account_mcp_server_path(@second, @second_server)
     assert_selector "[data-workspace-scope]", text: @second.name
     assert_equal "Second tool", @second_server.reload.name
-    assert_equal "saved-secret", observed.pop.fetch(:api_key)
+    assert_not observed.empty?, "Completed saved-configuration response did not invoke the health-check hook"
+    assert_equal "saved-secret", observed.pop(true).fetch(:api_key)
   ensure
     release << true
   end
