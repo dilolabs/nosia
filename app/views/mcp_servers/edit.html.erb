@@ -7,7 +7,7 @@
     <aside class="n-workspace-panel space-y-3" data-mcp-busy-group>
       <h2 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.saved_test") %></h2>
       <p class="n-workspace-help"><%= t("nosia.mcp_workspace.saved_test_help") %></p>
-      <% if @mcp_server.transport_type == "stdio" && !McpServer.stdio_enabled? %>
+      <% if @mcp_server.attribute_in_database("transport_type") == "stdio" && !McpServer.stdio_enabled? %>
         <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
       <% else %>
         <%= button_to t("nosia.mcp_workspace.saved_test"), mcp_test_path(@mcp_server), method: :post, class: "n-workspace-button n-mcp-operation-button", data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, form: { data: { mcp_operation: true } } %>
