@@ -5,9 +5,10 @@ module McpServer::CapabilitySnapshot
   # Holds a loading state (:not_loaded, :loaded, :unavailable) and listed items.
   Result = Data.define(:state, :items)
 
+  # Missing engine metadata does not block remote or not-ready outcomes.
   # @return [Hash<Symbol, Result>] Request-local discovery; never executes content
   def capability_snapshot
-    signature = [ status, transport_type, metadata["engine"] ]
+    signature = [ status, transport_type, metadata&.[]("engine") ]
     if @capability_snapshot_signature != signature
       @capability_snapshot_signature = signature
       @capability_snapshot = %i[tools prompts resources].to_h { |kind| [ kind, discover_capability(kind) ] }
@@ -20,7 +21,7 @@ module McpServer::CapabilitySnapshot
       return Result.new(:not_loaded, []) unless status_ready?
 
       if local?
-        if Engines::Registry[metadata["engine"]]
+        if Engines::Registry[metadata&.[]("engine")]
           Result.new(:loaded, kind == :tools ? local_tools : [])
         else
           Result.new(:unavailable, [])
