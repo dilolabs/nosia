@@ -36,17 +36,23 @@ class SettingsWorkspaceTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "only Settings loses its unrelated drawer while retaining New chat access" do
+  test "Settings and MCP omit unrelated drawers while other pages retain them and New chat stays accessible" do
     get settings_path
     assert_select "#accordion-right-actions, #drawer-right, [data-drawer-target]", count: 0
     assert_select "[data-settings-workspace] .hidden.lg\\:block a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
     assert_select ".lg\\:hidden a[href='#{new_chat_path}']", minimum: 1
 
-    [ new_chat_path, api_tokens_path, mcp_servers_path, system_prompts_path ].each do |path|
+    [ new_chat_path, api_tokens_path, system_prompts_path ].each do |path|
       get path
       assert_response :success
       assert_select "#accordion-right-actions, #drawer-right", count: 2
     end
+
+    get mcp_servers_path
+    assert_response :success
+    assert_select "#accordion-right-actions, #drawer-right, [data-drawer-target]", count: 0
+    assert_select ".n-workspace-header .hidden.lg\\:block a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
+    assert_select ".lg\\:hidden a[href='#{new_chat_path}']", minimum: 1
 
     get account_settings_path(@second)
     assert_redirected_to account_path(@second)

@@ -1,0 +1,6 @@
+<%# locals: (title:, current: nil, description: nil, catalog: false, server: nil, actions: nil) %>
+<% buttons = capture do %>
+  <div class="hidden lg:block"><%= link_to t("nosia.nav.new_chat"), mcp_new_chat_path, class: "n-workspace-link" %></div>
+  <%= actions %>
+<% end %>
+<%= render "workspaces/header", title: title, description: description, scope_label: mcp_scope_label, trail: mcp_trail(current: current, catalog: catalog, server: server), actions: buttons %>

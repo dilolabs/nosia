@@ -1,5 +1,6 @@
 <div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="setup">
   <%= render "workspaces/header", title: t("nosia.mcp.title"), trail: [ { label: t("nosia.nav.home"), path: user_root_path }, { label: t("nosia.nav.settings"), path: settings_path }, { label: t("nosia.mcp.title"), path: nil } ] %>
+  <%= render "mcp_workspace/feedback" %>
   <section class="n-workspace-panel">
     <h2 class="n-workspace-section-title"><%= t("nosia.account_experience.no_accounts") %></h2>
     <%= link_to t("nosia.accounts.add"), new_account_path, class: "n-workspace-button n-workspace-primary" %>

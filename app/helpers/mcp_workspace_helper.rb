@@ -68,4 +68,37 @@ module McpWorkspaceHelper
     trail << { label: current, path: nil } if current
     trail
   end
+
+  # @return [String, nil] Localized explicit scope; never changes the default
+  def mcp_scope_label
+    t(mcp_scoped? ? "nosia.workspace.account" : "nosia.workspace.default_account", name: @account.name) if @account
+  end
+
+  # @param server [McpServer] Authorized record
+  # @return [String] Credential-free endpoint/command label
+  def mcp_endpoint_label(server)
+    if server.endpoint.present?
+      uri = URI.parse(server.endpoint.match?(%r{\Ahttps?://}i) ? server.endpoint : "https://#{server.endpoint}")
+      "#{uri.host}#{uri.path}"
+    elsif server.command.present?
+      File.basename(server.command.to_s.split.first.to_s)
+    else
+      t("nosia.mcp.transport.#{server.transport_type}_short")
+    end
+  rescue URI::InvalidURIError
+    t("nosia.mcp.transport.#{server.transport_type}_short")
+  end
+
+  # @param server [McpServer] Authorized record
+  # @return [String] Plain contextual confirmation
+  def mcp_delete_confirmation(server)
+    t("nosia.mcp_workspace.delete_confirm", name: server.name, account: @account.name)
+  end
+
+  # @param id [String] Trusted catalog ID/category
+  # @return [String] Local-only icon path
+  def mcp_icon(id)
+    { "kchat" => "svg/chats.svg", "kdrive" => "svg/folders.svg", "open_alex" => "svg/file-search.svg",
+      "communication" => "svg/chats.svg", "productivity" => "svg/folders.svg" }.fetch(id.to_s, "svg/server.svg")
+  end
 end

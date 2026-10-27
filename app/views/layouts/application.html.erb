@@ -30,12 +30,12 @@
   </head>
 
   <body data-controller="dark-mode" class="h-dvh flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-900 dark:text-white">
-    <%= render "flash" unless agent_skills_workspace_page? %>
+    <%= render "flash" unless agent_skills_workspace_page? || mcp_workspace_page? %>
     <%= render "application/header" %>
     <div class="min-h-0 flex-1 w-full flex">
       <%= render "menu" %>
       <main class="overflow-y-auto w-full pl-6 pt-6 pr-2 lg:p-6">
-        <% unless agent_skills_workspace_page? || account_workspace_header? %>
+        <% unless agent_skills_workspace_page? || account_workspace_header? || mcp_workspace_page? %>
           <% if account_page? && @account %>
             <%= render "accounts/breadcrumb", account: @account, title: content_for(:account_tool_title) %>
           <% else %>
@@ -44,7 +44,7 @@
         <% end %>
         <%= yield %>
       </main>
-      <% if Current.user && !account_page? && !dashboard_page? && !sources_workspace_page? && !token_usage_workspace_page? && !agent_skills_workspace_page? && !settings_workspace_page? %>
+      <% if Current.user && !account_page? && !dashboard_page? && !sources_workspace_page? && !token_usage_workspace_page? && !agent_skills_workspace_page? && !settings_workspace_page? && !mcp_workspace_page? %>
         <div id="accordion-collapse" data-accordion="collapse" class="hidden -ml-5 lg:flex items-center">
           <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions" aria-label="<%= t("nosia.nav.view_menu") %>" class="rounded-l-lg n-main-focus">
             <div class="n-btn-drawer">

@@ -1,0 +1,5 @@
+<% [ :notice, :alert ].each do |kind| %>
+  <% if flash[kind].present? %>
+    <div class="n-mcp-message" role="<%= kind == :alert ? 'alert' : 'status' %>"><%= flash[kind] %></div>
+  <% end %>
+<% end %>
