@@ -41,6 +41,48 @@ class McpWorkspaceDetailTest < ActionDispatch::IntegrationTest
     assert_equal %w[latency message status success], response.parsed_body.keys.sort
   end
 
+  test "connect failure shows one contextual alert and retains the legacy flash" do
+    @second_server.update!(api_key: "bad")
+
+    post account_mcp_server_connection_path(@second, @second_server)
+
+    assert_redirected_to account_mcp_server_path(@second, @second_server)
+    assert_equal I18n.t("nosia.mcp.connection_failed"), flash[:alert]
+    follow_redirect!
+    assert_response :success
+    assert_select "[data-mcp-screen=detail] [role=alert]", count: 1
+    assert_select "#connection-test-result[role=alert]" do
+      assert_select "p", text: I18n.t("nosia.mcp.connection_test_failure_help")
+      assert_select "a[href=?]", edit_account_mcp_server_path(@second, @second_server), text: I18n.t("nosia.actions.edit")
+    end
+    refute_includes response.body, "credential-echo-bad"
+  end
+
+  test "persisted connection errors show recovery without exposing diagnostics" do
+    @second_server.update!(status: "error", last_error: "credential-echo-persisted")
+
+    get account_mcp_server_path(@second, @second_server)
+
+    assert_response :success
+    assert_select "#connection-test-result[role=alert]" do
+      assert_select "p", text: I18n.t("nosia.mcp.connection_test_failure_help")
+      assert_select "a[href=?]", edit_account_mcp_server_path(@second, @second_server)
+    end
+    refute_includes response.body, "credential-echo-persisted"
+  end
+
+  test "other MCP screens retain unrelated alerts and notices" do
+    get account_mcp_catalog_path(@second, "missing-fixture")
+    assert_redirected_to account_mcp_catalog_index_path(@second)
+    follow_redirect!
+    assert_select "[data-mcp-workspace] [role=alert]", text: I18n.t("nosia.mcp.server_not_found"), count: 1
+
+    delete account_mcp_server_path(@second, @second_server)
+    assert_redirected_to account_mcp_servers_path(@second)
+    follow_redirect!
+    assert_select "[data-mcp-workspace] [role=status]", text: I18n.t("nosia.mcp.deleted"), count: 1
+  end
+
   test "real prompt argument objects render metadata without fetching messages" do
     @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", status: "ready")
     prompt = RubyLLM::MCP::Prompt.new(Object.new, { "name" => "summary", "description" => "Read-only metadata",

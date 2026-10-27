@@ -1,5 +1,6 @@
+<%# locals: (suppress_alert: false) %>
 <% [ :notice, :alert ].each do |kind| %>
-  <% if flash[kind].present? %>
+  <% if flash[kind].present? && !(suppress_alert && kind == :alert) %>
     <div class="n-mcp-message" role="<%= kind == :alert ? 'alert' : 'status' %>"><%= flash[kind] %></div>
   <% end %>
 <% end %>

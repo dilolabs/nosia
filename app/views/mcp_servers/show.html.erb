@@ -1,6 +1,7 @@
+<% connection_failure_alert = flash[:alert] == t("nosia.mcp.connection_failed") %>
 <div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="detail" data-controller="mcp-server mcp-busy" data-action="turbo:submit-start->mcp-busy#start turbo:submit-end->mcp-busy#finish hashchange@window->mcp-server#restore popstate@window->mcp-server#restore turbo:render@document->mcp-server#connect">
   <%= render "mcp_workspace/header", title: @mcp_server.name, current: @mcp_server.name, actions: render("connection_controls", server: @mcp_server) %>
-  <%= render "mcp_workspace/feedback" %>
+  <%= render "mcp_workspace/feedback", suppress_alert: connection_failure_alert %>
 
   <div class="n-workspace-actions">
     <%= render "status", server: @mcp_server %>
@@ -9,7 +10,7 @@
 
   <% if flash[:connection_test].present? %>
     <%= render "connection_test_result", server: @mcp_server, success: flash[:connection_test] == "success" %>
-  <% elsif @mcp_server.last_error.present? && flash[:alert].blank? %>
+  <% elsif connection_failure_alert || (@mcp_server.last_error.present? && flash[:alert].blank?) %>
     <%= render "connection_test_result", server: @mcp_server, success: false %>
   <% end %>
 
