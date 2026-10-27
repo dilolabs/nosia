@@ -1,8 +1,8 @@
-<%# locals: (title:, description: nil, scope_label: nil, trail: [], back_path: nil, show_new_chat: false, actions: nil) %>
+<%# locals: (title:, description: nil, scope_label: nil, trail: [], back_path: nil, show_new_chat: false, actions: nil, breadcrumb_label: nil) %>
 <% content_for :title, title %>
 <header class="n-workspace-header">
   <% if trail.any? %>
-    <nav aria-label="<%= t('nosia.workspace.breadcrumb') %>" class="n-workspace-help">
+    <nav aria-label="<%= breadcrumb_label || t('nosia.workspace.breadcrumb') %>" class="n-workspace-help">
       <ol class="n-workspace-trail !list-none">
         <% trail.each_with_index do |item, index| %>
           <% if index.positive? %><li aria-hidden="true">/</li><% end %>

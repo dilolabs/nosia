@@ -1,0 +1,11 @@
+<%# locals: (path:, title:, description:, icon:) %>
+<li class="min-w-0">
+  <%= link_to path, class: "n-settings-card", data: { settings_card: true } do %>
+    <span class="n-settings-card-icon"><%= inline_svg icon, aria_hidden: true, class: "h-6 w-6" %></span>
+    <div class="n-settings-card-heading">
+      <h2 class="n-workspace-section-title"><%= title %></h2>
+      <%= inline_svg "svg/chevron-right.svg", aria_hidden: true, class: "n-settings-card-chevron h-5 w-5 shrink-0" %>
+    </div>
+    <p class="n-workspace-help"><%= description %></p>
+  <% end %>
+</li>

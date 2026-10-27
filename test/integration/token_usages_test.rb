@@ -36,7 +36,8 @@ class TokenUsagesTest < ActionDispatch::IntegrationTest
   test "settings page no longer shows a token usage card" do
     get settings_path
     assert_response :success
-    assert_select "p.n-card-title", text: "Token usage", count: 0
+    assert_select "[data-settings-card]", count: 4
+    assert_select "a[data-settings-card][href='#{token_usage_path}']", count: 0
   end
 
   test "transparency methodology section is present and cites the data source" do

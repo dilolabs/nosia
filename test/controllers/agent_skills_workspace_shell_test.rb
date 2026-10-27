@@ -22,7 +22,10 @@ class AgentSkillsWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_select ".n-workspace-trail a[href='#{account_agent_skills_path(@second)}']"
     assert_select ".n-workspace-header a[href='#{new_chat_path(account_id: @second.id)}']"
     get settings_path
-    assert_select "#accordion-right-actions", count: 1
+    assert_select "[data-settings-workspace]"
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    get api_tokens_path
+    assert_select "#accordion-right-actions, #drawer-right", count: 2
     get account_path(@second)
     assert_select "a[href='#{account_agent_skills_path(@second)}']"
     assert_equal @first, @user.reload.first_account
