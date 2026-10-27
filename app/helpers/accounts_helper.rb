@@ -19,4 +19,18 @@ module AccountsHelper
   def account_page?
     controller_path == "accounts" || controller_path.start_with?("accounts/") || request.path_parameters.key?(:account_id)
   end
+
+  # @return [Boolean] Whether the page owns an Accounts workspace header/trail
+  def account_workspace_header?
+    controller_path == "accounts" && %w[index show].include?(action_name)
+  end
+
+  # @param account [Account, nil] An already-authorized overview account
+  # @return [Array<Hash>] Explicit localized ancestor/current-page breadcrumb items
+  def account_workspace_trail(account: nil)
+    trail = [ { label: t("nosia.nav.home"), path: user_root_path } ]
+    trail << { label: t("nosia.nav.accounts"), path: account ? accounts_path : nil }
+    trail << { label: account.name, path: nil } if account
+    trail
+  end
 end

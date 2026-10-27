@@ -1,0 +1,8 @@
+fr:
+  nosia:
+    settings:
+      description: "Configurez le comportement des assistants et les intégrations."
+      skills_description: "Gérez les instructions réutilisables et leur déclenchement."
+      tokens_description: "Créez et révoquez vos jetons personnels d’accès à l’API."
+      mcp_description: "Connectez des outils et des ressources externes via MCP."
+      prompts_description: "Consultez les instructions qui guident vos assistants."

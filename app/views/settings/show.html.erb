@@ -1,30 +1,11 @@
-<div class="n-title-container">
-  <h2 class="n-main-title mt-0.5"><%= t("nosia.nav.settings") %></h2>
-</div>
-
-<ul class="n-cards-grid !list-none">
-  <li class="n-card n-main-border lg:col-span-2">
-    <%= link_to agent_skills_path, title: t("nosia.skills.manage"), class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/code-bracket.svg", aria_hidden: true, class: "mx-auto w-12 h-12" %>
-      <p class="n-card-title"><%= t("nosia.skills.title") %></p>
-    <% end %>
-  </li>
-  <li class="n-card n-main-border lg:col-span-2">
-    <%= link_to api_tokens_path, class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/code-bracket.svg", aria_hidden: true, class: "mx-auto w-12 h-12" %>
-      <p class="n-card-title"><%= t("nosia.tokens.title") %></p>
-    <% end %>
-  </li>
-  <li class="n-card n-main-border lg:col-span-2">
-    <%= link_to mcp_servers_path, class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/code-bracket.svg", aria_hidden: true, class: "mx-auto w-12 h-12" %>
-      <p class="n-card-title"><%= t("nosia.mcp.title") %></p>
-    <% end %>
-  </li>
-  <li class="n-card n-main-border lg:col-span-2">
-    <%= link_to system_prompts_path, class: "n-main-focus content-center text-center n-main-hover h-48 xl:col-span-2" do %>
-      <%= inline_svg "svg/chats.svg", aria_hidden: true, class: "mx-auto w-12 h-12" %>
-      <p class="n-card-title"><%= t("nosia.prompts.title") %></p>
-    <% end %>
-  </li>
-</ul>
+<section class="n-workspace n-settings-workspace" data-settings-workspace>
+  <%= render "workspaces/header", title: t("nosia.nav.settings"),
+      description: t("nosia.settings.description"), show_new_chat: true,
+      trail: [ { label: t("nosia.nav.home"), path: user_root_path }, { label: t("nosia.nav.settings"), path: nil } ] %>
+  <ul class="n-settings-grid !list-none" role="list">
+    <%= render "card", path: agent_skills_path, title: t("nosia.skills.title"), description: t("nosia.settings.skills_description"), icon: "svg/code-bracket.svg" %>
+    <%= render "card", path: api_tokens_path, title: t("nosia.tokens.title"), description: t("nosia.settings.tokens_description"), icon: "svg/key.svg" %>
+    <%= render "card", path: mcp_servers_path, title: t("nosia.mcp.title"), description: t("nosia.settings.mcp_description"), icon: "svg/server.svg" %>
+    <%= render "card", path: system_prompts_path, title: t("nosia.prompts.title"), description: t("nosia.settings.prompts_description"), icon: "svg/chats.svg" %>
+  </ul>
+</section>

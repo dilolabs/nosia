@@ -414,7 +414,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     end
 
     def record_account_contrast(name)
-      tab_to_account_action(URI(find(".n-account-primary", match: :first)[:href]).request_uri)
+      tab_to_account_action(URI(find(".n-workspace-header .n-workspace-primary", match: :first)[:href]).request_uri)
       rows = page.evaluate_script(<<~JS)
         (() => {
           const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
@@ -442,8 +442,11 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
               ratio: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), minimum};
           }
           return [
-            ...['.n-accounts h1', '.n-account-panel h2', '.n-account-help', '.n-account-panel .n-account-help', '.n-account-prompt',
-              '.n-account-primary', '.n-account-secondary', '.n-accounts .n-account-link', '.n-account-source span'].map(s => measure(s, 'text', 4.5)),
+            ...['.n-accounts h1', '.n-account-panel h2', '.n-workspace-header .n-workspace-help',
+              '.n-account-panel .n-account-help', '.n-account-prompt',
+              '.n-workspace-header .n-workspace-primary',
+              '.n-workspace-header .n-workspace-button:not(.n-workspace-primary)',
+              '.n-accounts .n-account-link', '.n-account-source span'].map(s => measure(s, 'text', 4.5)),
             measure('.n-account-source svg', 'icon', 3), measure('.n-accounts a:focus', 'focus', 3)
           ];
         })()
