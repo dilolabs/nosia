@@ -31,4 +31,26 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
+
+  test "mobile New chat opens the scoped account composer by keyboard without creating a chat" do
+    before = Chat.count
+    page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
+    visit account_mcp_servers_path(@second)
+    target = ".lg\\:hidden a.n-nav-bottom[aria-label='#{I18n.t('nosia.nav.new_chat')}']"
+    assert_selector target, count: 1
+    120.times do
+      page.send_keys(:tab)
+      break if page.evaluate_script("document.activeElement.matches(arguments[0])", target)
+    end
+    assert page.evaluate_script("document.activeElement.matches(arguments[0])", target)
+    page.send_keys(:enter)
+
+    assert_selector "select[name='chat[account_id]']"
+    assert_equal @second.id.to_s, find("select[name='chat[account_id]']").value
+    assert_current_path new_chat_path(account_id: @second.id)
+    assert_equal @first, @user.reload.first_account
+    assert_equal before, Chat.count
+  ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
 end

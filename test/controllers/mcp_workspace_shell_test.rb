@@ -32,6 +32,18 @@ class McpWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_equal @first, @user.reload.first_account
   end
 
+  test "mobile New chat preserves explicit MCP scope and the legacy default" do
+    [ [ mcp_servers_path, new_chat_path ],
+      [ account_mcp_servers_path(@second), new_chat_path(account_id: @second.id) ] ].each do |path, composer|
+      get path
+      assert_response :success
+      assert_select ".lg\\:hidden a.n-nav-bottom[aria-label=?]", I18n.t("nosia.nav.new_chat"), count: 1 do |links|
+        assert_equal composer, links.first["href"]
+      end
+    end
+    assert_equal @first, @user.reload.first_account
+  end
+
   test "filters distinguish empty results and preserve disabled values" do
     @second_server.update!(enabled: false)
     get account_mcp_servers_path(@second), params: { enabled: "false" }
