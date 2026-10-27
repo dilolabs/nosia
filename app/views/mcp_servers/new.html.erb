@@ -1,23 +1,13 @@
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.breadcrumb"), mcp_servers_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.new"), new_mcp_server_path, class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="n-title-container md:flex md:justify-between md:items-center">
-  <div>
-    <h2 class="n-main-title"><%= t("nosia.mcp.new") %></h2>
-    <p class="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
-      <%= t("nosia.mcp.new_help") %>
-    </p>
+<% content_for :head, tag.meta(name: "turbo-cache-control", content: "no-cache") %>
+<div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="new">
+  <%= render "mcp_workspace/header", title: t("nosia.mcp.new"), current: t("nosia.mcp.new"), description: t("nosia.mcp.new_help") %>
+  <%= render "mcp_workspace/feedback" %>
+  <div class="n-mcp-form-layout">
+    <%= render "form", mcp_server: @mcp_server %>
+    <aside class="n-workspace-panel">
+      <h2 class="n-workspace-section-title"><%= t("nosia.mcp.catalog") %></h2>
+      <p class="n-workspace-help"><%= t("nosia.mcp.catalog_help") %></p>
+      <%= link_to t("nosia.mcp_workspace.browse_catalog"), mcp_catalog_list_path, class: "n-workspace-link" %>
+    </aside>
   </div>
 </div>
-<%= render "form", mcp_server: @mcp_server %>

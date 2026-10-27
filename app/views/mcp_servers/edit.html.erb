@@ -1,31 +1,17 @@
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.breadcrumb"), mcp_servers_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to @mcp_server.name, mcp_server_path(@mcp_server), class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.actions.edit_named", name: @mcp_server.name), edit_mcp_server_path(@mcp_server), class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="n-title-container md:flex md:justify-between md:items-center">
-  <div>
-    <h2 class="n-main-title"><%= t("nosia.actions.edit_named", name: @mcp_server.name) %></h2>
-    <p class="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
-      <%= t("nosia.mcp.edit_help") %>
-    </p>
-  </div>
-  <div class="mb-4 md:mb-0 md:text-right">
-    <%= button_to t("nosia.mcp.test_connection"), test_connection_mcp_server_path(@mcp_server), method: :post, data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, class: "n-btn min-w-48 border text-neutral-900 dark:text-neutral-100 n-main-border n-main-hover-tertiary n-main-focus-tertiary disabled:cursor-wait disabled:opacity-60" %>
-    <p class="mt-2 text-xs text-neutral-600 dark:text-neutral-400"><%= t("nosia.mcp.test_saved_configuration") %></p>
+<% content_for :head, tag.meta(name: "turbo-cache-control", content: "no-cache") %>
+<div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="edit" data-controller="mcp-busy" data-action="turbo:submit-start->mcp-busy#start turbo:submit-end->mcp-busy#finish">
+  <%= render "mcp_workspace/header", title: t("nosia.actions.edit_named", name: @mcp_server.name), current: t("nosia.actions.edit"), server: @mcp_server, description: t("nosia.mcp.edit_help") %>
+  <%= render "mcp_workspace/feedback" %>
+  <div class="n-mcp-form-layout">
+    <%= render "form", mcp_server: @mcp_server %>
+    <aside class="n-workspace-panel space-y-3" data-mcp-busy-group>
+      <h2 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.saved_test") %></h2>
+      <p class="n-workspace-help"><%= t("nosia.mcp_workspace.saved_test_help") %></p>
+      <% if @mcp_server.transport_type == "stdio" && !McpServer.stdio_enabled? %>
+        <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
+      <% else %>
+        <%= button_to t("nosia.mcp_workspace.saved_test"), mcp_test_path(@mcp_server), method: :post, class: "n-workspace-button n-mcp-operation-button", data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, form: { data: { mcp_operation: true } } %>
+      <% end %>
+    </aside>
   </div>
 </div>
-<%= render "form", mcp_server: @mcp_server %>

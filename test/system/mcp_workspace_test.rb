@@ -132,6 +132,84 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "#tools[role=tabpanel]"
   end
 
+  test "local edit keeps credential controls active and forms fit phone and desktop" do
+    [ "en", "fr" ].each do |locale|
+      select locale.upcase, from: "language_preference_locale"
+      assert_selector "html[lang=#{locale}]"
+      [ 375, 1400 ].each do |width|
+        page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 844, deviceScaleFactor: 1, mobile: false)
+        [ new_account_mcp_server_path(@second), edit_account_mcp_server_path(@second, @second_server) ].each do |path|
+          visit path
+          assert_selector "[data-mcp-workspace] h1", count: 1
+          assert_equal find("main h1").text, page.title
+          if path == edit_account_mcp_server_path(@second, @second_server)
+            assert_field "mcp_server_configuration_values_team", with: "Research", disabled: false
+            assert_field "mcp_server_configuration_values_api_key", with: "", disabled: false
+            assert_no_selector "select[name='mcp_server[transport_type]']"
+            assert_button I18n.t("nosia.mcp_workspace.saved_test", locale: locale)
+          end
+
+          [ false, true ].each do |dark|
+            page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
+            page.execute_script("document.querySelector('main').scrollTop = 0")
+            assert page.evaluate_script(<<~JS), "Form controls and help rail must fit at #{width}px in #{locale}"
+              (() => {
+                const main = document.querySelector('main');
+                return main.scrollWidth <= main.clientWidth + 1 &&
+                  [...document.querySelectorAll('[data-mcp-workspace] input:not([type=hidden]), [data-mcp-workspace] select, [data-mcp-workspace] textarea, .n-mcp-form-layout > aside')]
+                    .filter(element => element.getClientRects().length)
+                    .every(element => {
+                      const rect = element.getBoundingClientRect();
+                      return rect.left >= 0 && rect.right <= innerWidth && element.scrollWidth <= element.clientWidth + 1;
+                    });
+              })()
+            JS
+            page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}.png"))
+            page.execute_script("const main = document.querySelector('main'); main.scrollTop = main.scrollHeight")
+            assert page.evaluate_script(<<~JS), "The complete Save control must remain reachable after scrolling"
+              (() => {
+                const button = document.querySelector('[data-mcp-form] input[type=submit]');
+                const rect = button.getBoundingClientRect();
+                return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight &&
+                  [rect.top + 2, rect.bottom - 2].every(y => document.elementFromPoint((rect.left + rect.right) / 2, y) === button);
+              })()
+            JS
+            page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}-bottom.png"))
+          end
+        end
+      end
+    end
+  ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
+
+  test "transport changes disable irrelevant controls and retain unsaved HTTP credentials" do
+    previous_stdio = ENV["MCP_STDIO_ENABLED"]
+    ENV["MCP_STDIO_ENABLED"] = "true"
+    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", args: [ "--flag", "value with spaces" ])
+    visit edit_account_mcp_server_path(@second, @second_server)
+    assert_field "mcp_server_endpoint", disabled: false
+    assert page.evaluate_script("document.querySelector('#mcp_server_endpoint').required")
+    assert_no_selector "[data-mcp-form-target=stdioFields]"
+    assert_selector "#mcp_server_args[disabled]", visible: :all
+    fill_in "mcp_server_configuration_values_token", with: "unsaved-http-secret"
+
+    select I18n.t("nosia.mcp.transport.stdio"), from: "mcp_server_transport_type"
+    assert_field "mcp_server_args", with: "--flag\nvalue with spaces", disabled: false
+    assert_selector "#mcp_server_endpoint[disabled]", visible: :all
+    assert_selector "#mcp_server_configuration_values_token[disabled]", visible: :all
+    refute page.evaluate_script("document.querySelector('#mcp_server_endpoint').required")
+
+    select I18n.t("nosia.mcp.transport.sse"), from: "mcp_server_transport_type"
+    assert_field "mcp_server_configuration_values_token", with: "unsaved-http-secret", disabled: false
+    assert_field "mcp_server_endpoint", disabled: false
+    assert_selector "#mcp_server_args[disabled]", visible: :all
+    assert_equal [ "--flag", "value with spaces" ], @second_server.reload.args
+    refute_includes @second_server.auth_config.values, "unsaved-http-secret"
+  ensure
+    previous_stdio.nil? ? ENV.delete("MCP_STDIO_ENABLED") : ENV["MCP_STDIO_ENABLED"] = previous_stdio
+  end
+
   test "mobile New chat opens the scoped account composer by keyboard without creating a chat" do
     before = Chat.count
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)

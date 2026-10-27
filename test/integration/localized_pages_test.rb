@@ -208,7 +208,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     get new_mcp_server_url, headers: { "Accept-Language" => "fr" }
 
     assert_response :success
-    assert_select "h2", text: "Nouveau serveur MCP"
+    assert_select "[data-mcp-screen=new] h1", text: "Nouveau serveur MCP", count: 1
     assert_select 'option[value="stdio"]', text: "STDIO (processus local)"
     assert_select '[data-controller~="mcp-form"]'
     assert_select '[data-mcp-form-target="httpFields"]'
@@ -222,28 +222,34 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     get mcp_catalog_index_url, headers: { "Accept-Language" => "fr" }
 
     assert_response :success
-    assert_select "h2", text: "Catalogue MCP"
+    assert_select "[data-mcp-screen=catalog] h1", text: "Catalogue MCP", count: 1
     assert_select "p", text: "Activez des serveurs MCP prédéfinis en un clic."
     assert_select "p", text: "Consultez les messages récents de kChat et publiez des messages."
     assert_equal original, Marshal.dump([ McpCatalog.all, McpCatalog.categories ])
   end
 
   test "French catalog configuration translates owned fields without rewriting identifiers or metadata" do
+    previous_stdio = ENV["MCP_STDIO_ENABLED"]
+    ENV["MCP_STDIO_ENABLED"] = "true"
     sign_in_picker_user
     original = Marshal.dump(McpCatalog.all)
 
     get mcp_catalog_url("kchat"), headers: { "Accept-Language" => "fr" }
 
     assert_response :success
-    assert_select "h3", text: "Configuration requise"
+    assert_select "[data-mcp-screen=catalog-setup] h1", text: "Infomaniak kChat", count: 1
+    assert_select "form h2", text: "Configuration"
     assert_select "label", text: /Jeton kChat/
+    assert_select "label", text: /#{I18n.t('nosia.mcp_workspace.required', locale: :fr)}/, count: 2
     assert_select 'input[type="hidden"][name="id"][value="kchat"]'
     assert_select 'input[type="password"][name="config[kchat_token]"]'
     assert_select 'input[type="password"][name="config[kchat_team_name]"]'
-    assert_select 'input[type="submit"][value="Activer Infomaniak kChat"]'
+    assert_select 'input[type="submit"][value=?]', I18n.t("nosia.mcp_workspace.add", locale: :fr)
     assert_select "p", text: /https:\/\/your-team.kchat.infomaniak.com\/your-team\/channels\/town-square/
     assert_select 'main svg:not([aria-hidden="true"])', count: 0
     assert_equal original, Marshal.dump(McpCatalog.all)
+  ensure
+    previous_stdio.nil? ? ENV.delete("MCP_STDIO_ENABLED") : ENV["MCP_STDIO_ENABLED"] = previous_stdio
   end
 
   test "French MCP management formats latency and time while preserving authored data" do
@@ -253,27 +259,37 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     original = server.reload.attributes
     headers = { "Accept-Language" => "fr" }
 
-    get mcp_servers_url, headers: headers
-    assert_response :success
-    assert_select 'option[value="ready"]', text: "Prêt"
-    assert_select 'option[value="streamable"]', text: "HTTP en flux"
-    assert_select "span.sr-only", text: "Supprimer le serveur"
-    assert_select ".n-tag-ready", text: "Prêt"
-    assert_match(/1[ \u00a0\u202f]234[ \u00a0\u202f]ms/, response.body)
+    [ [ mcp_servers_url, mcp_server_path(server) ],
+      [ account_mcp_servers_url(@first), account_mcp_server_path(@first, server) ] ].each do |url, detail_path|
+      get url, headers: headers
+      assert_response :success
+      assert_select 'option[value="ready"]', text: "Prêt"
+      assert_select 'option[value="streamable"]', text: "HTTP en flux"
+      assert_select "[data-mcp-screen=servers] a[href=?]", detail_path, text: server.name
+      assert_select "[data-mcp-row] form[action=?] input[name=_method][value=delete]", detail_path, count: 0
+      assert_select "[data-state=ready]", text: "Prêt"
+      assert_match(/1[ \u00a0\u202f]234[ \u00a0\u202f]ms/, response.body)
+    end
 
     get mcp_server_url(server), headers: headers
     assert_response :success
-    assert_select "a[data-tab=tools]", text: /Outils/
-    assert_select "dt", text: "Dernière connexion"
-    assert_select "dd", text: /il y a environ 2 heures/
+    assert_select "a[data-tab-key=tools]", text: /Outils/
+    assert_select "p", text: "#{I18n.t('nosia.mcp.last_connected', locale: :fr)}: #{I18n.l(server.last_connected_at, format: :short, locale: :fr)}"
+    assert_select "p", text: I18n.t("nosia.mcp_workspace.historical", locale: :fr)
+    assert_select "dd", text: "production,original"
     assert_select "p", text: "Original English notes"
-    assert_select "p", text: "<script>Provider error</script>"
+    refute_includes response.body, "Provider error"
+    assert_select "#connection-test-result[role=alert] p", text: I18n.t("nosia.mcp.connection_test_failure_help", locale: :fr)
+    assert_select "[data-mcp-danger] form[action=?]", mcp_server_path(server) do
+      assert_select "input[name=_method][value=delete]"
+      assert_select "button[data-turbo-confirm=?]", I18n.t("nosia.mcp_workspace.delete_confirm", name: server.name, account: @first.name, locale: :fr)
+    end
     assert_select "main script", count: 0
     assert_match(/1[ \u00a0\u202f]234[ \u00a0\u202f]ms/, response.body)
 
     get edit_mcp_server_url(server), headers: headers
     assert_response :success
-    assert_select "h2", text: "Modifier #{server.name}"
+    assert_select "[data-mcp-screen=edit] h1", text: "Modifier #{server.name}", count: 1
     assert_select 'textarea[name="mcp_server[notes]"]', text: "Original English notes"
     assert_select 'input[type="submit"][value="Enregistrer"]'
     assert_select 'main svg:not([aria-hidden="true"])', count: 0
@@ -326,7 +342,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     post mcp_servers_url, params: { mcp_server: { name: "", transport_type: "local" } }, headers: { "Accept-Language" => "fr" }
 
     assert_response :unprocessable_entity
-    assert_select "h3", text: "1 erreur :"
+    assert_select "#mcp-errors-title", text: "1 erreur :"
   end
 
   test "French MCP connection feedback preserves machine statuses latency and diagnostics" do
@@ -361,7 +377,8 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 
       post connect_mcp_server_url(server), headers: headers
       assert_redirected_to mcp_server_url(server)
-      assert_equal "Échec de la connexion : Original provider failure.", flash[:alert]
+      assert_equal "Échec de la connexion", flash[:alert]
+      refute_includes flash[:alert], "Original provider failure"
     end
   ensure
     unstub_url_resolver
@@ -371,7 +388,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     sign_in_picker_user
     server = mcp_servers(:picker_first_tool)
     server.update_columns(transport_type: "streamable", endpoint: "https://mcp.example.invalid/mcp")
-    tool = Struct.new(:name, :description, :input_schema).new("runtime_tool", "<script>Original tool description</script>", { "query" => "Original schema" })
+    tool = Struct.new(:name, :description, :parameters_schema).new("runtime_tool", "<script>Original tool description</script>", { "query" => "Original schema" })
     tool.define_singleton_method(:call) { |**| "Original tool result" }
     prompt = Struct.new(:name, :description, :arguments).new("runtime_prompt", "Original prompt description", [ { name: "query", description: "Original variable", required: true } ])
     resource = Struct.new(:uri, :description, :mime_type).new("file:///original", "Original resource description", "text/plain")
@@ -384,11 +401,11 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       assert_select "p", text: "<script>Original tool description</script>"
       assert_select "p", text: "Original prompt description"
       assert_select "p", text: "Original resource description"
-      assert_select "p", text: "Paramètres :"
-      assert_select "p", text: "Variables :"
+      assert_select "details summary", text: I18n.t("nosia.mcp_workspace.schema", locale: :fr)
+      assert_select "#prompts dt", text: "query #{I18n.t('nosia.mcp_workspace.required', locale: :fr)}"
       assert_select "p", text: "Type : text/plain"
       assert_select "pre", text: /Original schema/
-      assert_select "span", text: "- Original variable"
+      assert_select "#prompts dd", text: "Original variable"
       assert_select "main script", count: 0
 
       post execute_tool_mcp_server_url(server), params: { tool_name: "runtime_tool", arguments: {} }, headers: headers, as: :json
@@ -419,10 +436,13 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       assert_equal "Infomaniak kChat a été activé.", flash[:notice]
 
       with_singleton_replacement(McpCatalog, :activate_for_account, ->(*) { raise "Original provider diagnostic" }) do
-        post mcp_catalog_index_url, params: { id: "kchat" }, headers: headers
+        post mcp_catalog_index_url, params: { id: "open_alex" }, headers: headers
       end
-      assert_redirected_to mcp_catalog_index_url
-      assert_equal "Erreur d’activation : Original provider diagnostic.", flash[:alert]
+      assert_response :unprocessable_entity
+      assert_select "[data-mcp-screen=catalog-setup] [role=alert]", text: /Échec de la connexion/
+      assert_select "form[action=?] input[name=id][value=open_alex]", mcp_catalog_index_path
+      refute_includes response.body, "Original provider diagnostic"
+      assert_nil flash[:alert]
     end
   end
 

@@ -7,7 +7,7 @@ module McpServer::Configuration
   # @return [Array<Hash>] Declared fields; never inferred from encrypted keys
   def workspace_configuration_fields
     if local?
-      Array(Engines::Registry[metadata["engine"]]&.required_config).map(&:deep_symbolize_keys)
+      Array(Engines::Registry[metadata&.[]("engine")]&.required_config).map(&:deep_symbolize_keys)
     else
       [ { name: "token", label: I18n.t("nosia.mcp.bearer_token"), type: "secret" },
         { name: "api_key", label: I18n.t("nosia.mcp.api_key"), type: "secret" } ]

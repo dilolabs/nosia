@@ -51,6 +51,17 @@ class McpWorkspaceCatalogTest < ActionDispatch::IntegrationTest
     assert_select "input#config_team[value='Retained public value']"
   end
 
+  test "setup error heading counts the displayed linked required fields in both locales" do
+    %i[en fr].each do |locale|
+      post account_mcp_catalog_index_path(@second), params: { id: "workspace-demo", config: {} }, headers: { "Accept-Language" => locale.to_s }
+
+      assert_response :unprocessable_entity
+      assert_select "#mcp-errors-title", text: I18n.t("nosia.mcp.errors", count: 2, locale: locale)
+      assert_select "a[data-error-field=config_api_key]", count: 1
+      assert_select "a[data-error-field=config_team]", count: 1
+    end
+  end
+
   test "added template keeps read-only identity and capabilities without an activation form" do
     get account_mcp_catalog_path(@second, "workspace-demo")
 

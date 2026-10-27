@@ -5,6 +5,8 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
   include ChatAccountFixtures
 
   setup do
+    @previous_stdio = ENV["MCP_STDIO_ENABLED"]
+    ENV["MCP_STDIO_ENABLED"] = "true"
     visit root_url
     fill_in "email", with: @user.email
     fill_in "password", with: ChatAccountFixtures::PASSWORD
@@ -14,6 +16,8 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
 
   teardown do
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  ensure
+    @previous_stdio.nil? ? ENV.delete("MCP_STDIO_ENABLED") : ENV["MCP_STDIO_ENABLED"] = @previous_stdio
   end
 
   { "en" => "EN", "fr" => "FR" }.each do |locale, language|
@@ -41,14 +45,16 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
     fill_in "config[kchat_token]", with: "test-token"
     fill_in "config[kchat_team_name]", with: "test-team"
     find('input[name="config[kchat_team_name]"]').send_keys(:tab)
-    assert_selector ".n-card a:focus", text: "Cancel"
+    assert_selector '[data-mcp-screen="catalog-setup"] form input[type="submit"]:focus'
     page.driver.browser.action.send_keys(:tab).perform
-    assert_selector '.n-card input[type="submit"]:focus'
+    assert_selector '[data-mcp-screen="catalog-setup"] form a:focus', text: "Cancel"
+    page.send_keys([ :shift, :tab ])
+    assert_selector '[data-mcp-screen="catalog-setup"] form input[type="submit"]:focus'
     page.execute_script("const main = document.querySelector('main'); main.scrollTop = main.scrollHeight")
 
     assert page.evaluate_script(<<~JS), "The complete activation button must be visible and unobscured after scrolling"
       (() => {
-        const button = document.querySelector('.n-card input[type=submit]');
+        const button = document.querySelector('[data-mcp-screen="catalog-setup"] form input[type=submit]');
         const rect = button.getBoundingClientRect();
         return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight &&
           [rect.top + 2, rect.bottom - 2].every(y => document.elementFromPoint((rect.left + rect.right) / 2, y) === button);
@@ -60,7 +66,7 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
     def assert_configuration_fits_card
       layout = page.evaluate_script(<<~JS)
         (() => {
-          const card = document.querySelector('.n-card');
+          const card = document.querySelector('[data-mcp-screen="catalog-setup"] form');
           const bounds = card.getBoundingClientRect();
           const box = element => {
             const { left, right } = element.getBoundingClientRect();

@@ -1,19 +1,30 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Shows stdio command fields or http endpoint fields depending on the
-// selected MCP transport type.
+// Enables only the fields belonging to the selected transport.
 export default class extends Controller {
   static targets = [ "httpFields", "stdioFields" ]
 
   connect() {
     this.toggleTransportFields()
+    this.transport = this.element.querySelector('[name="mcp_server[transport_type]"]')
+    this.change = () => this.toggleTransportFields()
+    this.transport?.addEventListener("change", this.change)
+  }
+
+  disconnect() {
+    this.transport?.removeEventListener("change", this.change)
   }
 
   toggleTransportFields() {
-    const select = this.element.querySelector('select[name*="transport_type"]')
-    const stdio = Boolean(select) && select.value === "stdio"
-
-    this.httpFieldsTarget.classList.toggle("hidden", stdio)
-    this.stdioFieldsTarget.classList.toggle("hidden", !stdio)
+    const type = this.element.querySelector('[name="mcp_server[transport_type]"]')?.value
+    for (const [ targets, visible ] of [ [ this.httpFieldsTargets, [ "streamable", "sse" ].includes(type) ], [ this.stdioFieldsTargets, type === "stdio" ] ]) {
+      targets.forEach(group => {
+        group.hidden = !visible
+        group.querySelectorAll("input, textarea, select").forEach(input => {
+          input.disabled = !visible
+          input.required = visible && input.dataset.mcpRequired === "true"
+        })
+      })
+    }
   }
 }

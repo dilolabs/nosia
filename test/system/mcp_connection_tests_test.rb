@@ -86,7 +86,7 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
     visit edit_mcp_server_url(@server)
     fill_in "mcp_server_name", with: ""
 
-    click_button "Test Connection"
+    click_button "Test saved configuration"
 
     assert_selector "#connection-test-result[role=status]", text: "Connection established"
     assert_current_path mcp_server_path(@server)
