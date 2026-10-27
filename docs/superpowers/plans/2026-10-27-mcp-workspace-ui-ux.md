@@ -3119,3 +3119,219 @@ These are planning checks, not runtime or application-test results. No applicati
 boot, database preparation, MCP baseline, browser run or application implementation
 occurred during planning. All execution checkboxes remain unchecked. Execution
 choice and fresh baseline reporting/acceptance are still gates.
+
+## Execution record — 2026-10-27
+
+The planning statements and unchecked example steps above are historical. Tasks
+0–8 have now been implemented and independently reviewed. This record is a later
+documentation-only addition; it does not claim another application test run.
+
+### Source and delivery identity
+
+- Branch: `feat/mcp-workspace-ui`; execution worktree:
+  `/home/cbldev/gitd/dilolabs/nosia/.worktrees/mcp-workspace-ui`.
+- Immutable execution base: `5750fb0246efd3556a6e5e256f0146af58a41ec1`.
+- Last tested and reviewed source commit:
+  `798a85328a865412c9c9b52d81124dd2c5b2f621`.
+- Its full tree: `f9108aa2cc995eafcd0edb580b76001f038cba55`.
+- The later commit containing this record changes only this plan. Non-plan
+  byte/mode identity is checked against that tested commit, not against an
+  assumed parent. Documentation commits do not constitute fresh test evidence.
+- No merge, push, PR, worktree removal or unrelated-main-worktree change was
+  performed. The branch and worktree are retained for a separate user decision.
+
+### Task and fix commits
+
+Task 0 established the isolated baseline without a source commit. Each following
+task passed independent specification and quality reviews after its fixes:
+
+| Task | Implementation and follow-up commits, in order |
+| --- | --- |
+| 1 — authorized account context and operation compatibility | `6a4610bfd725898c791c48b6a3fa297144d333de` |
+| 2 — safe credentials and recoverable configuration | `ab6118e9dd53964c877558d52095c3302ace8b49`, `f9a837afe27ddc1aecdb2c0a38c19c240865ce69`, `5bdc3813b789895174e140eb3b5a08e9bafc1d8d`, `5bb2f9274787802d397e5c8a7259c1cfc559af98` |
+| 3 — truthful, independent capability outcomes | `03a5929867d2dd6704b9042564eada381a7768b8`, `9826c8696e46cc2938bd2cdec534b776e6a93cdb` |
+| 4 — management shell, rows and mobile account context | `d62733e8b1ed53228c862c42626a9f6fa34aaf0b`, `1adef5e6b8069fbbd17398da338d664253c2f605`, `139cb56bada8e6a0ceac0c38f0033def307e199c` |
+| 5 — catalog and setup recovery | `188666c7e6a692cc244e6d8553943f75bc1b8234`, `dd9df4986c3073ebe1f0cf79caa97cba9c4f634e` |
+| 6 — details, safe connection feedback and progressive tabs | `d279c7043f17fdd7809e5176e3e48a54f4dd7c6f`, `fe0ad1f5f378f35324cce2f58e43f1deea64cc04`, `b8ab724b2edd28a9a389e77a2d0c71825b8ab06b` |
+| 7 — transport-aware forms and saved-only testing | `c1503d229e3bc6378df7065c60ccaeafbd014a01`, `e02a0721528a89a2ff77dd24f8613f62e8cdd896`, `f0b3628cebfc32583541e9d645e1b9cc9d6fe50b` |
+| 8 — browser matrix, workflow proof, documentation and test safety | `40b11524775fc18c3073627c4838da3c1d776fd8`, `d3134058f9cbc5022155f5c20983dabb549c823e`, `798a85328a865412c9c9b52d81124dd2c5b2f621` |
+
+Review fixes include derived credential-header cleanup on replacement/removal and
+transport changes, controlled malformed-container rejection, nullable metadata,
+mobile New chat account context, template capabilities in every setup state,
+Connect-failure recovery, Turbo-compatible tab history, persisted-transport saved
+test availability, declared-field errors, correct error counts and secret re-entry
+guidance. No client/protocol/schema/dependency or engine-definition change was
+introduced. Test-only stdio prerequisites were explicitly approved, restore their
+previous environment value, and do not relax production restrictions.
+
+Precise legacy MCP presentation assertions were migrated without dropping JSON,
+escaping, metadata, account, activation or disconnected-state checks. The final
+full suite exposed an overlooked OpenAlex heading/submit-label assertion; only
+those presentation expectations were updated, with focused RED/GREEN evidence
+observed before the restart. It was not accepted as another baseline failure.
+
+### Baseline direction and remaining nonzero gates
+
+The user accepted MCP-only continuation with the exact fresh baseline findings
+left unchanged, stopping for new regressions. No unrelated repair, suppression,
+test exclusion or additional waiver was authorized or made.
+
+- Original full baseline: seed `3095`, 1,160 tests / 22,941 assertions, exit **1**;
+  only `Chat::RequestOptionsTest#test_completion_replaces_augmented_instructions_and_keeps_environment_option_defaults`,
+  missing `augmented_context` at `app/models/chat/completionable.rb:39`, declared
+  at `test/models/chat/request_options_test.rb:29`.
+- Original protected browser baseline: seed `36642`, 64 tests / 26,512 assertions,
+  exit **1**; six Profile language-selector errors at
+  `test/system/profile_management_test.rb:272`, unable to find
+  `button[type=submit]` inside the language-preference form.
+- Brakeman baseline: exit **3**; high-confidence `PermitAttributes` at
+  `app/controllers/api_tokens_controller.rb:62` and `EOLRails` at
+  `Gemfile.lock:318`. Their messages remain respectively “Potentially dangerous
+  key allowed for mass assignment” and “Support for Rails 8.0.5.1 ended on
+  2026-10-07”.
+- Existing duplicate `tools_cache` / `last_test_at` JSON warnings remain visible.
+
+The six browser identities comprise the four
+`test_native_Tab_keeps_every_{en,fr}_{light,dark}_mobile_profile_control_fully_above_the_bottom_navigation`
+variants, `test_signed_language_preferences_keep_mobile_profile_controls_contained_and_keyboard_accessible_in_both_themes`,
+and `test_long_email_and_French_validation_errors_stay_contained_in_the_mobile_scrolling_region`.
+Current raw output and the recorded-identity audit retain their exact names and
+messages. Full/browser/security gates are **nonzero, not green**.
+
+### Restart boundary and evidence provenance
+
+A server restart emptied `/tmp/opencode`, destroying the original baseline raw
+files, per-task RED/GREEN logs, earlier final logs and browser artifacts. The
+commits, staged queue-safety patch and isolated database survived. The user asked
+to continue without repeating completed work. Lost raw files were not recreated,
+and completed build/focused/full checks were not rerun merely to replace logs.
+
+Completed results for the final source tree before the interruption are recovered
+**session observations**, not currently inspectable raw output:
+
+| Completed before restart | Seed | Observed result | Exit |
+| --- | --- | --- | --- |
+| Saved-configuration browser case | 23986 | 1 test / 14 assertions, passed | 0 |
+| Empty Queue nonblocking probe | n/a | Immediate `ThreadError`, no indefinite wait | 0 |
+| Tailwind build | n/a | Passed | 0 |
+| Final focused suite, including activation | 63583 | 210 tests / 14,270 assertions, passed | 0 |
+| Final full suite | 10156 | 1,243 tests / 24,640 assertions; only accepted `augmented_context` error | **1** |
+
+Historical lost log names were `task8-conclusive-saved-busy.7k6JQX.log`,
+`task8-conclusive-queue-probe.ycjXbH.log`,
+`task8-conclusive-final-build.SZHRhW.log`,
+`task8-conclusive-final-focused.J7NTzH.log` and
+`task8-conclusive-final-full.faUblJ.log`. These names are provenance, not links to
+surviving files. Pre-restart source correspondence rests on the session and the
+surviving staged tree; old raw identity files are also lost.
+
+The interrupted browser command had no observed completion and remained pending.
+It and the pending lint/security/syntax/audits were completed after restart. New
+raw logs, matching `.exit` files and copied browser artifacts are preserved in
+the ignored, persistent worktree directory
+`.superpowers/mcp-evidence-recovery/` (called `E` below). The exact recorder is
+`.superpowers/mcp-verification-env.sh`. It retains the original nondisplaying
+dotenv invocation and isolated `nosia_mcp_workspace_ui_test` database. `.env` was
+never read, displayed, sourced or copied. Database-sharing commands ran
+sequentially; no workers or real provider/stdio processes were launched.
+
+| Pending gate completed after restart | Seed | Actual result | Raw log under `E` | Exit |
+| --- | --- | --- | --- | --- |
+| Expanded MCP and complete protected browser suite | 3 | 94 tests / 79,112 assertions; zero failures, six recorded Profile errors, zero skips | `resumed-final-browser.MbJ8WX.log` | **1** |
+| RuboCop | n/a | 27 files, no offenses | `resumed-final-lint.HN107k.log` | 0 |
+| Brakeman | n/a | Zero scanner errors, two recorded findings | `resumed-final-security.odLiV3.log` | **3** |
+| Recorded-identity comparison | n/a | Only the accepted browser/security identities and messages | `resumed-recorded-identities.BdIKxs.log` | 0 |
+| Changed syntax | n/a | 4 JavaScript / 22 Rails ERB files compile | `resumed-final-syntax.fzGxDG.log` | 0 |
+| Current artifact/docs/YARD audit | n/a | Matrix, interaction evidence, documentation links and public helper contracts checked | `resumed-final-artifact-audit.2ebf4x.log` | 0 |
+
+The resumed comparison uses the **recorded accepted identities**, not a fabricated
+diff against lost baseline files. This record does not claim all final gates were
+rerun after restart. `E/restart.md`, `E/resume-completion.md` and
+`E/resumed-source-identity.json` explicitly describe this limitation.
+
+Actual test commands used the wrappers defined above; the focused invocation
+included the approved final request/model/helper/localization/protected-request
+list and the additional activation regression:
+
+```bash
+rails_test tailwindcss:build
+rails_test test test/controllers/mcp_workspace_scoping_test.rb test/controllers/mcp_workspace_configuration_test.rb test/controllers/mcp_workspace_shell_test.rb test/controllers/mcp_workspace_catalog_test.rb test/controllers/mcp_workspace_detail_test.rb test/controllers/mcp_workspace_forms_test.rb test/controllers/mcp_servers_controller_test.rb test/controllers/mcp_connection_tests_test.rb test/models/mcp_server_configuration_test.rb test/models/mcp_server_capability_snapshot_test.rb test/models/mcp_server_test.rb test/models/mcp_server_local_test.rb test/lib/mcp_catalog_registry_test.rb test/helpers/mcp_catalog_helper_test.rb test/controllers/sources_workspace_shell_test.rb test/controllers/token_usage_workspace_shell_test.rb test/controllers/agent_skills_workspace_shell_test.rb test/controllers/accounts_workspace_shell_test.rb test/controllers/settings_workspace_test.rb test/controllers/dashboards_controller_test.rb test/integration/localized_pages_test.rb test/internationalization/catalogs_test.rb test/integration/activate_engine_test.rb
+rails_test test
+browser_test test/system/mcp_workspace_test.rb test/system/mcp_catalog_test.rb test/system/mcp_connection_tests_test.rb test/system/accounts_settings_workspace_test.rb test/system/account_experience_test.rb test/system/agent_skills_workspace_test.rb test/system/sources_workspace_test.rb test/system/token_usage_workspace_test.rb test/system/dashboard_test.rb test/system/profile_management_test.rb
+mise exec ruby@4.0.7 -- bundle exec rubocop app/controllers/concerns/mcp_scoped.rb app/controllers/mcp_servers_controller.rb app/controllers/mcp_catalog_controller.rb app/controllers/mcp_servers app/models/mcp_server.rb app/models/mcp_server app/helpers/mcp_workspace_helper.rb app/helpers/mcp_forms_helper.rb lib/mcp_catalog.rb test/support/mcp_workspace_fixtures.rb test/support/mcp_browser_checks.rb test/controllers/mcp_workspace_scoping_test.rb test/controllers/mcp_workspace_configuration_test.rb test/controllers/mcp_workspace_shell_test.rb test/controllers/mcp_workspace_catalog_test.rb test/controllers/mcp_workspace_detail_test.rb test/controllers/mcp_workspace_forms_test.rb test/models/mcp_server_configuration_test.rb test/models/mcp_server_capability_snapshot_test.rb test/system/mcp_workspace_test.rb test/system/mcp_catalog_test.rb test/system/mcp_connection_tests_test.rb test/integration/localized_pages_test.rb test/integration/activate_engine_test.rb
+mise exec ruby@4.0.7 -- bundle exec brakeman --no-pager
+```
+
+### Current browser and documentation evidence
+
+Durable matrix root: `E/browser/mcp-browser-20261027-2132-dxxyqx/`.
+Only newly generated browser fixture artifacts were copied there after the
+resumed gate; these are not reconstructions of the old evidence.
+
+- `matrix.json`: **96 unique** six-screen × EN/FR × light/dark × four-viewport
+  states. Extra workflow tests are not counted as base states.
+- `keyboard.jsonl` and `focus.jsonl`: **1,208 forward and 1,208 reverse** native
+  Tab stops with matching order and focus samples, ≥44×44 controls, ≥2px outlines
+  and unobscured geometry. Tall read-only panels use the documented intersection
+  exception. No forced focus or test scrolling simulates focused visibility.
+- `layout.jsonl`: all 96 states, including 552 action-label samples, 1,392
+  breadcrumb samples and 64 computed submit-label measurements; no clipping or
+  ellipsis. Ordinary editable values may scroll inside their input.
+- `contrast.jsonl`: **11,352** composed-color samples in 288 keyboard/unhovered/
+  hovered phase records. Minimum text ratio **4.945**; minimum meaningful nontext
+  **3.191**. Actual Ready/Prêt status text and selected-tab indicators are covered
+  against their real adjacent surfaces.
+- `hover.jsonl`: **96 actual surface changes**, with real `:hover`, declared
+  fine-pointer/hover capability emulation, stable bounds and exact token matches.
+  No forced stylesheet or pseudo-state is used.
+- All **20** dedicated session cleanup records prove restored driver/session and
+  unchanged original driver registration; media/metrics/scripts are reset and
+  dedicated sessions quit.
+- **48 PNGs** and six `contact-{servers,catalog,setup,detail,new,edit}.jpg` sheets
+  cover phone/desktop, both locales and themes. The parent opened all six sheets.
+  Representative originals include `detail-fr-1440-1000-dark.png`,
+  `setup-en-375-812-light.png` and `new-fr-375-812-light.png`. Reset-scroll images
+  are layout evidence, not separate proof of focused visibility.
+- Workflow coverage preserves scoped CRUD/activation, saved-only testing, real
+  busy requests and unrelated-control availability, native/server validation,
+  secret lifecycle plus actual Back navigation, empty/filter recovery, mobile and
+  desktop composer context, transport switching, no-JS sections, reduced motion,
+  capability outcomes and Turbo URL **and DOM** history restoration.
+- Current audits and all samples are indexed by `E/resumed-browser-audit.json`.
+  The English [MCP guide](../../mcp-workspace.md), docs-index link and changed
+  public Ruby YARD were checked against actual interfaces.
+
+The stronger reverse traversal exposed a focused link 0.25px above the main
+viewport at 812×375. A retained regression preceded the MCP-only 8px top scroll
+inset; native scrolling then kept the same control clear of the header without
+lowering thresholds. The final small test follow-up prevents a missing health
+hook from hanging on an unbounded Queue read.
+
+### Independent reviews and final handoff limits
+
+- Task 8 final specification: `ses_e81e74536ffeiUjZ4a4rjh84tr`, approved at
+  `798a8532`; final quality: `ses_e81b05750ffeOcJ0ISSuzZM33t`, approved with no
+  unresolved findings after the Queue fix.
+- Fresh whole-feature specification: `ses_e80be8413ffeM1FksWIRLl45o1`,
+  **SPEC COMPLIANT**. Fresh whole-feature quality/security/architecture/UI:
+  `ses_e80ba5c53ffe55FkTCgSKnFbRV`, **APPROVED**, no Critical/Important/Minor
+  findings. These were read-only reviews, not additional test runs.
+- Native **200% browser zoom remains UNVERIFIED**. Capability/viewport emulation
+  is not physical hardware or native zoom proof. Remote browser/platform and
+  assistive-technology behavior not exercised here remains unverified; sampled
+  checks are not an exhaustive accessibility audit.
+- Restart-related loss of historical raw evidence remains a delivery limitation.
+  Accepted nonzero full/browser/security results remain nonzero.
+- Final observed disk headroom: **7.2 GiB** on the persistent filesystem and
+  **7.8 GiB** in `/tmp`; no cleanup was performed.
+- `E/resumed-tested-{sha,tree,parent}.txt` and `E/resumed-commit-proof.json` identify
+  the actual tested source. The following documentation-only record commit is
+  checked with:
+
+```bash
+git diff --exit-code 798a85328a865412c9c9b52d81124dd2c5b2f621..HEAD -- . ':(exclude)docs/superpowers/plans/2026-10-27-mcp-workspace-ui-ux.md'
+```
+
+The worktree is retained; integration or cleanup still requires separate user
+authorization.
