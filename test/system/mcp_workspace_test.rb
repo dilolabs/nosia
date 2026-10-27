@@ -42,6 +42,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
             assert_selector "[data-mcp-workspace] > header.n-workspace-header", count: 1
             assert_selector "[data-mcp-workspace] > header nav", count: 1
             assert_no_selector "[data-mcp-workspace] [data-controller~='drawer']", visible: :all
+            assert_no_selector "#drawer-right", visible: :all
+            assert_no_selector "#accordion-right-actions", visible: :all
             assert_no_selector ".translation_missing", visible: :all
             refute_match(/translation missing/i, page.html)
             refute_includes page.html, "saved-secret"
@@ -68,6 +70,20 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     assert page.evaluate_script("matchMedia('(prefers-reduced-motion: reduce)').matches")
     assert page.evaluate_script("Array.from(document.querySelectorAll('[data-mcp-workspace] a,[data-mcp-workspace] button')).every(e=>getComputedStyle(e).transitionDuration==='0s')")
     assert_equal @first, @user.reload.first_account
+  end
+
+  test "reverse keyboard focus keeps the long server name clear of the landscape header" do
+    @second_server.update!(status: "ready", name: "CompteDeRecherche" * 12)
+    visit account_mcp_servers_path(@second)
+    mcp_size(812, 375)
+    mcp_theme("light")
+    mcp_tab_to("[data-mcp-row] button")
+    3.times do
+      page.send_keys([ :shift, :tab ])
+      mcp_wait
+    end
+    assert_selector "[data-mcp-row] h2 a:focus"
+    mcp_assert_focus
   end
 
   test "manual tabs preserve keyboard hash history without executing capabilities" do
@@ -172,6 +188,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     %w[overview tools prompts resources].each { |kind| assert_selector "##{kind}" }
     assert_selector "#tools", text: "workspace_echo"
     assert_no_selector "[role=tablist]", visible: :all
+    assert_no_selector "[role=tab]", visible: :all
+    assert_no_selector "[role=tabpanel]", visible: :all
   ensure
     page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: false)
   end
@@ -344,12 +362,20 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     @health_check = ->(_) { release.pop }
     @second_server.update!(status: "ready")
     visit account_mcp_server_path(@second, @second_server)
+    test_selector = "form[action='#{account_mcp_server_connection_test_path(@second, @second_server)}'] button"
+    unrelated = [ "[data-mcp-busy-group] a[href='#{edit_account_mcp_server_path(@second, @second_server)}']", "[data-mcp-danger] button" ]
+    assert_selector "#{test_selector}:enabled", text: "Test connection"
+    unrelated.each { |selector| mcp_assert_available_control(selector, "before") }
     click_button "Test connection"
     assert_selector "[data-mcp-busy-group][aria-busy=true]"
+    assert_selector "#{test_selector}:disabled", text: "Testing connection…"
     assert_button "Disconnect", disabled: true
+    unrelated.each { |selector| mcp_assert_available_control(selector, "busy") }
     release << true
     assert_selector "#connection-test-result[role=status]", text: "Connection established"
+    assert_selector "#{test_selector}:enabled", text: "Test connection"
     assert_button "Disconnect", disabled: false
+    unrelated.each { |selector| mcp_assert_available_control(selector, "complete") }
     assert_no_selector "[data-mcp-busy-group][aria-busy=true]"
     assert_selector "[role=tablist]"
     assert_selector "#mcp-tab-overview[role=tab][aria-selected=true]"

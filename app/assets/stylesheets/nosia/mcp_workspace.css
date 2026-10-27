@@ -35,4 +35,4 @@
 .n-mcp-panel:focus { @apply outline-2 outline-offset-2 outline-green-700 dark:outline-green-300; }
 .n-mcp-workspace pre { white-space: pre-wrap; overflow-wrap: anywhere; @apply min-w-0 rounded-md bg-neutral-50 p-3 text-xs text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100; }
 .n-mcp-danger { @apply flex flex-wrap items-center justify-between gap-4 border-t border-neutral-500 pt-6; }
-main:has([data-mcp-workspace]) { min-width: 0; scroll-padding-block-end: 6rem; }
+main:has([data-mcp-workspace]) { min-width: 0; scroll-padding-block-start: .5rem; scroll-padding-block-end: 6rem; }
