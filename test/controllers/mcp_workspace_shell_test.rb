@@ -32,9 +32,11 @@ class McpWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_equal @first, @user.reload.first_account
   end
 
-  test "mobile New chat preserves explicit MCP scope and the legacy default" do
+  test "mobile New chat preserves MCP and Skills scope and unrelated defaults" do
     [ [ mcp_servers_path, new_chat_path ],
-      [ account_mcp_servers_path(@second), new_chat_path(account_id: @second.id) ] ].each do |path, composer|
+      [ account_mcp_servers_path(@second), new_chat_path(account_id: @second.id) ],
+      [ account_agent_skills_path(@second), new_chat_path(account_id: @second.id) ],
+      [ api_tokens_path, new_chat_path ] ].each do |path, composer|
       get path
       assert_response :success
       assert_select ".lg\\:hidden a.n-nav-bottom[aria-label=?]", I18n.t("nosia.nav.new_chat"), count: 1 do |links|
