@@ -32,6 +32,8 @@ class McpWorkspaceCatalogTest < ActionDispatch::IntegrationTest
     assert_select "input#config_api_key[aria-invalid=true]"
     assert_select "form[action=?]", account_mcp_catalog_index_path(@second)
     assert_select "meta[name=turbo-cache-control][content=no-cache]"
+    assert_select "h2", text: "Available capabilities", count: 1
+    assert_select "form h2", text: "Available capabilities", count: 0
     refute_includes response.body, "saved-secret"
   end
 
@@ -47,6 +49,30 @@ class McpWorkspaceCatalogTest < ActionDispatch::IntegrationTest
     assert_select "input#config_api_key[aria-describedby='config_api_key_help config_api_key_error']"
     assert_select "p#config_api_key_error", text: /Demo key/
     assert_select "input#config_team[value='Retained public value']"
+  end
+
+  test "added template keeps read-only identity and capabilities without an activation form" do
+    get account_mcp_catalog_path(@second, "workspace-demo")
+
+    assert_response :success
+    assert_select "[data-mcp-screen=catalog-setup] h1", text: "Workspace demo"
+    assert_select "p", text: "Local fixture integration"
+    assert_select "a[href=?]", account_mcp_server_path(@second, @second_server)
+    assert_select "form[action=?]", account_mcp_catalog_index_path(@second), count: 0
+    assert_select "h2", text: "Available capabilities", count: 1
+    assert_select "section > p.n-workspace-help", text: "Tools", count: 1
+  end
+
+  test "blocked stdio template keeps read-only capabilities without an activation form" do
+    unless McpServer.stdio_enabled?
+      get account_mcp_catalog_path(@second, "kchat")
+
+      assert_response :success
+      assert_select "[data-mcp-transport-unavailable]"
+      assert_select "form[action=?]", account_mcp_catalog_index_path(@second), count: 0
+      assert_select "h2", text: "Available capabilities", count: 1
+      assert_select "section > p.n-workspace-help", text: "Tools", count: 0
+    end
   end
 
   test "blocked stdio failure explains the problem without links to absent fields" do

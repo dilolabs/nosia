@@ -2,6 +2,10 @@
 <div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="catalog-setup">
   <%= render "mcp_workspace/header", title: @template[:name], current: @template[:name], catalog: true, description: catalog_entry_description(@template) %>
   <%= render "mcp_workspace/feedback" %>
+  <section class="n-workspace-panel">
+    <h2 class="n-workspace-section-title"><%= t("nosia.mcp.capabilities") %></h2>
+    <p class="n-workspace-help"><%= Array(@template[:capabilities]).map { |value| catalog_capability_label(value) }.join(" · ") %></p>
+  </section>
   <% added = @added_servers.fetch(@template[:id], []) %>
   <% blocked = @template[:transport_type] == "stdio" && !McpServer.stdio_enabled? %>
   <% if added.any? && @mcp_server.errors.empty? %>
@@ -27,10 +31,6 @@
         <% else %>
           <p class="n-workspace-help"><%= t("nosia.mcp.no_config") %></p>
         <% end %>
-      </section>
-      <section class="n-workspace-panel">
-        <h2 class="n-workspace-section-title"><%= t("nosia.mcp.capabilities") %></h2>
-        <p class="n-workspace-help"><%= Array(@template[:capabilities]).map { |value| catalog_capability_label(value) }.join(" · ") %></p>
       </section>
       <div class="n-workspace-actions">
         <%= submit_tag t("nosia.mcp_workspace.add"), class: "n-workspace-button n-workspace-primary", data: { turbo_submits_with: t("nosia.mcp_workspace.adding") } %>
