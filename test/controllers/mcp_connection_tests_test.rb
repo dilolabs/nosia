@@ -33,15 +33,15 @@ class McpConnectionTestsTest < ActionDispatch::IntegrationTest
       follow_redirect!
       assert_equal "text/html", response.media_type
       assert_select "#connection-test-result[role=status]" do
-        assert_select "h3", text: "Connection established"
+        assert_select "h2", text: "Connection established"
         assert_select "p", text: /0ms/
       end
-      assert_select ".n-tag-ready", text: /Ready/
+      assert_select "[data-state=ready]", text: /Ready/
       assert @server.reload.status_ready?
     end
   end
 
-  test "HTML connection failure shows escaped error details and recovery guidance" do
+  test "HTML connection failure omits diagnostic details and shows recovery guidance" do
     ActsAsTenant.with_tenant(@first) { @server.update!(api_key: "invalid") }
 
     post test_connection_mcp_server_url(@server)
@@ -50,11 +50,11 @@ class McpConnectionTestsTest < ActionDispatch::IntegrationTest
     assert_redirected_to mcp_server_url(@server)
     follow_redirect!
     assert_select "#connection-test-result[role=alert]" do
-      assert_select "h3", text: "Connection failed"
-      assert_select "p", text: /Invalid credentials <script>/
+      assert_select "h2", text: "Connection failed"
       assert_select "p", text: /configuration and credentials/
       assert_select "script", count: 0
     end
+    refute_includes response.body, "Invalid credentials <script>"
     assert_select "a[href=?]", edit_mcp_server_path(@server), text: "Edit"
     assert @server.reload.status_error?
   end
@@ -127,7 +127,7 @@ class McpConnectionTestsTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to mcp_server_url(@server)
     follow_redirect!
-    assert_select "#connection-test-result h3", text: "Connexion établie"
+    assert_select "#connection-test-result h2", text: "Connexion établie"
     assert_select "button[data-turbo-submits-with=?]", "Test de la connexion…"
   end
 end

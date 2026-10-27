@@ -60,7 +60,8 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
           assert_selector "#connection-test-result[role=#{failure ? 'alert' : 'status'}]"
           assert_current_path mcp_server_path(@server)
           if failure
-            assert_text "Invalid credentials"
+            assert_text I18n.t("nosia.mcp.connection_test_failure_help", locale: locale)
+            assert_no_text "Invalid credentials"
           else
             assert_text(locale == "en" ? "Response time:" : "Temps de réponse :")
           end
@@ -107,8 +108,9 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
             });
             return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
           };
-          const foreground = luminance(getComputedStyle(document.querySelector('button[data-turbo-submits-with]')).color);
-          const background = luminance(getComputedStyle(document.body).backgroundColor);
+          const button = document.querySelector('button[data-turbo-submits-with]');
+          const foreground = luminance(getComputedStyle(button).color);
+          const background = luminance(getComputedStyle(button).backgroundColor);
           return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
         })()
       JS

@@ -32,6 +32,44 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
 
+  test "detail tabs support manual keyboard activation and ordinary focus traversal" do
+    visit "#{account_mcp_server_path(@second, @second_server)}#tools"
+    assert_selector "#mcp-tab-tools[role=tab][aria-selected=true]"
+    assert_selector "#tools[role=tabpanel]"
+    assert_no_selector "#overview[role=tabpanel]"
+
+    find("#mcp-tab-tools").click
+    page.send_keys(:right)
+    assert page.evaluate_script("document.activeElement.id === 'mcp-tab-prompts'")
+    assert_selector "#mcp-tab-tools[aria-selected=true]"
+    page.send_keys(:space)
+    assert_selector "#mcp-tab-prompts[aria-selected=true]"
+    assert_equal "#prompts", URI.parse(page.current_url).fragment.prepend("#")
+
+    page.send_keys(:end)
+    assert page.evaluate_script("document.activeElement.id === 'mcp-tab-resources'")
+    page.send_keys(:right)
+    assert page.evaluate_script("document.activeElement.id === 'mcp-tab-overview'")
+    page.send_keys(:left)
+    assert page.evaluate_script("document.activeElement.id === 'mcp-tab-resources'")
+    page.send_keys(:home)
+    assert page.evaluate_script("document.activeElement.id === 'mcp-tab-overview'")
+    page.send_keys(:enter)
+    assert_selector "#mcp-tab-overview[aria-selected=true]"
+    page.send_keys(:right)
+    page.send_keys(:tab)
+    assert page.evaluate_script("document.activeElement.id === 'overview'")
+    page.send_keys([ :shift, :tab ])
+    assert page.evaluate_script("document.activeElement.id === 'mcp-tab-overview'")
+
+    page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-detail-desktop.png"))
+    page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
+    assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1")
+    page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-detail-mobile.png"))
+  ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
+
   test "mobile New chat opens the scoped account composer by keyboard without creating a chat" do
     before = Chat.count
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)

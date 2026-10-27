@@ -95,6 +95,28 @@ module McpWorkspaceHelper
     t("nosia.mcp_workspace.delete_confirm", name: server.name, account: @account.name)
   end
 
+  # @param result [McpServer::CapabilitySnapshot::Result]
+  # @return [String, Integer] Truthful count, not a zero for unavailable content
+  def mcp_capability_count(result)
+    result.state == :loaded ? result.items.size : (result.state == :not_loaded ? "—" : t("nosia.mcp_workspace.count_unavailable"))
+  end
+
+  # @param tool [RubyLLM::Tool] Existing SDK object
+  # @return [Hash, nil] Available schema without executing the tool
+  def mcp_tool_schema(tool)
+    schema = tool.parameters_schema if tool.respond_to?(:parameters_schema)
+    schema if schema.is_a?(Hash)
+  end
+
+  # @param prompt [RubyLLM::MCP::Prompt]
+  # @return [Array<Hash>] Local argument metadata, not prompt messages
+  def mcp_prompt_arguments(prompt)
+    Array(prompt.arguments).filter_map do |argument|
+      value = argument.to_h if argument.respond_to?(:to_h)
+      value.deep_symbolize_keys if value.is_a?(Hash)
+    end
+  end
+
   # @param id [String] Trusted catalog ID/category
   # @return [String] Local-only icon path
   def mcp_icon(id)
