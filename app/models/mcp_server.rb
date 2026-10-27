@@ -1,5 +1,6 @@
 class McpServer < ApplicationRecord
   include Configuration
+  include CapabilitySnapshot
 
   acts_as_tenant :account
   belongs_to :account

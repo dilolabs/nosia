@@ -16,7 +16,10 @@ class McpServersController < ApplicationController
 
   # @return [void] Renders the authorized server and its capabilities
   def show
-    @tools, @prompts, @resources = @mcp_server.tools, @mcp_server.prompts, @mcp_server.resources
+    @capabilities = @mcp_server.capability_snapshot
+    @tools = @capabilities.fetch(:tools).items
+    @prompts = @capabilities.fetch(:prompts).items
+    @resources = @capabilities.fetch(:resources).items
   end
 
   # @return [void] Renders a new server form in the current MCP context

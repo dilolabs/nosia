@@ -86,10 +86,12 @@ class McpServerTest < ActiveSupport::TestCase
   end
 
   test "client config preserves stdio command args env and HTTP URL headers and auth" do
+    previous_stdio_env = ENV["MCP_STDIO_ENABLED"]
     original_client = RubyLLM::MCP.method(:client)
     calls = []
     RubyLLM::MCP.define_singleton_method(:client) { |**options| calls << options; Object.new }
     begin
+      ENV["MCP_STDIO_ENABLED"] = "true"
       server = @account.mcp_servers.new(name: "stdio", transport_type: "stdio", connection_config: {
         command: "ruby", args: [ "server.rb" ], env: { "TOOL_MODE" => "test" }
       })
@@ -106,6 +108,7 @@ class McpServerTest < ActiveSupport::TestCase
       assert server.client
       assert_equal "fake-key", calls.last.dig(:config, :headers, "X-API-Key")
     ensure
+      ENV["MCP_STDIO_ENABLED"] = previous_stdio_env
       RubyLLM::MCP.define_singleton_method(:client, original_client)
     end
   end
