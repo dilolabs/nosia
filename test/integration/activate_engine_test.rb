@@ -17,11 +17,14 @@ class ActivateEngineTest < ActionDispatch::IntegrationTest
   test "admin activates the OpenAlex engine from the catalog" do
     get mcp_catalog_index_url
     assert_response :success
-    assert_select "h4.n-card-title", text: /OpenAlex/
+    assert_select "[data-mcp-entry='open_alex'] h3 a[href=?]", mcp_catalog_path("open_alex"), text: "OpenAlex", count: 1
 
     get mcp_catalog_path("open_alex")
     assert_response :success
-    assert_select "input[type='submit'][value='Activate OpenAlex']"
+    assert_select "[data-mcp-screen='catalog-setup'] form[action=?]", mcp_catalog_index_path do
+      assert_select "input[type='submit'][value=?]", I18n.t("nosia.mcp_workspace.add")
+      assert_select "input[type='hidden'][name='id'][value='open_alex']"
+    end
     assert_select "label", text: /OpenAlex API key/
 
     assert_difference -> { @account.mcp_servers.where(transport_type: "local").count }, 1 do
