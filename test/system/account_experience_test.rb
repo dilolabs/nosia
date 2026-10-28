@@ -185,14 +185,14 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     fill_in "api_token_name", with: "Browser deployment"
     click_on "Generate"
     assert_current_path account_api_tokens_path(@second)
-    assert_text "Copy it now"
-    assert_selector "input[readonly][data-clipboard-target='source']"
-    assert_selector "button[data-action='clipboard#copy']"
+    assert_text I18n.t("nosia.settings_tools.created_help")
+    assert_selector "#created_api_token[readonly][data-token-reveal-target=source]"
+    assert_selector "button[data-action='token-reveal#copy']"
     token = ApiToken.find_by!(name: "Browser deployment")
     assert_equal [ @user.id, @second.id ], [ token.user_id, token.account_id ]
     visit account_api_tokens_path(@second)
-    assert_no_text "Copy it now"
-    assert_no_selector "input[data-clipboard-target='source']"
+    assert_no_text I18n.t("nosia.settings_tools.created_help")
+    assert_no_selector "#created_api_token[data-token-reveal-target=source]"
     assert_equal @first, @user.first_account
   end
 
@@ -345,7 +345,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
 
     def take_failed_screenshot
       # Failure artifacts must never disclose a newly generated bearer token.
-      page.execute_script("document.querySelectorAll('[data-clipboard-target=source]').forEach(e => { e.value = '[REDACTED]'; e.setAttribute('value', '[REDACTED]'); })")
+      page.execute_script("document.querySelectorAll('[data-token-reveal-target=source]').forEach(e => { e.value = '[REDACTED]'; e.setAttribute('value', '[REDACTED]'); })")
       super
     end
 

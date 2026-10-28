@@ -41,10 +41,11 @@ class ApiTokensTest < ApplicationSystemTestCase
         layout = token_card_layout
         assert layout.fetch("deleteFits"), "The delete button must remain inside its card and viewport: #{layout}"
         assert layout.fetch("titleFits"), "The complete token and account names must wrap: #{layout}"
+        assert layout.fetch("accountFits"), "The complete account name must wrap: #{layout}"
       end
 
-      accept_confirm I18n.t("nosia.actions.confirm_delete", locale: :en) do
-        find("form[action='#{api_token_path(@token)}']").click_button "Delete API token"
+      accept_confirm I18n.t("nosia.settings_tools.revoke_confirm", locale: :en, name: @token.name, account: @first.name) do
+        find("form[action='#{api_token_path(@token)}']").click_button "Revoke token"
       end
       assert_no_selector "form[action='#{api_token_path(@token)}']"
       assert_not ApiToken.exists?(@token.id)
@@ -66,7 +67,7 @@ class ApiTokensTest < ApplicationSystemTestCase
       form = find("form[action='#{api_token_path(@token)}']", visible: :all)
       page.evaluate_script(<<~JS, form)
         (form => {
-          const card = form.closest('.n-card');
+          const card = form.closest('[data-token-row]');
           const bounds = card.getBoundingClientRect();
           const main = document.querySelector('main').getBoundingClientRect();
           const fits = rect => rect.left >= bounds.left && rect.right <= bounds.right &&
@@ -80,8 +81,9 @@ class ApiTokensTest < ApplicationSystemTestCase
           const button = form.querySelector('button').getBoundingClientRect();
           return {
             card: { left: bounds.left, right: bounds.right },
-            noticeFits: textFits(card.querySelector('p')),
-            titleFits: textFits(card.querySelector('h2')),
+            noticeFits: textFits(card.querySelector('[data-token-security]')),
+            titleFits: textFits(card.querySelector('[data-token-title]')),
+            accountFits: textFits(card.querySelector('[data-token-title] + p')),
             deleteFits: fits(button),
             button: { left: button.left, right: button.right }
           };
