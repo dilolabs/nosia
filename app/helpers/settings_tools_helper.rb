@@ -37,7 +37,7 @@ module SettingsToolsHelper
   end
 
   # @param record [ActiveRecord::Base] Invalid record; no values are serialized
-  # @param targets [Hash{Symbol => String}] Only fields actually rendered by the form
+  # @param targets [Hash{Symbol => String, nil}] Rendered field IDs; omitted/nil targets leave messages unlinked
   # @return [Array<Hash>] Escaped by the partial; uneditable errors have no link
   def settings_tool_errors(record, targets:)
     record.errors.map { |error| { message: error.full_message, target: targets[error.attribute] } }
