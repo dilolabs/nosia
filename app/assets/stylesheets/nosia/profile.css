@@ -22,16 +22,8 @@ main:has(> .n-profile) {
   @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2;
 }
 
-.n-profile-visibility {
-  @apply min-h-11 min-w-11 cursor-pointer rounded-lg px-2 text-sm font-medium text-green-800 hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:text-green-200 dark:hover:bg-green-900 dark:focus:outline-green-400;
-}
-
 .n-profile-actions {
   @apply mt-5 flex justify-end;
-}
-
-.n-profile-submit {
-  @apply min-h-11 cursor-pointer rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 disabled:cursor-wait dark:focus:outline-green-400;
 }
 
 .n-profile-note {

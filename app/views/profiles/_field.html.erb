@@ -20,7 +20,7 @@
          data-action="turbo:before-cache@document->password-visibility#reset turbo:before-visit@document->password-visibility#reset pagehide@window->password-visibility#reset">
       <%= form.password_field field, **options, value: nil,
             data: { credential_secret: true, password_visibility_target: "input" } %>
-      <%= tag.button t("nosia.profile.show"), type: "button", class: "n-profile-visibility",
+      <%= tag.button t("nosia.profile.show"), type: "button", class: "n-workspace-button",
             aria: { controls: field_id, pressed: false, label: t("nosia.profile.show_label", field: field_label) },
             data: { password_visibility_target: "button", action: "password-visibility#toggle" } %>
     </div>

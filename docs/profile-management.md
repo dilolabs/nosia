@@ -5,6 +5,10 @@ independent cards: updating your email never submits the password-change card,
 and updating your password never submits the email-change card. Both actions
 require your current password.
 
+The **Home / Your profile** breadcrumb uses the same shared workspace header and
+navigation styling as `/accounts`. Update actions use shared primary buttons;
+password visibility controls use shared secondary buttons.
+
 ## Email changes
 
 - The new address takes effect immediately, without a confirmation email.
@@ -92,6 +96,8 @@ Regression coverage lives in:
   independent visibility controls, navigation/back clearing, autocomplete/paste,
   native no-JavaScript submission, and English/French layouts in light/dark themes
   at a 375px mobile viewport, including computed text/control/focus contrast.
+  Breadcrumb and button styles are compared with the account workspace on desktop
+  and mobile in both languages and themes.
 
 For UI review, also check desktop and **200% browser zoom**, long email addresses
 and French errors, reduced motion, and full keyboard traversal. Controls and
