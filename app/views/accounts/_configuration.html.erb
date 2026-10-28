@@ -27,3 +27,8 @@
   <h2><%= t("nosia.skills.title") %></h2>
   <%= link_to t("nosia.skills.manage"), account_agent_skills_path(@account), class: "n-account-link" %>
 </section>
+
+<section class="n-account-panel">
+  <h2><%= t("nosia.mcp.title") %></h2>
+  <%= link_to t("nosia.mcp_workspace.manage_many"), account_mcp_servers_path(@account), class: "n-account-link" %>
+</section>

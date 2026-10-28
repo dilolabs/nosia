@@ -1,27 +1,2 @@
-<% case server.status %>
-<% when "ready" %>
-  <span class="n-tag n-tag-ready">
-    <span class="h-2 w-2 rounded-full bg-green-600"></span>
-    <%= t("nosia.mcp.status.ready") %>
-  </span>
-<% when "error" %>
-  <span class="n-tag n-tag-error">
-    <span class="h-2 w-2 rounded-full bg-red-600"></span>
-    <%= t("nosia.mcp.status.error") %>
-  </span>
-<% when "connecting" %>
-  <span class="n-tag n-tag-connecting">
-    <span class="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></span>
-    <%= t("nosia.mcp.status.connecting") %>
-  </span>
-<% when "disabled" %>
-  <span class="n-tag n-tag-disconnected">
-    <span class="h-2 w-2 rounded-full bg-neutral-600"></span>
-    <%= t("nosia.mcp.status.disabled") %>
-  </span>
-<% else %>
-  <span class="n-tag n-tag-disconnected">
-    <span class="h-2 w-2 rounded-full bg-neutral-600"></span>
-    <%= t("nosia.mcp.status.disconnected") %>
-  </span>
-<% end %>
+<%# locals: (server:) %>
+<span class="n-mcp-status" data-state="<%= server.status %>"><%= t("nosia.mcp.status.#{server.status}") %></span>

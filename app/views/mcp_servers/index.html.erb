@@ -1,69 +1,35 @@
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.breadcrumb"), mcp_servers_path, class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="n-title-container md:flex md:justify-between md:items-center">
-  <h2 class="n-main-title"><%= t("nosia.mcp.title") %></h2>
-  <div class="flex items-center gap-2">
-    <%= link_to mcp_catalog_index_path, class: "n-btn border n-main-border n-main-hover n-main-focus inline-flex items-center gap-2" do %>
-      <%= inline_svg_tag "svg/folders.svg", aria: { hidden: true }, class: "w-5 h-5" %>
-      <span><%= t("nosia.mcp.catalog") %></span>
-    <% end %>
-    <%= link_to new_mcp_server_path, class: "n-btn-primary inline-flex items-center gap-2" do %>
-      <%= inline_svg_tag "svg/plus.svg", aria: { hidden: true }, class: "w-5 h-5" %>
-      <span><%= t("nosia.mcp.add") %></span>
-    <% end %>
-  </div>
-</div>
-
-<%= form_with url: mcp_servers_path, method: :get, class: "mb-4 flex flex-wrap items-center gap-2" do |f| %>
-  <%= f.select :status,
-    options_for_select([
-      [t("nosia.mcp.all_statuses"), ""],
-      [t("nosia.mcp.status.ready"), "ready"],
-      [t("nosia.mcp.status.disconnected"), "disconnected"],
-      [t("nosia.mcp.status.error"), "error"],
-      [t("nosia.mcp.status.disabled"), "disabled"]
-    ], params[:status]),
-    {},
-    class: "n-select w-auto" %>
-
-  <%= f.select :transport_type,
-    options_for_select([
-      [t("nosia.mcp.all_types"), ""],
-      [t("nosia.mcp.transport.streamable_short"), "streamable"],
-      [t("nosia.mcp.transport.sse_short"), "sse"],
-      [t("nosia.mcp.transport.stdio_short"), "stdio"]
-    ], params[:transport_type]),
-    {},
-    class: "n-select w-auto" %>
-
-  <%= f.submit t("nosia.actions.filter"), class: "n-btn-primary" %>
-  <%= link_to t("nosia.actions.reset"), mcp_servers_path, class: "n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary content-center" %>
-<% end %>
-
-<% if @mcp_servers.any? %>
-  <ul class="n-cards-grid !list-none">
-    <% @mcp_servers.each do |server| %>
-      <%= render "mcp_server", server: server %>
-    <% end %>
-  </ul>
-<% else %>
-  <div class="n-card n-main-border my-4 lg:col-span-2">
-    <div class="m-6 flex flex-col items-center text-center gap-3 py-8">
-      <%= inline_svg_tag "svg/window.svg", aria: { hidden: true }, class: "w-12 h-12 text-neutral-400" %>
-      <p class="n-card-title text-wrap"><%= t("nosia.mcp.none") %></p>
-      <p class="n-card-subtitle text-wrap"><%= t("nosia.mcp.none_help") %></p>
-      <div class="flex items-center gap-2 mt-2">
-        <%= link_to t("nosia.mcp.browse_catalog"), mcp_catalog_index_path, class: "n-btn border n-main-border n-main-hover n-main-focus" %>
-        <%= link_to t("nosia.mcp.add"), new_mcp_server_path, class: "n-btn-primary" %>
+<div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="servers" data-controller="mcp-busy" data-action="turbo:submit-start->mcp-busy#start turbo:submit-end->mcp-busy#finish">
+  <%= render "mcp_workspace/header", title: t("nosia.mcp.title"), description: t("nosia.mcp_workspace.description"), actions: capture {
+    concat link_to(t("nosia.mcp_workspace.custom_add"), mcp_new_path, class: "n-workspace-button")
+    concat link_to(t("nosia.mcp_workspace.browse_catalog"), mcp_catalog_list_path, class: "n-workspace-button n-workspace-primary")
+  } %>
+  <%= render "mcp_workspace/feedback" %>
+  <%= form_with url: mcp_index_path, method: :get, class: "n-mcp-filters" do %>
+    <% { status: McpServer.statuses.keys, enabled: %w[true false], transport_type: %w[streamable sse stdio local] }.each do |key, values| %>
+      <div>
+        <%= label_tag key, t(key == :enabled ? "nosia.mcp_workspace.availability" : (key == :status ? "nosia.mcp_workspace.connection_status" : "nosia.mcp.transport_type")), class: "n-mcp-label" %>
+        <%= select_tag key, options_for_select([[t("nosia.mcp_workspace.all"), ""]] + values.map { |value|
+          label = key == :enabled ? t(value == "true" ? "nosia.mcp_workspace.enabled" : "nosia.mcp_workspace.disabled") : t("nosia.mcp.#{key == :status ? 'status' : 'transport'}.#{value}#{key == :transport_type ? '_short' : ''}")
+          [label, value]
+        }, params[key]), class: "n-mcp-input" %>
       </div>
-    </div>
-  </div>
-<% end %>
+    <% end %>
+    <%= submit_tag t("nosia.mcp_workspace.apply_filters"), class: "n-workspace-button" %>
+    <%= link_to t("nosia.mcp_workspace.reset"), mcp_index_path, class: "n-workspace-link" %>
+  <% end %>
+  <% if @mcp_servers.any? %>
+    <ul class="n-mcp-rows !list-none" role="list"><%= render partial: "mcp_server", collection: @mcp_servers, as: :server %></ul>
+  <% elsif @account.mcp_servers.exists? %>
+    <section class="n-workspace-panel" data-mcp-filtered-empty>
+      <h2 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.filtered_empty") %></h2>
+      <%= link_to t("nosia.mcp_workspace.reset"), mcp_index_path, class: "n-workspace-link" %>
+    </section>
+  <% else %>
+    <section class="n-workspace-panel">
+      <h2 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.empty") %></h2>
+      <p class="n-workspace-help"><%= t("nosia.mcp_workspace.empty_help") %></p>
+      <%= link_to t("nosia.mcp_workspace.browse_catalog"), mcp_catalog_list_path, class: "n-workspace-button n-workspace-primary" %>
+      <%= link_to t("nosia.mcp_workspace.custom_add"), mcp_new_path, class: "n-workspace-link" %>
+    </section>
+  <% end %>
+</div>

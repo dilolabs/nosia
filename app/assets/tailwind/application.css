@@ -3,6 +3,7 @@
 @import "../stylesheets/nosia/accounts.css" layer(utilities);
 @import "../stylesheets/nosia/dashboard.css" layer(utilities);
 @import "../stylesheets/nosia/workspace.css" layer(utilities);
+@import "../stylesheets/nosia/mcp_workspace.css" layer(utilities);
 @import "../stylesheets/nosia/settings.css" layer(utilities);
 @import "../stylesheets/nosia/skills_workspace.css" layer(utilities);
 @import "../stylesheets/nosia/sources.css";

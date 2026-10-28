@@ -1,4 +1,7 @@
 class McpServer < ApplicationRecord
+  include Configuration
+  include CapabilitySnapshot
+
   acts_as_tenant :account
   belongs_to :account
   has_many :chat_mcp_sessions, dependent: :destroy
@@ -45,9 +48,9 @@ class McpServer < ApplicationRecord
     ActiveModel::Type::Boolean.new.cast(ENV["MCP_STDIO_ENABLED"])
   end
 
-  # Get MCP client instance
+  # @return [RubyLLM::MCP::Client, nil] Client unless local or blocked by deployment
   def client
-    return nil if local?
+    return nil if local? || (transport_type == "stdio" && !self.class.stdio_enabled?)
 
     @client ||= begin
       config = build_client_config
@@ -62,8 +65,10 @@ class McpServer < ApplicationRecord
     nil
   end
 
-  # Test connection and update status
+  # Tests the saved connection without running deployment-disabled processes.
+  # @return [Boolean] Whether the connection succeeded
   def test_connection!
+    return false if transport_type == "stdio" && !self.class.stdio_enabled?
     return test_local_connection! if local?
 
     start_time = Time.current

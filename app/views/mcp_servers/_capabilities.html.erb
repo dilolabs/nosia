@@ -1,0 +1,40 @@
+<%# locals: (kind:, result:) %>
+<section id="<%= kind %>" class="n-mcp-panel" data-mcp-server-target="panel" data-tab-key="<%= kind %>" data-mcp-capability="<%= kind %>">
+  <h2 class="n-workspace-section-title"><%= t("nosia.mcp.#{kind}") %></h2>
+  <% if result.state != :loaded %>
+    <p class="n-workspace-help"><%= t(result.state == :not_loaded ? "nosia.mcp_workspace.not_loaded" : "nosia.mcp_workspace.unavailable") %></p>
+  <% elsif result.items.empty? %>
+    <p class="n-workspace-help"><%= t("nosia.mcp_workspace.no_items") %></p>
+  <% else %>
+    <ul class="n-mcp-rows !list-none" role="list">
+      <% result.items.each do |item| %>
+        <li class="n-workspace-panel">
+          <% if kind == :resources %>
+            <h3 class="n-workspace-section-title"><%= item.uri %></h3>
+            <p class="n-workspace-help"><%= item.description %></p>
+            <% if item.respond_to?(:mime_type) %>
+              <p class="n-workspace-help"><%= t("nosia.mcp.mime_type", type: item.mime_type) %></p>
+            <% end %>
+          <% else %>
+            <h3 class="n-workspace-section-title"><%= item.name %></h3>
+            <p class="n-workspace-help"><%= item.description %></p>
+            <% if kind == :tools && (schema = mcp_tool_schema(item)) %>
+              <details>
+                <summary><%= t("nosia.mcp_workspace.schema") %></summary>
+                <pre><%= JSON.pretty_generate(schema) %></pre>
+              </details>
+            <% end %>
+            <% if kind == :prompts %>
+              <dl>
+                <% mcp_prompt_arguments(item).each do |argument| %>
+                  <dt class="n-mcp-label"><%= argument[:name] %> <%= t("nosia.mcp_workspace.required") if argument[:required] %></dt>
+                  <dd class="n-workspace-help"><%= argument[:description] %></dd>
+                <% end %>
+              </dl>
+            <% end %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>

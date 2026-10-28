@@ -1,3 +1,4 @@
+# Loads trusted catalog entries and activates their declared account configuration.
 class McpCatalog
   class << self
     def all
@@ -16,9 +17,17 @@ class McpCatalog
       @categories ||= load_categories
     end
 
+    # @param account [Account] Account receiving the server
+    # @param server_id [String] Trusted catalog entry identifier
+    # @param config_values [Hash] Submitted declared configuration values
+    # @return [McpServer, nil] Activated server, or nil for an unknown entry
+    # @raise [ActiveRecord::RecordInvalid] When requirements or server validation fail
     def activate_for_account(account, server_id, config_values = {})
       template = find(server_id)
       return nil unless template
+
+      config_values = config_values.stringify_keys
+      validate_required(template, config_values)
 
       return activate_registry(account, template, config_values) if template[:source] == :registry
 
@@ -61,6 +70,14 @@ class McpCatalog
       )
 
       mcp_server
+    end
+
+    # @param template [Hash] Trusted catalog entry
+    # @param values [Hash] Submitted values, never stored in session/flash
+    # @return [Hash] Only declared non-secret fields suitable for HTML
+    def public_configuration_values(template, values)
+      keys = Array(template[:requires_config]).reject { |field| %w[secret password].include?(field[:type].to_s) }.map { |field| field[:name].to_s }
+      values.stringify_keys.slice(*keys)
     end
 
     private

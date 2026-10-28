@@ -1,0 +1,15 @@
+<%# locals: (server:) %>
+<div class="n-workspace-actions" data-mcp-busy-group>
+  <%= link_to t("nosia.actions.edit"), mcp_edit_path(server), class: "n-workspace-button" %>
+  <% if server.transport_type == "stdio" && !McpServer.stdio_enabled? %>
+    <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
+  <% else %>
+    <% unless server.status_ready? %>
+      <%= button_to t("nosia.mcp.connect"), mcp_connect_path(server), method: :post, class: "n-workspace-button n-workspace-primary n-mcp-operation-button", data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, form: { data: { mcp_operation: true } } %>
+    <% end %>
+    <%= button_to t("nosia.mcp.test_connection_short"), mcp_test_path(server), method: :post, class: "n-workspace-button n-mcp-operation-button #{'n-workspace-primary' if server.status_ready?}", data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, form: { data: { mcp_operation: true } } %>
+    <% if server.status_ready? %>
+      <%= button_to t("nosia.mcp.disconnect"), mcp_disconnect_path(server), method: mcp_disconnect_method, class: "n-workspace-button n-mcp-operation-button", data: { turbo_submits_with: t("nosia.mcp_workspace.saving") }, form: { data: { mcp_operation: true } } %>
+    <% end %>
+  <% end %>
+</div>

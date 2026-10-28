@@ -1,124 +1,41 @@
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.breadcrumb"), mcp_servers_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.mcp.catalog"), mcp_catalog_index_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria: { hidden: true }, class: "shrink-0 h-5 w-5" %>
-    <%= link_to @template[:name], mcp_catalog_path(@template[:id]), class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="mx-auto max-w-2xl pb-24 lg:pb-0">
-  <div class="mb-6">
-    <%= link_to mcp_catalog_index_path, class: "inline-flex items-center gap-1 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 n-main-focus rounded-lg" do %>
-      <%= inline_svg_tag "svg/chevron-left.svg", aria: { hidden: true }, class: "h-4 w-4" %>
-      <%= t("nosia.mcp.back_catalog") %>
-    <% end %>
-  </div>
-
-  <div class="n-card n-main-border !block !whitespace-normal wrap-anywhere">
-    <div class="border-b n-main-border px-6 py-4">
-      <div class="flex items-start gap-4">
-        <span class="text-5xl shrink-0" aria-hidden="true"><%= @template[:icon] %></span>
-        <div>
-          <h2 class="n-main-title text-wrap"><%= @template[:name] %></h2>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400 text-wrap"><%= catalog_entry_description(@template) %></p>
-        </div>
-      </div>
-    </div>
-
-    <%= form_with url: mcp_catalog_index_path, method: :post, class: "p-6" do |form| %>
+<% content_for :head, tag.meta(name: "turbo-cache-control", content: "no-cache") %>
+<div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="catalog-setup">
+  <%= render "mcp_workspace/header", title: @template[:name], current: @template[:name], catalog: true, description: catalog_entry_description(@template) %>
+  <%= render "mcp_workspace/feedback" %>
+  <section class="n-workspace-panel">
+    <h2 class="n-workspace-section-title"><%= t("nosia.mcp.capabilities") %></h2>
+    <p class="n-workspace-help"><%= Array(@template[:capabilities]).map { |value| catalog_capability_label(value) }.join(" · ") %></p>
+  </section>
+  <% added = @added_servers.fetch(@template[:id], []) %>
+  <% blocked = @template[:transport_type] == "stdio" && !McpServer.stdio_enabled? %>
+  <% if added.any? && @mcp_server.errors.empty? %>
+    <section class="n-workspace-panel">
+      <h2 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.added") %></h2>
+      <%= link_to t(added.one? ? "nosia.mcp_workspace.manage" : "nosia.mcp_workspace.manage_many"), added.one? ? mcp_record_path(added.first) : mcp_index_path, class: "n-workspace-button" %>
+    </section>
+  <% elsif blocked %>
+    <section class="n-workspace-panel" data-mcp-transport-unavailable data-controller="form-errors">
+      <%= tag.div role: (@mcp_server.errors.any? ? 'alert' : 'status'), tabindex: -1, data: (@mcp_server.errors.any? ? { form_errors_target: 'summary' } : {}) do %>
+        <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
+      <% end %>
+      <%= link_to t("nosia.actions.cancel"), mcp_catalog_list_path, class: "n-workspace-link" %>
+    </section>
+  <% else %>
+    <%= form_with url: mcp_catalog_list_path, method: :post, class: "n-mcp-form-sections", data: { controller: "form-errors html-form mcp-secrets", action: "click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML turbo:before-cache@document->mcp-secrets#clear" } do %>
       <%= hidden_field_tag :id, @template[:id] %>
-      <div class="space-y-6">
-        <% if @template[:requires_config]&.any? %>
-          <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
-            <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200"><%= t("nosia.mcp.config_required") %></h3>
-            <p class="mt-1 text-sm text-blue-700 dark:text-blue-300"><%= t("nosia.mcp.config_required_help") %></p>
-          </div>
-
-          <% @template[:requires_config].each do |config_field| %>
-            <div class="n-form-field">
-              <%= label_tag "config[#{config_field[:name]}]", class: "n-label" do %>
-                <%= catalog_field_text(@template, config_field, :label) %>
-                <% if config_field[:required] %>
-                  <span class="text-red-500">*</span>
-                <% end %>
-              <% end %>
-
-              <% if config_field[:description] %>
-                <p class="mb-2 text-xs text-neutral-500 dark:text-neutral-400"><%= catalog_field_text(@template, config_field, :description) %></p>
-              <% end %>
-
-              <% case config_field[:type] %>
-              <% when "secret", "password" %>
-                <%= password_field_tag "config[#{config_field[:name]}]", "",
-                  required: config_field[:required],
-                  placeholder: catalog_field_text(@template, config_field, :placeholder),
-                  autocomplete: "off",
-                  class: "n-field" %>
-
-              <% when "path" %>
-                <%= text_field_tag "config[#{config_field[:name]}]", "",
-                  required: config_field[:required],
-                  placeholder: catalog_field_text(@template, config_field, :placeholder) || "/path/to/directory",
-                  class: "n-field" %>
-
-              <% when "select" %>
-                <%= select_tag "config[#{config_field[:name]}]",
-                  options_for_select(config_field[:options] || []),
-                  required: config_field[:required],
-                  class: "n-select" %>
-
-              <% when "textarea" %>
-                <%= text_area_tag "config[#{config_field[:name]}]", "",
-                  required: config_field[:required],
-                  placeholder: catalog_field_text(@template, config_field, :placeholder),
-                  rows: 3,
-                  class: "n-textarea" %>
-
-              <% else %>
-                <%= text_field_tag "config[#{config_field[:name]}]", "",
-                  required: config_field[:required],
-                  placeholder: catalog_field_text(@template, config_field, :placeholder),
-                  class: "n-field" %>
-              <% end %>
-
-              <% if config_field[:help_text] %>
-                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400"><%= catalog_field_text(@template, config_field, :help_text) %></p>
-              <% end %>
-            </div>
-          <% end %>
+      <%= render "mcp_workspace/errors", record: @mcp_server, catalog: true %>
+      <section class="n-workspace-panel space-y-4">
+        <h2 class="n-workspace-section-title"><%= t("nosia.mcp.configuration") %></h2>
+        <% if Array(@template[:requires_config]).any? %>
+          <%= render "fields", fields: @template[:requires_config], values: @configuration_values, record: @mcp_server, catalog: true, template: @template %>
         <% else %>
-          <div class="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
-            <h3 class="text-sm font-medium text-green-800 dark:text-green-200"><%= t("nosia.mcp.ready_activate") %></h3>
-            <p class="mt-1 text-sm text-green-700 dark:text-green-300"><%= t("nosia.mcp.no_config") %></p>
-          </div>
+          <p class="n-workspace-help"><%= t("nosia.mcp.no_config") %></p>
         <% end %>
-
-        <% if @template[:capabilities]&.any? %>
-          <div>
-            <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3"><%= t("nosia.mcp.capabilities") %></h3>
-            <div class="flex flex-wrap gap-2">
-              <% @template[:capabilities].each do |capability| %>
-                <span class="n-tag n-tag-disconnected"><%= catalog_capability_label(capability) %></span>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
-      </div>
-
-      <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-        <%= link_to t("nosia.actions.cancel"), mcp_catalog_index_path, class: "flex-1 text-center n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary" %>
-        <%= form.submit t("nosia.mcp.activate_named", name: @template[:name]), class: "flex-1 n-btn-primary" %>
+      </section>
+      <div class="n-workspace-actions">
+        <%= submit_tag t("nosia.mcp_workspace.add"), class: "n-workspace-button n-workspace-primary", data: { turbo_submits_with: t("nosia.mcp_workspace.adding") } %>
+        <%= link_to t("nosia.actions.cancel"), mcp_catalog_list_path, class: "n-workspace-link" %>
       </div>
     <% end %>
-  </div>
+  <% end %>
 </div>

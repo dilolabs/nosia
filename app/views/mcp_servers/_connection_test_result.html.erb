@@ -1,20 +1,11 @@
-<section id="connection-test-result" role="<%= success ? "status" : "alert" %>" aria-labelledby="connection-test-heading" class="mb-6 flex items-start gap-3 rounded-xl border p-4 <%= success ? "border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200" : "border-red-200 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200" %>">
-  <svg class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-    <circle cx="12" cy="12" r="9" />
-    <% if success %>
-      <path stroke-linecap="round" stroke-linejoin="round" d="m8 12 3 3 5-6" />
-    <% else %>
-      <path stroke-linecap="round" d="M12 8v4m0 4h.01" />
-    <% end %>
-  </svg>
-  <div class="min-w-0 flex-1">
-    <p class="text-xs font-medium"><%= t("nosia.mcp.connection_test_result") %></p>
-    <h3 id="connection-test-heading" class="mt-1 font-semibold"><%= t(success ? "nosia.mcp.connection_established" : "nosia.mcp.connection_failed") %></h3>
-    <p class="mt-1 text-sm"><%= t(success ? "nosia.mcp.connection_test_success_help" : "nosia.mcp.connection_test_failure_help") %></p>
-    <% if success && server.latency_ms.present? %>
-      <p class="mt-2 text-sm font-medium"><%= t("nosia.mcp.connection_test_latency", latency: t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms))) %></p>
-    <% elsif !success && server.last_error.present? %>
-      <p class="mt-2 whitespace-pre-wrap break-all text-sm"><%= server.last_error %></p>
-    <% end %>
-  </div>
+<%# locals: (server:, success:) %>
+<section id="connection-test-result" class="n-mcp-message" role="<%= success ? 'status' : 'alert' %>" aria-labelledby="connection-test-heading">
+  <h2 id="connection-test-heading" class="n-workspace-section-title"><%= t(success ? "nosia.mcp.connection_established" : "nosia.mcp.connection_failed") %></h2>
+  <p class="n-workspace-help"><%= t(success ? "nosia.mcp.connection_test_success_help" : "nosia.mcp.connection_test_failure_help") %></p>
+  <% if success && server.latency_ms %>
+    <p class="n-workspace-help"><%= t("nosia.mcp.connection_test_latency", latency: t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms))) %></p>
+  <% end %>
+  <% unless success %>
+    <%= link_to t("nosia.actions.edit"), mcp_edit_path(server), class: "n-workspace-link" %>
+  <% end %>
 </section>

@@ -60,7 +60,8 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
           assert_selector "#connection-test-result[role=#{failure ? 'alert' : 'status'}]"
           assert_current_path mcp_server_path(@server)
           if failure
-            assert_text "Invalid credentials"
+            assert_text I18n.t("nosia.mcp.connection_test_failure_help", locale: locale)
+            assert_no_text "Invalid credentials"
           else
             assert_text(locale == "en" ? "Response time:" : "Temps de réponse :")
           end
@@ -85,7 +86,7 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
     visit edit_mcp_server_url(@server)
     fill_in "mcp_server_name", with: ""
 
-    click_button "Test Connection"
+    click_button "Test saved configuration"
 
     assert_selector "#connection-test-result[role=status]", text: "Connection established"
     assert_current_path mcp_server_path(@server)
@@ -94,7 +95,9 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
 
   private
     def assert_test_button_contrast
-      contrast = page.evaluate_script(<<~JS)
+      selector = "form[action='#{test_connection_mcp_server_path(@server)}'] button[data-turbo-submits-with]"
+      assert_selector selector, text: I18n.t("nosia.mcp.test_connection_short", locale: find("html")[:lang])
+      contrast = page.evaluate_script(<<~JS, selector)
         (() => {
           document.getAnimations().forEach(animation => animation.finish());
           const context = document.createElement('canvas').getContext('2d');
@@ -107,8 +110,9 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
             });
             return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
           };
-          const foreground = luminance(getComputedStyle(document.querySelector('button[data-turbo-submits-with]')).color);
-          const background = luminance(getComputedStyle(document.body).backgroundColor);
+          const button = document.querySelector(arguments[0]);
+          const foreground = luminance(getComputedStyle(button).color);
+          const background = luminance(getComputedStyle(button).backgroundColor);
           return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
         })()
       JS

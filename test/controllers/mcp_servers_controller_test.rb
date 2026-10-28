@@ -45,18 +45,22 @@ class McpServersControllerTest < ActionDispatch::IntegrationTest
     server
   end
 
-  test "index renders a delete button for each server" do
-    make_server
+  test "index exposes details instead of a competing destructive row action" do
+    server = make_server
     get mcp_servers_url
     assert_response :success
-    assert_select "span.sr-only", text: "Delete server"
+    assert_select "[data-mcp-row] a[href=?]", mcp_server_path(server)
+    assert_select "[data-mcp-row] form input[name=_method][value=delete]", count: 0
   end
 
   test "show renders a Delete button" do
     server = make_server
     get mcp_server_url(server)
     assert_response :success
-    assert_select "a[data-turbo-method=delete]", text: /Delete/
+    assert_select "[data-mcp-danger] form[action=?]", mcp_server_path(server) do
+      assert_select "input[name=_method][value=delete]"
+      assert_select "button", text: /Delete/
+    end
   end
 
   test "destroy deletes the server and redirects to the index" do

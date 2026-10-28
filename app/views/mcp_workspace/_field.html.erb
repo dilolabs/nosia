@@ -1,0 +1,17 @@
+<%# locals: (form:, attribute:, label:, type: :text, required: false, conditional_required: false, choices: [], value: nil) %>
+<div class="n-mcp-field">
+  <%= form.label attribute, label, class: "n-mcp-label" %>
+  <% opts = mcp_field_options(form.object, attribute).merge(class: "n-mcp-input", required: required, data: { mcp_required: required || conditional_required }) %>
+  <% if type == :select %>
+    <%= form.select attribute, choices, {}, opts %>
+  <% elsif type == :textarea %>
+    <%= form.text_area attribute, opts.merge(rows: 4, value: value.nil? ? form.object.public_send(attribute) : value) %>
+  <% else %>
+    <%= form.text_field attribute, opts %>
+  <% end %>
+  <p id="<%= mcp_field_id(attribute) %>_help" class="n-workspace-help"><%= t("nosia.mcp_workspace.required") if required %></p>
+  <% errors = mcp_error_items(form.object).select { |item| item[:target] == mcp_field_id(attribute) } %>
+  <% if errors.any? %>
+    <p id="<%= mcp_field_id(attribute) %>_error" class="n-mcp-error"><%= errors.map { |item| item[:message] }.join(" ") %></p>
+  <% end %>
+</div>

@@ -32,7 +32,14 @@
       <%= link_to accounts_path, title: t("nosia.nav.accounts"), aria: { label: t("nosia.nav.accounts") }, class: "n-nav-bottom n-main-hover" do %>
         <%= inline_svg "svg/folders.svg", aria_hidden: true, class: "w-6 h-6" %>
       <% end %>
-      <%= link_to agent_skills_workspace_page? ? skill_workspace_new_chat_path : new_chat_path, title: t("nosia.nav.new_chat"), aria: { label: t("nosia.nav.new_chat") }, class: "n-nav-bottom rounded-full" do %>
+      <% new_chat_shortcut = if agent_skills_workspace_page?
+        skill_workspace_new_chat_path
+      elsif mcp_workspace_page?
+        mcp_new_chat_path
+      else
+        new_chat_path
+      end %>
+      <%= link_to new_chat_shortcut, title: t("nosia.nav.new_chat"), aria: { label: t("nosia.nav.new_chat") }, class: "n-nav-bottom rounded-full" do %>
         <%= inline_svg "svg/chats.svg", aria_hidden: true, class: "p-2 h-14 w-14 text-black bg-neutral-100 rounded-full hover:bg-green-200 dark:hover:bg-green-700 focus:ring-4 focus:ring-neutral-300 focus:outline-none dark:focus:ring-neutral-200" %>
       <% end %>
       <%= link_to sources_path, title: t("nosia.nav.sources"), aria: { label: t("nosia.nav.sources") }, class: "n-nav-bottom n-main-hover" do %>

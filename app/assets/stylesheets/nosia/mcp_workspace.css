@@ -1,0 +1,38 @@
+.n-mcp-workspace { overflow-wrap: anywhere; }
+.n-mcp-workspace [hidden] { display: none !important; }
+.n-mcp-workspace .n-workspace-link { min-inline-size: 2.75rem; }
+.n-mcp-workspace .n-workspace-button:not(.n-workspace-primary):hover { @apply bg-neutral-50 dark:bg-neutral-900; }
+.n-mcp-workspace .n-workspace-button:disabled { opacity: 1; }
+.n-mcp-workspace form { max-inline-size: 100%; }
+.n-mcp-workspace [data-mcp-operation] { inline-size: min(100%, 16rem); }
+.n-mcp-operation-button { inline-size: 100%; }
+.n-mcp-test-note { max-inline-size: 28rem; }
+.n-mcp-rows { @apply grid min-w-0 gap-4; }
+.n-mcp-row { @apply grid min-w-0 items-center gap-4 rounded-xl border border-neutral-500 bg-white p-5 dark:bg-neutral-800 lg:grid-cols-[minmax(0,1fr)_auto_auto]; }
+.n-mcp-status { @apply inline-flex w-fit items-center rounded-full border border-neutral-500 px-3 py-1 text-sm font-medium; }
+.n-mcp-status[data-state=ready] { @apply bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200; }
+.n-mcp-status[data-state=error] { @apply bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-200; }
+.n-mcp-filters { @apply flex min-w-0 flex-wrap items-end gap-3; }
+.n-mcp-label { @apply mb-2 block text-sm font-medium; }
+.n-mcp-input { @apply block min-h-11 w-full min-w-0 rounded-md border border-neutral-500 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:bg-neutral-800 dark:text-neutral-100 dark:focus:outline-green-300; }
+.n-mcp-input[aria-invalid=true] { @apply border-red-700 dark:border-red-300; }
+.n-mcp-message { @apply min-w-0 rounded-lg border border-neutral-500 bg-white p-4 text-sm dark:bg-neutral-800; }
+.n-mcp-grid { @apply grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3; }
+.n-mcp-card { @apply flex min-w-0 flex-col gap-3 rounded-xl border border-neutral-500 bg-white p-5 dark:bg-neutral-800; }
+.n-mcp-card .n-workspace-actions { @apply mt-auto pt-3; }
+.n-mcp-icon { @apply inline-flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200; }
+.n-mcp-form-layout { @apply grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]; }
+.n-mcp-form-sections { @apply grid min-w-0 gap-5; }
+.n-mcp-field { @apply min-w-0 space-y-2; }
+.n-mcp-errors { @apply min-w-0 rounded-lg border border-red-700 bg-red-50 p-4 text-red-900 focus:outline-2 focus:outline-offset-2 focus:outline-red-700 dark:border-red-300 dark:bg-red-950 dark:text-red-200 dark:focus:outline-red-300; }
+.n-mcp-error { @apply text-sm text-red-800 dark:text-red-200; }
+.n-mcp-check { @apply flex min-h-11 items-center gap-3 rounded-md focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-green-700 dark:focus-within:outline-green-300; }
+.n-mcp-check input { @apply h-5 w-5 shrink-0; }
+.n-mcp-workspace summary { @apply min-h-11 cursor-pointer py-3 text-sm font-medium focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:focus:outline-green-300; }
+.n-mcp-tabs { @apply flex min-w-0 flex-wrap gap-2 border-b border-neutral-500; }
+.n-mcp-tabs [aria-selected=true] { @apply border-b-2 border-green-700 text-green-900 dark:border-green-300 dark:text-green-200; }
+.n-mcp-panel { @apply min-w-0 space-y-4 rounded-md; }
+.n-mcp-panel:focus { @apply outline-2 outline-offset-2 outline-green-700 dark:outline-green-300; }
+.n-mcp-workspace pre { white-space: pre-wrap; overflow-wrap: anywhere; @apply min-w-0 rounded-md bg-neutral-50 p-3 text-xs text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100; }
+.n-mcp-danger { @apply flex flex-wrap items-center justify-between gap-4 border-t border-neutral-500 pt-6; }
+main:has([data-mcp-workspace]) { min-width: 0; scroll-padding-block-start: .5rem; scroll-padding-block-end: 6rem; }

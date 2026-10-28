@@ -1,0 +1,49 @@
+en:
+  nosia:
+    mcp_workspace:
+      description: Manage the tools and resources available to your assistants.
+      custom_add: Add custom server
+      empty: No MCP servers yet
+      empty_help: Choose an integration from the catalog or add a custom server.
+      filtered_empty: No servers match these filters.
+      reset: Reset filters
+      browse_catalog: Browse catalog
+      connection_status: Connection status
+      apply_filters: Apply filters
+      all: All
+      availability: Availability
+      authentication: Authentication
+      enabled: Enabled for conversations
+      disabled: Disabled for conversations
+      open: Open
+      manage: Manage server
+      manage_many: Manage servers
+      added: Added to this account
+      add: Add to account
+      adding: Adding…
+      configure: Configure and add
+      saving: Saving…
+      connection: Connection
+      historical: Recorded status, not continuous health monitoring.
+      latest_latency: "Last measured response: %{latency}"
+      not_loaded: Connect to discover the available capabilities.
+      unavailable: Capabilities could not be loaded. Check the connection and try again.
+      count_unavailable: unavailable
+      no_items: This server reported no items in this section.
+      schema: View parameter schema
+      required: Required
+      delete_title: Remove this server
+      delete_help: Remove this account’s configuration, not the external service.
+      delete_confirm: "Remove %{name} from %{account}? This does not delete the external service."
+      organization: Organization (optional)
+      keep_secret: Leave blank to keep the saved credential.
+      saved: Credential saved
+      remove_secret: Remove saved credential on Save
+      secret_reentry: Secret fields are not restored after an unsuccessful save. Re-enter a replacement if needed.
+      saved_test: Test saved configuration
+      saved_test_help: This does not save or test these edits. It returns to server details, leaving unsaved edits behind.
+      local_transport_fixed: Built-in integrations keep their registered local transport.
+      missing_registration: This integration’s configuration definition is unavailable. Existing settings are preserved.
+      stdio_unavailable: Local process connections are disabled on this deployment.
+      credential_conflict: Choose either a replacement or removal, not both.
+      optional: Optional
