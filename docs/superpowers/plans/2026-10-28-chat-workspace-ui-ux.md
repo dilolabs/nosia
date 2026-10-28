@@ -159,6 +159,32 @@ any baseline fails. Do not silently repair unrelated code or weaken assertions.
 directory and immutable base, report all baselines and constraints, then obtain any
 necessary user acceptance before Task 1. This task has no fabricated RED or commit.
 
+### Task 0 execution checkpoint — accepted with limitations
+
+The user selected subagent-driven execution, confirmed ownership of the worktree's
+later `.env` and `bin/dev` server/worker, then explicitly selected **“Proceed with
+exceptions”**. Leave those user-owned files/processes untouched.
+
+Evidence: `/tmp/opencode/chat-workspace-hqSpCt/task-0-report.md`; helper:
+`/tmp/opencode/chat-workspace-env.sh`; isolated database:
+`nosia_chat_workspace_ui_test`. Build passed. Focused tests passed (157 runs,
+12,826 assertions). Browser baseline had 79 runs and one existing setup error:
+the commented waiting-UX scaffold visits the POST-only `/login` URL. Lint passed
+on four existing files. Brakeman reported two existing high-confidence warnings
+(API-token account mass assignment and Rails EOL); neither is suppressed/resolved.
+
+The unrestricted full suite was **not run and remains UNVERIFIED** because an
+existing crawl test can reach real robots/embedding operations. This accepted
+exception does not permit live integrations, hidden test stubs, unrelated fixes,
+or treating the waiting scaffold as workflow coverage. New focused/browser
+regressions remain mandatory; new failures are not covered by these exceptions.
+
+Setup spec review `ses_e7bd00f20ffeyjkKSRdIk4yE19` and quality review
+`ses_e7bc7c489ffe491iOyqhmiDchC` approved proceeding to Task 1 under these limits.
+The setup source remained at immutable `a6117dc23b83d383997d995b68b4f7dc38495eec`.
+The helper is not a network sandbox and must be invoked from the execution
+worktree, never main. No application changes were made during setup.
+
 ## Task 1: Characterize and consolidate message rendering
 
 **Files:** New fixture/helper files in the map; new
@@ -790,7 +816,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
   setup do
     @original_size = page.current_window.size
-    visit login_url
+    visit root_url
     fill_in "email", with: @user.email
     fill_in "password", with: ChatAccountFixtures::PASSWORD
     click_on "Sign in"
@@ -1887,7 +1913,8 @@ record final-build rails_test tailwindcss:build
 record final-focused rails_test test test/controllers/chat_workspace_test.rb test/integration/chat_message_rendering_test.rb test/integration/chat_composer_ui_test.rb test/integration/composer_partials_render_test.rb test/controllers/chats_controller_test.rb test/controllers/messages_controller_test.rb test/controllers/chat_account_selection_test.rb test/controllers/chat_account_access_test.rb test/controllers/chat_account_sources_test.rb test/controllers/chat_account_tools_test.rb test/controllers/chat_account_citations_test.rb test/controllers/chat_account_url_race_test.rb test/controllers/chat_sources_controller_test.rb test/models/chat_test.rb test/models/dashboard_recents_test.rb test/internationalization/catalogs_test.rb
 record final-chat-browser browser_test test/system/chat_workspace_test.rb test/system/chat_composer_ui_test.rb test/system/chat_account_selection_test.rb
 record final-workspace-browser browser_test test/system/dashboard_test.rb test/system/accounts_settings_workspace_test.rb test/system/sources_workspace_test.rb test/system/token_usage_workspace_test.rb test/system/agent_skills_workspace_test.rb test/system/mcp_workspace_test.rb test/system/profile_management_test.rb
-record final-full rails_test test
+# Full suite remains UNVERIFIED under the explicitly accepted Task 0 exception;
+# do not invoke the network-capable unrestricted suite for this UI task.
 git diff --name-only --diff-filter=ACMR "$BASE" -- '*.rb' > "$EVIDENCE/changed-ruby-files.txt"
 record final-lint mise exec ruby@4.0.7 -- bundle exec ruby -e 'files=File.readlines(ARGV.fetch(0), chomp:true); abort "No Ruby changes found" if files.empty?; exec "bundle", "exec", "rubocop", *files' "$EVIDENCE/changed-ruby-files.txt"
 record final-security mise exec ruby@4.0.7 -- bundle exec brakeman --no-pager
