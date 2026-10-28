@@ -23,3 +23,4 @@
 .n-settings-tool-copy > div { min-inline-size: 0; flex: 1 1 18rem; }
 .n-settings-tool-reveal:focus { @apply outline-2 outline-offset-2 outline-green-700 dark:outline-green-300; }
 main:has([data-settings-tool]) { min-width: 0; scroll-padding-block-start: .5rem; scroll-padding-block-end: 6rem; }
+@media (width < 64rem) { main:has([data-settings-tool]) { margin-block-end: 5rem; } }
