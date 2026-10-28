@@ -55,6 +55,11 @@
 .n-chat-workspace :is(button, summary, a):focus-visible { @apply outline-2 outline-offset-2 outline-green-700 dark:outline-green-300; }
 .n-chat-workspace :is(pre, .n-chat-table-scroll) { max-width: 100%; overflow-x: auto; }
 
+/* The shared bottom navigation remains fixed until the lg breakpoint. */
+@media (max-width: 1023px) {
+  .n-chat-main { padding-block-end: 6rem; }
+}
+
 @media (max-width: 639px), (max-height: 700px) {
   .n-chat-main { overflow-y: auto; padding: 1rem 1rem 6rem; scroll-padding-block: 4rem 6rem; }
   .n-chat-workspace { height: auto; min-height: 100%; }
