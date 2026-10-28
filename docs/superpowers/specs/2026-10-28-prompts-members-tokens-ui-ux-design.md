@@ -1,8 +1,8 @@
 # Prompts, account members and API tokens UI/UX
 
-Status: All five design sections approved in chat. Written specification awaiting
-user review before implementation planning. Documentation only; no application
-implementation is authorized or claimed here.
+Status: Written specification approved by the user's “Go”; implementation
+planning authorized. Documentation only; application execution still requires
+the implementation-plan handoff and baseline gates.
 
 Date: 2026-10-28.
 
@@ -128,6 +128,9 @@ Important existing behavior:
   Rationale: reuse Rails/Hotwire, verify eight variants across locale/theme/size,
   establish fresh baselines and durable evidence, then review the written spec
   before implementation planning. Chat approval does not authorize coding.
+- User answered **“Go”** after reviewing the specification committed as `9b8998b`.
+  Rationale: approve the written specification and proceed to implementation
+  planning, not application execution or repository integration.
 
 ## Selected approach
 
