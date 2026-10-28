@@ -6,7 +6,6 @@
   <%= render "workspaces/header", title: t("nosia.profile.title"),
       description: t("nosia.profile.introduction"),
       trail: [ { label: t("nosia.nav.home"), path: user_root_path },
-               { label: t("nosia.nav.settings"), path: settings_path },
                { label: t("nosia.profile.title"), path: nil } ] %>
 
   <%= render "profiles/email", user: @user, errors: (@failed_section == :email ? @user.errors : nil) %>
