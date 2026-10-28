@@ -1,0 +1,3 @@
+<% [ :notice, :alert ].each do |kind| %>
+  <% if flash[kind].present? %><div class="n-settings-tool-message" role="<%= kind == :alert ? 'alert' : 'status' %>"><%= flash[kind] %></div><% end %>
+<% end %>
