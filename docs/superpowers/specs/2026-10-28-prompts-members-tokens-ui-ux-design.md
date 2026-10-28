@@ -144,6 +144,13 @@ Important existing behavior:
   included account-filtered variant, before resuming the plan. Preserve prompt
   transparency, underline, keyboard focus, button hover (Generate, Revoke and Copy),
   member-link surfaces and all other scope/verification boundaries.
+- The user then requested **“Lorsque je survole un lien depuis les Membres du compte
+  (/accounts/:id/account_users)), j’ai un background avec une couleur de fond qui
+  apparaît, corrige”** and asked to continue the plan after the correction.
+  Rationale: extend the same transparent plain-link hover to account members, so
+  all eight Settings-tool variants now share that behavior. This supersedes only
+  the earlier preservation of member-link surfaces; preserve underline, keyboard
+  focus, all button hover feedback and unrelated navigation styles.
 
 ## Selected approach
 
@@ -179,11 +186,11 @@ one separate application page at a time, as explicitly requested.
 - Reuse system typography, neutral/green surfaces, local decorative outline SVGs,
   wrapping content, English/French and light/dark themes. Translate owned labels,
   not authored account names, emails, token names or prompt content.
-- On all five prompt variants and both token variants, plain workspace text links
+- On all eight prompt, member and token variants, plain workspace text links
   must remain transparent before and during genuine hover in both locales/themes.
   Preserve their underline, ≥44px actions and visible keyboard focus; keep all
-  primary/secondary button hover feedback (including Generate, Revoke and Copy),
-  member-link hover surfaces and global navigation styles unchanged.
+  primary/secondary button hover feedback (including Generate, Revoke and Copy)
+  and global navigation styles unchanged.
 - Keep global header, left/mobile navigation and quiet New chat access. Global
   routes retain generic New chat; account-route New chat opens the existing
   account-preselected composer without creating a chat or changing defaults.

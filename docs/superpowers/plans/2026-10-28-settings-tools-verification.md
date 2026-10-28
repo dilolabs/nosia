@@ -19,11 +19,12 @@ remains authoritative. Baseline exceptions require this project's actual user
 direction; a final accepted nonzero gate is not a green gate.
 
 User corrections during implementation: prompt text links, then Jetons API text
-links on `/api_tokens` and its account-filtered variant, must stay transparent on
-hover. The `tools_hover` contract below checks genuine hover with an unchanged
-transparent background for those links only; member links and all buttons
-(including Generate, Revoke and Copy) still require a surface change. Contrast
-checks and the full matrix remain required.
+links on `/api_tokens` and its account-filtered variant, then account member links
+on `/accounts/:id/account_users`, must stay transparent on hover. The `tools_hover`
+contract below checks genuine hover with an unchanged transparent background for
+all `.n-workspace-link` targets in these eight Settings-tool roots, without a screen
+whitelist. Other selectors (buttons, including Generate, Revoke and Copy) still
+require a surface change. Contrast checks and the full matrix remain required.
 
 ## Task V1: Isolated browser checks and the exact 128-state matrix
 
@@ -309,8 +310,7 @@ module SettingsToolBrowserChecks
       tools_record("hover", { selector: selector, before: before, after: after, capability_emulation: INPUT_FLAG })
       assert after.fetch("capable") && after.fetch("hovered")
       assert_equal before.fetch("bounds"), after.fetch("bounds")
-      screen = find("[data-settings-tool]")["data-settings-screen"]
-      if selector == ".n-workspace-link" && %w[prompts prompt prompt-edit account-prompt account-prompt-edit tokens account-tokens].include?(screen)
+      if selector == ".n-workspace-link"
         assert_equal before.fetch("surface"), after.fetch("surface")
         assert_equal 0, before.fetch("rgba").last
         assert_equal 0, after.fetch("rgba").last

@@ -83,8 +83,12 @@ class SystemPromptLinkHoverTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs
   end
 
-  test "both token variants keep text links transparent under real hover and keyboard focus" do
-    screens = { "tokens" => api_tokens_path, "account-tokens" => account_api_tokens_path(@second) }
+  test "both token variants and members keep text links transparent under real hover and keyboard focus" do
+    screens = {
+      "tokens" => api_tokens_path,
+      "account-tokens" => account_api_tokens_path(@second),
+      "members" => account_account_users_path(@second)
+    }
     states = []
     each_locale_theme do |locale, theme|
       screens.each do |screen, path|
@@ -106,15 +110,15 @@ class SystemPromptLinkHoverTest < ApplicationSystemTestCase
         File.write(File.join(@hover_evidence, "states.json"), states.to_json)
       end
     end
-    assert_equal 8, states.size
-    assert_equal 8, states.map { |state| state.values_at(:screen, :locale, :theme) }.uniq.size
+    assert_equal 12, states.size
+    assert_equal 12, states.map { |state| state.values_at(:screen, :locale, :theme) }.uniq.size
     assert_no_enqueued_jobs
   end
 
-  test "member links and secondary buttons plus prompt and token buttons retain real hover surfaces" do
+  test "member primary and secondary buttons plus prompt and token buttons retain real hover surfaces" do
     each_locale_theme do |_locale, theme|
       [
-        [ account_account_users_path(@second), ".n-workspace-link" ],
+        [ account_account_users_path(@second), ".n-workspace-primary" ],
         [ account_account_users_path(@second), ".n-workspace-button:not(.n-workspace-primary)" ],
         [ system_prompt_path(@shared), ".n-workspace-primary" ],
         [ edit_system_prompt_path(@shared), ".n-workspace-primary" ],
