@@ -15,7 +15,7 @@ class SystemPromptsControllerTest < ActionDispatch::IntegrationTest
     @account.create_default_system_prompt!(user: nil)
     get system_prompts_url
     assert_response :success
-    assert_select "p.n-card-title", text: /System Prompt for #{@account.name} Account/
+    assert_select "[data-prompt-row] a[href=?]", system_prompt_path(@account.prompts.find_by!(name: "system_prompt", user: nil)), text: @account.name
   end
 
   # Read actions no longer write: Account#system_prompt falls back to the
@@ -29,7 +29,7 @@ class SystemPromptsControllerTest < ActionDispatch::IntegrationTest
     prompt = @account.create_default_system_prompt!(user: nil)
     get system_prompts_url
     assert_response :success
-    assert_select "p.n-card-title", text: /#{Regexp.escape(prompt.full_name)}/
+    assert_select "[data-prompt-row] a[href=?]", system_prompt_path(prompt), text: @account.name
   end
 
   test "show is scoped to the user's accounts" do

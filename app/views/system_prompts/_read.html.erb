@@ -1,0 +1,21 @@
+<%# locals: (prompt:) %>
+<div class="n-workspace n-settings-tool" data-settings-tool data-settings-screen="<%= settings_tool_account_route? ? 'account-prompt' : 'prompt' %>">
+  <% actions = link_to(t("nosia.settings_tools.prompt_edit_action"), prompt_workspace_edit_path(prompt), class: "n-workspace-button n-workspace-primary") if prompt_workspace_editable?(prompt) %>
+  <%= render "settings_tools/header", title: t("nosia.settings_tools.prompt_title"), trail: prompt_workspace_trail(prompt), scope_label: t("nosia.workspace.account", name: prompt.account.name), actions: actions %>
+  <%= render "settings_tools/feedback" %>
+  <% if settings_tool_account_route? %>
+    <p class="n-settings-tool-badge" data-prompt-state><%= t(prompt.persisted? ? "nosia.settings_tools.prompt_saved" : "nosia.settings_tools.prompt_builtin") %></p>
+    <% unless prompt.persisted? %>
+      <p class="n-settings-tool-message"><%= t("nosia.settings_tools.prompt_fallback") %></p>
+    <% end %>
+  <% else %>
+    <p class="n-settings-tool-badge"><%= prompt_workspace_kind(prompt) %></p>
+  <% end %>
+  <% if prompt.user_id.nil? %>
+    <p class="n-workspace-help"><%= t("nosia.settings_tools.prompt_precedence") %></p>
+  <% end %>
+  <section class="n-workspace-panel">
+    <h2 class="n-workspace-section-title"><%= t("nosia.prompts.label") %></h2>
+    <div class="n-settings-tool-reading" data-prompt-content><%= prompt.content %></div>
+  </section>
+</div>

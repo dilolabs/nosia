@@ -14,8 +14,8 @@ class Accounts::AdministrationTest < ActionDispatch::IntegrationTest
     assert_select "a[href='#{edit_account_system_prompt_path(@second)}']", count: 0
     assert_select "a[href='#{account_account_users_path(@second)}']", count: 0
     assert_includes response.body, "Shared research instructions"
-    assert_select "p", text: "Account default · Personal overrides may apply"
-    assert_select "nav[aria-label='Breadcrumb'] a[href='#{account_path(@second)}']"
+    assert_select "p", text: I18n.t("nosia.settings_tools.prompt_precedence")
+    assert_select "nav[aria-label=?] a[href=?]", I18n.t("nosia.workspace.breadcrumb"), account_path(@second)
     shared = experience(:prompts, :overview_second_shared)
     get system_prompt_path(shared)
     assert_response :success
@@ -45,24 +45,25 @@ class Accounts::AdministrationTest < ActionDispatch::IntegrationTest
     personal = experience(:prompts, :overview_second_personal)
     get system_prompt_path(personal)
     assert_response :success
-    assert_select "a[href='#{edit_system_prompt_path(personal)}']", count: 2
+    assert_select "a[href='#{edit_system_prompt_path(personal)}']", count: 1
 
     sign_in_overview
     get system_prompt_path(shared)
     assert_response :success
-    assert_select "a[href='#{edit_system_prompt_path(shared)}']", count: 2
+    assert_select "a[href='#{edit_system_prompt_path(shared)}']", count: 1
   end
 
-  test "owner prompt page retains membership and both edit controls" do
+  test "owner prompt page has one edit action and returns to the separate account hub" do
     sign_in_overview
     get account_system_prompt_path(@second)
     assert_response :success
-    assert_select "a[href='#{edit_account_system_prompt_path(@second)}']", count: 2
-    assert_select "a[href='#{account_account_users_path(@second)}']", count: 1
+    assert_select "a[href='#{edit_account_system_prompt_path(@second)}']", count: 1
+    assert_select "a[href='#{account_path(@second)}']", minimum: 1
+    assert_select "a[href='#{account_account_users_path(@second)}']", count: 0
 
     get edit_account_system_prompt_path(@second)
     assert_response :success
-    assert_select "nav[aria-label='Breadcrumb'] [aria-current='page']", text: "System prompt"
+    assert_select "nav[aria-label=?] [aria-current='page']", I18n.t("nosia.workspace.breadcrumb"), text: I18n.t("nosia.actions.edit")
     assert_select "form[action='#{account_system_prompt_path(@second)}'] input[name='_method'][value='patch']"
   end
 

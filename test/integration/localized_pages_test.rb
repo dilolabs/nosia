@@ -528,7 +528,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       assert_equal name, prompt.reload.full_name
     end
 
-    assert_select "h2", text: "Modifier #{name}"
+    assert_select "h1", text: I18n.t("nosia.settings_tools.prompt_edit", locale: :fr)
     assert_select "label", text: "Instructions système"
   end
 

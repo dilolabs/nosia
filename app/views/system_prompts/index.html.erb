@@ -1,26 +1,23 @@
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.settings"), settings_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex gap-1 items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.prompts.title"), system_prompts_path, class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="n-title-container mt-0.5">
-  <h2 class="n-main-title"><%= t("nosia.prompts.title") %></h2>
-</div>
-
-<ul class="n-cards-grid !list-none">
-  <% @system_prompts.each do |prompt| %>
-    <li class="n-card n-main-border lg:col-span-2 xl:col-span-2">
-      <%= link_to system_prompt_path(prompt), class: "content-center text-center n-main-focus n-main-hover h-48" do %>
-        <%= inline_svg "svg/chats.svg", aria_hidden: true, class: "mx-auto w-12 h-12" %>
-        <p class="n-card-title">
-          <span class="text-wrap"><%= prompt.full_name %></span>
-        </p>
+<div class="n-workspace n-settings-tool" data-settings-tool data-settings-screen="prompts">
+  <%= render "settings_tools/header", title: t("nosia.prompts.title"), description: t("nosia.settings_tools.prompts_description"), trail: settings_tool_trail(resource: t("nosia.prompts.title"), path: system_prompts_path) %>
+  <%= render "settings_tools/feedback" %>
+  <% if @system_prompts.any? %>
+    <ul class="n-settings-tool-rows !list-none" role="list">
+      <% @system_prompts.each do |prompt| %>
+        <li class="n-settings-tool-row" data-prompt-row>
+          <div>
+            <h2 class="n-workspace-section-title"><%= link_to prompt.account.name, system_prompt_path(prompt), class: "n-workspace-link" %></h2>
+            <p class="n-workspace-help"><%= prompt_workspace_kind(prompt) %></p>
+          </div>
+          <%= link_to t("nosia.settings_tools.prompt_open"), system_prompt_path(prompt), class: "n-workspace-link" %>
+        </li>
       <% end %>
-    </li>
+    </ul>
+  <% else %>
+    <section class="n-workspace-panel">
+      <h2 class="n-workspace-section-title"><%= t("nosia.settings_tools.prompts_empty") %></h2>
+      <p class="n-workspace-help"><%= t("nosia.settings_tools.prompts_empty_help") %></p>
+      <%= link_to t("nosia.settings_tools.open_accounts"), accounts_path, class: "n-workspace-link" %>
+    </section>
   <% end %>
-</ul>
+</div>
