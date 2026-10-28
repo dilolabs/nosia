@@ -9,7 +9,7 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
   test "token list is both personal and account-specific" do
     get "/accounts/#{@second.id}/api_tokens"
     assert_response :success
-    assert_select "h2", text: /second token/
+    assert_select "[data-token-row] [data-token-title]", text: /second token/
     refute_includes response.body, "member token"
     refute_includes response.body, "first token"
     assert_select "form[action='#{account_api_tokens_path(@second)}']" do
@@ -41,7 +41,7 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
     assert plain
     token = @user.api_tokens.find_by!(name: "Research deployment", account: @second)
     assert_equal ApiToken.digest(plain), token.token_digest
-    assert_select "input[readonly][data-clipboard-target='source'][value='#{plain}']"
+    assert_select "#created_api_token[readonly][data-token-reveal-target=source][value='#{plain}']"
     get account_api_tokens_path(@second)
     refute_includes response.body, plain
     refute_includes response.body, token.token_digest
@@ -59,10 +59,10 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
       assert_select "p", text: @second.name
       assert_select "label[for='api_token_account_id']", count: 0
     end
-    assert_select "h2", text: /second token/
+    assert_select "[data-token-row] [data-token-title]", text: /second token/
     refute_includes response.body, "first token"
     refute_includes response.body, "member token"
-    assert_select "input[data-clipboard-target='source']", count: 0
+    assert_select "[data-token-reveal]", count: 0
   end
 
   test "owners cannot revoke other members' tokens or tokens from another account" do
@@ -138,7 +138,7 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
 
     get account_api_tokens_path(@second)
     assert_response :success
-    assert_select "h2", text: /member token/
+    assert_select "[data-token-row] [data-token-title]", text: /member token/
     refute_includes response.body, "second token"
     refute_includes response.body, "first token"
     assert_select "form[action='#{account_api_token_path(@second, token)}']"
@@ -201,15 +201,15 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
 
     get account_api_tokens_path(@second), params: { account_id: @first.id }
     assert_response :success
-    assert_select "h2", text: /second token/
+    assert_select "[data-token-row] [data-token-title]", text: /second token/
     refute_includes response.body, "first token"
   end
 
-  test "global token routes retain the personal account picker and invalid redirect" do
+  test "global token routes retain the personal picker and recover invalid creation" do
     get api_tokens_path
     assert_response :success
-    assert_select "h2", text: /first token/
-    assert_select "h2", text: /second token/
+    assert_select "[data-token-row] [data-token-title]", text: /first token/
+    assert_select "[data-token-row] [data-token-title]", text: /second token/
     refute_includes response.body, "member token"
     assert_select "form[action='#{api_tokens_path}'] select[name='api_token[account_id]']" do
       assert_select "option[value='#{@first.id}']"
@@ -220,8 +220,10 @@ class Accounts::ScopedTokensUsageTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "ApiToken.count" do
       post api_tokens_path, params: { api_token: { name: "", account_id: @second.id } }
-      assert_redirected_to api_tokens_path
-      assert_equal I18n.t("nosia.tokens.error"), flash[:alert]
+      assert_response :unprocessable_entity
+      assert_select "#api_token_name[aria-invalid=true]"
+      assert_select "#api_token_account_id option[selected][value=?]", @second.id
+      assert_select "[data-form-errors-target=summary] a[href='#api_token_name']"
     end
     token = experience(:api_tokens, :overview_second_token)
     assert_difference "ApiToken.count", -1 do

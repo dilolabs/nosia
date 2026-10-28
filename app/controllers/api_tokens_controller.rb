@@ -8,6 +8,9 @@ class ApiTokensController < ApplicationController
   def index
     @api_tokens = token_scope.includes(:account)
     @api_token = Current.user.api_tokens.new(account: @account)
+    if flash[:created_api_token].present?
+      @created_api_token = token_scope.find_by(token_digest: ApiToken.digest(flash[:created_api_token]))
+    end
   end
 
   def create
@@ -20,17 +23,15 @@ class ApiTokensController < ApplicationController
       # The plaintext token is shown exactly once, via the flash on the next
       # page load; only its digest is stored.
       redirect_to token_index_path, flash: { created_api_token: @api_token.plain_token }
-    elsif @account
+    else
       @api_tokens = token_scope.includes(:account)
       render :index, status: :unprocessable_entity
-    else
-      redirect_to api_tokens_path, alert: t("nosia.tokens.error")
     end
   end
 
   def destroy
     token_scope.find(params[:id]).destroy
-    redirect_to token_index_path
+    redirect_to token_index_path, notice: t("nosia.settings_tools.token_removed")
   end
 
   private

@@ -1,0 +1,5 @@
+<%# locals: (token:) %>
+<li class="n-settings-tool-row" data-token-row>
+  <div><h3 class="n-workspace-section-title" data-token-title><%= token.name %></h3><p class="n-workspace-help"><%= t("nosia.settings_tools.default_account") %>: <%= token.account.name %></p><p class="n-workspace-help" data-token-security><%= t("nosia.settings_tools.token_security") %></p></div>
+  <%= button_to t("nosia.settings_tools.revoke"), @account ? account_api_token_path(@account, token) : api_token_path(token), method: :delete, class: "n-workspace-button n-workspace-danger", data: { turbo_confirm: t("nosia.settings_tools.revoke_confirm", name: token.name, account: token.account.name), turbo_submits_with: t("nosia.settings_tools.revoking") } %>
+</li>

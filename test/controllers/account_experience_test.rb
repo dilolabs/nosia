@@ -20,7 +20,7 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
       account_token_usage_path(@second), account_system_prompt_path(@second), account_account_users_path(@second) ].each do |path|
       get path
       assert_response :success
-      breadcrumb = I18n.t([ account_system_prompt_path(@second), account_account_users_path(@second) ].include?(path) ? "nosia.workspace.breadcrumb" : "nosia.account_experience.breadcrumb")
+      breadcrumb = I18n.t([ account_system_prompt_path(@second), account_account_users_path(@second), account_api_tokens_path(@second) ].include?(path) ? "nosia.workspace.breadcrumb" : "nosia.account_experience.breadcrumb")
       assert_select "nav[aria-label=?] a[href=?]", breadcrumb, account_path(@second)
       assert_select "#accordion-right-actions", count: 0
       assert_select "#drawer-right", count: 0
@@ -128,9 +128,10 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
       sources = [ sources_path, new_sources_text_path ].include?(path)
       report = path == token_usage_path
       prompts = path == prompt_path
-      assert_select "nav[aria-label=?]", prompts ? I18n.t("nosia.workspace.breadcrumb") : I18n.t("nosia.account_experience.breadcrumb"), count: prompts ? 1 : 0
-      assert_select "#accordion-right-actions, #drawer-right", count: sources || report || prompts ? 0 : 2
-      if sources || report || prompts
+      tokens = path == api_tokens_path
+      assert_select "nav[aria-label=?]", prompts || tokens ? I18n.t("nosia.workspace.breadcrumb") : I18n.t("nosia.account_experience.breadcrumb"), count: prompts || tokens ? 1 : 0
+      assert_select "#accordion-right-actions, #drawer-right", count: sources || report || prompts || tokens ? 0 : 2
+      if sources || report || prompts || tokens
         workspace = sources ? "[data-source-workspace]" : (report ? "[data-usage-workspace]" : "[data-settings-tool]")
         assert_select workspace, count: 1
         assert_select "#{workspace} a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
