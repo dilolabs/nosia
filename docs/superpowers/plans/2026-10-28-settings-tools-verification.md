@@ -18,10 +18,12 @@ The [specification](../specs/2026-10-28-prompts-members-tokens-ui-ux-design.md)
 remains authoritative. Baseline exceptions require this project's actual user
 direction; a final accepted nonzero gate is not a green gate.
 
-User correction during implementation: prompt text links must stay transparent
-on hover. The `tools_hover` contract below checks genuine hover with an unchanged
-transparent background for those links only; other resource links and all buttons
-still require a surface change. Contrast checks and the full matrix remain required.
+User corrections during implementation: prompt text links, then Jetons API text
+links on `/api_tokens` and its account-filtered variant, must stay transparent on
+hover. The `tools_hover` contract below checks genuine hover with an unchanged
+transparent background for those links only; member links and all buttons
+(including Generate, Revoke and Copy) still require a surface change. Contrast
+checks and the full matrix remain required.
 
 ## Task V1: Isolated browser checks and the exact 128-state matrix
 
@@ -308,7 +310,7 @@ module SettingsToolBrowserChecks
       assert after.fetch("capable") && after.fetch("hovered")
       assert_equal before.fetch("bounds"), after.fetch("bounds")
       screen = find("[data-settings-tool]")["data-settings-screen"]
-      if selector == ".n-workspace-link" && %w[prompts prompt prompt-edit account-prompt account-prompt-edit].include?(screen)
+      if selector == ".n-workspace-link" && %w[prompts prompt prompt-edit account-prompt account-prompt-edit tokens account-tokens].include?(screen)
         assert_equal before.fetch("surface"), after.fetch("surface")
         assert_equal 0, before.fetch("rgba").last
         assert_equal 0, after.fetch("rgba").last
@@ -804,7 +806,7 @@ Step 4 to distinguish them from application verification.
 record final-build rails_test tailwindcss:build
 record final-focused rails_test test test/helpers/settings_tools_helper_test.rb test/controllers/prompts_workspace_test.rb test/controllers/account_members_workspace_test.rb test/controllers/api_tokens_workspace_test.rb test/controllers/system_prompts_controller_test.rb test/controllers/accounts/system_prompts_controller_test.rb test/controllers/accounts/administration_test.rb test/controllers/accounts/account_users_authorization_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/api_tokens_controller_test.rb test/models/api_token_test.rb test/integration/system_prompt_materialization_test.rb test/controllers/account_experience_test.rb test/controllers/settings_workspace_test.rb test/integration/localized_pages_test.rb test/internationalization/catalogs_test.rb
 record final-full rails_test test
-record final-new-browser browser_test test/system/settings_tools_matrix_test.rb test/system/settings_tools_workflows_test.rb test/system/token_reveal_test.rb
+record final-new-browser browser_test test/system/settings_tools_matrix_test.rb test/system/settings_tools_workflows_test.rb test/system/token_reveal_test.rb test/system/system_prompt_link_hover_test.rb
 record final-protected-browser browser_test test/system/api_tokens_test.rb test/system/accounts_settings_workspace_test.rb test/system/account_experience_test.rb test/system/agent_skills_workspace_test.rb test/system/sources_workspace_test.rb test/system/token_usage_workspace_test.rb test/system/dashboard_test.rb test/system/profile_management_test.rb test/system/mcp_workspace_test.rb test/system/mcp_catalog_test.rb test/system/mcp_connection_tests_test.rb
 record final-lint mise exec ruby@4.0.7 -- bundle exec rubocop app/helpers/settings_tools_helper.rb app/helpers/system_prompts_helper.rb app/controllers/system_prompts_controller.rb app/controllers/accounts/account_users_controller.rb app/controllers/api_tokens_controller.rb test/support/settings_tool_fixtures.rb test/support/settings_tool_browser_checks.rb test/helpers/settings_tools_helper_test.rb test/controllers/prompts_workspace_test.rb test/controllers/account_members_workspace_test.rb test/controllers/api_tokens_workspace_test.rb test/controllers/system_prompts_controller_test.rb test/controllers/accounts/administration_test.rb test/controllers/accounts/scoped_tokens_usage_test.rb test/controllers/account_experience_test.rb test/controllers/settings_workspace_test.rb test/system/settings_tools_matrix_test.rb test/system/settings_tools_workflows_test.rb test/system/token_reveal_test.rb test/system/api_tokens_test.rb test/system/account_experience_test.rb test/integration/localized_pages_test.rb test/internationalization/catalogs_test.rb
 record final-security mise exec ruby@4.0.7 -- bundle exec brakeman --no-pager

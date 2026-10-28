@@ -1,7 +1,7 @@
 .n-settings-tool { overflow-wrap: anywhere; }
 .n-settings-tool [hidden] { display: none !important; }
 .n-settings-tool .n-workspace-link { min-inline-size: 2.75rem; }
-.n-settings-tool:not([data-settings-screen*="prompt"]) .n-workspace-link:hover { @apply bg-neutral-100 dark:bg-neutral-700; }
+.n-settings-tool:not([data-settings-screen*="prompt"]):not([data-settings-screen$="tokens"]) .n-workspace-link:hover { @apply bg-neutral-100 dark:bg-neutral-700; }
 .n-settings-tool .n-workspace-button:not(.n-workspace-primary):hover { @apply bg-neutral-50 dark:bg-neutral-900; }
 .n-settings-tool .n-workspace-button:disabled { opacity: 1; }
 .n-settings-tool form { max-inline-size: 100%; }

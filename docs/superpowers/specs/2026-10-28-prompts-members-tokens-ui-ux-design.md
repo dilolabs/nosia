@@ -137,6 +137,13 @@ Important existing behavior:
   Rationale: keep prompt text links visually quiet by removing only their hover
   background, not their underline, keyboard focus or button feedback. This narrow
   correction does not change other resource styles or verification authority.
+- The user subsequently requested **“Lorsque je survole un lien depuis les Jetons
+  API (/api_tokens), j’ai un background avec une couleur de fond qui apparaît,
+  corrige”**, followed by **“Continue ensuite le plan”**.
+  Rationale: extend transparent text-link hover to `/api_tokens` and its previously
+  included account-filtered variant, before resuming the plan. Preserve prompt
+  transparency, underline, keyboard focus, button hover (Generate, Revoke and Copy),
+  member-link surfaces and all other scope/verification boundaries.
 
 ## Selected approach
 
@@ -172,10 +179,11 @@ one separate application page at a time, as explicitly requested.
 - Reuse system typography, neutral/green surfaces, local decorative outline SVGs,
   wrapping content, English/French and light/dark themes. Translate owned labels,
   not authored account names, emails, token names or prompt content.
-- On all five prompt variants, plain workspace text links must remain transparent
-  before and during genuine hover in both locales/themes. Preserve their underline,
-  ≥44px actions and visible keyboard focus; keep primary/secondary button hover
-  feedback and other resources' link hover surfaces unchanged.
+- On all five prompt variants and both token variants, plain workspace text links
+  must remain transparent before and during genuine hover in both locales/themes.
+  Preserve their underline, ≥44px actions and visible keyboard focus; keep all
+  primary/secondary button hover feedback (including Generate, Revoke and Copy),
+  member-link hover surfaces and global navigation styles unchanged.
 - Keep global header, left/mobile navigation and quiet New chat access. Global
   routes retain generic New chat; account-route New chat opens the existing
   account-preselected composer without creating a chat or changing defaults.

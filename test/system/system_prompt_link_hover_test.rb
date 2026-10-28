@@ -83,19 +83,55 @@ class SystemPromptLinkHoverTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs
   end
 
-  test "member links and secondary buttons plus prompt Edit and Save retain real hover surfaces" do
+  test "both token variants keep text links transparent under real hover and keyboard focus" do
+    screens = { "tokens" => api_tokens_path, "account-tokens" => account_api_tokens_path(@second) }
+    states = []
+    each_locale_theme do |locale, theme|
+      screens.each do |screen, path|
+        visit path
+        set_theme(theme)
+        assert_selector "[data-settings-screen='#{screen}']"
+        links = all("[data-settings-tool] .n-workspace-link")
+        assert_not_empty links
+        links.each do |link|
+          before, after = hover_samples(link)
+          assert_equal 0, before.fetch("rgba").last, before.to_json
+          assert_equal before.fetch("background"), after.fetch("background"), after.to_json
+          assert_equal 0, after.fetch("rgba").last, after.to_json
+          assert_includes before.fetch("decoration"), "underline"
+          assert_includes after.fetch("decoration"), "underline"
+          assert_keyboard_focus(link)
+        end
+        states << { screen: screen, locale: locale, theme: theme, links: links.size }
+        File.write(File.join(@hover_evidence, "states.json"), states.to_json)
+      end
+    end
+    assert_equal 8, states.size
+    assert_equal 8, states.map { |state| state.values_at(:screen, :locale, :theme) }.uniq.size
+    assert_no_enqueued_jobs
+  end
+
+  test "member links and secondary buttons plus prompt and token buttons retain real hover surfaces" do
     each_locale_theme do |_locale, theme|
       [
         [ account_account_users_path(@second), ".n-workspace-link" ],
         [ account_account_users_path(@second), ".n-workspace-button:not(.n-workspace-primary)" ],
         [ system_prompt_path(@shared), ".n-workspace-primary" ],
-        [ edit_system_prompt_path(@shared), ".n-workspace-primary" ]
+        [ edit_system_prompt_path(@shared), ".n-workspace-primary" ],
+        [ api_tokens_path, ".n-workspace-primary" ],
+        [ api_tokens_path, ".n-workspace-danger" ],
+        [ account_api_tokens_path(@second), ".n-workspace-primary" ],
+        [ account_api_tokens_path(@second), ".n-workspace-danger" ]
       ].each do |path, selector|
         visit path
         set_theme(theme)
-        before, after = hover_samples(first("[data-settings-tool] #{selector}"))
-        refute_equal before.fetch("background"), after.fetch("background"), after.to_json
-        assert_operator after.fetch("rgba").last, :>, 0, after.to_json
+        targets = all("[data-settings-tool] #{selector}")
+        assert_not_empty targets
+        targets.each do |target|
+          before, after = hover_samples(target)
+          refute_equal before.fetch("background"), after.fetch("background"), after.to_json
+          assert_operator after.fetch("rgba").last, :>, 0, after.to_json
+        end
       end
     end
     assert_no_enqueued_jobs
@@ -134,12 +170,15 @@ class SystemPromptLinkHoverTest < ApplicationSystemTestCase
     end
 
     def assert_keyboard_focus(target)
+      find("#theme-toggle").hover
+      wait_for_frames
       160.times do
         page.send_keys(:tab)
         if page.evaluate_script("document.activeElement===arguments[0]", target)
           wait_for_frames
           focused = sample(target)
           record_sample("focus", focused)
+          refute focused.fetch("hovered"), focused.to_json
           assert focused.fetch("focus_visible"), focused.to_json
           assert_operator focused.fetch("outline"), :>=, 2, focused.to_json
           focused.fetch("size").each { |dimension| assert_operator dimension, :>=, 44, focused.to_json }
