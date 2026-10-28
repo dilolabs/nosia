@@ -19,6 +19,37 @@ class ProfileManagementTest < ApplicationSystemTestCase
     Capybara.reset_sessions!
   end
 
+  test "profile breadcrumb matches accounts styling on desktop and mobile in both themes and languages" do
+    %w[en fr].each do |locale|
+      switch_language(locale)
+      %w[light dark].each do |theme|
+        set_theme(theme)
+        [ 1400, 375 ].each do |width|
+          page.current_window.resize_to(width, 900)
+          visit accounts_path
+          assert_selector ".n-workspace-header nav .n-workspace-trail"
+          accounts_styles = breadcrumb_styles
+
+          visit profile_path
+          assert_selector ".n-profile .n-workspace-header nav .n-workspace-trail"
+          assert_equal accounts_styles, breadcrumb_styles, "Breadcrumb styles differ for #{locale}, #{theme}, #{width}px"
+          assert page.evaluate_script(<<~JS), "Profile breadcrumb must fit within main"
+            (() => {
+              const main = document.querySelector('main').getBoundingClientRect()
+              const trail = document.querySelector('.n-workspace-trail')
+              return [...trail.querySelectorAll('li')].every(item => {
+                const bounds = item.getBoundingClientRect()
+                return bounds.left >= main.left && bounds.right <= main.right && bounds.top >= main.top
+              })
+            })()
+          JS
+        end
+      end
+    end
+  ensure
+    page.current_window.resize_to(1400, 1400)
+  end
+
   test "visibility is independent and keyboard submission focuses linked errors without retaining secrets" do
     fill_in "profile_email_current_password", with: "wrong-password-123"
 
@@ -261,16 +292,23 @@ class ProfileManagementTest < ApplicationSystemTestCase
   end
 
   private
+    def breadcrumb_styles
+      page.evaluate_script(<<~JS)
+        (() => {
+          const header = document.querySelector('.n-workspace-header')
+          const elements = [header, header.querySelector('nav'), header.querySelector('ol'), header.querySelector('a'), header.querySelector('[aria-current=page]')]
+          const properties = ['fontSize', 'lineHeight', 'fontWeight', 'color', 'gap', 'marginTop', 'marginBottom', 'minHeight', 'textDecorationLine']
+          return elements.map(element => Object.fromEntries(properties.map(property => [property, getComputedStyle(element)[property]])))
+        })()
+      JS
+    end
+
     def browser
       page.driver.browser
     end
 
     def switch_language(locale)
-      form = find("#language_preference_locale").find(:xpath, "ancestor::form")
-      within form do
-        find("option[value='#{locale}']").select_option
-        find("button[type=submit]").click
-      end
+      select locale.upcase, from: "language_preference_locale"
       assert_selector "html[lang='#{locale}']"
       assert_selector "#profile-email-form"
     end

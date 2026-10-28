@@ -36,7 +36,7 @@ class ProfilesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.headers["Cache-Control"], "no-store"
     assert_select "meta[name=turbo-cache-control][content=no-cache]", count: 1
     assert_select "title", text: "Your profile"
-    assert_select ".n-profile h1.n-main-title", text: "Your profile"
+    assert_select ".n-profile h1.n-workspace-title", text: "Your profile"
     assert_select ".n-profile .n-profile-card", count: 2
     assert_select ".n-profile form", count: 2
     assert_select "form form", count: 0
@@ -50,6 +50,27 @@ class ProfilesControllerTest < ActionDispatch::IntegrationTest
       assert_select "input[name=_method][value=patch]"
       assert_select "input#profile_password_email[type=hidden][name='password_change[email]'][autocomplete=username][value=?]", @user.email
       assert_select "button[type=submit][data-turbo-submits-with='Updating password…']", text: "Update password"
+    end
+  end
+
+  test "profile uses the accounts workspace breadcrumb design in both languages" do
+    sign_in_picker_user
+
+    %i[en fr].each do |locale|
+      get profile_path, headers: { "Accept-Language" => locale.to_s }
+
+      assert_response :success
+      assert_select "main nav", count: 1
+      assert_select ".n-profile .n-workspace-header nav.n-workspace-help[aria-label=?]", I18n.t("nosia.workspace.breadcrumb", locale: locale) do
+        assert_select "ol.n-workspace-trail" do
+          assert_select "a.n-workspace-link[href=?]", user_root_path, text: I18n.t("nosia.nav.home", locale: locale)
+          assert_select "a.n-workspace-link[href=?]", settings_path, text: I18n.t("nosia.nav.settings", locale: locale)
+          assert_select "li[aria-current=page]", text: I18n.t("nosia.profile.title", locale: locale), count: 1
+          assert_select "li[aria-hidden=true]", text: "/", count: 2
+        end
+      end
+      assert_select "main h1", text: I18n.t("nosia.profile.title", locale: locale), count: 1
+      assert_select "main .n-ariane", count: 0
     end
   end
 
