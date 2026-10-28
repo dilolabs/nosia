@@ -2,7 +2,7 @@
   const root = document.querySelector("[data-settings-tool]");
   const main = document.querySelector("main");
   const visible = e => e.getClientRects().length > 0 && e.checkVisibility() && getComputedStyle(e).visibility === "visible";
-  const identity = e => ({tag: e.tagName, id: e.id, classes: typeof e.className === "string" ? e.className : e.className.baseVal});
+  const identity = e => ({tag: e.tagName, id: e.id, classes: typeof e.className === "string" ? e.className : e.className.baseVal, promptBody: e.matches("[data-prompt-content]")});
   const controls = "a,button,input,select,textarea";
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1;
@@ -68,7 +68,7 @@
   }
 
   if (mode === "layout") {
-    const rows = Array.from(root.querySelectorAll("h1,h2,h3,p,label,nav,nav li,a,button,input[type=submit]")).filter(visible).map(e => {
+    const rows = Array.from(root.querySelectorAll("h1,h2,h3,p,label,nav,nav li,a,button,input[type=submit],[data-prompt-content]")).filter(visible).map(e => {
       const r = e.getBoundingClientRect(), s = getComputedStyle(e);
       let fits = e.scrollWidth <= e.clientWidth + 1 && s.textOverflow !== "ellipsis";
       if (e.matches("input[type=submit]")) {
@@ -93,7 +93,7 @@
   }
 
   if (mode === "contrast") {
-    const rows = Array.from(root.querySelectorAll("h1,h2,h3,p,label,a,button,input:not([type=hidden]),select,textarea,svg,.n-settings-tool-badge"))
+    const rows = Array.from(root.querySelectorAll("h1,h2,h3,p,label,a,button,input:not([type=hidden]),select,textarea,svg,.n-settings-tool-badge,[data-prompt-content]"))
       .filter(visible).map(e => row(e, "color", e.matches("svg") ? 3 : 4.5));
     root.querySelectorAll(".n-workspace-button,.n-settings-tool-input").forEach(e => {
       if (!visible(e)) return;

@@ -131,23 +131,25 @@ module SettingsToolBrowserChecks
     tools_contrast("focus-#{direction}-#{index}")
   end
 
-  # Rejects page overflow, ellipsis and horizontally clipped labels or text.
+  # Rejects page overflow, ellipsis and clipped text, including required read-only prompt bodies.
   # @return [void]
   def tools_layout
     sample = tools_probe("layout")
     tools_record("layout", sample)
     assert sample.fetch("pageFits"), sample.to_json
     assert_not_empty sample.fetch("rows")
+    tools_assert_prompt_body(sample.fetch("rows"))
     sample.fetch("rows").each { |row| assert row.fetch("fits"), row.to_json }
   end
 
-  # Records numeric composed-color samples and enforces text/non-text minima.
+  # Enforces composed-color minima, including required 4.5:1 read-only prompt-body samples.
   # @param phase [String] Interaction phase associated with the samples
   # @return [void]
   def tools_contrast(phase)
     rows = tools_probe("contrast")
     tools_record("contrast", { phase: phase, samples: rows })
     assert_not_empty rows
+    tools_assert_prompt_body(rows)
     rows.each { |row| assert_operator row.fetch("ratio"), :>=, row.fetch("minimum"), row.to_json }
   end
 
@@ -212,6 +214,12 @@ module SettingsToolBrowserChecks
     def tools_probe(mode)
       script = Rails.root.join("test/support/settings_tool_browser_probe.js").read
       page.evaluate_script("(#{script})(arguments[0])", mode)
+    end
+
+    def tools_assert_prompt_body(rows)
+      if page.evaluate_script("['prompt','account-prompt'].includes(document.querySelector('[data-settings-tool]').dataset.settingsScreen)")
+        assert_equal 1, rows.count { |row| row.fetch("promptBody") }, "Read-only prompt body must be measured"
+      end
     end
 
     def tools_cleanup
