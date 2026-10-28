@@ -4,9 +4,18 @@ export default class extends Clipboard {
   static targets = ["status"]
   static values = { copying: String, failure: String }
 
-  connect() {
-    super.connect()
+  initialize() {
     this.generation = 0
+  }
+
+  connect() {
+    if (this.originalContent === undefined) {
+      super.connect()
+    }
+
+    this.buttonTarget.innerHTML = this.originalContent
+    this.buttonTarget.setAttribute("aria-disabled", "false")
+    this.statusTarget.textContent = ""
     this.element.focus()
   }
 
