@@ -6,21 +6,29 @@ module Accounts
 
     before_action :set_account
     before_action :require_account_owner
-    before_action :set_user, only: :create
     before_action :set_account_user, only: :destroy
 
     def index
       @account_users = @account.account_users.includes(:user)
-      @account_user = @account.account_users.new
+      @member_email = ""
     end
 
     def create
-      @account_user = @account.account_users.new(user: @user)
+      @member_email = member_params.fetch(:email)
+      user = User.find_by(email: @member_email)
+      @account_user = @account.account_users.new(user: user)
 
-      if @account_user.save
+      if user.nil?
+        @member_error = t("nosia.settings_tools.member_unknown")
+      elsif @account_user.save
         redirect_to account_account_users_path(@account), notice: t("nosia.accounts.user_added")
       else
-        redirect_to account_account_users_path(@account), alert: t("nosia.accounts.user_add_failed")
+        @member_error = t(@account_user.errors.of_kind?(:user, :taken) ? "nosia.settings_tools.member_duplicate" : "nosia.settings_tools.member_failed")
+      end
+
+      if @member_error
+        @account_users = @account.account_users.includes(:user)
+        render :index, status: :unprocessable_entity
       end
     end
 
@@ -39,9 +47,14 @@ module Accounts
         @account = member_account(request.path_parameters.fetch(:account_id))
       end
 
-      def set_user
-        @user = User.find_by(email: params[:account_user][:email])
-        redirect_to account_account_users_path(@account), alert: t("nosia.accounts.user_not_found") unless @user
+      def member_params
+        input = params[:account_user]
+        raise ActionController::ParameterMissing, :account_user unless input.is_a?(ActionController::Parameters)
+
+        permitted = input.permit(:email)
+        raise ActionController::ParameterMissing, :email unless permitted[:email].is_a?(String)
+
+        permitted
       end
 
       def set_account_user

@@ -468,13 +468,14 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     get account_account_users_url(@second), headers: { "Accept-Language" => "fr" }
 
     assert_response :success
-    assert_select "h2", text: "Paramètres de Research team"
+    assert_select "h1", text: I18n.t("nosia.settings_tools.members_title", locale: :fr)
+    assert_select "[data-workspace-scope]", text: /Research team/
     assert_select "form[action=?][method=post]", account_account_users_path(@second) do
-      assert_select 'input[type="submit"][value="Ajouter un utilisateur"]'
+      assert_select 'input[type="submit"][value=?]', I18n.t("nosia.settings_tools.add_member", locale: :fr)
       assert_select 'input[type="email"][name="account_user[email]"]'
     end
-    assert_select "p", text: @user.email
-    assert_select "p", text: "Utilisateur actuel"
+    assert_select "[data-member-row] h2", text: @user.email
+    assert_select "[data-member-row] span", text: I18n.t("nosia.settings_tools.you", locale: :fr)
   end
 
   test "administration decorations stay hidden from accessible names" do
@@ -576,14 +577,19 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     outsider = users(:picker_outsider)
 
     post account_account_users_url(@second), params: { account_user: { email: "missing@example.invalid" } }, headers: headers
-    assert_equal "Utilisateur introuvable.", flash[:alert]
+    assert_response :unprocessable_entity
+    assert_select "#account_user_email[value='missing@example.invalid'][aria-invalid=true]"
+    assert_select "#account_user_email_error", text: I18n.t("nosia.settings_tools.member_unknown", locale: :fr)
 
     post account_account_users_url(@second), params: { account_user: { email: outsider.email } }, headers: headers
     assert_equal "L’utilisateur a été ajouté.", flash[:notice]
+    follow_redirect!(headers: headers)
     membership = @second.account_users.find_by!(user: outsider)
 
     post account_account_users_url(@second), params: { account_user: { email: outsider.email } }, headers: headers
-    assert_equal "Impossible d’ajouter l’utilisateur.", flash[:alert]
+    assert_response :unprocessable_entity
+    assert_select "#account_user_email_error", text: I18n.t("nosia.settings_tools.member_duplicate", locale: :fr)
+    assert_select "#account_user_email[value=?]", outsider.email
 
     owner_membership = @second.account_users.find_by!(user: @user)
     assert_no_difference "AccountUser.count" do

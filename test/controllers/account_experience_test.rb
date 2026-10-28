@@ -20,7 +20,7 @@ class AccountExperienceTest < ActionDispatch::IntegrationTest
       account_token_usage_path(@second), account_system_prompt_path(@second), account_account_users_path(@second) ].each do |path|
       get path
       assert_response :success
-      breadcrumb = I18n.t(path == account_system_prompt_path(@second) ? "nosia.workspace.breadcrumb" : "nosia.account_experience.breadcrumb")
+      breadcrumb = I18n.t([ account_system_prompt_path(@second), account_account_users_path(@second) ].include?(path) ? "nosia.workspace.breadcrumb" : "nosia.account_experience.breadcrumb")
       assert_select "nav[aria-label=?] a[href=?]", breadcrumb, account_path(@second)
       assert_select "#accordion-right-actions", count: 0
       assert_select "#drawer-right", count: 0

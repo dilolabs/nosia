@@ -1,62 +1,12 @@
-<% content_for :account_tool_title, t("nosia.account_experience.users") %>
+<div class="n-workspace n-settings-tool" data-settings-tool data-settings-screen="members">
+  <%= render "settings_tools/header", title: t("nosia.settings_tools.members_title"), description: t("nosia.settings_tools.members_description"), scope_label: t("nosia.workspace.account", name: @account.name), trail: settings_tool_trail(resource: t("nosia.settings_tools.members_title"), path: account_account_users_path(@account)) %>
+  <%= render "settings_tools/feedback" %>
+  <%= render "form" %>
 
-<% content_for :navbar do %>
-  <li class="flex items-center">
-    <%= link_to t("nosia.nav.accounts"), accounts_path, class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
-    <%= link_to @account.name, account_path(@account), class:"n-ariane n-main-focus" %>
-  </li>
-  <li class="flex items-center">
-    <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
-    <%= link_to t("nosia.nav.settings"), account_account_users_path(@account), class:"n-ariane n-main-focus" %>
-  </li>
-<% end %>
-
-<div class="n-title-container md:flex md:justify-between md:items-center">
-  <h2 class="n-main-title mt-0.5"><%= t("nosia.accounts.settings_for", name: @account.name) %></h2>
-</div>
-
-<div class="border-b border-neutral-200 dark:border-neutral-700 mb-6">
-  <nav class="-mb-px grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-x-8 gap-y-2">
-    <%= link_to account_account_users_path(@account), class: "n-tab-active n-main-focus rounded-t-lg" do %>
-      <p><%= t("nosia.accounts.users") %></p>
-    <% end %>
-    <%= link_to account_system_prompt_path(@account), class: "n-tab n-main-focus rounded-t-lg" do %>
-      <p><%= t("nosia.prompts.tab") %></p>
-    <% end %>
-  </nav>
-</div>
-
-<div>
-  <%= form_with(model: @account_user, url: account_account_users_path(@account), method: :post) do |form| %>
-    <div class="n-form-field flex items-end gap-2">
-      <div class="w-full sm:w-1/2">
-        <%= form.label :email, t("nosia.accounts.email"), class: "n-label" %>
-        <%= form.email_field :email, class: "n-field", required: true %>
-      </div>
-      <%= form.submit t("nosia.accounts.add_user"), class: "n-btn-primary my-0.5" %>
-    </div>
+  <ul class="n-settings-tool-rows !list-none" role="list">
+    <%= render partial: "member", collection: @account_users, as: :membership %>
+  </ul>
+  <% if @account_users.all? { |membership| membership.user_id == @account.owner_id } %>
+    <p class="n-settings-tool-message" data-members-only-owner><%= t("nosia.settings_tools.no_additional_members") %></p>
   <% end %>
 </div>
-
-<ul class="n-cards-grid !list-none">
-  <% @account_users.each do |account_user| %>
-    <li class="truncate relative n-card h-28 n-main-border p-6">
-      <div>
-        <p data-tooltip-target="tooltip-<%= account_user.user.email %>" class="n-card-subtitle text-wrap"><%= account_user.user.email %></p>
-      </div>
-      <div class="absolute w-full bottom-0 px-2 pb-2 grid">
-        <% if account_user.user == Current.user %>
-          <p class="n-btn-not-allowed border n-main-border italic"><%= t("nosia.accounts.current_user") %></p>
-        <% else %>
-          <%= link_to t("nosia.actions.remove"), account_account_user_path(@account, account_user), data: { turbo_method: :delete, turbo_confirm: t("nosia.actions.confirm_delete") }, class: "n-btn n-main-hover-danger n-main-focus-danger border n-main-border" %>
-        <% end %>
-      </div>
-    </li>
-    <div id="tooltip-<%= account_user.user.email %>" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-xs opacity-0 tooltip dark:bg-gray-700">
-      <%= account_user.user.email %>
-    </div>
-  <% end %>
-</ul>

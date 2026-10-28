@@ -1,0 +1,18 @@
+<%# locals: (membership:) %>
+<% owner = membership.user_id == @account.owner_id %>
+<li class="n-settings-tool-row" data-member-row data-member-owner="<%= owner %>">
+  <div>
+    <h2 class="n-workspace-section-title"><%= membership.user.email %></h2>
+    <p>
+      <span class="n-settings-tool-badge"><%= t(owner ? "nosia.settings_tools.owner" : "nosia.settings_tools.member") %></span>
+      <% if membership.user_id == Current.user.id %>
+        <span class="n-settings-tool-badge"><%= t("nosia.settings_tools.you") %></span>
+      <% end %>
+    </p>
+  </div>
+  <% if owner %>
+    <p class="n-workspace-help"><%= t("nosia.settings_tools.owner_protected") %></p>
+  <% else %>
+    <%= button_to t("nosia.settings_tools.remove_member"), account_account_user_path(@account, membership), method: :delete, class: "n-workspace-button n-workspace-danger", data: { turbo_confirm: t("nosia.settings_tools.member_confirm", email: membership.user.email, account: @account.name), turbo_submits_with: t("nosia.settings_tools.removing_member") } %>
+  <% end %>
+</li>
