@@ -34,11 +34,14 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
   test "actual update payload does not nest a second message wrapper" do
     message = workspace(:messages, :workspace_answer)
     current = Nokogiri::HTML.fragment(ApplicationController.render(partial: "messages/message", locals: { message: message }))
+    message.content = "The updated answer confirms three key findings."
     streams = capture_turbo_stream_broadcasts([ @chat, :messages, :en ]) { message.broadcast_updated }
     update = streams.find { |stream| stream["action"] == "update" && stream["target"] == dom_id(message, :messages) }
     assert update
-    current.at_css("##{dom_id(message, :messages)}").inner_html = update.inner_html
+    current.at_css("##{dom_id(message, :messages)}").inner_html = update.at_css("template").inner_html
     assert_select current, "##{dom_id(message, :messages)}", count: 1
     assert_select current, "##{dom_id(message, :content)}", count: 1
+    assert_select current, ".ai-response-content", text: "The updated answer confirms three key findings."
+    assert_select current, "h2", text: "Three findings", count: 0
   end
 end
