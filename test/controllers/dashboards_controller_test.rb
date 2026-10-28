@@ -138,9 +138,11 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-dashboard-destination='sources'][href='#{sources_path}']"
   end
 
-  test "signed-out root and non-dashboard conversation drawers remain unchanged" do
+  test "signed-out root remains unchanged and new chat owns initially closed history" do
     get new_chat_path
-    assert_select "#accordion-right-actions, #drawer-right", count: 2
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select "dialog#chat-history:not([open])", count: 1
+    assert_select "button[aria-controls=chat-history]", text: "History", count: 1
 
     delete logout_path
     get root_path

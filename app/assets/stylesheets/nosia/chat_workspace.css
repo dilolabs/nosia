@@ -1,0 +1,75 @@
+.n-chat-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  padding: 1.25rem;
+}
+
+.n-chat-workspace {
+  @apply text-neutral-900 dark:text-neutral-100;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.n-chat-header { flex: none; min-width: 0; }
+.n-chat-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.n-chat-title { @apply text-2xl font-semibold tracking-tight; margin: .75rem 0 .4rem; overflow-wrap: anywhere; }
+.n-chat-reading-column { width: 100%; max-width: 56rem; min-width: 0; margin-inline: auto; }
+.n-chat-start { display: flex; flex: 1; flex-direction: column; justify-content: center; padding-block: 2rem; }
+.n-chat-start > :is(h1, p) { text-align: center; }
+.n-chat-start > .n-workspace-help { margin: .5rem auto 1.5rem; max-width: 45ch; }
+.n-chat-eyebrow { @apply text-sm font-medium text-green-800 dark:text-green-200; }
+.n-chat-workspace--new { overflow-y: auto; }
+.n-chat-transcript { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scroll-padding-block: 1rem; overflow-anchor: none; }
+.n-chat-dock { flex: none; padding-bottom: .25rem; }
+.n-chat-follow { flex: none; position: sticky; top: 0; z-index: 10; align-self: center; }
+.n-chat-workspace [hidden] { display: none !important; }
+.n-chat-workspace .n-composer-editor .lexxy-editor__content { min-block-size: 5rem; max-block-size: 22dvh; overflow-y: auto; }
+.n-chat-workspace [data-chat-no-account] { @apply text-neutral-600 dark:text-neutral-300; }
+
+.n-chat-dialog {
+  @apply border border-neutral-500 bg-white text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100;
+  width: min(42rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1.25rem;
+  border-radius: .75rem;
+}
+
+.n-chat-dialog::backdrop { background: rgb(0 0 0 / .6); }
+.n-chat-history { margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; border-radius: .75rem 0 0 .75rem; }
+.n-chat-history-list { margin-top: 1rem; }
+.n-chat-history-row { @apply border-b border-neutral-300 dark:border-neutral-600; display: flex; gap: .75rem; padding-block: 1rem; }
+.n-chat-history-row > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.n-chat-history-row form { flex: none; }
+.n-chat-history-row [aria-current=page] { font-weight: 700; }
+.n-chat-details { min-width: 0; margin-block: .5rem; }
+.n-chat-workspace .n-chat-details > summary { @apply text-sm font-medium text-green-800 dark:text-green-200; min-height: 44px; cursor: pointer; padding-block: .6rem; margin: 0; }
+.n-chat-workspace :is(button, summary, a):focus-visible { @apply outline-2 outline-offset-2 outline-green-700 dark:outline-green-300; }
+.n-chat-workspace :is(pre, .n-chat-table-scroll) { max-width: 100%; overflow-x: auto; }
+
+@media (max-width: 639px), (max-height: 700px) {
+  .n-chat-main { overflow-y: auto; padding: 1rem 1rem 6rem; scroll-padding-block: 4rem 6rem; }
+  .n-chat-workspace { height: auto; min-height: 100%; }
+  .n-chat-transcript { overflow: visible; flex: none; }
+  .n-chat-header .n-workspace-actions { flex-wrap: wrap; }
+  .n-chat-workspace .n-composer-editor .lexxy-editor__content { min-block-size: 3rem; max-block-size: 20dvh; }
+  .n-chat-start { padding-block: 1rem; }
+  .n-chat-history-row { flex-wrap: wrap; }
+  .n-chat-workspace :is(button, summary, a) { scroll-margin-block: 4rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-chat-workspace *, .n-chat-workspace *::before, .n-chat-workspace *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

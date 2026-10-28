@@ -1,0 +1,20 @@
+<header class="n-chat-header">
+  <div class="n-chat-toolbar">
+    <%= link_to t("nosia.nav.home"), user_root_path, class: "n-workspace-link" %>
+    <div class="n-workspace-actions">
+      <button type="button" class="n-workspace-button" aria-controls="chat-history" aria-haspopup="dialog"
+              data-action="chat-dialog#open" data-chat-dialog-id-param="chat-history"><%= t("nosia.chat_workspace.history") %></button>
+      <% if chat.persisted? %>
+        <%= link_to t("nosia.chat_workspace.new_chat"), new_chat_path, class: "n-workspace-button" %>
+      <% end %>
+    </div>
+  </div>
+  <% if chat.persisted? %>
+    <h1 class="n-chat-title"><%= chat_workspace_title(chat, titles: titles) %></h1>
+    <p class="n-workspace-help"><%= chat.account.name %></p>
+    <details id="chat-usage-details" data-chat-detail class="n-chat-details">
+      <summary id="chat-usage-summary"><%= t("nosia.chat_workspace.usage_details") %></summary>
+      <%= render "chats/token_totals", chat: chat %>
+    </details>
+  <% end %>
+</header>

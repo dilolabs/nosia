@@ -2,6 +2,7 @@ class ChatsController < ApplicationController
   include ChatAccountScoped
 
   before_action :set_chat, only: [ :show, :destroy, :stop ]
+  before_action :set_workspace, only: [ :new, :show ]
 
   def show
     @message = @chat.messages.build
@@ -53,6 +54,11 @@ class ChatsController < ApplicationController
 
   def set_chat
     @chat = authorized_chat(params[:id])
+  end
+
+  def set_workspace
+    @history = Current.user.recent_conversations.to_a
+    @history_titles = Chat.first_questions_for((@history + [ @chat ].compact).uniq)
   end
 
   def model
