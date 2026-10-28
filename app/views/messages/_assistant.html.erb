@@ -3,9 +3,7 @@
   # DO NOT use tool_calls.any? because it creates an N+1 query
   # We only rely on the fact that content is empty/nil
   is_intermediate = false # Temporarily disabled to avoid N+1 queries
-  container_class = "message-container mb-6"
 %>
-<%= tag.div data: { created_at: message.created_at.iso8601 }, id: dom_id(message, :messages), class: container_class do %>
     <div class="flex justify-start">
       <div class="max-w-[100%] w-full">
         <!-- Avatar and assistant name -->
@@ -95,4 +93,3 @@
         </div>
       </div>
     </div>
-<% end %>
