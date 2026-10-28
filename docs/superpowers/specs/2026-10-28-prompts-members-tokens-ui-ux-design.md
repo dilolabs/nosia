@@ -131,6 +131,12 @@ Important existing behavior:
 - User answered **“Go”** after reviewing the specification committed as `9b8998b`.
   Rationale: approve the written specification and proceed to implementation
   planning, not application execution or repository integration.
+- During implementation, the user requested **“Lorsque je survole un lien depuis
+  les instructions systèmes, j’ai un background avec une couleur de fond qui
+  apparaît, corrige”**.
+  Rationale: keep prompt text links visually quiet by removing only their hover
+  background, not their underline, keyboard focus or button feedback. This narrow
+  correction does not change other resource styles or verification authority.
 
 ## Selected approach
 
@@ -166,6 +172,10 @@ one separate application page at a time, as explicitly requested.
 - Reuse system typography, neutral/green surfaces, local decorative outline SVGs,
   wrapping content, English/French and light/dark themes. Translate owned labels,
   not authored account names, emails, token names or prompt content.
+- On all five prompt variants, plain workspace text links must remain transparent
+  before and during genuine hover in both locales/themes. Preserve their underline,
+  ≥44px actions and visible keyboard focus; keep primary/secondary button hover
+  feedback and other resources' link hover surfaces unchanged.
 - Keep global header, left/mobile navigation and quiet New chat access. Global
   routes retain generic New chat; account-route New chat opens the existing
   account-preselected composer without creating a chat or changing defaults.

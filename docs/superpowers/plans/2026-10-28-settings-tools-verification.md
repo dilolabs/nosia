@@ -18,6 +18,11 @@ The [specification](../specs/2026-10-28-prompts-members-tokens-ui-ux-design.md)
 remains authoritative. Baseline exceptions require this project's actual user
 direction; a final accepted nonzero gate is not a green gate.
 
+User correction during implementation: prompt text links must stay transparent
+on hover. The `tools_hover` contract below checks genuine hover with an unchanged
+transparent background for those links only; other resource links and all buttons
+still require a surface change. Contrast checks and the full matrix remain required.
+
 ## Task V1: Isolated browser checks and the exact 128-state matrix
 
 **Create:** `test/support/settings_tool_browser_checks.rb`,
@@ -282,15 +287,34 @@ module SettingsToolBrowserChecks
       target.scroll_to(:center)
       find("#theme-toggle").hover
       tools_wait
-      before = page.evaluate_script("({hovered:arguments[0].matches(':hover'),surface:getComputedStyle(arguments[0]).backgroundColor,bounds:arguments[0].getBoundingClientRect().toJSON()})", target)
+      sample_hover = -> {
+        page.evaluate_script(<<~JS, target)
+          (()=>{
+            const e=arguments[0],s=getComputedStyle(e),canvas=document.createElement('canvas');
+            canvas.width=canvas.height=1;
+            const ctx=canvas.getContext('2d');ctx.fillStyle=s.backgroundColor;ctx.fillRect(0,0,1,1);
+            return {hovered:e.matches(':hover'),surface:s.backgroundColor,
+              rgba:Array.from(ctx.getImageData(0,0,1,1).data),bounds:e.getBoundingClientRect().toJSON(),
+              capable:matchMedia('(hover:hover)').matches&&matchMedia('(pointer:fine)').matches};
+          })()
+        JS
+      }
+      before = sample_hover.call
       refute before.fetch("hovered")
       target.hover
       tools_wait
-      after = page.evaluate_script("({hovered:arguments[0].matches(':hover'),surface:getComputedStyle(arguments[0]).backgroundColor,bounds:arguments[0].getBoundingClientRect().toJSON(),capable:matchMedia('(hover:hover)').matches&&matchMedia('(pointer:fine)').matches})", target)
+      after = sample_hover.call
       tools_record("hover", { selector: selector, before: before, after: after, capability_emulation: INPUT_FLAG })
       assert after.fetch("capable") && after.fetch("hovered")
       assert_equal before.fetch("bounds"), after.fetch("bounds")
-      refute_equal before.fetch("surface"), after.fetch("surface")
+      screen = find("[data-settings-tool]")["data-settings-screen"]
+      if selector == ".n-workspace-link" && %w[prompts prompt prompt-edit account-prompt account-prompt-edit].include?(screen)
+        assert_equal before.fetch("surface"), after.fetch("surface")
+        assert_equal 0, before.fetch("rgba").last
+        assert_equal 0, after.fetch("rgba").last
+      else
+        refute_equal before.fetch("surface"), after.fetch("surface")
+      end
       tools_contrast("hover-#{selector}")
     end
   end
