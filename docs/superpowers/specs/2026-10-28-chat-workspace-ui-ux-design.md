@@ -1,6 +1,6 @@
 # Chat workspace UI/UX
 
-Status: Design sections approved; finalized specification awaiting the user's written-spec review. Not authorized for implementation.
+Status: Written specification approved by the user (“Go”); implementation planning authorized. Implementation execution is a separate gate.
 
 Date: 2026-10-28
 
@@ -44,10 +44,12 @@ Improve `/chats/new` and `/chats/:id` following the signed-in dashboard UI/UX im
   Rationale: approve reader-aware following with Latest message recovery, secondary metadata disclosures, restrained accessible generation feedback, visible Stop/Retry/errors, and preservation of the existing composer safeguards.
 - User answered **“Yes”** to design section 3 — architecture and verification.
   Rationale: retain the existing Rails/Hotwire stack and live-update contracts, keep components focused, enforce personal membership-aware history, and verify the redesigned flows with isolated tests and responsive/accessibility checks before claiming completion.
+- User answered **“Go”** after being asked to review the finalized written specification committed as `7ce92e4`.
+  Rationale: approve the written specification and proceed to writing the implementation plan; this does not choose an execution method or authorize skipping implementation prerequisites.
 
 ## Selected approach
 
-**A — Focused conversation** is selected. Alternatives presented were **B — Structured workspace** (stronger panel boundaries and more visible usage) and **C — Compact workbench** (tighter spacing and more visible exchanges). All three detailed design sections below have been approved in conversation; the finalized written specification still requires user review before implementation planning.
+**A — Focused conversation** is selected. Alternatives presented were **B — Structured workspace** (stronger panel boundaries and more visible usage) and **C — Compact workbench** (tighter spacing and more visible exchanges). The user approved all three design sections and then approved the finalized written specification in `7ce92e4` with “Go”.
 
 ## Scope and non-goals
 
@@ -110,6 +112,6 @@ Status: Approved by the user.
 
 ## Approval and delivery gates
 
-The user has approved the selected approach and all three design sections. Finalize and commit only this document, self-review the specification, then ask the user to review the committed written spec. Invoke writing-plans only after that written-spec approval. Do not treat chat approval of a design section as implementation authorization.
+The user approved the selected approach, all three design sections, and the finalized written specification. writing-plans has been invoked. Save and self-review a focused implementation plan, then ask the user to choose execution. Do not treat design or planning approval as permission to skip test-first execution or baseline checks.
 
 The implementation plan must identify exact files, failing-test-first tasks, verification commands, shared-component regression coverage, and review checkpoints. Implementation remains a later gated phase; this document does not claim tests have run or the UI has changed.
