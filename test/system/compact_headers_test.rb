@@ -120,6 +120,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           assert_selector ".n-profile"
           assert_selector "html[lang='#{locale}']"
           assert_equal dark, page.evaluate_script("document.documentElement.classList.contains('dark')")
+          assert_selector "main h1", text: I18n.t("nosia.profile.title", locale: locale)
           header_record("native-profile", { heading: find("main h1").text }, screenshot: true)
         end
       end
