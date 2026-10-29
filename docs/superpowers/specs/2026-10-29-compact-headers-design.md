@@ -1,6 +1,6 @@
 # Compact application and page headers
 
-Status: Design approved in conversation; finalized written specification awaiting user review before implementation planning.
+Status: Written specification approved by the user (“Go”); implementation planning authorized.
 
 Date: 2026-10-29
 
@@ -20,6 +20,9 @@ Nosia bar and page headers throughout the application, not just on chat routes.
   collapsed secondary information and headers scrolling with content instead of
   remaining fixed.
   Rationale: reclaim vertical space during reading throughout the application.
+- User answered “Go” after being asked to review this written specification at
+  commit `2257c51` before implementation planning.
+  Rationale: authorize the implementation plan for the approved global layout amendment.
 
 ## Current context
 
@@ -89,8 +92,8 @@ bottom navigation is outside this top-header request; preserve its clearance.
 ## Boundaries and next gate
 
 This is a new layout amendment to the chat-workspace work. No application changes
-have been made for it. The user approved the design in conversation; review this
-written specification next, then write the implementation plan before coding.
+have been made for it. The user approved this written specification; write and
+review the implementation plan before coding.
 
 The separate background-Stop announcement correction at `8cc53f3` still awaits its
 specification, quality and final-review follow-up. No merge, push, PR or cleanup
