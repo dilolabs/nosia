@@ -741,7 +741,173 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  [ [ 1400, 1000 ], [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
+    [ [ "render", "turbo:render" ], [ "initialize", "lexxy:initialize" ] ].each do |name, event|
+      %w[pause resume].each do |intent|
+        [ false, true ].each do |growth|
+          test "#{name} pending reader #{intent} at #{width}x#{height} with #{growth ? 'growth' : 'stable geometry'}" do
+            visit_reader(width, height)
+            if intent == "resume"
+              pause_reader
+              stream_answer(reader_answer(90))
+              assert_button "Latest message"
+            end
+
+            reader_move_after_lifecycle(event, intent, growth: growth)
+            stream_answer(reader_answer(100)) if growth
+            settle_workspace_layout
+
+            evidence = page.evaluate_script("window.readerLifecycle")
+            puts "Reader lifecycle #{name} #{intent} #{width}x#{height} growth #{growth}: #{evidence.to_json}"
+            if growth
+              assert_operator evidence.fetch("heightAfterUpdate"), :>, evidence.fetch("heightBefore")
+            else
+              assert_equal evidence.fetch("heightBefore"), evidence.fetch("heightAfterUpdate")
+            end
+            assert_equal evidence.fetch("heightBeforeEvent"), evidence.fetch("heightAfterEvent")
+            assert_equal evidence.fetch("clientBeforeEvent"), evidence.fetch("clientAfterEvent")
+            assert_equal intent == "pause" ? "true" : "false", evidence.fetch("followingBeforeInput")
+            assert_equal intent == "pause" ? "false" : "true", evidence.fetch("followingAfterInput")
+            assert_reader_following intent == "resume"
+            if intent == "pause"
+              assert_reader_anchor evidence.fetch("anchor")
+            else
+              assert_equal 80, evidence.fetch("requestedGap")
+              assert evidence.fetch("latestHiddenAfterInput")
+              assert_no_button "Latest message"
+              assert_operator reader_gap, :<=, 1
+            end
+
+            stream_answer(reader_answer(120))
+
+            assert_reader_following intent == "resume"
+            if intent == "pause"
+              assert_reader_anchor evidence.fetch("anchor")
+              assert_button "Latest message"
+            else
+              assert_no_button "Latest message"
+              assert_operator reader_gap, :<=, 1
+            end
+            assert_no_enqueued_jobs only: ChatResponseJob
+          end
+        end
+      end
+    end
+  end
+
+  test "long user message preserves its visible paragraph through desktop narrow reflow" do
+    message = workspace(:messages, :workspace_question)
+    message.update_columns(content: (1..100).map { |index| "User paragraph #{index}: compare the supporting evidence carefully and preserve the reader's place across different screen widths." }.join("\n\n"))
+    visit_reader(1400, 1000)
+    selector = "##{dom_id(message, :messages)} .n-chat-user-body p"
+    assert_selector selector, count: 100, visible: :all
+    page.execute_script(<<~JS, selector)
+      const surface = #{reader_surface}, paragraph = document.querySelectorAll(arguments[0])[19]
+      surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
+      surface.dispatchEvent(new Event('scroll'))
+    JS
+    assert_reader_following false
+    anchor = user_paragraph_anchor(selector)
+
+    set_reader_viewport(375, 812)
+    settle_workspace_layout
+
+    assert_reader_following false
+    assert_user_paragraph_anchor anchor, selector
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_user_paragraph_anchor anchor, selector
+
+    set_reader_viewport(1400, 1000)
+    settle_workspace_layout
+
+    assert_reader_following false
+    assert_user_paragraph_anchor anchor, selector
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "chrome-only message replacement does not advertise new content or move its reader" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    message = workspace(:messages, :workspace_answer)
+    html = ApplicationController.render(partial: "messages/message", locals: { message: message })
+
+    stream_html(%(<turbo-stream action="replace" target="#{dom_id(message, :messages)}"><template>#{html}</template></turbo-stream>))
+    settle_reader_animations
+    settle_workspace_layout
+
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_no_button "Latest message"
+    stream_html(%(<turbo-stream action="update" target="#{dom_id(message, :response_summary)}"><template>Only response metadata changed</template></turbo-stream>))
+    assert_selector "##{dom_id(message, :response_summary)}", text: "Only response metadata changed", visible: :all
+    settle_workspace_layout
+    assert_reader_anchor anchor
+    assert_no_button "Latest message"
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_reader_anchor anchor
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   private
+    def reader_move_after_lifecycle(event, intent, growth:)
+      page.execute_script(<<~JS, { event: event, intent: intent, growth: growth }, dom_id(workspace(:messages, :workspace_answer), :content))
+        const options = arguments[0], contentId = arguments[1], surface = #{reader_surface}
+        const root = document.querySelector('.n-chat-workspace--saved')
+        window.readerLifecycle = { heightBefore: surface.scrollHeight }
+        const move = () => {
+          const evidence = window.readerLifecycle
+          evidence.heightAfterUpdate = surface.scrollHeight
+          evidence.heightBeforeEvent = surface.scrollHeight
+          evidence.clientBeforeEvent = surface.clientHeight
+          const target = options.event === 'turbo:render' ? document : root.querySelector('lexxy-editor')
+          target.dispatchEvent(new CustomEvent(options.event, { bubbles: true }))
+          evidence.heightAfterEvent = surface.scrollHeight
+          evidence.clientAfterEvent = surface.clientHeight
+          evidence.followingBeforeInput = root.dataset.readerFollowing
+          if (options.intent === 'pause') {
+            const paragraph = document.getElementById(contentId).querySelectorAll('p')[19]
+            surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
+            const top = surface.getBoundingClientRect().top
+            const visible = [...document.querySelectorAll('.ai-response-content p')].find(element => element.getBoundingClientRect().bottom > top)
+            evidence.anchor = { text: visible.textContent, offset: visible.getBoundingClientRect().top - top }
+          } else {
+            surface.scrollTop = surface.scrollHeight - surface.clientHeight - 80
+            evidence.requestedGap = surface.scrollHeight - surface.clientHeight - surface.scrollTop
+          }
+          surface.dispatchEvent(new Event('scroll'))
+          evidence.followingAfterInput = root.dataset.readerFollowing
+          evidence.latestHiddenAfterInput = root.querySelector('[data-scroll-target=latest]').hidden
+        }
+        if (options.growth) {
+          const observer = new MutationObserver(() => { observer.disconnect(); move() })
+          observer.observe(document.getElementById(contentId).parentElement, { childList: true })
+        } else {
+          move()
+        }
+      JS
+    end
+
+    def user_paragraph_anchor(selector)
+      page.evaluate_script(<<~JS, selector)
+        (() => {
+          const top = #{reader_surface}.getBoundingClientRect().top
+          const paragraph = [...document.querySelectorAll(arguments[0])].find(element => element.getBoundingClientRect().bottom > top)
+          return { text: paragraph.textContent, offset: paragraph.getBoundingClientRect().top - top }
+        })()
+      JS
+    end
+
+    def assert_user_paragraph_anchor(anchor, selector)
+      settle_workspace_layout
+      current = user_paragraph_anchor(selector)
+      assert_equal anchor.fetch("text"), current.fetch("text"), current.to_json
+      assert_in_delta anchor.fetch("offset"), current.fetch("offset"), 1, current.to_json
+      assert_operator reader_gap, :>, 80
+    end
+
     def set_reader_viewport(width, height)
       page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: height, deviceScaleFactor: 1, mobile: false)
       assert_equal [ width, height ], page.evaluate_script("[innerWidth, innerHeight]")

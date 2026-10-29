@@ -30,11 +30,18 @@ export default class extends Controller {
     this.viewport = this.viewportTarget
     this.main.addEventListener("scroll", this.onScroll)
     this.viewport.addEventListener("scroll", this.onScroll)
-    const changed = this.contentChanged()
-    this.changed ||= changed
-    this.mutations = new MutationObserver(() => this.schedule(this.contentChanged()))
+    this.contentChanged()
+    this.rememberPosition()
+    this.mutations = new MutationObserver(records => {
+      this.contentChanged(this.mutationMessageIds(records))
+      this.rememberPosition()
+      this.schedule()
+    })
     this.mutations.observe(this.viewport, { childList: true, subtree: true, characterData: true })
-    this.resize = new ResizeObserver(() => this.schedule())
+    this.resize = new ResizeObserver(() => {
+      this.rememberPosition()
+      this.schedule()
+    })
     for (const element of [this.main, this.element, this.viewport, this.viewport.firstElementChild]) {
       if (element) this.resize.observe(element)
     }
@@ -49,20 +56,20 @@ export default class extends Controller {
 
   scrolled(event) {
     const surface = this.surface
-    const updateTop = this.updatePosition?.surface === surface ? this.updatePosition.top : this.position?.top
-    // Layout and our own positioning also dispatch scroll, but do not change intent.
-    if (event.target !== surface || (this.frame && this.rendering) || this.position?.surface !== surface || updateTop === surface.scrollTop) return
-    // Native anchoring is already included in updateTop. Reader movement away
-    // from that position in either direction must beat queued reconciliation.
-    const movedDuringGrowth = this.updatedMessages.size > 0 && surface.scrollHeight > this.position.height && surface.scrollTop !== updateTop
-    if (this.position.clientHeight !== surface.clientHeight || (this.position.height !== surface.scrollHeight && !movedDuringGrowth)) {
+    if (event.target !== surface) return
+
+    // Observed DOM/layout changes and our own writes record their resulting
+    // position. A different position in that same geometry belongs to the reader.
+    if (this.position?.surface !== surface || this.position.height !== surface.scrollHeight ||
+        this.position.clientHeight !== surface.clientHeight || this.position.clientWidth !== surface.clientWidth) {
+      this.rememberPosition()
       this.schedule()
       return
     }
+    if (this.position.top === surface.scrollTop) return
 
     this.state.paused = this.gap > 80
     if (!this.state.paused) this.state.pending = false
-    if (movedDuringGrowth) this.changed ||= this.updatedContentBelow()
     this.capture()
     this.reflect()
     this.rememberPosition()
@@ -70,6 +77,14 @@ export default class extends Controller {
 
   get gap() {
     return this.surface.scrollHeight - this.surface.clientHeight - this.surface.scrollTop
+  }
+
+  contentFor(message) {
+    return message?.querySelector(".ai-response-content, .n-chat-user-body")
+  }
+
+  blocksFor(message) {
+    return [...(this.contentFor(message)?.children || [])]
   }
 
   capture(event) {
@@ -80,7 +95,7 @@ export default class extends Controller {
     if (message) {
       // A message can span many screens. Its visible block survives streamed replacements
       // and width changes more accurately than the top of the whole message bubble.
-      const blocks = [...message.querySelectorAll(".ai-response-content > *")]
+      const blocks = this.blocksFor(message)
       const block = blocks.find(element => element.getBoundingClientRect().bottom > top)
       this.state.anchor = {
         id: message.id, block: blocks.indexOf(block),
@@ -94,40 +109,50 @@ export default class extends Controller {
     if (target && this.viewport.contains(target)) this.capture(event)
   }
 
-  contentChanged() {
-    const contents = new Map()
-    const bottom = this.surface.getBoundingClientRect().bottom
-    let changed = false
-    let updated = false
-    for (const message of this.viewport.querySelectorAll(".message-container[id]")) {
-      const content = message.querySelector(".ai-response-content, .n-chat-user-body")
-      if (content) {
-        const text = content.textContent
-        contents.set(message.id, text)
-        if (this.contents && this.contents.get(message.id) !== text) {
-          // Native anchoring can put new content above the viewport before the
-          // reader scrolls back. Keep content changes separate from visibility.
-          this.updatedMessages.add(message.id)
-          updated = true
-          if (content.getBoundingClientRect().bottom > bottom) changed = true
-        }
+  mutationMessageIds(records) {
+    const ids = new Set()
+    for (const record of records) {
+      const target = record.target.nodeType === Node.ELEMENT_NODE ? record.target : record.target.parentElement
+      const message = target?.closest(".message-container[id]")
+      if (message) ids.add(message.id)
+      for (const node of [...record.addedNodes, ...record.removedNodes]) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue
+        if (node.matches(".message-container[id]")) ids.add(node.id)
+        for (const nested of node.querySelectorAll(".message-container[id]")) ids.add(nested.id)
       }
     }
-    this.contents = contents
-    if (updated) this.updatePosition = { surface: this.surface, top: this.surface.scrollTop }
-    return changed
+    return ids
+  }
+
+  contentChanged(ids) {
+    const previous = this.contents
+    this.contents ||= new Map()
+    if (!ids) {
+      ids = new Set(this.contents.keys())
+      for (const message of this.viewport.querySelectorAll(".message-container[id]")) ids.add(message.id)
+    }
+    for (const id of ids) {
+      const message = document.getElementById(id)
+      const content = message && this.viewport.contains(message) ? this.contentFor(message) : null
+      if (content) {
+        const text = content.textContent
+        if (previous && previous.get(id) !== text) this.updatedMessages.add(id)
+        this.contents.set(id, text)
+      } else {
+        this.contents.delete(id)
+      }
+    }
   }
 
   updatedContentBelow() {
     const bottom = this.surface.getBoundingClientRect().bottom
     return [...this.updatedMessages].some(id => {
-      const content = document.getElementById(id)?.querySelector(".ai-response-content, .n-chat-user-body")
+      const content = this.contentFor(document.getElementById(id))
       return content && this.viewport.contains(content) && content.getBoundingClientRect().bottom > bottom
     })
   }
 
-  schedule(changed = false) {
-    this.changed ||= changed
+  schedule() {
     cancelAnimationFrame(this.frame)
     this.frame = requestAnimationFrame(() => {
       this.frame = null
@@ -143,25 +168,22 @@ export default class extends Controller {
       // Judge visibility at the reader's anchor, not native anchoring's temporary
       // position. The Latest HUD can then reflow the surface without moving it.
       this.restoreAnchor()
-      if ((this.changed || this.updatedContentBelow()) && this.gap > 80) this.state.pending = true
+      if (this.updatedContentBelow() && this.gap > 80) this.state.pending = true
       this.reflect()
       this.restoreAnchor()
     } else {
       this.reflect()
       this.surface.scrollTop = this.surface.scrollHeight
     }
-    this.changed = false
     this.updatedMessages.clear()
-    this.updatePosition = null
     this.rememberPosition()
-    this.rendering = false
   }
 
   restoreAnchor() {
     const anchor = this.state.anchor
     const message = anchor && document.getElementById(anchor.id)
     if (message && this.viewport.contains(message)) {
-      const block = message.querySelectorAll(".ai-response-content > *")[anchor.block] || message
+      const block = this.blocksFor(message)[anchor.block] || message
       this.surface.scrollTop += block.getBoundingClientRect().top - this.surface.getBoundingClientRect().top - anchor.offset
     }
   }
@@ -169,7 +191,7 @@ export default class extends Controller {
   rememberPosition() {
     this.position = {
       surface: this.surface, top: this.surface.scrollTop,
-      height: this.surface.scrollHeight, clientHeight: this.surface.clientHeight
+      height: this.surface.scrollHeight, clientHeight: this.surface.clientHeight, clientWidth: this.surface.clientWidth
     }
   }
 
@@ -200,7 +222,12 @@ export default class extends Controller {
   }
 
   afterRender() {
-    this.rendering = true
+    this.rememberPosition()
     this.schedule()
+    // Lexxy commits native focus/caret positioning in a microtask after initialize.
+    // Measure that owned work without blocking reader events before the next RAF.
+    queueMicrotask(() => {
+      if (this.frame && this.element.isConnected) this.rememberPosition()
+    })
   }
 }
