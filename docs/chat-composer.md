@@ -67,3 +67,13 @@ Pass browser files directly to `test`; `test:system TEST=...` does not reliably 
 Scripted geometry, contrast, keyboard, and screenshot checks are not a complete human accessibility audit. The native table-context strip can extend beyond its content box at 375px; the command smoke does not establish viewport bounds for every native floating widget. No native OS-clipboard or live-provider behavior is claimed. Temporary verification scripts, logs, and screenshots belong outside tracked files.
 
 See the approved [design](superpowers/specs/2026-10-19-chat-composer-ui-design.md), historical [implementation plan](superpowers/plans/2026-10-19-chat-composer-ui.md), and [account-selection documentation](chat-account-selection.md) for the preserved behavioral contracts.
+
+## Dedicated chat-page shell
+
+New and saved chat pages use the [focused chat workspace](chat-workspace.md).
+Its unlayered `nosia/chat_workspace.css` import is scoped to chat-page classes;
+the dashboard's shared composer keeps its existing sizing and safeguards.
+The saved Tools trigger delegates to the page-local native `chat-dialog` owner;
+its Add/Remove server operations and background-renderable composer locals are
+unchanged. The workspace guide records current verification limits; the results
+above remain the historical composer verification record.
