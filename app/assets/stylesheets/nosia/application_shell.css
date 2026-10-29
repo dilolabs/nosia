@@ -22,3 +22,10 @@
 @media (max-width: 1023px) {
   .n-application-page, .n-application-page.n-chat-main { padding-block-end: 6rem; }
 }
+
+.n-application-header { flex: none; min-height: 3rem; gap: .5rem; padding: .125rem .75rem; }
+.n-application-header .n-application-home, .n-application-header .n-nav-link { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; padding: .25rem; }
+.n-application-header #language_preference_locale { min-width: 2.75rem; min-height: 2.75rem; padding-block: .25rem; }
+/* Keep corner hit areas and keyboard focus inside the compact bar. */
+.n-application-header :is(.n-application-home, .n-nav-link, #language_preference_locale) { border-radius: .25rem; }
+.n-application-header :is(a, button, select):focus-visible { @apply outline-2 -outline-offset-2 outline-green-700 dark:outline-green-300; }

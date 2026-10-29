@@ -16,6 +16,9 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select "[data-application-scroll]", count: 1
       assert_select "[data-application-scroll] > nav[data-application-header]", count: 1
+      assert_select "nav.n-application-header a.n-application-home[href='#{root_path}'][aria-label]", count: 1 do
+        assert_select "img.h-6[src*='nosia-logo'][alt=''][aria-hidden='true']", count: 1
+      end
       assert_select "[data-application-scroll] main", count: 1
       assert_select "main", count: 1
       assert_select "#theme-toggle", count: 1
