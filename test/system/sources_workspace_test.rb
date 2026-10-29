@@ -591,7 +591,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
             [ "#source-q", "borderColor", 3 ], [ ".n-source-row-actions :focus", "outlineColor", 3 ]
           ])
           save_source_screenshot("focused-row-#{locale}-#{width}-#{height}-#{theme}") if width == 375
-          page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+          page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
           save_source_screenshot("list-#{locale}-#{width}-#{height}-#{theme}")
         end
       end
@@ -630,7 +630,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
                 [ ".n-source-form :focus", "outlineColor", 3 ]
               ])
             end
-            page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             save_source_screenshot("#{type}-#{action}-#{locale}-#{width}-#{theme}")
           end
         end
@@ -744,6 +744,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
 
     def assert_source_layout
       assert_selector "[data-source-workspace] .n-workspace-header h1", count: 1
+      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
       assert_no_text(/translation missing|missing translation/i)
       assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1"), "Source workspace overflows horizontally"
     end

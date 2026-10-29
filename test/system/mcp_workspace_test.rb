@@ -40,6 +40,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
             mcp_theme(theme)
             assert_selector "[data-mcp-workspace] h1", count: 1
             assert_selector "[data-mcp-workspace] > header.n-workspace-header", count: 1
+            find("[data-header-details] > summary").click
+            assert_selector "[data-header-details][open]"
             assert_selector "[data-mcp-workspace] > header nav", count: 1
             assert_no_selector "[data-mcp-workspace] [data-controller~='drawer']", visible: :all
             assert_no_selector "#drawer-right", visible: :all
@@ -51,7 +53,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
             mcp_keyboard_walk
             mcp_contrast("keyboard")
             mcp_hover
-            page.execute_script("document.querySelector('main').scrollTop = 0")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             mcp_wait
             if [ 375, 1440 ].include?(width)
               page.save_screenshot(File.join(@mcp_evidence, "#{screen}-#{locale}-#{width}-#{height}-#{theme}.png"))
@@ -523,7 +525,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
 
           [ false, true ].each do |dark|
             page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
-            page.execute_script("document.querySelector('main').scrollTop = 0")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             assert page.evaluate_script(<<~JS), "Form controls and help rail must fit at #{width}px in #{locale}"
               (() => {
                 const main = document.querySelector('main');
@@ -537,7 +539,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
               })()
             JS
             page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}.png"))
-            page.execute_script("const main = document.querySelector('main'); main.scrollTop = main.scrollHeight")
+            page.execute_script("const surface = document.querySelector('[data-application-scroll]'); surface.scrollTop = surface.scrollHeight")
             assert page.evaluate_script(<<~JS), "The complete Save control must remain reachable after scrolling"
               (() => {
                 const button = document.querySelector('[data-mcp-form] input[type=submit]');

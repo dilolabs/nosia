@@ -50,7 +50,7 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
     assert_selector '[data-mcp-screen="catalog-setup"] form a:focus', text: "Cancel"
     page.send_keys([ :shift, :tab ])
     assert_selector '[data-mcp-screen="catalog-setup"] form input[type="submit"]:focus'
-    page.execute_script("const main = document.querySelector('main'); main.scrollTop = main.scrollHeight")
+    page.execute_script("const surface = document.querySelector('[data-application-scroll]'); surface.scrollTop = surface.scrollHeight")
 
     assert page.evaluate_script(<<~JS), "The complete activation button must be visible and unobscured after scrolling"
       (() => {

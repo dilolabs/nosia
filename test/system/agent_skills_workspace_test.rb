@@ -334,6 +334,9 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
 
   private
     def measure_skills_contrast
+      # Presentation setup only: expose the authored heading copy without
+      # changing the focused validation/action control being measured.
+      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
       samples = page.evaluate_script(<<~JS)
         (()=>{
           const root=document.querySelector('[data-skills-workspace]'),canvas=document.createElement('canvas');canvas.width=canvas.height=1;
@@ -378,6 +381,7 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
 
     def assert_skills_layout
       assert_selector "main h1", count: 1
+      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
       assert_no_text(/translation missing|missing translation/i)
       assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1")
       assert page.evaluate_script("document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1")

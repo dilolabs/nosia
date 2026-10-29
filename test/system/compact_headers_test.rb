@@ -26,32 +26,25 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
   end
 
   %w[dashboard account sources saved_chat].each do |route|
-    test "global and page headers scroll away together on #{route} with synthetic overflow" do
+    test "global and page headers scroll away together on #{route} with labelled overflow" do
       visit({ "dashboard" => user_root_path, "account" => account_path(@second),
         "sources" => sources_path, "saved_chat" => chat_path(@chat) }.fetch(route))
       assert_selector "main h1"
       assert_selector "lexxy-editor[connected]" if route == "saved_chat"
       settle_workspace_layout
-      page.execute_script("(document.querySelector('[data-application-scroll]') || document.querySelector('main')).scrollTop = 0")
+      page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
       settle_workspace_layout
       header_record("#{route}-before", header_geometry, screenshot: true)
 
-      # Geometry fixture only: this is not a real long-page workflow or provider call.
+      header_overflow_fixture(route)
       page.execute_script(<<~JS)
-        const fixture = document.createElement('div')
-        fixture.dataset.headerOverflowFixture = ''
-        fixture.style.height = '2200px'
-        document.querySelector('main').append(fixture)
-      JS
-      settle_workspace_layout
-      page.execute_script(<<~JS)
-        const surface = document.querySelector('[data-application-scroll]') || document.querySelector('main')
+        const surface = document.querySelector('[data-application-scroll]')
         surface.scrollTop = 700
         surface.dispatchEvent(new Event('scroll'))
       JS
       settle_workspace_layout
       geometry = header_geometry
-      header_record("#{route}-synthetic-overflow-scrolled", geometry, screenshot: true)
+      header_record("#{route}-overflow-scrolled", geometry, screenshot: true)
 
       assert_selector "[data-application-scroll]", count: 1
       assert_operator geometry.fetch("surface").fetch("scrollTop"), :>=, 699, geometry.to_json
@@ -92,7 +85,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
   end
 
   test "bar controls retain native language theme and profile navigation" do
-    [ [ 375, 812 ], [ 812, 375 ], [ 1400, 375 ] ].each do |width, height|
+    [ [ 375, 812 ], [ 812, 375 ], [ 1400, 375 ], [ 768, 1024 ], [ 1400, 1000 ] ].each do |width, height|
       header_viewport(width, height)
       %w[en fr].each do |locale|
         visit accounts_path
@@ -251,6 +244,83 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_selector "#chat-usage-summary:focus", visible: :all
     assert_operator page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().bottom"), :<, 0
     assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  %w[en fr].product([ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ], [ false, true ]).each do |locale, (width, height), dark|
+    test "compact headers across eleven routes in #{locale} at #{width}x#{height} in #{dark ? 'dark' : 'light'}" do
+      @second.update_columns(name: "CompteDeRecherche" * 12)
+      header_viewport(width, height)
+      select locale.upcase, from: "language_preference_locale"
+      assert_selector "html[lang='#{locale}']"
+
+      header_pages.each_with_index do |path, index|
+        visit path
+        assert_current_path path
+        assert_selector "html[lang='#{locale}']"
+        assert_selector "main", count: 1
+        assert_selector "main h1", count: 1
+        assert_selector "[data-application-header]", count: 1
+        assert_selector "[data-application-scroll]", count: 1
+        assert_selector "lexxy-editor[connected]" if [ user_root_path, new_chat_path(account_id: @second.id), chat_path(@chat) ].include?(path)
+        header_theme(dark)
+        header_top
+        assert_header_widths
+        assert_no_text(/translation missing|missing translation/i)
+        if page.has_selector?("[data-workspace-scope]", visible: :all, wait: 0)
+          assert_selector "[data-workspace-scope]", visible: true
+          assert_no_selector "details [data-workspace-scope]", visible: :all
+        end
+        header_contrast("main h1")
+        header_contrast("#theme-toggle svg:not(.hidden)", minimum: 3, property: "fill")
+        header_tab_to("#language_preference_locale")
+        header_tab_to("#theme-toggle")
+        header_top
+        header_record("matrix-top-#{index}", header_matrix_geometry, screenshot: true)
+        header_disclosures(index)
+
+        # Only insufficient real overflow receives a labelled geometry fixture.
+        # The saved chat already contains the real eighty-paragraph answer.
+        header_overflow_fixture("matrix-#{index}")
+        before_scroll = header_geometry
+        page.execute_script(<<~JS)
+          const surface = document.querySelector('[data-application-scroll]')
+          surface.scrollTop = 700
+          surface.dispatchEvent(new Event('scroll'))
+        JS
+        header_settle
+        sample = header_matrix_geometry
+        header_record("matrix-scrolled-#{index}", sample, screenshot: true)
+        assert_operator sample.fetch("surface").fetch("scrollTop"), :>=, 699, sample.to_json
+        assert_operator sample.fetch("global").fetch("bottom"), :<=, sample.fetch("surface").fetch("top"), sample.to_json
+        assert_operator sample.fetch("heading").fetch("bottom"), :<=, sample.fetch("surface").fetch("top"), sample.to_json
+        assert_in_delta before_scroll.fetch("heading").fetch("bottom") - sample.fetch("surface").fetch("scrollTop"), sample.fetch("heading").fetch("bottom"), 1, sample.to_json
+        assert_equal 0, sample.fetch("main").fetch("scrollTop"), sample.to_json
+        refute sample.fetch("syntheticOverflow"), sample.to_json if path == chat_path(@chat)
+      end
+      assert_equal 11, header_pages.size
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
+  test "headers allow enlarged text to grow without clipping controls" do
+    header_viewport(375, 812)
+    visit profile_path
+    original = page.evaluate_script("document.documentElement.style.getPropertyValue('font-size')")
+    page.execute_script("document.documentElement.style.fontSize = '200%'")
+    header_top
+    assert_header_widths
+    header_record("enlarged-css-text-before-tab", header_matrix_geometry.merge(
+      "nativeZoomVerified" => false, "textSizeMethod" => "CSS root font-size: 200%"
+    ), screenshot: true)
+    header_tab_to("#language_preference_locale", enlarged: true)
+    header_tab_to("#theme-toggle", enlarged: true)
+    header_top
+    sample = header_matrix_geometry.merge("nativeZoomVerified" => false, "textSizeMethod" => "CSS root font-size: 200%")
+    header_record("enlarged-css-text", sample, screenshot: true)
+    assert_operator sample.fetch("global").fetch("height"), :>, 52, sample.to_json
+    assert_no_enqueued_jobs only: ChatResponseJob
+  ensure
+    page.execute_script("document.documentElement.style.setProperty('font-size', arguments[0])", original) if original
   end
 
   [ [ 375, 812 ], [ 812, 375 ] ].product(%w[keyboard pointer]).each do |(width, height), input|
@@ -435,6 +505,151 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       JS
     end
 
+    def header_overflow_fixture(label)
+      if page.evaluate_script("document.querySelector('[data-application-scroll]').scrollHeight - document.querySelector('[data-application-scroll]').clientHeight < 900")
+        before = header_geometry
+        # Geometry only: an inert sibling of the frame, never a flex-row child
+        # of main that stretches/recenters the new-chat hero.
+        page.execute_script(<<~JS)
+          const fixture = document.createElement('div')
+          fixture.dataset.headerOverflowFixture = ''
+          fixture.inert = true
+          fixture.style.cssText = 'height:2200px;flex:none'
+          document.querySelector('[data-application-scroll] > .n-application-frame').after(fixture)
+        JS
+        header_settle
+        assert_selector "[data-application-scroll] > .n-application-frame + [data-header-overflow-fixture][inert]", count: 1, visible: :all
+        fixture = page.evaluate_script(<<~JS)
+          (() => {
+            const fixture = document.querySelector('[data-header-overflow-fixture]'), style = getComputedStyle(fixture)
+            return { geometry: fixture.getBoundingClientRect().toJSON(), flexShrink: style.flexShrink, inert: fixture.inert,
+              parentId: fixture.parentElement.id, insideMain: !!fixture.closest('main') }
+          })()
+        JS
+        header_record("#{label}-fixture-layout", { before: before, after: header_geometry,
+          fixture: fixture, placement: "inert nonshrinking sibling after application frame, outside main", actualWorkflow: false })
+        assert_equal "0", fixture.fetch("flexShrink")
+        refute fixture.fetch("insideMain")
+      end
+    end
+
+    def header_pages
+      [ user_root_path, accounts_path, account_path(@second), sources_path, token_usage_path,
+        settings_path, profile_path, account_agent_skills_path(@second), account_mcp_servers_path(@second),
+        new_chat_path(account_id: @second.id), chat_path(@chat) ]
+    end
+
+    def assert_header_widths
+      sample = page.evaluate_script(<<~JS)
+        ({ viewport: innerWidth, document: document.documentElement.scrollWidth,
+          application: document.querySelector('[data-application-scroll]').scrollWidth })
+      JS
+      %w[document application].each { |key| assert_operator sample.fetch(key), :<=, sample.fetch("viewport"), sample.to_json }
+    end
+
+    def header_matrix_geometry
+      header_geometry.merge(page.evaluate_script(<<~JS))
+        (() => {
+          const header = document.querySelector('main header, .n-dashboard-heading')
+          const controls = [...document.querySelectorAll('[data-application-header] a, [data-application-header] button, [data-application-header] select, main header a, main header button, main header summary')]
+            .filter(element => element.checkVisibility() && getComputedStyle(element).visibility === 'visible')
+          return { pageHeader: header.getBoundingClientRect().toJSON(),
+            controls: controls.map(element => ({ id: element.id, text: element.textContent.trim(), geometry: element.getBoundingClientRect().toJSON() })) }
+        })()
+      JS
+    end
+
+    def header_disclosures(index)
+      if page.has_selector?("details[data-header-details]", wait: 0)
+        summary = "details[data-header-details] > summary"
+        assert_selector "details[data-header-details]:not([open])"
+        header_tab_to(summary)
+        page.driver.browser.action.send_keys(:enter).perform
+        assert_selector "details[data-header-details][open]"
+        assert_header_widths
+        header_hit(summary)
+        header_record("matrix-details-open-#{index}", header_matrix_geometry, screenshot: true)
+        page.driver.browser.action.send_keys(:space).perform
+        assert_selector "details[data-header-details]:not([open])"
+      elsif page.has_selector?("#chat-usage-summary", wait: 0)
+        header_tab_to("#chat-usage-summary")
+        page.driver.browser.action.send_keys(:enter).perform
+        assert_selector "#chat-usage-details[open]"
+        assert_selector "#chat-usage-details > .n-workspace-help", text: @second.name, exact_text: true
+        assert_header_widths
+        header_hit("#chat-usage-summary")
+        sample = page.evaluate_script(<<~JS)
+          (() => {
+            const preview = document.querySelector('[data-chat-account-label]'), full = document.querySelector('#chat-usage-details > p')
+            const usage = document.querySelector('#chat-usage-details'), actions = document.querySelector('.n-chat-toolbar > .n-workspace-actions')
+            const range = document.createRange(); range.selectNodeContents(full)
+            const rect = full.getBoundingClientRect()
+            return { preview: { geometry: preview.getBoundingClientRect().toJSON(), clientWidth: preview.clientWidth, scrollWidth: preview.scrollWidth,
+                textOverflow: getComputedStyle(preview).textOverflow, whiteSpace: getComputedStyle(preview).whiteSpace },
+              fullAccount: { text: full.textContent, geometry: rect.toJSON(), fits: full.scrollWidth <= full.clientWidth && [...range.getClientRects()].every(line => line.left >= rect.left - 1 && line.right <= rect.right + 1) },
+              ownRow: !actions.contains(usage) && usage.getBoundingClientRect().top >= actions.getBoundingClientRect().bottom }
+          })()
+        JS
+        header_record("matrix-saved-account-usage-#{index}", header_matrix_geometry.merge(sample), screenshot: true)
+        assert_operator sample.fetch("preview").fetch("scrollWidth"), :>, sample.fetch("preview").fetch("clientWidth"), sample.to_json
+        assert_operator sample.fetch("preview").fetch("geometry").fetch("left"), :>=, 0, sample.to_json
+        assert_operator sample.fetch("preview").fetch("geometry").fetch("right"), :<=, page.evaluate_script("innerWidth"), sample.to_json
+        assert_equal "ellipsis", sample.fetch("preview").fetch("textOverflow"), sample.to_json
+        assert_equal "nowrap", sample.fetch("preview").fetch("whiteSpace"), sample.to_json
+        assert sample.fetch("fullAccount").fetch("fits"), sample.to_json
+        assert sample.fetch("ownRow"), sample.to_json
+        page.driver.browser.action.send_keys(:space).perform
+        assert_selector "#chat-usage-details:not([open])"
+      end
+      header_top
+    end
+
+    # Ordinary opaque canvas surfaces only; never infer dialog/backdrop or focus
+    # contrast from text color (or glyph contrast from an outline/border).
+    def header_contrast(selector, minimum: 4.5, property: "color")
+      element = find(selector)
+      page.evaluate_async_script(<<~JS)
+        const done = arguments[arguments.length - 1]
+        Promise.all(document.getAnimations().filter(animation => Number.isFinite(animation.effect.getComputedTiming().endTime))
+          .map(animation => animation.finished.catch(() => {}))).then(done)
+      JS
+      sample = page.evaluate_script(<<~JS, element, property)
+        (() => {
+          const element = arguments[0], property = arguments[1]
+          if (element.closest('dialog')) throw new Error('Native top layer requires separate sampling')
+          const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
+          const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
+          const rgba = color => {
+            if (!CSS.supports('color', color)) throw new Error(`Unparsed header color: ${color}`)
+            context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1)
+            return [...context.getImageData(0, 0, 1, 1).data].map(channel => channel / 255)
+          }
+          const over = (fg, bg) => [...fg.slice(0, 3).map((channel, i) => channel * fg[3] + bg[i] * (1 - fg[3])), 1]
+          const chain = []; for (let node = element; node; node = node.parentElement) chain.unshift(node)
+          const backgrounds = chain.map(node => {
+            const style = getComputedStyle(node)
+            if (style.backgroundImage !== 'none' || Number(style.opacity) !== 1 || style.filter !== 'none' || style.backdropFilter !== 'none' || style.mixBlendMode !== 'normal')
+              throw new Error(`Unmeasured header paint effect on ${node.tagName}`)
+            return style.backgroundColor
+          })
+          if (!backgrounds.some(color => rgba(color)[3] === 1)) throw new Error('No measured opaque backing surface')
+          const background = backgrounds.reduce((bg, color) => over(rgba(color), bg), [1, 1, 1, 1])
+          const style = getComputedStyle(element)
+          if (property === 'fill' && Number(style.fillOpacity) !== 1) throw new Error('Unmeasured SVG fill opacity')
+          const color = style[property], foreground = over(rgba(color), background)
+          const luminance = color => color.slice(0, 3).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
+            .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0)
+          const a = luminance(foreground), b = luminance(background), rect = element.getBoundingClientRect()
+          const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+          return { property, color, foreground, background, backgrounds, geometry: rect.toJSON(),
+            hit: !!hit && (hit === element || element.contains(hit)), ratio: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) }
+        })()
+      JS
+      header_record("header-contrast", { selector: selector, minimum: minimum, measurement: sample })
+      assert sample.fetch("hit"), sample.to_json
+      assert_operator sample.fetch("ratio"), :>=, minimum, sample.to_json
+    end
+
     def header_prepare_paused_chat(direction)
       @second.update_columns(name: "CompteDeRecherche" * 12)
       header_viewport(375, 812)
@@ -541,17 +756,53 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       header_settle
     end
 
-    def header_tab_to(selector)
+    def header_tab_to(selector, enlarged: false)
       160.times do
         page.driver.browser.action.send_keys(:tab).perform
         if page.evaluate_script("document.activeElement.matches(arguments[0])", selector)
           assert_selector "#{selector}:focus"
           header_settle
-          header_hit(selector)
+          enlarged ? header_enlarged_hit(selector) : header_hit(selector)
           return
         end
       end
       flunk "Keyboard traversal did not reach #{selector}"
+    end
+
+    def header_enlarged_hit(selector)
+      header_contrast(selector, minimum: 3, property: "outlineColor")
+      sample = page.evaluate_script(<<~JS, find(selector))
+        (() => {
+          const element = arguments[0], rect = element.getBoundingClientRect(), style = getComputedStyle(element)
+          const corners = [['borderTopLeftRadius', rect.left, rect.top, 1, 1], ['borderTopRightRadius', rect.right, rect.top, -1, 1],
+            ['borderBottomLeftRadius', rect.left, rect.bottom, 1, -1], ['borderBottomRightRadius', rect.right, rect.bottom, -1, -1]]
+          const radii = corners.map(([property, x, y, dx, dy]) => {
+            const parts = style[property].split(' ')
+            if (parts.some(value => !/^\\d+(?:\\.\\d+)?px$/.test(value))) throw new Error('Unmeasured rounded radius')
+            const rx = Math.min(parseFloat(parts[0]), rect.width / 2), ry = Math.min(parseFloat(parts[1] || parts[0]), rect.height / 2)
+            return { property, computed: style[property], rx, ry, point: [x + dx * (rx * (1 - Math.SQRT1_2) + 1), y + dy * (ry * (1 - Math.SQRT1_2) + 1)] }
+          })
+          const points = [[rect.x + rect.width / 2, rect.y + rect.height / 2], [rect.x + rect.width / 2, rect.top + 2],
+            [rect.x + rect.width / 2, rect.bottom - 2], [rect.left + 2, rect.y + rect.height / 2], [rect.right - 2, rect.y + rect.height / 2], ...radii.map(radius => radius.point)]
+          const outset = Math.max(0, parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset))
+          return { geometry: rect.toJSON(), viewport: [innerWidth, innerHeight], radii, points,
+            formula: 'corner inset = computed radius * (1 - sqrt(1/2)) + 1 CSS px inside the painted arc',
+            hits: points.map(([x, y]) => { const hit = document.elementFromPoint(x, y); return !!hit && (hit === element || element.contains(hit)) }),
+            focusVisible: element.matches(':focus-visible'), outlineWidth: parseFloat(style.outlineWidth), outlineStyle: style.outlineStyle,
+            indicatorFits: rect.left - outset >= 0 && rect.right + outset <= innerWidth && rect.top - outset >= 0 && rect.bottom + outset <= innerHeight }
+        })()
+      JS
+      header_record("enlarged-keyboard-control", { selector: selector, measurement: sample })
+      geometry = sample.fetch("geometry")
+      assert_operator geometry.fetch("left"), :>=, 0, sample.to_json
+      assert_operator geometry.fetch("right"), :<=, sample.fetch("viewport").first + 1, sample.to_json
+      assert_operator geometry.fetch("top"), :>=, 0, sample.to_json
+      assert_operator geometry.fetch("bottom"), :<=, sample.fetch("viewport").last + 1, sample.to_json
+      assert sample.fetch("hits").all?, sample.to_json
+      assert sample.fetch("focusVisible"), sample.to_json
+      assert_operator sample.fetch("outlineWidth"), :>=, 2, sample.to_json
+      refute_equal "none", sample.fetch("outlineStyle"), sample.to_json
+      assert sample.fetch("indicatorFits"), sample.to_json
     end
 
     def header_hit(selector)
@@ -618,7 +869,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
             id: element.id, scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight })
           return { global: sample(document.querySelector('[data-application-header]') || document.querySelector('body > nav')),
             heading: sample(document.querySelector('main h1')), main: sample(document.querySelector('main')),
-            surface: sample(document.querySelector('[data-application-scroll]') || document.querySelector('main')),
+            surface: sample(document.querySelector('[data-application-scroll]')),
             syntheticOverflow: !!document.querySelector('[data-header-overflow-fixture]') }
         })()
       JS
@@ -626,8 +877,9 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
 
     def header_record(label, sample, screenshot: false)
       @header_evidence ||= Dir.mktmpdir("compact-headers-", ENV.fetch("EVIDENCE", Dir.tmpdir))
-      context = page.evaluate_script("({ path: location.pathname, locale: document.documentElement.lang, dark: document.documentElement.classList.contains('dark'), viewport: [innerWidth, innerHeight] })")
-      entry = context.merge(label: label, sample: sample)
+      context = page.evaluate_script("({ path: location.pathname, query: location.search, locale: document.documentElement.lang, dark: document.documentElement.classList.contains('dark'), viewport: [innerWidth, innerHeight] })")
+      @header_source_commit ||= IO.popen([ "git", "-C", Rails.root.to_s, "rev-parse", "HEAD" ], &:read).strip
+      entry = context.merge(sourceCommit: @header_source_commit, label: label, sample: sample)
       if screenshot
         entry[:screenshot] = File.join(@header_evidence, "#{label}-#{SecureRandom.hex(4)}.png")
         page.save_screenshot(entry[:screenshot])

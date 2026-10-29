@@ -214,7 +214,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
       surfaces << page.evaluate_script("getComputedStyle(document.querySelector('.n-account-panel')).backgroundColor")
       verify_account_keyboard_actions
       record_account_contrast("375-#{theme}")
-      page.execute_script("document.querySelector('main').scrollTop = 0")
+      page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
       save_account_evidence("375-#{theme}")
       page.execute_script("document.querySelector('.n-account-columns').scrollIntoView({block: 'start'})")
       save_account_evidence("375-#{theme}-content")
@@ -229,7 +229,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     resize_account_viewport(1440, 1000)
     verify_account_keyboard_actions
     record_account_contrast("1440-light")
-    page.execute_script("document.querySelector('main').scrollTop = 0")
+    page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
     save_account_evidence("1440-light")
     page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "prefers-reduced-motion", value: "reduce" } ])
     assert page.evaluate_script("matchMedia('(prefers-reduced-motion: reduce)').matches")
@@ -414,6 +414,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     end
 
     def record_account_contrast(name)
+      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
       tab_to_account_action(URI(find(".n-workspace-header .n-workspace-primary", match: :first)[:href]).request_uri)
       rows = page.evaluate_script(<<~JS)
         (() => {

@@ -100,6 +100,8 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             visit path
             set_workspace_theme(theme)
             assert_selector "main h1", count: 1
+            find("[data-header-details] > summary").click
+            assert_selector "[data-header-details][open]"
             assert_selector "main .n-workspace-header nav", count: 1
             assert_no_text(/translation missing|missing translation/i)
             assert_workspace_layout
@@ -112,7 +114,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             end
             if name == :account
               assert_selector "h1", text: @second.name
-              assert_selector ".n-workspace-header .n-workspace-help", text: @second.uid
+              assert_selector ".n-workspace-header [data-workspace-scope]", text: @second.uid
             end
             root = name == :settings ? "[data-settings-workspace]" : ".n-accounts > .n-workspace-header"
             selectors = all("#{root} a").map { |link| "#{root} a[href='#{URI(link[:href]).request_uri}']" }
@@ -134,7 +136,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             else
               measure_workspace_contrast(root)
             end
-            page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             image = "#{name}-#{locale}-#{width}-#{height}-#{theme}.png"
             page.save_screenshot(File.join(@evidence_dir, image)) if [ 375, 1440 ].include?(width)
             states << { page: name, locale: locale, viewport: [ width, height ], theme: theme }

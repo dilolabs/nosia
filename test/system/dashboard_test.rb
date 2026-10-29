@@ -105,7 +105,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
           verify_dashboard_contrast
         end
         surfaces << page.evaluate_script("getComputedStyle(document.querySelector('.n-dashboard-panel')).backgroundColor")
-        page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+        page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
         save_dashboard_screenshot("#{width}-#{height}-#{theme}")
         if width == 375
           page.execute_script("document.querySelector('.n-dashboard-upload').scrollIntoView({block:'center',behavior:'instant'})")
@@ -142,7 +142,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
       end
       assert_selector ".n-dashboard-shortcut:focus"
       verify_dashboard_contrast
-      page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+      page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
       save_dashboard_screenshot("375-no-account-#{theme}")
     end
   end
@@ -197,6 +197,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
     end
 
     def verify_dashboard_contrast
+      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
       rows = page.evaluate_script(<<~JS)
         (()=>{
           const canvas=document.createElement('canvas');canvas.width=canvas.height=1;

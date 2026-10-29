@@ -27,10 +27,14 @@ class ProfileManagementTest < ApplicationSystemTestCase
         [ 1400, 375 ].each do |width|
           page.current_window.resize_to(width, 900)
           visit accounts_path
+          find("[data-header-details] > summary").click
+          assert_selector "[data-header-details][open]"
           assert_selector ".n-workspace-header nav .n-workspace-trail"
           accounts_styles = breadcrumb_styles
 
           visit profile_path
+          find("[data-header-details] > summary").click
+          assert_selector "[data-header-details][open]"
           assert_selector ".n-profile .n-workspace-header nav .n-workspace-trail"
           assert_equal accounts_styles, breadcrumb_styles, "Breadcrumb styles differ for #{locale}, #{theme}, #{width}px"
           assert page.evaluate_script(<<~JS), "Profile breadcrumb must fit within main"
@@ -364,6 +368,7 @@ class ProfileManagementTest < ApplicationSystemTestCase
     end
 
     def assert_profile_contrast
+      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
       settle_transitions
       ratios = page.evaluate_script(<<~JS)
         (() => {

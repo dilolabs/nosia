@@ -578,6 +578,65 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     end
   end
 
+  test "paused paragraph survives compact header height changes and viewport reflow" do
+    @second.update_columns(name: "CompteDeRecherche" * 12)
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    page.execute_script(<<~JS)
+      window.compactReaderFocus = document.activeElement
+      window.compactReaderFocusBefore = { id: document.activeElement.id, tag: document.activeElement.tagName,
+        html: document.activeElement.outerHTML.slice(0, 500) }
+    JS
+
+    [ true, false ].each do |open|
+      # Geometry stimulus only: native disclosure keyboard behavior is covered
+      # independently, without scrolling this paused paragraph to its summary.
+      page.execute_script("document.querySelector('#chat-usage-details').open = arguments[0]", open)
+      settle_workspace_layout
+      assert_reader_following false
+      assert_reader_anchor anchor
+      assert_no_button "Latest message"
+      assert page.evaluate_script("window.compactReaderFocus === document.activeElement")
+    end
+    [ [ 375, 812 ], [ 1400, 1000 ] ].each do |width, height|
+      set_reader_viewport(width, height)
+      settle_workspace_layout
+      assert_equal "application-scroll", page.evaluate_script("#{reader_surface}.id")
+      assert_reader_following false
+      assert_reader_anchor anchor
+      assert_no_button "Latest message"
+      assert page.evaluate_script("window.compactReaderFocus === document.activeElement")
+    end
+
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert page.evaluate_script("window.compactReaderFocus === document.activeElement")
+    # Persist the same content without broadcasting a second update; refresh
+    # must morph the real GET rather than revert to the shorter fixture answer.
+    workspace(:messages, :workspace_answer).update_columns(content: reader_answer(100))
+    refresh_workspace
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_button "Latest message"
+    chat_measurement("kind" => "compact-header-reader-refresh-focus", "measurement" => page.evaluate_script(<<~JS))
+      ({ before: window.compactReaderFocusBefore, after: { id: document.activeElement.id, tag: document.activeElement.tagName,
+        html: document.activeElement.outerHTML.slice(0, 500) }, sameObject: window.compactReaderFocus === document.activeElement,
+        originalConnected: window.compactReaderFocus.isConnected })
+    JS
+    # Turbo may replace the editor node while retaining its exact focused ID.
+    # The unchanged-node identity assertions above still apply to geometry/streams.
+    focused_id = page.evaluate_script("window.compactReaderFocusBefore.id")
+    assert_equal "message_content-content", focused_id
+    assert_selector "##{focused_id}:focus"
+    chat_measurement("kind" => "compact-header-reader", "anchor" => anchor, "currentAnchor" => reader_anchor,
+      "usageProgrammaticGeometryOnly" => true, "nativeZoomVerified" => false)
+    chat_screenshot "compact-header-reader-reflow"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "paused reader keeps its paragraph through surface changes and editor reflow" do
     visit_reader(1400, 1000)
     pause_reader
