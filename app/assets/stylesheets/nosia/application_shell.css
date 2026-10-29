@@ -1,0 +1,24 @@
+.n-application-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  scroll-padding-block: .5rem 6rem;
+}
+
+.n-application-frame { display: flex; flex: 1 0 auto; min-width: 0; width: 100%; }
+.n-application-frame > [data-controller~="reveal"] { position: sticky; top: 0; align-self: flex-start; flex-shrink: 0; max-height: 100dvh; }
+.n-application-page { flex: 1 1 0%; min-width: 0; padding: .75rem; overflow: visible; }
+/* Preserve editor width when formatting makes a short chat overflow. */
+.n-application-scroll:has(.n-chat-workspace) { overflow-anchor: none; scrollbar-gutter: stable; }
+.n-application-page.n-chat-main { display: flex; overflow: visible; padding: .75rem; }
+.n-application-page .n-chat-workspace { flex: 1; height: auto; min-height: 0; }
+.n-application-page .n-chat-workspace--new { overflow: visible; scrollbar-gutter: auto; }
+.n-application-page .n-chat-transcript { flex: none; overflow: visible; }
+
+@media (max-width: 1023px) {
+  .n-application-page, .n-application-page.n-chat-main { padding-block-end: 6rem; }
+}

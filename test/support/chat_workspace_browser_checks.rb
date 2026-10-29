@@ -123,7 +123,7 @@ module ChatWorkspaceBrowserChecks
           outlineWidth: parseFloat(style.outlineWidth), outlineStyle: style.outlineStyle, borderWidth: parseFloat(style.borderTopWidth),
           geometry: rect.toJSON(), hit: !!hit && (hit === element || element.contains(hit)),
           indicatorFits: rect.left - outset >= 0 && rect.right + outset <= innerWidth && rect.top - outset >= 0 && rect.bottom + outset <= innerHeight,
-          surfaces: ['.n-chat-main', '.n-chat-workspace', '.n-composer-notice'].map(selector => { const node = document.querySelector(selector); return { selector, geometry: node.getBoundingClientRect().toJSON(), top: node.scrollTop, height: node.scrollHeight, client: node.clientHeight, padding: getComputedStyle(node).paddingBottom } }) }
+          surfaces: ['[data-application-scroll]', '.n-chat-main', '.n-chat-workspace', '.n-composer-notice'].map(selector => { const node = document.querySelector(selector); return { selector, geometry: node.getBoundingClientRect().toJSON(), top: node.scrollTop, height: node.scrollHeight, client: node.clientHeight, padding: getComputedStyle(node).paddingBottom } }) }
         })()
       JS
       chat_measurement(sample.merge("kind" => border ? "border" : outline ? "outline" : "text", "selector" => selector, "threshold" => minimum))
@@ -145,8 +145,7 @@ module ChatWorkspaceBrowserChecks
         arguments[0].scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
         // Explicitly deliver this measurement's intentional scroll before any
         // already queued reader reconciliation. Do not change reader state.
-        document.querySelector('.n-chat-main').dispatchEvent(new Event('scroll'))
-        document.querySelector('.n-chat-transcript')?.dispatchEvent(new Event('scroll'))
+        document.querySelector('[data-application-scroll]').dispatchEvent(new Event('scroll'))
       JS
       settle_workspace_layout
     end

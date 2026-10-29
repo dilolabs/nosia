@@ -30,44 +30,46 @@
   </head>
 
   <body data-controller="dark-mode" class="h-dvh flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-900 dark:text-white">
-    <%= render "flash" unless agent_skills_workspace_page? || mcp_workspace_page? || settings_tool_workspace_page? %>
-    <%= render "application/header" %>
-    <div class="min-h-0 flex-1 w-full flex">
-      <%= render "menu" %>
-      <main class="<%= chat_workspace_page? ? 'n-chat-main' : 'overflow-y-auto w-full pl-6 pt-6 pr-2 lg:p-6' %>">
-        <% unless agent_skills_workspace_page? || account_workspace_header? || mcp_workspace_page? || settings_tool_workspace_page? || chat_workspace_page? %>
-          <% if account_page? && @account %>
-            <%= render "accounts/breadcrumb", account: @account, title: content_for(:account_tool_title) %>
-          <% else %>
-            <%= render "navbar" %>
+    <div id="application-scroll" class="n-application-scroll" data-application-scroll>
+      <%= render "flash" unless agent_skills_workspace_page? || mcp_workspace_page? || settings_tool_workspace_page? %>
+      <%= render "application/header" %>
+      <div class="n-application-frame">
+        <%= render "menu" %>
+        <main class="n-application-page <%= 'n-chat-main' if chat_workspace_page? %>">
+          <% unless agent_skills_workspace_page? || account_workspace_header? || mcp_workspace_page? || settings_tool_workspace_page? || chat_workspace_page? %>
+            <% if account_page? && @account %>
+              <%= render "accounts/breadcrumb", account: @account, title: content_for(:account_tool_title) %>
+            <% else %>
+              <%= render "navbar" %>
+            <% end %>
           <% end %>
-        <% end %>
-        <%= yield %>
-      </main>
-      <% if Current.user && !account_page? && !dashboard_page? && !sources_workspace_page? && !token_usage_workspace_page? && !agent_skills_workspace_page? && !settings_workspace_page? && !mcp_workspace_page? && !settings_tool_workspace_page? && !chat_workspace_page? %>
-        <div id="accordion-collapse" data-accordion="collapse" class="hidden -ml-5 lg:flex items-center">
-          <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions" aria-label="<%= t("nosia.nav.view_menu") %>" class="rounded-l-lg n-main-focus">
+          <%= yield %>
+        </main>
+        <% if Current.user && !account_page? && !dashboard_page? && !sources_workspace_page? && !token_usage_workspace_page? && !agent_skills_workspace_page? && !settings_workspace_page? && !mcp_workspace_page? && !settings_tool_workspace_page? && !chat_workspace_page? %>
+          <div id="accordion-collapse" data-accordion="collapse" class="hidden -ml-5 lg:flex items-center">
+            <button id="accordion-right-button" type="button" data-accordion-target="#accordion-right-actions" aria-expanded="true" aria-controls="accordion-right-actions" aria-label="<%= t("nosia.nav.view_menu") %>" class="rounded-l-lg n-main-focus">
+              <div class="n-btn-drawer">
+                <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
+              </div>
+            </button>
+            <aside id="accordion-right-actions" aria-labelledby="accordion-right-button" class="w-72 h-full lg:border-l n-main-border">
+              <%= render "sidebar" %>
+            </aside>
+          </div>
+          <button type="button" data-drawer-target="drawer-right" data-drawer-show="drawer-right" data-drawer-placement="right" aria-controls="drawer-right" aria-label="<%= t("nosia.nav.view_menu") %>" class="lg:hidden n-main-focus">
             <div class="n-btn-drawer">
-              <%= inline_svg_tag "svg/chevron-right.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
+              <%= inline_svg_tag "svg/chevron-left.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
             </div>
           </button>
-          <aside id="accordion-right-actions" aria-labelledby="accordion-right-button" class="w-72 h-full lg:border-l n-main-border">
+          <aside id="drawer-right" class="fixed top-0 right-0 z-60 h-screen py-4 transition-transform translate-x-full border-l n-main-border n-main-bg w-80" tabindex="-1" aria-labelledby="drawer-right-label">
+            <button type="button" data-drawer-hide="drawer-right" aria-controls="drawer-right" class="absolute top-2.5 end-2.5 n-main-hover n-main-focus rounded-lg" >
+              <%= inline_svg "svg/close.svg", aria_hidden: true, class: "w-6 h-6" %>
+              <span class="sr-only"><%= t("nosia.nav.close_menu") %></span>
+            </button>
             <%= render "sidebar" %>
           </aside>
-        </div>
-        <button type="button" data-drawer-target="drawer-right" data-drawer-show="drawer-right" data-drawer-placement="right" aria-controls="drawer-right" aria-label="<%= t("nosia.nav.view_menu") %>" class="lg:hidden n-main-focus">
-          <div class="n-btn-drawer">
-            <%= inline_svg_tag "svg/chevron-left.svg", aria_hidden: true, class: "shrink-0 h-5 w-5" %>
-          </div>
-        </button>
-        <aside id="drawer-right" class="fixed top-0 right-0 z-60 h-screen py-4 transition-transform translate-x-full border-l n-main-border n-main-bg w-80" tabindex="-1" aria-labelledby="drawer-right-label">
-          <button type="button" data-drawer-hide="drawer-right" aria-controls="drawer-right" class="absolute top-2.5 end-2.5 n-main-hover n-main-focus rounded-lg" >
-            <%= inline_svg "svg/close.svg", aria_hidden: true, class: "w-6 h-6" %>
-            <span class="sr-only"><%= t("nosia.nav.close_menu") %></span>
-          </button>
-          <%= render "sidebar" %>
-        </aside>
-      <% end %>
+        <% end %>
+      </div>
     </div>
   </body>
 </html>

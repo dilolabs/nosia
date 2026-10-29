@@ -21,15 +21,15 @@ export default class extends Controller {
   }
 
   get surface() {
-    return matchMedia("(max-width: 639px), (max-height: 700px)").matches ? this.main : this.viewport
+    return this.main
   }
 
   observeSurface() {
     this.stopObserving()
-    this.main = this.element.closest("main")
+    // The application scrolls; the transcript remains the observed reading content.
+    this.main = this.element.closest("[data-application-scroll]")
     this.viewport = this.viewportTarget
     this.main.addEventListener("scroll", this.onScroll)
-    this.viewport.addEventListener("scroll", this.onScroll)
     this.contentChanged()
     this.rememberPosition()
     this.mutations = new MutationObserver(records => {
@@ -49,7 +49,6 @@ export default class extends Controller {
 
   stopObserving() {
     this.main?.removeEventListener("scroll", this.onScroll)
-    this.viewport?.removeEventListener("scroll", this.onScroll)
     this.mutations?.disconnect()
     this.resize?.disconnect()
   }
@@ -162,7 +161,7 @@ export default class extends Controller {
 
   reconcile() {
     if (!this.element.isConnected || !this.hasViewportTarget) return
-    if (this.viewport !== this.viewportTarget) this.observeSurface()
+    if (this.viewport !== this.viewportTarget || this.main !== this.element.closest("[data-application-scroll]")) this.observeSurface()
 
     if (this.state.paused) {
       // Judge visibility at the reader's anchor, not native anchoring's temporary

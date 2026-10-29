@@ -286,7 +286,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
         %w[top left width height].each do |dimension|
           assert_in_delta before.fetch("actions").fetch(dimension), state.fetch("actions").fetch(dimension), 1, sample.to_json
         end
-        %w[main root].each do |name|
+        %w[surface main root].each do |name|
           assert_equal before.fetch(name).fetch("scrollTop"), state.fetch(name).fetch("scrollTop"), sample.to_json
         end
       end
@@ -452,6 +452,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       visit_reader(width, height)
       page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))
         const surface = #{reader_surface}
+        // The production shell disables anchoring. Opt this fixture back in to
+        // retain coverage of native dock anchoring, previously supplied by main.
+        if (matchMedia('(max-width: 639px), (max-height: 700px)').matches) surface.style.overflowAnchor = 'auto'
         surface.scrollTop = surface.scrollHeight - surface.clientHeight - 160
         // The reachable landscape dock can be taller than the viewport. Pause
         // on real answer content, not on an offscreen paragraph above the dock.
@@ -503,6 +506,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
         page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content), reading)
           const surface = #{reader_surface}, content = document.getElementById(arguments[0])
           const reading = arguments[1]
+          // Exercise the old native-anchored race on the new actual surface;
+          // the application's default overflow-anchor remains disabled.
+          if (matchMedia('(max-width: 639px), (max-height: 700px)').matches) surface.style.overflowAnchor = 'auto'
           const root = document.querySelector('.n-chat-workspace--saved')
           window.readerGrowthRace = { heightBefore: surface.scrollHeight, topBefore: surface.scrollTop }
           const observer = new MutationObserver(() => {
@@ -581,7 +587,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     settle_workspace_layout
     assert_reader_following false
     assert_reader_anchor anchor
-    assert_equal "n-chat-main", page.evaluate_script("#{reader_surface}.className")
+    assert_equal "application-scroll", page.evaluate_script("#{reader_surface}.id")
     page.execute_script("document.querySelector('lexxy-editor').value = '<div>Long draft</div>'.repeat(35)")
     settle_workspace_layout
     assert_reader_anchor anchor
@@ -593,7 +599,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     settle_workspace_layout
     assert_reader_following false
     assert_reader_anchor anchor
-    assert_equal "n-chat-transcript", page.evaluate_script("#{reader_surface}.className")
+    assert_equal "application-scroll", page.evaluate_script("#{reader_surface}.id")
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
@@ -681,6 +687,37 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       end
       assert_equal [], page.evaluate_script("window.readerSmoothCalls")
     end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "a replaced application surface preserves the same reader root and paused paragraph" do
+    visit_reader(1400, 1000)
+    assert_selector "[data-application-scroll]"
+    pause_reader
+    anchor = reader_anchor
+    page.execute_script(<<~JS)
+      const oldSurface = document.querySelector('[data-application-scroll]'), top = oldSurface.scrollTop
+      window.previousApplicationSurface = oldSurface
+      window.preservedReaderRoot = document.querySelector('.n-chat-workspace--saved')
+      const surface = oldSurface.cloneNode(false)
+      oldSurface.replaceWith(surface)
+      surface.append(...oldSurface.childNodes)
+      surface.scrollTop = top
+    JS
+    settle_reader_animations
+
+    puts "Reader ancestor retarget: #{page.evaluate_script("({ state: window.preservedReaderRoot.chatReaderState, top: document.querySelector('[data-application-scroll]').scrollTop, oldConnected: window.previousApplicationSurface.isConnected, animations: window.preservedReaderRoot.getAnimations({ subtree: true }).length })").to_json}"
+
+    assert page.evaluate_script("window.preservedReaderRoot === document.querySelector('.n-chat-workspace--saved')")
+    assert_not page.evaluate_script("window.previousApplicationSurface.isConnected")
+    assert_reader_following false
+    assert_reader_anchor anchor
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_reader_anchor anchor
+    click_button "Latest message"
+    assert_reader_following true
+    assert_operator reader_gap, :<=, 80
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
@@ -1745,12 +1782,13 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       visit chat_url(@chat)
       assert_selector "lexxy-editor[connected]"
       settle_reader_animations
+      assert_equal "none", page.evaluate_script("getComputedStyle(#{reader_surface}).overflowAnchor")
       assert_reader_following true
       assert_operator reader_gap, :<=, 80
     end
 
     def reader_surface
-      "(matchMedia('(max-width: 639px), (max-height: 700px)').matches ? document.querySelector('main.n-chat-main') : document.querySelector('.n-chat-transcript'))"
+      "document.querySelector('[data-application-scroll]')"
     end
 
     def settle_reader_animations
@@ -1789,6 +1827,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     def assert_reader_following(following)
       assert_selector ".n-chat-workspace[data-reader-following=#{following}]"
       settle_workspace_layout
+      assert_equal [ 0, 0 ], page.evaluate_script("[document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop]")
     end
 
     def reader_gap
@@ -1854,7 +1893,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       page.evaluate_script(<<~JS)
         (() => Object.fromEntries(Object.entries({
           toolbar: 'lexxy-toolbar', editor: 'lexxy-editor', content: '.lexxy-editor__content',
-          actions: '.n-composer-actions', center: '.n-chat-start', main: '.n-chat-main', root: '.n-chat-workspace',
+          actions: '.n-composer-actions', center: '.n-chat-start', surface: '[data-application-scroll]', main: '.n-chat-main', root: '.n-chat-workspace',
           form: '.n-chat-composer', eyebrow: '.n-chat-eyebrow', title: '.n-chat-start h1', help: '.n-chat-start > .n-workspace-help',
           meta: '.n-composer-meta', notice: '.n-composer-notice'
         }).map(([name, selector]) => {

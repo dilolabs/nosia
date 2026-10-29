@@ -38,6 +38,8 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
       find("#theme-toggle").click if page.evaluate_script("document.documentElement.classList.contains('dark')") != (theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script("const done=arguments[0]; requestAnimationFrame(()=>requestAnimationFrame(done));")
+      page.execute_script("const surface = document.querySelector('[data-application-scroll]'); surface.scrollTop = surface.scrollHeight; surface.dispatchEvent(new Event('scroll'))")
+      page.driver.browser.execute_async_script("const done=arguments[0]; requestAnimationFrame(()=>requestAnimationFrame(done));")
 
       geometry = composer_geometry
       File.write(File.join(@layout_evidence, "#{theme}-geometry.json"), JSON.pretty_generate(geometry))
@@ -45,7 +47,9 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
       puts "Chat layout evidence: #{@layout_evidence}; #{geometry.to_json}"
 
       assert_equal [ 768, 1024 ], geometry.fetch("viewport")
-      refute geometry.fetch("flowMode"), "Tablet must retain the transcript-scroll layout"
+      assert_equal "application-scroll", geometry.fetch("surface").fetch("id")
+      assert_equal 0, geometry.fetch("main").fetch("scrollTop")
+      assert_equal 0, geometry.fetch("transcriptScrollTop")
       assert_equal "fixed", geometry.fetch("nav").fetch("position")
       assert geometry.fetch("nav").fetch("visible"), geometry.to_json
       geometry.fetch("composer").each do |sample|
@@ -64,6 +68,7 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
       page.evaluate_script(<<~JS, @window_viewport)
         (() => {
           const main = document.querySelector('.n-chat-main'), mainBounds = main.getBoundingClientRect();
+          const surface = document.querySelector('[data-application-scroll]');
           const nav = document.querySelector('.n-nav-bottom').closest('.fixed');
           const navBounds = nav.getBoundingClientRect(), navStyle = getComputedStyle(nav);
           const composer = ['.n-composer-meta', '.n-composer-notice'].map(selector => {
@@ -82,6 +87,9 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
           return {viewport: [innerWidth, innerHeight], windowResizeViewport: arguments[0],
             dark: document.documentElement.classList.contains('dark'),
             flowMode: matchMedia('(max-width: 639px), (max-height: 700px)').matches,
+            surface: {id: surface.id, top: surface.scrollTop, bounds: surface.getBoundingClientRect().toJSON(),
+              scrollHeight: surface.scrollHeight, clientHeight: surface.clientHeight},
+            transcriptScrollTop: document.querySelector('.n-chat-transcript').scrollTop,
             main: {bounds: mainBounds.toJSON(), paddingBottom: getComputedStyle(main).paddingBottom,
               overflowY: getComputedStyle(main).overflowY, scrollTop: main.scrollTop},
             nav: {bounds: navBounds.toJSON(), position: navStyle.position,
