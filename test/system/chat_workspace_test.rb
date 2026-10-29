@@ -828,6 +828,40 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "reader animation settling includes a pending Turbo message replacement" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    message = workspace(:messages, :workspace_answer)
+    html = ApplicationController.render(partial: "messages/message", locals: { message: message })
+    page.execute_script(<<~JS, dom_id(message, :messages))
+      window.pendingReaderMessage = document.getElementById(arguments[0])
+      document.addEventListener('turbo:before-stream-render', event => {
+        const render = event.detail.render
+        event.detail.render = async stream => {
+          await new Promise(resolve => {
+            window.releaseReaderRender = resolve
+            document.querySelector('.n-chat-workspace').dataset.readerRenderPending = 'true'
+          })
+          await render(stream)
+        }
+      }, { once: true })
+    JS
+    stream_html(%(<turbo-stream action="replace" target="#{dom_id(message, :messages)}"><template>#{html}</template></turbo-stream>))
+    assert_selector ".n-chat-workspace[data-reader-render-pending=true]"
+    assert page.evaluate_script("window.pendingReaderMessage.isConnected")
+    page.execute_script("requestAnimationFrame(() => requestAnimationFrame(window.releaseReaderRender))")
+
+    settle_reader_animations
+
+    assert_not page.evaluate_script("window.pendingReaderMessage.isConnected"), "Settling must include the pending replacement, not just animations on the old DOM"
+    assert_equal 0, page.evaluate_script("document.querySelector('.n-chat-transcript').getAnimations({ subtree: true }).length")
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_no_button "Latest message"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "chrome-only message replacement does not advertise new content or move its reader" do
     visit_reader(1400, 1000)
     pause_reader
@@ -1144,6 +1178,28 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "application disclosure restoration falls back from an ID-less source link to its own summary" do
+    answer = workspace(:messages, :workspace_answer)
+    width = Chunk.columns_hash.fetch("embedding").limit
+    chunk = insert_picker_chunk(@second, texts(:picker_second_text), "Saved local evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+    answer.update_columns(similar_chunk_ids: [ chunk.id.to_s ])
+    visit chat_url(@chat)
+    find("##{dom_id(answer, :sources_summary)}").click
+    page.execute_script(<<~JS, dom_id(answer, :search_content))
+      window.sourceFocusLink = document.getElementById(arguments[0]).querySelector('a')
+      window.sourceFocusLink.focus()
+    JS
+    assert_equal "", page.evaluate_script("window.sourceFocusLink.id")
+    assert page.evaluate_script("window.sourceFocusLink === document.activeElement")
+
+    deliver_answer_update(answer, :en)
+
+    assert_not page.evaluate_script("window.sourceFocusLink.isConnected"), "The actual answer-body update must replace the focused link"
+    assert_selector "##{dom_id(answer, :sources)}[open]"
+    assert_selector "##{dom_id(answer, :sources_summary)}:focus"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   %w[outside removed].each do |destination|
     test "application disclosure restoration respects #{destination} intentional focus during an async update" do
       answer = workspace(:messages, :workspace_answer)
@@ -1323,9 +1379,23 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     def settle_reader_animations
       page.evaluate_async_script(<<~JS)
         const done = arguments[arguments.length - 1]
-        Promise.all(document.querySelector('.n-chat-transcript').getAnimations({ subtree: true })
-          .filter(animation => animation.effect.getTiming().iterations !== Infinity)
-          .map(animation => animation.finished.catch(() => {}))).then(done)
+        // Turbo inserts replacements after its next repaint; the old DOM may have no animations.
+        new Promise(resolve => {
+          const observer = new MutationObserver(check)
+          function check() {
+            if ((window.readerReplacementTargets || []).every(target => !target.isConnected)) {
+              observer.disconnect()
+              window.readerReplacementTargets = []
+              resolve()
+            }
+          }
+          observer.observe(document, { childList: true, subtree: true })
+          check()
+        })
+          .then(() => Promise.all(document.querySelector('.n-chat-transcript').getAnimations({ subtree: true })
+            .filter(animation => animation.effect.getTiming().iterations !== Infinity)
+            .map(animation => animation.finished.catch(() => {}))))
+          .then(() => requestAnimationFrame(() => requestAnimationFrame(done)))
       JS
     end
 
@@ -1382,7 +1452,21 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     end
 
     def stream_html(html)
-      page.execute_script("Turbo.renderStreamMessage(arguments[0])", html)
+      page.execute_script(<<~JS, html)
+        window.readerReplacementTargets ||= []
+        const remember = event => {
+          const stream = event.target
+          if (stream.action === 'replace' && stream.getAttribute('method') !== 'morph') {
+            window.readerReplacementTargets.push(...stream.targetElements)
+          }
+        }
+        document.addEventListener('turbo:before-stream-render', remember, true)
+        try {
+          Turbo.renderStreamMessage(arguments[0])
+        } finally {
+          document.removeEventListener('turbo:before-stream-render', remember, true)
+        }
+      JS
     end
 
     def settle_workspace_layout
