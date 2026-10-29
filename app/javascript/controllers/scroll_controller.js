@@ -7,6 +7,7 @@ export default class extends Controller {
     this.state = this.element.chatReaderState ||= { paused: false, anchor: null, pending: false }
     this.onScroll = this.scrolled.bind(this)
     this.submissions = new Map()
+    this.updatedMessages = new Set()
     this.observeSurface()
     this.schedule()
   }
@@ -48,15 +49,20 @@ export default class extends Controller {
 
   scrolled(event) {
     const surface = this.surface
+    const updateTop = this.updatePosition?.surface === surface ? this.updatePosition.top : this.position?.top
     // Layout and our own positioning also dispatch scroll, but do not change intent.
-    if (event.target !== surface || (this.frame && this.rendering) || this.position?.surface !== surface || this.position.top === surface.scrollTop) return
-    if (this.position.height !== surface.scrollHeight || this.position.clientHeight !== surface.clientHeight) {
+    if (event.target !== surface || (this.frame && this.rendering) || this.position?.surface !== surface || updateTop === surface.scrollTop) return
+    // Content growing below the reader can anchor the browser downward, but an
+    // upward move is reader intent and must beat the queued follow reconciliation.
+    const scrolledBackDuringGrowth = this.updatedMessages.size > 0 && surface.scrollHeight > this.position.height && surface.scrollTop < updateTop
+    if (this.position.clientHeight !== surface.clientHeight || (this.position.height !== surface.scrollHeight && !scrolledBackDuringGrowth)) {
       this.schedule()
       return
     }
 
     this.state.paused = this.gap > 80
     if (!this.state.paused) this.state.pending = false
+    if (scrolledBackDuringGrowth) this.changed ||= this.updatedContentBelow()
     this.capture()
     this.reflect()
     this.rememberPosition()
@@ -92,16 +98,32 @@ export default class extends Controller {
     const contents = new Map()
     const bottom = this.surface.getBoundingClientRect().bottom
     let changed = false
+    let updated = false
     for (const message of this.viewport.querySelectorAll(".message-container[id]")) {
       const content = message.querySelector(".ai-response-content, .n-chat-user-body")
       if (content) {
         const text = content.textContent
         contents.set(message.id, text)
-        if (this.contents && this.contents.get(message.id) !== text && content.getBoundingClientRect().bottom > bottom) changed = true
+        if (this.contents && this.contents.get(message.id) !== text) {
+          // Native anchoring can put new content above the viewport before the
+          // reader scrolls back. Keep content changes separate from visibility.
+          this.updatedMessages.add(message.id)
+          updated = true
+          if (content.getBoundingClientRect().bottom > bottom) changed = true
+        }
       }
     }
     this.contents = contents
+    if (updated) this.updatePosition = { surface: this.surface, top: this.surface.scrollTop }
     return changed
+  }
+
+  updatedContentBelow() {
+    const bottom = this.surface.getBoundingClientRect().bottom
+    return [...this.updatedMessages].some(id => {
+      const content = document.getElementById(id)?.querySelector(".ai-response-content, .n-chat-user-body")
+      return content && this.viewport.contains(content) && content.getBoundingClientRect().bottom > bottom
+    })
   }
 
   schedule(changed = false) {
@@ -118,21 +140,30 @@ export default class extends Controller {
     if (this.viewport !== this.viewportTarget) this.observeSurface()
 
     if (this.state.paused) {
-      if (this.changed && this.gap > 80) this.state.pending = true
+      // Judge visibility at the reader's anchor, not native anchoring's temporary
+      // position. The Latest HUD can then reflow the surface without moving it.
+      this.restoreAnchor()
+      if ((this.changed || this.updatedContentBelow()) && this.gap > 80) this.state.pending = true
       this.reflect()
-      const anchor = this.state.anchor
-      const message = anchor && document.getElementById(anchor.id)
-      if (message && this.viewport.contains(message)) {
-        const block = message.querySelectorAll(".ai-response-content > *")[anchor.block] || message
-        this.surface.scrollTop += block.getBoundingClientRect().top - this.surface.getBoundingClientRect().top - anchor.offset
-      }
+      this.restoreAnchor()
     } else {
       this.reflect()
       this.surface.scrollTop = this.surface.scrollHeight
     }
     this.changed = false
+    this.updatedMessages.clear()
+    this.updatePosition = null
     this.rememberPosition()
     this.rendering = false
+  }
+
+  restoreAnchor() {
+    const anchor = this.state.anchor
+    const message = anchor && document.getElementById(anchor.id)
+    if (message && this.viewport.contains(message)) {
+      const block = message.querySelectorAll(".ai-response-content > *")[anchor.block] || message
+      this.surface.scrollTop += block.getBoundingClientRect().top - this.surface.getBoundingClientRect().top - anchor.offset
+    }
   }
 
   rememberPosition() {

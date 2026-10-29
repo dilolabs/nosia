@@ -384,6 +384,81 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       assert page.evaluate_script("window.readerFocus === document.activeElement")
       assert_no_enqueued_jobs only: ChatResponseJob
     end
+
+    readings = %w[earlier recent]
+    readings << "previous" if width <= 639 || height <= 700
+    readings.each do |reading|
+      test "reader scroll wins after actual stream height growth at #{width}x#{height} while reading #{reading}" do
+        visit_reader(width, height)
+        page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content), reading)
+          const surface = #{reader_surface}, content = document.getElementById(arguments[0])
+          const reading = arguments[1]
+          const root = document.querySelector('.n-chat-workspace--saved')
+          window.readerGrowthRace = { heightBefore: surface.scrollHeight, topBefore: surface.scrollTop }
+          const observer = new MutationObserver(() => {
+            observer.disconnect()
+            // Mutation observers run before the reader's queued reconciliation RAF.
+            const evidence = window.readerGrowthRace
+            evidence.heightAfter = surface.scrollHeight
+            evidence.topBeforeInput = surface.scrollTop
+            evidence.contentBottomBeforeInput = document.getElementById(content.id).getBoundingClientRect().bottom
+            evidence.surfaceBottom = surface.getBoundingClientRect().bottom
+            evidence.followingBeforeInput = root.dataset.readerFollowing
+            if (reading === 'earlier') {
+              const paragraph = document.getElementById(content.id).querySelectorAll('p')[19]
+              surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
+            } else if (reading === 'recent') {
+              surface.scrollTop -= 160
+            } else {
+              surface.scrollTop = evidence.topBefore
+            }
+            evidence.topAfterInput = surface.scrollTop
+            evidence.contentBottomAfterInput = document.getElementById(content.id).getBoundingClientRect().bottom
+            const top = surface.getBoundingClientRect().top
+            const paragraphs = [...document.querySelectorAll('.n-chat-transcript .ai-response-content p')]
+            const visible = paragraphs.find(element => element.getBoundingClientRect().bottom > top)
+            evidence.anchor = { text: visible.textContent, offset: visible.getBoundingClientRect().top - top }
+            surface.dispatchEvent(new Event('scroll'))
+            evidence.followingAfterInput = root.dataset.readerFollowing
+          })
+          observer.observe(content.parentElement, { childList: true })
+        JS
+
+        stream_answer(reader_answer(100))
+
+        evidence = page.evaluate_script("window.readerGrowthRace")
+        puts "Reader growth race #{width}x#{height} #{reading}: #{evidence.to_json}"
+        assert_operator evidence.fetch("heightAfter"), :>, evidence.fetch("heightBefore")
+        assert_operator evidence.fetch("topAfterInput"), :<, evidence.fetch("topBeforeInput")
+        if reading == "previous"
+          # Returning to the old numerical scrollTop is still an upward move
+          # after native anchoring, not an unchanged reader position.
+          assert_equal evidence.fetch("topBefore"), evidence.fetch("topAfterInput")
+        elsif reading == "recent" && (width <= 639 || height <= 700)
+          # The wheel-sized upward move is smaller than native downward anchoring.
+          assert_operator evidence.fetch("topAfterInput"), :>, evidence.fetch("topBefore")
+        else
+          assert_operator evidence.fetch("topAfterInput"), :<, evidence.fetch("topBefore")
+        end
+        assert_equal "true", evidence.fetch("followingBeforeInput")
+        assert_equal "false", evidence.fetch("followingAfterInput")
+        assert_reader_following false
+        assert_reader_anchor evidence.fetch("anchor")
+        if evidence.fetch("contentBottomAfterInput") > evidence.fetch("surfaceBottom")
+          assert_button "Latest message"
+        else
+          assert_no_button "Latest message"
+        end
+
+        stream_answer(reader_answer(120))
+
+        assert_reader_following false
+        assert_reader_anchor evidence.fetch("anchor")
+        assert_operator page.evaluate_script("document.getElementById(arguments[0]).getBoundingClientRect().bottom - #{reader_surface}.getBoundingClientRect().bottom", dom_id(workspace(:messages, :workspace_answer), :content)), :>, 0
+        assert_button "Latest message"
+        assert_no_enqueued_jobs only: ChatResponseJob
+      end
+    end
   end
 
   test "paused reader keeps its paragraph through surface changes and editor reflow" do
