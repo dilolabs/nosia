@@ -176,6 +176,15 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
     assert_select current, "h2", text: "Three findings", count: 0
   end
 
+  test "actual role-based creation payload retains its future update target" do
+    [ workspace(:messages, :workspace_question), workspace(:messages, :workspace_answer) ].each do |message|
+      streams = capture_turbo_stream_broadcasts([ @chat, :messages, :en ]) { message.broadcast_created }
+      append = streams.find { |stream| stream["action"] == "append" && stream["target"] == dom_id(@chat, :messages) }
+      assert append, "Expected the actual role-based message creation broadcast"
+      assert_select append.at_css("template"), "##{dom_id(message, :messages)}.message-container", count: 1
+    end
+  end
+
   %i[en fr].each do |locale|
     test "actual #{locale} totals replacement stays inside the stable Usage disclosure" do
       sign_in_picker_user
@@ -185,16 +194,22 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
       Current.reset
 
       streams = capture_turbo_stream_broadcasts([ @chat, :token_totals, locale ]) do
-        TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :embedding, input_tokens: 1, output_tokens: 0)
+        TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :completion, input_tokens: 2, output_tokens: 3)
       end
       replacement = streams.find { |stream| stream["target"] == dom_id(@chat, :token_totals) }
       assert replacement
       assert_equal "replace", replacement["action"]
+      payload = replacement.at_css("template")
+      assert_select payload, "##{dom_id(@chat, :token_totals)}", count: 1
+      assert_select payload, "details, summary", count: 0
+      assert_select payload, "[data-chat-total-input]", text: "127"
+      assert_select payload, "[data-chat-total-output]", text: "27"
       current.at_css("##{dom_id(@chat, :token_totals)}").replace(replacement.at_css("template").inner_html)
 
       assert_select current, "#chat-usage-details > summary#chat-usage-summary", count: 1, text: I18n.t("nosia.chat_workspace.usage_details", locale: locale)
       assert_select current, "#chat-usage-details > ##{dom_id(@chat, :token_totals)}", count: 1
-      assert_select current, "#chat-usage-details [data-chat-total-input]", text: "126"
+      assert_select current, "#chat-usage-details [data-chat-total-input]", text: "127"
+      assert_select current, "#chat-usage-details [data-chat-total-output]", text: "27"
       assert_select current, "#chat-usage-details caption", text: I18n.t("nosia.usage.per_kind", locale: locale)
     end
 

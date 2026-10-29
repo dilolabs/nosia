@@ -1,11 +1,13 @@
 require "application_system_test_case"
 require "turbo/broadcastable/test_helper"
 require_relative "../support/chat_workspace_fixtures"
+require_relative "../support/chat_workspace_browser_checks"
 
 class ChatWorkspaceSystemTest < ApplicationSystemTestCase
   include ChatWorkspaceFixtures
   include ActionView::RecordIdentifier
   include Turbo::Broadcastable::TestHelper
+  include ChatWorkspaceBrowserChecks
 
   setup do
     @original_size = page.current_window.size
@@ -448,7 +450,15 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
     test "native anchoring without reader movement stays paused during growth at #{width}x#{height}" do
       visit_reader(width, height)
-      page.execute_script("const surface = #{reader_surface}; surface.scrollTop = surface.scrollHeight - surface.clientHeight - 160; surface.dispatchEvent(new Event('scroll'))")
+      page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))
+        const surface = #{reader_surface}
+        surface.scrollTop = surface.scrollHeight - surface.clientHeight - 160
+        // The reachable landscape dock can be taller than the viewport. Pause
+        // on real answer content, not on an offscreen paragraph above the dock.
+        const paragraph = document.getElementById(arguments[0]).querySelector('p:last-child')
+        surface.scrollTop -= Math.max(0, surface.getBoundingClientRect().top + 24 - paragraph.getBoundingClientRect().top)
+        surface.dispatchEvent(new Event('scroll'))
+      JS
       assert_reader_following false
       anchor = reader_anchor
       page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))
@@ -507,8 +517,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
             if (reading === 'earlier') {
               const paragraph = document.getElementById(content.id).querySelectorAll('p')[19]
               surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
-            } else if (reading === 'recent') {
-              surface.scrollTop -= 160
+             } else if (reading === 'recent') {
+              const paragraph = document.getElementById(content.id).querySelector('p:last-child')
+              surface.scrollTop -= Math.max(160, surface.getBoundingClientRect().top + 24 - paragraph.getBoundingClientRect().top)
             } else {
               surface.scrollTop = evidence.topBefore
             }
@@ -946,6 +957,10 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       assert_workspace_status I18n.t("nosia.chat.phases.preparing.title", locale: locale)
       assert page.evaluate_script("window.workspaceStatus === document.querySelector('[data-chat-feedback-target=status]')")
       assert_equal [], page.evaluate_script("window.workspaceAnnouncements")
+      # Replay each captured server payload once; do not also consume its cable
+      # delivery while deliberately stepping through intermediate DOM states.
+      page.execute_script("document.querySelectorAll('turbo-cable-stream-source').forEach(source => source.remove())")
+      assert_no_selector "turbo-cable-stream-source", visible: :all
 
       2.times do
         streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.broadcast_thinking_phase("searching") }
@@ -954,15 +969,27 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       end
       assert_equal [ I18n.t("nosia.chat.phases.searching.title", locale: locale) ], page.evaluate_script("window.workspaceAnnouncements")
 
-      answer = @chat.messages.create!(role: :assistant, content: "", done: false)
-      html = I18n.with_locale(locale) { ApplicationController.render(partial: "messages/message", locals: { message: answer }) }
-      stream_html(%(<turbo-stream action="remove" target="thinking_animation"></turbo-stream><turbo-stream action="append" target="#{dom_id(@chat, :messages)}"><template>#{html}</template></turbo-stream>))
+      answer = nil
+      created = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) do
+        answer = @chat.messages.create!(role: :assistant, content: "", done: false)
+      end
+      assert created.any? { |stream| stream["action"] == "append" && stream["target"] == dom_id(@chat, :messages) }
+      File.write(File.join(chat_evidence_directory, "created-#{locale}.html"), created.map(&:to_html).join)
+      stream_html(created.map(&:to_html).join)
+      assert_selector "##{dom_id(answer, :messages)}", count: 1
+      assert_selector "##{dom_id(answer, :content)}", count: 1
       assert_workspace_status I18n.t("nosia.chat.phases.generating.title", locale: locale)
       3.times do |index|
-        html = ApplicationController.render(partial: "messages/streaming_content", locals: { message: answer, content_html: "<p>Actual delta #{index}</p>" })
-        stream_html(%(<turbo-stream action="replace" target="#{dom_id(answer, :content)}"><template>#{html}</template></turbo-stream>))
-        assert_selector "##{dom_id(answer, :content)}", text: "Actual delta #{index}"
+        streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { answer.broadcast_streamed_content("## Actual delta #{index}\n\n**Formatted evidence**") }
+        stream_html(streams.find { |stream| stream["target"] == dom_id(answer, :content) }.to_html)
+        assert_selector "##{dom_id(answer, :content)} h2", text: "Actual delta #{index}"
+        assert_selector "##{dom_id(answer, :content)} strong", text: "Formatted evidence"
       end
+      answer.update_columns(content: "## Final answer\n\n**Formatted evidence** remains readable.", done: true)
+      deliver_answer_update(answer, locale)
+      assert_selector "##{dom_id(answer, :content)} h2", text: "Final answer"
+      assert_selector "##{dom_id(answer, :messages)}", count: 1
+      assert_selector "##{dom_id(answer, :content)}", count: 1
       assert_equal %w[searching generating].map { |phase| I18n.t("nosia.chat.phases.#{phase}.title", locale: locale) }, page.evaluate_script("window.workspaceAnnouncements")
       assert_no_selector ".ai-response-content[aria-live]", visible: :all
 
@@ -1261,6 +1288,188 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
     assert_button "Send", disabled: false, enable_aria_label: true
     assert_workspace_status "Response complete."
+  end
+
+  %i[en fr].each do |locale|
+    test "responsive visual keyboard matrix in #{locale}" do
+      @second.update!(name: "CompteDeRecherche" * 12)
+      answer = workspace(:messages, :workspace_answer)
+      answer.update_columns(content: answer.content + "\n\n```ruby\n" + "long_code_identifier_" * 30 + "\n```")
+      set_workspace_language(locale)
+      counts = [ Chat.count, Message.count ]
+      [ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ].each do |width, height|
+        [ false, true ].each do |dark|
+          { new: new_chat_url(account_id: @second.id), saved: chat_url(@chat) }.each do |entry, url|
+            state = "#{locale}-#{entry}-#{dark ? 'dark' : 'light'}-#{width}x#{height}"
+            chat_viewport(width, height)
+            visit url
+            assert_selector "html[lang=#{locale}]"
+            assert_selector "lexxy-editor[connected]"
+            chat_theme(dark)
+            assert_chat_bounds
+            chat_contrast "h1.n-chat-title"
+            chat_keyboard_focus "button[aria-controls=chat-history]", reverse: true
+            chat_reachable "button[aria-controls=chat-history]"
+            chat_contrast "button[aria-controls=chat-history]", minimum: 3, outline: true
+            chat_screenshot "#{state}-header" if width <= 639 || height <= 700
+            page.driver.browser.action.send_keys(:enter).perform
+            assert_native_dialog "chat-history"
+            close = find("#chat-history button", text: I18n.t("nosia.chat_workspace.close", locale: locale), exact_text: true)
+            chat_reachable "#chat-history button[data-action='chat-dialog#close']"
+            assert_equal I18n.t("nosia.chat_workspace.close", locale: locale), close.text
+            close.click
+            assert_no_selector "#chat-history[open]", visible: :all
+            assert_selector "button[aria-controls=chat-history]:focus"
+            chat_keyboard_focus ".n-composer-send"
+            chat_reachable ".n-composer-send"
+            chat_contrast ".n-composer-send", minimum: 3, outline: true
+            assert_chat_bounds
+            chat_screenshot state
+          rescue Minitest::Assertion, StandardError
+            chat_screenshot "FAILED-#{state}"
+            raise
+          end
+        end
+      end
+      assert_equal counts, [ Chat.count, Message.count ]
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
+  [ false, true ].each do |dark|
+    test "responsive stateful evidence details and retry in #{dark ? 'dark' : 'light'} theme" do
+      @second.update!(name: "CompteDeRecherche" * 12)
+      answer = workspace(:messages, :workspace_answer)
+      vector = [ 1.0 ] + Array.new(Chunk.columns_hash.fetch("embedding").limit - 1, 0.0)
+      chunk = insert_picker_chunk(@second, texts(:picker_second_text), "Local supporting evidence", vector)
+      columns = (1..24).map { |index| "Column #{index}" }
+      table = [ columns.join(" | "), Array.new(24, "---").join(" | "), columns.map { |column| "Wide evidence #{column}" }.join(" | ") ].join("\n")
+      answer.update_columns(similar_chunk_ids: [ chunk.id.to_s ], content: "<think>Evidence was compared carefully.</think>\n\n## Three findings\n\nReadable supporting answer.\n\n#{table}\n\n```ruby\n#{'long_code_identifier_' * 30}\n```")
+      page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "prefers-reduced-motion", value: "reduce" } ])
+      chat_viewport(375, 812)
+      visit chat_url(@chat)
+      assert_selector "lexxy-editor[connected]"
+      chat_theme(dark)
+      assert page.evaluate_script("matchMedia('(prefers-reduced-motion: reduce)').matches")
+      assert_chat_bounds
+      [ ".n-chat-user-body p", ".n-chat-assistant-name", ".ai-response-content h2", ".n-composer-meta #chat-account-help", ".n-composer-hints", ".n-composer-notice" ].each { |selector| chat_contrast selector }
+      assert_selector ".ai-response-content .table-wrapper table"
+      overflow = page.evaluate_script(<<~JS)
+        (() => {
+        const wrapper = document.querySelector('.ai-response-content .table-wrapper')
+        const before = document.documentElement.scrollWidth
+        wrapper.scrollLeft = 120
+        return { left: wrapper.scrollLeft, before, after: document.documentElement.scrollWidth, viewport: innerWidth, overflow: getComputedStyle(wrapper).overflowX }
+        })()
+      JS
+      chat_measurement(overflow.merge("kind" => "wide-table-local-scroll"))
+      assert_operator overflow.fetch("left"), :>, 0, overflow.to_json
+      assert_equal overflow.fetch("before"), overflow.fetch("after")
+      assert_operator overflow.fetch("after"), :<=, overflow.fetch("viewport")
+
+      [ "sources_summary", "response_summary" ].each do |prefix|
+        selector = "##{dom_id(answer, prefix)}"
+        chat_keyboard_focus selector
+        chat_contrast selector, minimum: 3, outline: true
+        page.driver.browser.action.send_keys(:enter).perform
+      end
+      chat_contrast ".n-chat-source p.font-medium"
+      chat_contrast "##{dom_id(answer, :response_details)} .n-workspace-help:not([data-estimate-note])"
+      chat_contrast "##{dom_id(answer, :response_details)} .n-chat-values > div:first-child dd"
+      chat_keyboard_focus "#chat-usage-summary", reverse: true
+      chat_contrast "#chat-usage-summary", minimum: 3, outline: true
+      page.driver.browser.action.send_keys(:enter).perform
+      chat_contrast "[data-chat-total-input]"
+      chat_contrast "[data-chat-total-output]"
+      chat_contrast ".n-chat-user-body", minimum: 3, border: true
+      chat_contrast ".n-chat-assistant-body", minimum: 3, border: true
+      chat_contrast ".n-chat-source", minimum: 3, border: true
+      chat_reachable "##{dom_id(answer, :sources_summary)}"
+      chat_screenshot "details-#{dark ? 'dark' : 'light'}-375x812"
+
+      chat_viewport(812, 375)
+      chat_keyboard_focus "button[aria-controls=chat-history]", reverse: true
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_native_dialog "chat-history"
+      chat_dialog_sample "chat-history"
+      chat_reachable "#chat-history button[data-action='chat-dialog#close']"
+      chat_screenshot "history-#{dark ? 'dark' : 'light'}-812x375"
+      within("#chat-history") { click_button "Close" }
+      chat_keyboard_focus ".n-composer-tools-trigger"
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_native_dialog "mcp-selector-modal"
+      chat_dialog_sample "mcp-selector-modal"
+      chat_reachable "#mcp-selector-modal button[aria-label=Close]"
+      chat_screenshot "tools-#{dark ? 'dark' : 'light'}-812x375"
+      counts = [ Chat.count, Message.count ]
+      within("#mcp-selector-modal") do
+        click_button "Add", exact: true
+        assert_button "Remove", exact: true
+        assert_equal [ mcp_servers(:picker_second_tool).id ], @chat.chat_mcp_sessions.pluck(:mcp_server_id)
+        click_button "Remove", exact: true
+        assert_button "Add", exact: true
+        assert_empty @chat.chat_mcp_sessions.reload
+      end
+      assert_equal counts, [ Chat.count, Message.count ]
+      assert_no_enqueued_jobs only: ChatResponseJob
+      within("#mcp-selector-modal") { find("button[aria-label=Close]").click }
+      find("##{dom_id(answer, :reasoning_summary)}").click
+      chat_reachable "##{dom_id(answer, :reasoning_summary)}"
+      chat_screenshot "reasoning-#{dark ? 'dark' : 'light'}-812x375"
+
+      answer.update_columns(done: false)
+      @chat.start_generation!
+      visit chat_url(@chat)
+      chat_theme(dark)
+      assert_button "Stop generating", enable_aria_label: true
+      assert_selector "#thinking_animation .n-chat-phase-title", text: "Preparing"
+      chat_scroll_to find("#thinking_animation .n-chat-phase-title")
+      chat_screenshot "generation-phase-#{dark ? 'dark' : 'light'}-812x375"
+      chat_reachable ".n-composer-stop"
+      chat_screenshot "generation-pending-#{dark ? 'dark' : 'light'}-812x375"
+      partial = "## Partial answer\n\n**Retained partial evidence**"
+      answer.update_columns(content: partial)
+      streams = capture_turbo_stream_broadcasts([ @chat, :messages, :en ]) { answer.broadcast_streamed_content(partial) }
+      stream_html(streams.find { |stream| stream["target"] == dom_id(answer, :content) }.to_html)
+      assert_selector "##{dom_id(answer, :content)} strong", text: "Retained partial evidence", visible: :all
+      counts = [ Chat.count, Message.count ]
+      click_button "Stop generating", enable_aria_label: true
+      assert_button "Send", disabled: false, enable_aria_label: true
+      assert_selector "##{dom_id(answer, :content)} strong", text: "Retained partial evidence", visible: :all
+      assert_equal partial, answer.reload.content
+      refute_predicate answer, :done?
+      assert_equal counts, [ Chat.count, Message.count ]
+      assert_no_enqueued_jobs only: ChatResponseJob
+
+      answer.content = "## Response unavailable\n\nPlease retry this question."
+      answer.metadata = answer.metadata.merge("original_question" => "Retry this exact original question")
+      html = with_singleton_replacement(answer, :error?, -> { true }) do
+        with_singleton_replacement(answer, :retryable?, -> { true }) do
+          ApplicationController.render(partial: "messages/body", locals: { message: answer })
+        end
+      end
+      stream_html(%(<turbo-stream action="update" target="#{dom_id(answer, :messages)}"><template>#{html}</template></turbo-stream>))
+      assert_selector "[role=alert][data-chat-error=true]", text: "Response unavailable"
+      assert_no_selector "details form", visible: :all
+      [ [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
+        chat_viewport(width, height)
+        chat_contrast "[role=alert] h2"
+        chat_reachable "[role=alert] form button"
+        chat_screenshot "error-#{dark ? 'dark' : 'light'}-#{width}x#{height}"
+      end
+      counts = [ Chat.count, Message.count ]
+      assert_enqueued_jobs 1, only: ChatResponseJob do
+        click_button "Retry"
+        assert_selector "form[data-chat-followup][data-generation-busy=true] lexxy-editor[disabled]"
+      end
+      assert_equal "Retry this exact original question", @chat.messages.user.order(:created_at).last.content.strip
+      assert_equal [ counts.first, counts.last + 1 ], [ Chat.count, Message.count ]
+      ids = page.evaluate_script("[...document.querySelectorAll('[id]')].map(node => node.id)")
+      assert_equal ids.uniq, ids
+    rescue Minitest::Assertion, StandardError
+      chat_screenshot "FAILED-stateful-#{dark ? 'dark' : 'light'}"
+      raise
+    end
   end
 
   private

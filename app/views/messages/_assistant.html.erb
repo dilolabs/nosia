@@ -1,40 +1,45 @@
-<p class="n-chat-assistant-name"><%= t("nosia.chat.assistant") %></p>
-<%= tag.div class: "n-chat-assistant-body", role: ("alert" if message.error?), data: { chat_error: message.error? } do %>
-  <%= tag.div id: dom_id(message, :content), class: "prose prose-sm dark:prose-invert max-w-none ai-response-content", data: { controller: "table-wrapper" } do %>
-    <%= render "messages/content", message: message %>
-  <% end %>
+<%# RubyLLM creation broadcasts render role partials directly; body updates do not. %>
+<% if local_assigns[:body_only] %>
+  <p class="n-chat-assistant-name"><%= t("nosia.chat.assistant") %></p>
+  <%= tag.div class: "n-chat-assistant-body", role: ("alert" if message.error?), data: { chat_error: message.error? } do %>
+    <%= tag.div id: dom_id(message, :content), class: "prose prose-sm dark:prose-invert max-w-none ai-response-content", data: { controller: "table-wrapper" } do %>
+      <%= render "messages/content", message: message %>
+    <% end %>
 
-  <% if message.retryable? %>
-    <%= button_to t("nosia.chat_workspace.retry"),
-      chat_messages_path(message.chat),
-      params: { message: { content: message.metadata['original_question'] } },
-      method: :post,
-      form: { data: { turbo_frame: "_top" } },
-      class: "n-workspace-button n-workspace-primary" %>
-  <% end %>
+    <% if message.retryable? %>
+      <%= button_to t("nosia.chat_workspace.retry"),
+        chat_messages_path(message.chat),
+        params: { message: { content: message.metadata['original_question'] } },
+        method: :post,
+        form: { data: { turbo_frame: "_top" } },
+        class: "n-workspace-button n-workspace-primary" %>
+    <% end %>
 
-  <% if message.similar_chunks.any? %>
-    <details id="<%= dom_id(message, :sources) %>" data-chat-detail class="n-chat-details">
-      <summary id="<%= dom_id(message, :sources_summary) %>">
-        <% source_count = message.similar_chunks.count %>
-        <%= t("nosia.chat.sources", count: source_count, formatted_count: number_with_delimiter(source_count)) %>
-      </summary>
-      <%= tag.div id: dom_id(message, :search_content) do %>
-        <%= render "messages/search_content", message: message %>
-      <% end %>
-    </details>
-  <% end %>
+    <% if message.similar_chunks.any? %>
+      <details id="<%= dom_id(message, :sources) %>" data-chat-detail class="n-chat-details">
+        <summary id="<%= dom_id(message, :sources_summary) %>">
+          <% source_count = message.similar_chunks.count %>
+          <%= t("nosia.chat.sources", count: source_count, formatted_count: number_with_delimiter(source_count)) %>
+        </summary>
+        <%= tag.div id: dom_id(message, :search_content) do %>
+          <%= render "messages/search_content", message: message %>
+        <% end %>
+      </details>
+    <% end %>
 
-  <% if message.reasoning_content.present? %>
-    <details id="<%= dom_id(message, :reasoning_details) %>" data-chat-detail class="n-chat-details">
-      <summary id="<%= dom_id(message, :reasoning_summary) %>"><%= t("nosia.chat.reasoning") %></summary>
-      <%= tag.div id: dom_id(message, :reasoning_content) do %>
-        <%= render "messages/reasoning_content", message: message %>
-      <% end %>
-    </details>
-  <% end %>
+    <% if message.reasoning_content.present? %>
+      <details id="<%= dom_id(message, :reasoning_details) %>" data-chat-detail class="n-chat-details">
+        <summary id="<%= dom_id(message, :reasoning_summary) %>"><%= t("nosia.chat.reasoning") %></summary>
+        <%= tag.div id: dom_id(message, :reasoning_content) do %>
+          <%= render "messages/reasoning_content", message: message %>
+        <% end %>
+      </details>
+    <% end %>
 
-  <% if message.done? && (message.tokens.input || message.tokens.output) %>
-    <%= render "messages/token_footer", message: message %>
+    <% if message.done? && (message.tokens.input || message.tokens.output) %>
+      <%= render "messages/token_footer", message: message %>
+    <% end %>
   <% end %>
+<% else %>
+  <%= render "messages/message", message: message %>
 <% end %>

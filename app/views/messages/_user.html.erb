@@ -1,1 +1,6 @@
-<div class="n-chat-user-body"><%== sanitize message.content_without_context %></div>
+<%# RubyLLM creation broadcasts render role partials directly; body updates do not. %>
+<% if local_assigns[:body_only] %>
+  <div class="n-chat-user-body"><%== sanitize message.content_without_context %></div>
+<% else %>
+  <%= render "messages/message", message: message %>
+<% end %>
