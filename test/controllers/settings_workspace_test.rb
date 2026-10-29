@@ -36,17 +36,18 @@ class SettingsWorkspaceTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "Settings and MCP omit unrelated drawers while other pages retain them and New chat stays accessible" do
+  test "Settings and MCP keep navigation while tools retain drawers and chat uses native History" do
     get settings_path
     assert_select "#accordion-right-actions, #drawer-right, [data-drawer-target]", count: 0
     assert_select "[data-settings-workspace] .hidden.lg\\:block a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
     assert_select ".lg\\:hidden a[href='#{new_chat_path}']", minimum: 1
 
-    [ new_chat_path ].each do |path|
-      get path
-      assert_response :success
-      assert_select "#accordion-right-actions, #drawer-right", count: 2
-    end
+    get new_chat_path
+    assert_response :success
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select "dialog#chat-history:not([open])", count: 1
+    assert_select "button[aria-controls='chat-history'][data-action='chat-dialog#open']",
+      text: I18n.t("nosia.chat_workspace.history", locale: css_select("html").first["lang"]), count: 1
 
     get system_prompts_path
     assert_response :success

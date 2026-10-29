@@ -40,4 +40,29 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
     assert_select "#language_preference_locale", count: 1
     assert_select "#dropdownUser", count: 0
   end
+
+  test "page heading discloses secondary description and breadcrumb" do
+    get profile_path
+
+    assert_response :success
+    assert_select ".n-workspace-header h1", count: 1
+    assert_select ".n-workspace-header details[data-header-details]:not([open])", count: 1 do
+      assert_select "summary", text: I18n.t("nosia.layout.details"), count: 1
+      assert_select ".n-workspace-help", text: I18n.t("nosia.profile.introduction"), count: 1
+      assert_select "nav[aria-label='#{I18n.t('nosia.workspace.breadcrumb')}'] .n-workspace-trail", count: 1
+    end
+  end
+
+  test "saved chat toolbar keeps its heading account actions and existing usage target" do
+    get chat_path(@chat)
+
+    assert_response :success
+    assert_select ".n-chat-toolbar h1.n-chat-title", count: 1
+    assert_select ".n-chat-toolbar [data-chat-account-label]", text: @second.name, count: 1
+    assert_select ".n-chat-toolbar button[aria-controls='chat-history']", text: I18n.t("nosia.chat_workspace.history"), count: 1
+    assert_select ".n-chat-toolbar a[href='#{new_chat_path}']", text: I18n.t("nosia.chat_workspace.new_chat"), count: 1
+    assert_select ".n-chat-toolbar #chat-usage-details:not([open])", count: 1 do
+      assert_select "##{dom_id(@chat, :token_totals)}", count: 1
+    end
+  end
 end

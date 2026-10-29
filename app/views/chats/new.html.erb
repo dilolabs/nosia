@@ -6,7 +6,6 @@
      data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture turbo:before-cache@document->chat-dialog#beforeCache">
   <%= render "chats/header", chat: @chat, titles: @history_titles %>
   <section class="n-chat-start n-chat-reading-column">
-    <p class="n-chat-eyebrow"><%= t("nosia.chat_workspace.new_eyebrow") %></p>
     <h1 class="n-chat-title"><%= t("nosia.chat_workspace.new_title") %></h1>
     <p class="n-workspace-help"><%= t("nosia.chat_workspace.new_help") %></p>
     <%= render "form", chat: @chat %>

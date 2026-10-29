@@ -6,6 +6,14 @@ export default class extends Controller {
   connect() {
     this.state = this.element.chatReaderState ||= { paused: false, anchor: null, pending: false }
     this.onScroll = this.scrolled.bind(this)
+    this.onKeydown = event => {
+      this.navigation = event.isTrusted && event.key === "Tab" ? { event, top: this.surface.scrollTop } : null
+    }
+    this.onKeyup = () => { this.navigation = null }
+    this.onFocus = this.focused.bind(this)
+    this.onFocusOut = event => {
+      if (!this.main.contains(event.relatedTarget)) this.navigation = null
+    }
     this.submissions = new Map()
     this.updatedMessages = new Set()
     this.observeSurface()
@@ -30,6 +38,10 @@ export default class extends Controller {
     this.main = this.element.closest("[data-application-scroll]")
     this.viewport = this.viewportTarget
     this.main.addEventListener("scroll", this.onScroll)
+    this.main.addEventListener("keydown", this.onKeydown)
+    this.main.addEventListener("keyup", this.onKeyup)
+    this.main.addEventListener("focusin", this.onFocus)
+    this.main.addEventListener("focusout", this.onFocusOut)
     this.contentChanged()
     this.rememberPosition()
     this.mutations = new MutationObserver(records => {
@@ -49,6 +61,11 @@ export default class extends Controller {
 
   stopObserving() {
     this.main?.removeEventListener("scroll", this.onScroll)
+    this.main?.removeEventListener("keydown", this.onKeydown)
+    this.main?.removeEventListener("keyup", this.onKeyup)
+    this.main?.removeEventListener("focusin", this.onFocus)
+    this.main?.removeEventListener("focusout", this.onFocusOut)
+    this.navigation = null
     this.mutations?.disconnect()
     this.resize?.disconnect()
   }
@@ -67,6 +84,18 @@ export default class extends Controller {
     }
     if (this.position.top === surface.scrollTop) return
 
+    this.recordInput()
+  }
+
+  focused() {
+    const navigation = this.navigation
+    this.navigation = null
+    // A native Tab scroll is input even while resize acknowledgment is pending.
+    // Existing focus and preventScroll restoration alone never override the anchor.
+    if (navigation && !navigation.event.defaultPrevented && navigation.top !== this.surface.scrollTop) this.recordInput()
+  }
+
+  recordInput() {
     this.state.paused = this.gap > 80
     if (!this.state.paused) this.state.pending = false
     this.capture()

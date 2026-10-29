@@ -29,3 +29,22 @@
 /* Keep corner hit areas and keyboard focus inside the compact bar. */
 .n-application-header :is(.n-application-home, .n-nav-link, #language_preference_locale) { border-radius: .25rem; }
 .n-application-header :is(a, button, select):focus-visible { @apply outline-2 -outline-offset-2 outline-green-700 dark:outline-green-300; }
+
+.n-application-page :is(.n-workspace-title, .n-main-title, .n-title, .n-dashboard-heading h1) { font-size: 1.25rem; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
+.n-application-page > h1 { font-size: 1.25rem; line-height: 1.4; font-weight: 600; }
+.n-application-page :is(.n-workspace-header, .n-dashboard-heading) { margin-block: 0 .75rem; }
+.n-application-page :is(.n-workspace-heading-row, .n-account-header) { align-items: center; gap: .5rem 1rem; }
+.n-application-page .n-workspace-actions { gap: .5rem; }
+.n-application-page .n-workspace-scope { margin-block-start: .25rem; }
+.n-header-details { min-width: 0; margin: 0; }
+.n-header-details > summary { @apply text-sm font-medium text-green-800 dark:text-green-200; min-height: 2.75rem; cursor: pointer; padding: .625rem .25rem; }
+.n-header-details :is(p, nav) { max-inline-size: 65ch; overflow-wrap: anywhere; }
+.n-header-details :is(summary, a):focus-visible { @apply outline-2 outline-offset-2 outline-green-700 dark:outline-green-300; }
+.n-application-page .n-chat-heading { flex: 1 1 16rem; }
+.n-application-page .n-chat-header .n-chat-toolbar { align-items: flex-start; }
+.n-application-page .n-chat-header .n-chat-title { margin: 0; font-size: 1rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-application-page .n-chat-account-preview { max-inline-size: 36ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-application-page .n-chat-header .n-chat-details { margin: 0; }
+.n-application-page .n-chat-header .n-chat-details[open] { flex-basis: 100%; }
+.n-application-page .n-chat-title { font-size: 1.25rem; }
+.n-application-page .n-chat-start { padding-block: .75rem; }

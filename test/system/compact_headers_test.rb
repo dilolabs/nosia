@@ -128,7 +128,210 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "saved header is compact and preserves the draft while disclosing usage" do
+    header_viewport(1400, 1000)
+    visit chat_path(@chat)
+    assert_selector "lexxy-editor[connected]"
+    find("lexxy-editor .lexxy-editor__content").send_keys("Keep this draft while reading usage")
+    page.execute_script("window.headerDraftEditor = document.querySelector('lexxy-editor')")
+    header_top
+
+    find("#chat-usage-summary").click
+    assert_selector "#chat-usage-details[open]"
+    within "#chat-usage-details" do
+      assert_selector "dt", text: I18n.t("nosia.usage.input"), exact_text: true
+      assert_selector "[data-chat-total-input]", text: "125", exact_text: true
+      assert_selector "dt", text: I18n.t("nosia.usage.output"), exact_text: true
+      assert_selector "[data-chat-total-output]", text: "24", exact_text: true
+    end
+    header_settle
+    header_record("saved-heading-usage-open", header_geometry.merge(
+      "headerHeight" => page.evaluate_script("document.querySelector('.n-chat-header').getBoundingClientRect().height")
+    ), screenshot: true)
+    find("#chat-usage-summary").click
+    assert_selector "#chat-usage-details:not([open])"
+    header_settle
+    geometry = page.evaluate_script(<<~JS, dom_id(@chat, :token_totals))
+      (() => ({
+        headerHeight: document.querySelector('.n-chat-header').getBoundingClientRect().height,
+        titleTop: document.querySelector('.n-chat-title').getBoundingClientRect().top,
+        historyTop: document.querySelector('button[aria-controls="chat-history"]').getBoundingClientRect().top,
+        sameEditor: window.headerDraftEditor === document.querySelector('lexxy-editor'),
+        draft: document.querySelector('lexxy-editor .lexxy-editor__content').textContent,
+        totalsTargets: document.querySelectorAll(`[id="${arguments[0]}"]`).length
+      }))()
+    JS
+    header_record("saved-heading", geometry, screenshot: true)
+
+    assert_operator geometry.fetch("headerHeight"), :<=, 92, geometry.to_json
+    assert_operator (geometry.fetch("titleTop") - geometry.fetch("historyTop")).abs, :<=, 20, geometry.to_json
+    assert_selector ".n-chat-toolbar h1.n-chat-title", count: 1
+    assert geometry.fetch("sameEditor"), geometry.to_json
+    assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep this draft while reading usage"
+    assert_equal 1, geometry.fetch("totalsTargets"), geometry.to_json
+    assert_selector "#chat-usage-details ##{dom_id(@chat, :token_totals)}", count: 1, visible: :all
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "page heading descriptions and trails remain operable through native details" do
+    header_viewport(1400, 1000)
+    %w[en fr].each do |locale|
+      visit profile_path
+      select locale.upcase, from: "language_preference_locale"
+      assert_selector "html[lang='#{locale}']"
+      header_theme(locale == "fr")
+      assert_selector "details[data-header-details]:not([open])"
+      summary = "details[data-header-details] > summary"
+      assert_selector summary, text: I18n.t("nosia.layout.details", locale: locale), exact_text: true
+      assert_no_selector ".n-workspace-header .n-workspace-trail"
+      header_tab_to(summary)
+      header_record("page-heading-closed", header_geometry.merge(
+        "headerHeight" => page.evaluate_script("document.querySelector('.n-workspace-header').getBoundingClientRect().height")
+      ), screenshot: true)
+
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "details[data-header-details][open]"
+      assert_selector ".n-workspace-header .n-workspace-help", text: I18n.t("nosia.profile.introduction", locale: locale), exact_text: true
+      assert_selector ".n-workspace-header nav[aria-label='#{I18n.t('nosia.workspace.breadcrumb', locale: locale)}'] .n-workspace-trail"
+      header_hit(summary)
+      header_record("page-heading-open", header_geometry.merge(
+        "headerHeight" => page.evaluate_script("document.querySelector('.n-workspace-header').getBoundingClientRect().height")
+      ), screenshot: true)
+
+      page.driver.browser.action.send_keys(:space).perform
+      assert_selector "details[data-header-details]:not([open])"
+      assert_no_selector ".n-workspace-header .n-workspace-trail"
+      header_hit(summary)
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  %w[forward backward].each do |direction|
+    test "native header #{direction} navigation survives a pending resize acknowledgment" do
+      header_prepare_paused_chat(direction)
+      header_defer_resize_acknowledgment
+      header_viewport(812, 375)
+      if direction == "backward"
+        page.driver.browser.action.key_down(:shift).send_keys(:tab).key_up(:shift).perform
+      else
+        page.driver.browser.action.send_keys(:tab).perform
+      end
+      header_settle
+      sample = header_resize_sample
+      header_record("native-header-#{direction}", sample, screenshot: true)
+
+      key = sample.fetch("trace").find { |entry| entry["event"] == "keydown" && entry["key"] == "Tab" }
+      assert key.fetch("trusted"), sample.to_json
+      assert_equal direction == "backward", key.fetch("shift"), sample.to_json
+      refute_equal key.fetch("ledger").fetch("clientWidth"), key.fetch("clientWidth"), sample.to_json
+      assert_operator sample.fetch("deferred"), :>, 0, sample.to_json
+      target = direction == "backward" ? ".n-chat-toolbar a[href='#{new_chat_path}']" : "button[aria-controls='chat-history']"
+      assert_selector "#{target}:focus"
+      header_hit(target)
+      assert_selector ".n-chat-workspace[data-reader-following='false']"
+      assert_equal [ 0, 0 ], page.evaluate_script("[document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop]")
+      assert_no_enqueued_jobs only: ChatResponseJob
+    ensure
+      page.execute_script("window.headerResizeBoundary?.restore()")
+    end
+  end
+
+  test "resize alone preserves the paused paragraph without pinning an already focused header" do
+    header_prepare_paused_chat("backward")
+    before = header_reader_anchor
+    header_viewport(812, 375)
+    header_settle
+    after = header_reader_anchor(before.fetch("index"))
+    header_record("resize-alone", { before: before, after: after }, screenshot: true)
+
+    assert_equal before.fetch("text"), after.fetch("text"), after.to_json
+    assert_in_delta before.fetch("offset"), after.fetch("offset"), 1, after.to_json
+    assert_selector ".n-chat-workspace[data-reader-following='false']"
+    assert_selector "#chat-usage-summary:focus", visible: :all
+    assert_operator page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().bottom"), :<, 0
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   private
+    def header_prepare_paused_chat(direction)
+      @second.update_columns(name: "CompteDeRecherche" * 12)
+      header_viewport(375, 812)
+      visit chat_path(@chat)
+      assert_selector "lexxy-editor[connected]"
+      find("#chat-usage-summary").click
+      assert_selector "#chat-usage-details[open]"
+      header_tab_to(direction == "backward" ? "#chat-usage-summary" : ".n-chat-toolbar a[href='#{user_root_path}']")
+      page.execute_script(<<~JS)
+        const surface = document.querySelector('[data-application-scroll]')
+        const paragraph = document.querySelectorAll('.n-chat-transcript .ai-response-content p')[19]
+        surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
+        surface.dispatchEvent(new Event('scroll'))
+      JS
+      header_settle
+      assert_selector ".n-chat-workspace[data-reader-following='false']"
+    end
+
+    def header_reader_anchor(index = nil)
+      page.evaluate_script(<<~JS, index)
+        (() => {
+          const top = document.querySelector('[data-application-scroll]').getBoundingClientRect().top
+          const paragraphs = [...document.querySelectorAll('.n-chat-transcript .ai-response-content p')]
+          const paragraph = Number.isInteger(arguments[0]) ? paragraphs[arguments[0]] : paragraphs.find(element => element.getBoundingClientRect().bottom > top)
+          return { index: paragraphs.indexOf(paragraph), text: paragraph.textContent, offset: paragraph.getBoundingClientRect().top - top }
+        })()
+      JS
+    end
+
+    def header_defer_resize_acknowledgment
+      page.execute_script(<<~JS)
+        (() => {
+          const root = document.querySelector('.n-chat-workspace--saved'), surface = root.closest('[data-application-scroll]')
+          const reader = window.Stimulus.getControllerForElementAndIdentifier(root, 'scroll')
+          const remember = reader.rememberPosition
+          const boundary = window.headerResizeBoundary = { pending: true, deferred: 0, trace: [] }
+          const sample = (event, extra = {}) => {
+            const active = document.activeElement
+            boundary.trace.push({ event, ...extra, top: surface.scrollTop, clientWidth: surface.clientWidth,
+              clientHeight: surface.clientHeight, active: active.id || active.textContent.trim().slice(0, 80),
+              activeRect: active.getBoundingClientRect().toJSON(),
+              ledger: { top: reader.position.top, clientWidth: reader.position.clientWidth, clientHeight: reader.position.clientHeight },
+              state: JSON.parse(JSON.stringify(root.chatReaderState)) })
+          }
+          // Test-only pending-dimensions boundary: let real resize/RAF work run,
+          // but defer its ledger acknowledgment until the actual native Tab.
+          // No focus/scroll writes, synthetic key events, or post-key delay gates.
+          reader.rememberPosition = function(...args) {
+            if (boundary.pending && (this.position.clientWidth !== surface.clientWidth || this.position.clientHeight !== surface.clientHeight)) {
+              boundary.deferred++
+            } else {
+              return remember.apply(this, args)
+            }
+          }
+          const keydown = event => {
+            sample('keydown', { key: event.key, shift: event.shiftKey, trusted: event.isTrusted })
+            if (event.key === 'Tab') boundary.pending = false
+          }
+          const focused = () => sample('focusin')
+          const scrolled = () => sample('scroll-after-reader')
+          surface.addEventListener('keydown', keydown, true)
+          surface.addEventListener('focusin', focused, true)
+          surface.addEventListener('scroll', scrolled)
+          boundary.restore = () => {
+            reader.rememberPosition = remember
+            surface.removeEventListener('keydown', keydown, true)
+            surface.removeEventListener('focusin', focused, true)
+            surface.removeEventListener('scroll', scrolled)
+          }
+          boundary.sample = () => { sample('settled'); return { deferred: boundary.deferred, trace: boundary.trace } }
+          sample('before-resize')
+        })()
+      JS
+    end
+
+    def header_resize_sample
+      page.evaluate_script("window.headerResizeBoundary.sample()")
+    end
+
     def header_viewport(width, height)
       page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
       page.current_window.resize_to(width, height)
