@@ -1025,8 +1025,10 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  # The approved Keep Turbo decision accepts only its native ID-restoration race.
+  # Assert the native caller explicitly; separate ID-less tests protect our restorer.
   [ [ "send", false ], [ "send", true ], [ "removed", true ], [ "modal", true ], [ "outside", true ], [ "early", true ], [ "early_removed", true ] ].each do |destination, asynchronous|
-    test "ID-bearing summary yields to intentional #{destination} focus during #{asynchronous ? 'async' : 'sync'} stream rendering" do
+    test "standard Turbo #{destination == 'modal' ? 'retains modal focus' : 'characterizes native summary restoration'} for #{destination} during #{asynchronous ? 'async' : 'sync'} rendering" do
       answer = workspace(:messages, :workspace_answer)
       visit chat_url(@chat)
       find("##{dom_id(answer, :response_summary)}").click
@@ -1037,8 +1039,13 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
         summary.focus()
         window.focusRaceTimeline = []
         window.focusRaceRenderCalls = 0
+        window.nativeFocusRestorations = 0
         const record = name => window.focusRaceTimeline.push({ name, active: document.activeElement.id || document.activeElement.getAttribute('aria-label') || document.activeElement.tagName })
-        document.addEventListener('focusin', event => record('focusin'), true)
+        document.addEventListener('focusin', event => {
+          record('focusin')
+          const caller = new Error().stack.split('\\n')[2] || ''
+          if (event.target.id === summary.id && window.intentionalFocus && caller.includes('/turbo.min-')) window.nativeFocusRestorations++
+        }, true)
         document.addEventListener('turbo:before-stream-render', event => {
           if (event.target.getAttribute('target') === target) record('stream-arrived')
         }, true)
@@ -1078,20 +1085,104 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       deliver_answer_update(answer, :en)
       assert_selector ".n-chat-workspace[data-focus-race-rendered=true]"
       settle_workspace_layout
-      puts "ID-bearing focus timeline #{destination} async=#{asynchronous}: #{page.evaluate_script('window.focusRaceTimeline').to_json}"
+      puts "Keep Turbo characterization #{destination} async=#{asynchronous}: #{page.evaluate_script('window.focusRaceTimeline').to_json}"
       assert_equal 1, page.evaluate_script("window.focusRaceRenderCalls")
-      if destination.include?("removed")
-        assert_not page.evaluate_script("window.intentionalFocus.isConnected")
-        assert_equal "BODY", page.evaluate_script("document.activeElement.tagName")
-        assert_no_selector "##{dom_id(answer, :response_summary)}:focus"
-        stream_html(%(<turbo-stream action="update" target="chat-account-help"><template>Unrelated update</template></turbo-stream>))
-        settle_workspace_layout
-        assert_no_selector "##{dom_id(answer, :response_summary)}:focus"
-      else
+      if destination == "modal"
         assert page.evaluate_script("window.intentionalFocus === document.activeElement"), page.evaluate_script("document.activeElement.outerHTML.slice(0, 300)")
-        assert_dialog_focus "chat-history" if destination == "modal"
+        assert_dialog_focus "chat-history"
+      else
+        assert_not page.evaluate_script("window.intentionalFocus.isConnected") if destination.include?("removed")
+        assert_operator page.evaluate_script("window.nativeFocusRestorations"), :>=, 1, "Expected the accepted Turbo-native focus caller, not application restoration"
+        assert_selector "##{dom_id(answer, :response_summary)}:focus"
+        if destination.include?("removed")
+          stream_html(%(<turbo-stream action="update" target="chat-account-help"><template>Unrelated update</template></turbo-stream>))
+          settle_workspace_layout
+          assert_selector "##{dom_id(answer, :response_summary)}:focus"
+        end
       end
       assert_selector "##{dom_id(answer, :response_details)}[open]", visible: :all
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
+  test "standard Turbo keeps a deliberate summary return after its native focus pass" do
+    answer = workspace(:messages, :workspace_answer)
+    visit chat_url(@chat)
+    find("##{dom_id(answer, :response_summary)}").click
+    page.execute_script(<<~JS, dom_id(answer, :response_summary), dom_id(answer, :messages))
+      const summaryId = arguments[0], messageId = arguments[1]
+      document.getElementById(summaryId).focus()
+      window.focusReturnTimeline = []
+      document.addEventListener('focusin', event => {
+        window.focusReturnTimeline.push(document.activeElement.id || document.activeElement.getAttribute('aria-label'))
+      }, true)
+      document.addEventListener('turbo:before-stream-render', event => {
+        if (event.target.getAttribute('target') !== messageId) return
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          document.querySelector('button[aria-label=Send]').focus({ preventScroll: true })
+          window.focusReturnAway = document.activeElement.getAttribute('aria-label')
+          document.getElementById(summaryId).focus({ preventScroll: true })
+          window.focusReturnBack = document.activeElement.id
+        }))
+        const render = event.detail.render
+        event.detail.render = async stream => {
+          const result = await render(stream)
+          document.querySelector('.n-chat-workspace').dataset.focusReturnRendered = 'true'
+          return result
+        }
+      }, { capture: true, once: true })
+    JS
+
+    deliver_answer_update(answer, :en)
+    assert_selector ".n-chat-workspace[data-focus-return-rendered=true]"
+    settle_workspace_layout
+    assert_equal "Send", page.evaluate_script("window.focusReturnAway")
+    assert_equal dom_id(answer, :response_summary), page.evaluate_script("window.focusReturnBack")
+    puts "Away-and-back focus timeline: #{page.evaluate_script('window.focusReturnTimeline').to_json}"
+    assert_selector "##{dom_id(answer, :response_summary)}:focus"
+    assert_selector "##{dom_id(answer, :response_details)}[open]"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  %w[outside removed].each do |destination|
+    test "application disclosure restoration respects #{destination} intentional focus during an async update" do
+      answer = workspace(:messages, :workspace_answer)
+      width = Chunk.columns_hash.fetch("embedding").limit
+      chunk = insert_picker_chunk(@second, texts(:picker_second_text), "Saved local evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+      answer.update_columns(similar_chunk_ids: [ chunk.id.to_s ])
+      visit chat_url(@chat)
+      find("##{dom_id(answer, :sources_summary)}").click
+      page.execute_script(<<~JS, dom_id(answer, :search_content), dom_id(answer, :messages), destination)
+        const link = document.getElementById(arguments[0]).querySelector('a'), target = arguments[1], destination = arguments[2]
+        link.focus()
+        window.ownerFocusOriginId = link.id
+        document.addEventListener('turbo:before-stream-render', event => {
+          if (event.target.getAttribute('target') !== target) return
+          const render = event.detail.render
+          event.detail.render = async stream => {
+            const result = render(stream)
+            window.ownerIntentionalFocus = destination === 'outside' ? document.getElementById('theme-toggle') : document.querySelector('button[aria-label=Send]')
+            window.ownerIntentionalFocus.focus({ preventScroll: true })
+            if (destination === 'removed') window.ownerIntentionalFocus.remove()
+            await result
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+            document.querySelector('.n-chat-workspace').dataset.ownerFocusRendered = 'true'
+          }
+        }, { capture: true, once: true })
+      JS
+
+      deliver_answer_update(answer, :en)
+      assert_selector ".n-chat-workspace[data-owner-focus-rendered=true]"
+      settle_workspace_layout
+      assert_equal "", page.evaluate_script("window.ownerFocusOriginId"), "This isolates application restoration from Turbo's ID-based preservation"
+      if destination == "outside"
+        assert page.evaluate_script("window.ownerIntentionalFocus === document.activeElement")
+      else
+        assert_not page.evaluate_script("window.ownerIntentionalFocus.isConnected")
+        assert_equal "BODY", page.evaluate_script("document.activeElement.tagName")
+        assert_no_selector "##{dom_id(answer, :sources_summary)}:focus"
+      end
+      assert_selector "##{dom_id(answer, :sources)}[open]"
       assert_no_enqueued_jobs only: ChatResponseJob
     end
   end

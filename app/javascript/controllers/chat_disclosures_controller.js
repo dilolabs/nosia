@@ -4,8 +4,6 @@ export default class extends Controller {
   connect() {
     this.states = this.element.chatDetailStates ||= new Map()
     this.streamRenders = new Set()
-    this.nativeFocusPasses = new Set()
-    this.streamRevision = 0
     this.observer = new MutationObserver(() => this.restore())
     this.observer.observe(this.element, { childList: true, subtree: true })
     this.restore()
@@ -66,58 +64,30 @@ export default class extends Controller {
 
   renderWithFocus(event, pending) {
     const render = event.detail.render
-    const focus = this.streamFocus ||= { element: pending.element, intent: null }
-    let active = true
-    // This listener only records intent for this render; it never owns document focus.
+    let active = true, latestFocus = pending.element
+    // Observe ordinary focus moves, including returns; do not classify Turbo's own focus.
     const focused = event => {
-      if (this.restoringFocus || (this.nativeFocusPasses.size && event.target === focus.element)) return
-      focus.intent = event.target === focus.element ? null : event.target
+      if (!this.restoringFocus) latestFocus = event.target
     }
     const cancel = () => {
       active = false
       document.removeEventListener("focusin", focused, true)
       this.streamRenders.delete(cancel)
-      this.nativeFocusPasses.delete(cancel)
-      if (!this.streamRenders.size) this.streamFocus = null
     }
     this.streamRenders.add(cancel)
     document.addEventListener("focusin", focused, true)
-    this.streamRevision++
+    queueMicrotask(() => { if (event.defaultPrevented) cancel() })
     event.detail.render = async stream => {
-      this.nativeFocusPasses.add(cancel)
-      await this.settleNativeFocus()
-      this.nativeFocusPasses.delete(cancel)
       try {
-        if (active && focus.intent) this.restoreIntent(pending, focus.intent)
         const result = await render(stream)
         if (active && this.element.isConnected) {
           this.restore()
-          if (!focus.intent || focus.intent === pending.element) this.restoreFocus(pending)
+          if (latestFocus === pending.element || (pending.id && latestFocus.id === pending.id)) this.restoreFocus(pending)
         }
         return result
       } finally {
         cancel()
       }
-    }
-  }
-
-  async settleNativeFocus() {
-    let revision
-    do {
-      revision = this.streamRevision
-      // All queued envelopes get their native ID focus pass before any loses its node.
-      await new Promise(resolve => requestAnimationFrame(resolve))
-    } while (revision !== this.streamRevision)
-  }
-
-  restoreIntent(pending, intent) {
-    if (document.activeElement !== pending.element || intent === pending.element) return
-    this.restoringFocus = true
-    try {
-      if (intent.isConnected && !intent.closest("dialog:not([open])")) intent.focus({ preventScroll: true })
-      if (document.activeElement === pending.element) pending.element.blur()
-    } finally {
-      this.restoringFocus = false
     }
   }
 

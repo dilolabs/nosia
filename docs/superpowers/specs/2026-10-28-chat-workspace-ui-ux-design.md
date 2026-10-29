@@ -46,6 +46,10 @@ Improve `/chats/new` and `/chats/:id` following the signed-in dashboard UI/UX im
   Rationale: retain the existing Rails/Hotwire stack and live-update contracts, keep components focused, enforce personal membership-aware history, and verify the redesigned flows with isolated tests and responsive/accessibility checks before claiming completion.
 - User answered **“Go”** after being asked to review the finalized written specification committed as `7ce92e4`.
   Rationale: approve the written specification and proceed to writing the implementation plan; this does not choose an execution method or authorize skipping implementation prerequisites.
+- During Task 6 review, user explicitly selected **“Keep Turbo (Recommended)”**.
+  This narrowly qualifies the focus guarantees below: standard Turbo's outer ID-based focus preservation may reclaim an ID-bearing disclosure summary when a live replacement races a deliberate focus move in the same frame, including when the newly focused control is removed. Accept that upstream race only; do not claim it is fixed by application code.
+  Preserve independent disclosure open/closed state, normal lost-summary focus across replacement/morph, and application-owned guards against overriding connected intentional focus, another modal, deleted answers, closed dialogs, or navigation to another chat. Hidden-tab update delays are not accepted: remove application RAF gates, timing workarounds, and native-focus classification.
+  Retain the standard Turbo dependency and delivery path. No vendored Turbo fork, dependency change, custom delivery integration, or global focus monkeypatch is authorized. Record the race as a reproducible characterization alongside strict application-restorer tests; SPEC must review this amended contract before QUALITY. Task 7/8 documentation remains deferred.
 
 ## Selected approach
 

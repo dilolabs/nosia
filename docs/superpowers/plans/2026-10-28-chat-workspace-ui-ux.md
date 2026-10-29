@@ -1452,6 +1452,37 @@ saved root/status element; `_thinking.html.erb`, `_thinking_animation.html.erb`;
 paired chat-workspace catalogs; system/rendering tests. Do not alter phase broadcasts
 or attach a live region to the streamed answer body.
 
+### Task 6 approved review amendment — Keep Turbo
+
+The user explicitly selected **“Keep Turbo (Recommended)”** after the focus-race
+investigation. Keep the standard dependency and delivery path; no vendored fork,
+dependency change, custom stream receiver, or global focus monkeypatch is authorized.
+This amendment qualifies Task 6's focus guarantees and review gate only; it does not
+rewrite other tasks or waive their checks.
+
+- Accept only Turbo's outer ID-preservation race: a live replacement can reclaim
+  an ID-bearing summary when a deliberate focus move happens in the same frame,
+  even if the newly focused control is removed. Characterize that native caller;
+  do not present strict race cases as application guarantees or skipped failures.
+- Preserve independent open/closed choices and normal lost-summary restoration
+  across replacement/morph. The application restorer must not override connected
+  intentional focus or another modal, or restore deleted answers, closed dialogs,
+  or focus in a different conversation. Keep the ID-less source-link guard tests,
+  normal ID-summary retention, async renderer result/rejection/once-only behavior,
+  and cleanup/lifecycle coverage.
+- Remove `nativeFocusPasses`, revision/frame settling, native-focus suppression,
+  intent correction, and all extra RAF/timing gates. Hidden-tab delivery must not
+  wait for a frame, including a visible-to-hidden transition; the actual-controller
+  frozen-RAF contract remains required. A small ungated wrapper may observe normal
+  focus intent and await the original renderer once, without fighting Turbo.
+- Retain investigation evidence under `/tmp/opencode/chat-workspace-hqSpCt/`:
+  `task6-focus-red.aVSlDD.log` records the original Send/removed-control race;
+  `task6-return-red.fkX6Nt.log` records the workaround's stale away-and-back intent;
+  `task6-hidden-red.XpyceA.log` records the unaccepted application RAF stall.
+  The reproducible hidden contract is `/tmp/opencode/chat-disclosures-hidden-contract.mjs`.
+- SPEC must re-evaluate this amended contract before QUALITY. No Task 7/8 work or
+  unrestricted/full-suite permission is implied.
+
 - [ ] **Step 1: Add actual browser assertions for replacement and phase updates.**
 
 ```ruby
