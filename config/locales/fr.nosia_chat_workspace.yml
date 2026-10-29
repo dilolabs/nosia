@@ -18,5 +18,6 @@ fr:
       reply: Répondre à cette conversation
       estimates: Estimations de l’impact environnemental
       completed: Réponse terminée.
+      stopped: Génération arrêtée.
       setup_account: Configurer un compte
       retry: Réessayer

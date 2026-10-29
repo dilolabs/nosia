@@ -1,9 +1,11 @@
 require "application_system_test_case"
+require "turbo/broadcastable/test_helper"
 require_relative "../support/chat_workspace_fixtures"
 
 class ChatWorkspaceSystemTest < ApplicationSystemTestCase
   include ChatWorkspaceFixtures
   include ActionView::RecordIdentifier
+  include Turbo::Broadcastable::TestHelper
 
   setup do
     @original_size = page.current_window.size
@@ -851,7 +853,237 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  %i[en fr].each do |locale|
+    test "live disclosures retain independent states and focus through broadcasts and refresh in #{locale}" do
+      set_workspace_language(locale)
+      answer = workspace(:messages, :workspace_answer)
+      width = Chunk.columns_hash.fetch("embedding").limit
+      chunk = insert_picker_chunk(@second, texts(:picker_second_text), "Saved local evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+      answer.update_columns(similar_chunk_ids: [ chunk.id.to_s ])
+      visit chat_url(@chat)
+      find("#chat-usage-summary").click
+      find("##{dom_id(answer, :sources_summary)}").click
+      find("##{dom_id(answer, :response_summary)}").click
+      page.execute_script("document.getElementById(arguments[0]).focus()", dom_id(answer, :response_summary))
+      assert_selector "##{dom_id(answer, :response_summary)}:focus"
+
+      Current.reset
+      totals = capture_turbo_stream_broadcasts([ @chat, :token_totals, locale ]) do
+        TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :embedding, input_tokens: 1, output_tokens: 0)
+      end
+      replacement = totals.find { |stream| stream["target"] == dom_id(@chat, :token_totals) }
+      assert replacement, "Expected the actual localized token totals broadcast"
+      stream_html(replacement.to_html)
+      assert_selector "#chat-usage-details[open] [data-chat-total-input]", text: "126"
+      assert_selector "##{dom_id(answer, :response_summary)}:focus"
+
+      deliver_answer_update(answer, locale)
+      assert_live_disclosures answer, sources: true, reasoning: false
+      refresh_workspace
+      assert_live_disclosures answer, sources: true, reasoning: false
+
+      find("##{dom_id(answer, :sources_summary)}").click
+      find("##{dom_id(answer, :reasoning_summary)}").click
+      find("##{dom_id(answer, :response_summary)}").click
+      find("##{dom_id(answer, :response_summary)}").click
+      page.execute_script("document.getElementById(arguments[0]).focus()", dom_id(answer, :response_summary))
+      deliver_answer_update(answer, locale)
+      refresh_workspace
+      assert_live_disclosures answer, sources: false, reasoning: true
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+
+    test "live phases announce changes once and actual finish unlocks the composer in #{locale}" do
+      set_workspace_language(locale)
+      @chat.messages.assistant.destroy_all
+      @chat.start_generation!
+      visit chat_url(@chat)
+      assert_selector "#thinking_animation", count: 1
+      assert_selector "#thinking_animation_content", count: 1
+      assert_workspace_status I18n.t("nosia.chat.phases.preparing.title", locale: locale)
+      page.execute_script(<<~JS)
+        const status = document.querySelector('[data-chat-feedback-target=status]')
+        window.workspaceStatus = status
+        window.workspaceAnnouncements = []
+        window.workspaceStatusObserver = new MutationObserver(() => window.workspaceAnnouncements.push(status.textContent))
+        window.workspaceStatusObserver.observe(status, { childList: true, subtree: true, characterData: true })
+      JS
+      refresh_workspace
+      assert_workspace_status I18n.t("nosia.chat.phases.preparing.title", locale: locale)
+      assert page.evaluate_script("window.workspaceStatus === document.querySelector('[data-chat-feedback-target=status]')")
+      assert_equal [], page.evaluate_script("window.workspaceAnnouncements")
+
+      2.times do
+        streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.broadcast_thinking_phase("searching") }
+        stream_html(streams.find { |stream| stream["target"] == "thinking_animation_content" }.to_html)
+        assert_workspace_status I18n.t("nosia.chat.phases.searching.title", locale: locale)
+      end
+      assert_equal [ I18n.t("nosia.chat.phases.searching.title", locale: locale) ], page.evaluate_script("window.workspaceAnnouncements")
+
+      answer = @chat.messages.create!(role: :assistant, content: "", done: false)
+      html = I18n.with_locale(locale) { ApplicationController.render(partial: "messages/message", locals: { message: answer }) }
+      stream_html(%(<turbo-stream action="remove" target="thinking_animation"></turbo-stream><turbo-stream action="append" target="#{dom_id(@chat, :messages)}"><template>#{html}</template></turbo-stream>))
+      assert_workspace_status I18n.t("nosia.chat.phases.generating.title", locale: locale)
+      3.times do |index|
+        html = ApplicationController.render(partial: "messages/streaming_content", locals: { message: answer, content_html: "<p>Actual delta #{index}</p>" })
+        stream_html(%(<turbo-stream action="replace" target="#{dom_id(answer, :content)}"><template>#{html}</template></turbo-stream>))
+        assert_selector "##{dom_id(answer, :content)}", text: "Actual delta #{index}"
+      end
+      assert_equal %w[searching generating].map { |phase| I18n.t("nosia.chat.phases.#{phase}.title", locale: locale) }, page.evaluate_script("window.workspaceAnnouncements")
+      assert_no_selector ".ai-response-content[aria-live]", visible: :all
+
+      Current.reset
+      streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
+      unlock = streams.find { |stream| stream["target"] == "#{dom_id(@chat)}_message_form" }
+      assert_equal "replace", unlock["action"]
+      stream_html(unlock.to_html)
+      assert_button I18n.t("nosia.chat.send", locale: locale), disabled: false, enable_aria_label: true
+      assert_workspace_status I18n.t("nosia.chat_workspace.completed", locale: locale)
+      assert page.evaluate_script("window.workspaceStatus === document.querySelector('[data-chat-feedback-target=status]')")
+      assert_equal 3, page.evaluate_script("window.workspaceAnnouncements.length")
+      page.execute_script("document.querySelector('.n-chat-workspace').dataset.controller = document.querySelector('.n-chat-workspace').dataset.controller.replace(' chat-feedback', '')")
+      settle_workspace_layout
+      page.execute_script("document.querySelector('.n-chat-workspace').dataset.controller += ' chat-feedback'")
+      settle_workspace_layout
+      assert_equal 3, page.evaluate_script("window.workspaceAnnouncements.length")
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+
+    test "live stopped feedback is truthful without an assistant answer in #{locale}" do
+      set_workspace_language(locale)
+      @chat.messages.assistant.destroy_all
+      @chat.start_generation!
+      visit chat_url(@chat)
+      assert_workspace_status I18n.t("nosia.chat.phases.preparing.title", locale: locale)
+
+      click_button I18n.t("nosia.chat.stop", locale: locale), enable_aria_label: true
+
+      assert_button I18n.t("nosia.chat.send", locale: locale), disabled: false, enable_aria_label: true
+      assert_workspace_status(locale == :fr ? "Génération arrêtée." : "Generation stopped.")
+      assert_predicate @chat.reload, :generation_stopped?
+      assert_equal 0, @chat.messages.assistant.count
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
+  test "live disclosure ownership never competes with dialogs or leaks to another conversation" do
+    answer = workspace(:messages, :workspace_answer)
+    visit chat_url(@chat)
+    find("#chat-usage-summary").click
+    find("##{dom_id(answer, :response_summary)}").click
+    click_button "History"
+    assert_native_dialog "chat-history"
+    refresh_workspace
+    assert_native_dialog "chat-history"
+    assert_dialog_focus "chat-history"
+    deliver_answer_update(answer, :en)
+    assert_dialog_focus "chat-history"
+    within("#chat-history") { click_button "Close" }
+    assert_selector "button[aria-controls=chat-history]:focus"
+
+    first_chat = workspace(:chats, :workspace_first_chat)
+    click_button "History"
+    within("[data-history-chat='#{first_chat.id}']") { click_link "First account question" }
+    assert_current_path chat_path(first_chat)
+    assert_no_selector "#chat-usage-details[open]", visible: :all
+    assert_no_selector "dialog[open]", visible: :all
+    assert_selector "[data-chat-feedback-target=status]", text: "", visible: :all
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "live disclosures do not steal intentional focus or resurrect deleted answer focus" do
+    answer = workspace(:messages, :workspace_answer)
+    width = Chunk.columns_hash.fetch("embedding").limit
+    chunk = insert_picker_chunk(@second, texts(:picker_second_text), "Saved local evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
+    answer.update_columns(similar_chunk_ids: [ chunk.id.to_s ])
+    visit chat_url(@chat)
+    find("##{dom_id(answer, :response_summary)}").click
+    find("##{dom_id(answer, :sources_summary)}").click
+    page.execute_script(<<~JS, dom_id(answer, :search_content))
+      document.getElementById(arguments[0]).querySelector('a').focus()
+      document.addEventListener('turbo:before-stream-render', event => {
+        const render = event.detail.render
+        event.detail.render = stream => {
+          render(stream)
+          document.querySelector('button[aria-label=Send]').focus({ preventScroll: true })
+        }
+      }, { once: true })
+    JS
+    deliver_answer_update(answer, :en)
+    assert_selector "button[aria-label=Send]:focus"
+    assert_selector "##{dom_id(answer, :response_details)}[open]"
+
+    page.execute_script("document.getElementById(arguments[0]).focus()", dom_id(answer, :response_summary))
+    stream_html(%(<turbo-stream action="remove" target="#{dom_id(answer, :messages)}"></turbo-stream>))
+    assert_no_selector "##{dom_id(answer, :messages)}", visible: :all
+    find("button[aria-controls=chat-history]").click
+    assert_native_dialog "chat-history"
+    stream_html(%(<turbo-stream action="update" target="chat-account-help"><template>Unrelated update</template></turbo-stream>))
+    assert_dialog_focus "chat-history"
+    within("#chat-history") { click_button "Close" }
+    assert_selector "button[aria-controls=chat-history]:focus"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "live completion after a stopped turn follows the new busy composer rather than stale stop state" do
+    @chat.messages.assistant.destroy_all
+    @chat.start_generation!
+    visit chat_url(@chat)
+    click_button "Stop generating", enable_aria_label: true
+    assert_workspace_status "Generation stopped."
+    find("lexxy-editor .lexxy-editor__content").send_keys("A fresh follow-up")
+    assert_enqueued_jobs 1, only: ChatResponseJob do
+      click_button "Send", enable_aria_label: true
+      assert_selector "form[data-generation-busy=true]"
+    end
+    refute_predicate @chat.reload, :generation_stopped?
+    Current.reset
+    streams = capture_turbo_stream_broadcasts([ @chat, :messages, :en ]) { @chat.finish_generation! }
+    stream_html(streams.find { |stream| stream["target"] == "#{dom_id(@chat)}_message_form" }.to_html)
+
+    assert_button "Send", disabled: false, enable_aria_label: true
+    assert_workspace_status "Response complete."
+  end
+
   private
+    def set_workspace_language(locale)
+      select locale.to_s.upcase, from: "language_preference_locale"
+      assert_selector "html[lang=#{locale}]"
+    end
+
+    def deliver_answer_update(answer, locale)
+      streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { answer.broadcast_updated }
+      update = streams.find { |stream| stream["action"] == "update" && stream["target"] == dom_id(answer, :messages) }
+      assert update, "Expected the actual whole-answer body update"
+      stream_html(update.to_html)
+      settle_workspace_layout
+    end
+
+    def refresh_workspace
+      page.execute_script(<<~JS)
+        document.documentElement.removeAttribute('data-workspace-refreshed')
+        document.addEventListener('turbo:render', () => document.documentElement.dataset.workspaceRefreshed = 'true', { once: true })
+        Turbo.visit(location.href, { action: 'replace' })
+      JS
+      assert_selector "html[data-workspace-refreshed=true]"
+      settle_workspace_layout
+    end
+
+    def assert_live_disclosures(answer, sources:, reasoning:)
+      assert_selector "#chat-usage-details[open]"
+      assert_selector "##{dom_id(answer, :response_details)}[open]"
+      assert_selector "##{dom_id(answer, :response_summary)}:focus"
+      { sources: sources, reasoning_details: reasoning }.each do |prefix, open|
+        assert_selector "##{dom_id(answer, prefix)}#{open ? '[open]' : ':not([open])'}", visible: :all
+      end
+    end
+
+    def assert_workspace_status(text)
+      assert_selector "[role=status][aria-live=polite][aria-atomic=true][data-chat-feedback-target=status]", count: 1, text: text, visible: :all
+      assert_no_selector ".n-chat-transcript [role=status]", visible: :all
+      assert_no_selector ".ai-response-content[aria-live]", visible: :all
+    end
+
     def reader_move_after_lifecycle(event, intent, growth:)
       page.execute_script(<<~JS, { event: event, intent: intent, growth: growth }, dom_id(workspace(:messages, :workspace_answer), :content))
         const options = arguments[0], contentId = arguments[1], surface = #{reader_surface}

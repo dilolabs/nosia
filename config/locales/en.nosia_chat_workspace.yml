@@ -18,5 +18,6 @@ en:
       reply: Reply to this conversation
       estimates: Environmental impact estimates
       completed: Response complete.
+      stopped: Generation stopped.
       setup_account: Set up an account
       retry: Retry

@@ -176,6 +176,43 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
     assert_select current, "h2", text: "Three findings", count: 0
   end
 
+  %i[en fr].each do |locale|
+    test "actual #{locale} totals replacement stays inside the stable Usage disclosure" do
+      sign_in_picker_user
+      get chat_url(@chat), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      current = Nokogiri::HTML.fragment(response.body)
+      Current.reset
+
+      streams = capture_turbo_stream_broadcasts([ @chat, :token_totals, locale ]) do
+        TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :embedding, input_tokens: 1, output_tokens: 0)
+      end
+      replacement = streams.find { |stream| stream["target"] == dom_id(@chat, :token_totals) }
+      assert replacement
+      assert_equal "replace", replacement["action"]
+      current.at_css("##{dom_id(@chat, :token_totals)}").replace(replacement.at_css("template").inner_html)
+
+      assert_select current, "#chat-usage-details > summary#chat-usage-summary", count: 1, text: I18n.t("nosia.chat_workspace.usage_details", locale: locale)
+      assert_select current, "#chat-usage-details > ##{dom_id(@chat, :token_totals)}", count: 1
+      assert_select current, "#chat-usage-details [data-chat-total-input]", text: "126"
+      assert_select current, "#chat-usage-details caption", text: I18n.t("nosia.usage.per_kind", locale: locale)
+    end
+
+    test "#{locale} phase rendering uses known phases with a restrained fallback" do
+      %w[preparing indexing searching retrieving generating using_tool thinking unknown].each do |phase|
+        expected = phase == "unknown" ? "thinking" : phase
+        html = I18n.with_locale(locale) { ApplicationController.render(partial: "messages/thinking_animation", locals: { phase: phase }) }
+        fragment = Nokogiri::HTML.fragment(html)
+        assert_select fragment, ".n-chat-phase[data-phase='#{expected}']", count: 1 do
+          assert_select "span.n-chat-phase-indicator[aria-hidden=true]", count: 1
+          assert_select "p.n-chat-phase-title", text: I18n.t("nosia.chat.phases.#{expected}.title", locale: locale)
+          assert_select "p.n-workspace-help", text: I18n.t("nosia.chat.phases.#{expected}.subtitle", locale: locale)
+        end
+        assert_select fragment, "[role=status], [aria-live], svg, .animate-spin", count: 0
+      end
+    end
+  end
+
   private
     def render_message(message)
       Nokogiri::HTML.fragment(ApplicationController.render(partial: "messages/message", locals: { message: message }))
