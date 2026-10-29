@@ -1023,8 +1023,14 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       observe_workspace_announcements
 
       Current.reset
-      @chat.stop_generation!
-      streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
+      worker = Chat.find(@chat.id)
+      web = Chat.find(@chat.id)
+      assert_not_same worker, web
+      web.stop_generation!
+      refute_predicate worker, :generation_stopped?, "The already-loaded worker must still hold the pre-Stop value"
+      assert_predicate Chat.find(@chat.id), :generation_stopped?
+      streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { worker.finish_generation! }
+      refute_predicate worker, :generation_stopped?, "Presentation must not reload the worker"
       assert_equal %w[replace remove refresh], streams.map { |stream| stream["action"] }
       unlock, removal, refresh = streams
       assert_equal "#{dom_id(@chat)}_message_form", unlock["target"]

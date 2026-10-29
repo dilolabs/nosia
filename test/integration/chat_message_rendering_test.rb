@@ -185,18 +185,66 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "composer presentation uses one uncached account-scoped freshness read per render without changing its caller" do
+    @chat.start_generation!
+    worker = Chat.find(@chat.id)
+    cached_chats = worker.account.chats.load
+    attributes = worker.attributes.deep_dup
+    Chat.find(@chat.id).stop_generation!
+    refute_predicate worker, :generation_stopped?
+    Current.reset
+    statements = []
+    subscriber = lambda do |_name, start, finish, _id, payload|
+      if payload[:sql].match?(/\ASELECT\b.*\bFROM\s+["`]?chats["`]?\s/im)
+        statements << payload.slice(:sql, :cached, :binds).merge(milliseconds: ((finish - start) * 1000).round(3))
+      end
+    end
+    fragments = []
+    Chat.cache do
+      ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") do
+        2.times do
+          fragments << Nokogiri::HTML.fragment(ApplicationController.render(partial: "messages/form", locals: { chat: worker }))
+        end
+      end
+    end
+
+    assert_equal 2, statements.size, "Exactly one bounded freshness SELECT per render, even with the query cache enabled"
+    statements.each do |statement|
+      refute statement[:cached], statement[:sql]
+      assert_match(/generating.*stopped_at.*WHERE.*\bid\b.*\baccount_id\b/im, statement[:sql])
+      assert_match(/LIMIT/im, statement[:sql])
+      assert_equal [ worker.id, worker.account_id ], statement.fetch(:binds).first(2).map(&:value_for_database)
+    end
+    fragments.each do |fragment|
+      assert_select fragment, "form[data-chat-followup][data-generation-busy=false][data-generation-stopped=true]", count: 1
+    end
+    assert_equal attributes, worker.attributes
+    assert_same cached_chats, worker.account.chats
+    assert worker.account.association(:chats).loaded?
+    assert_nil Current.user
+    assert_nil Current.attributes[:account]
+    puts "Composer freshness query cost: #{statements.map { |statement| statement.except(:binds) }.to_json}"
+  end
+
   %i[en fr].each do |locale|
     test "actual #{locale} composer payload carries authoritative generation state without Current" do
       Current.reset
       assert_nil Current.user
       assert_nil Current.attributes[:account]
       @chat.start_generation!
-      busy = Nokogiri::HTML.fragment(I18n.with_locale(locale) { ApplicationController.render(partial: "messages/form", locals: { chat: @chat }) })
+      worker = Chat.find(@chat.id)
+      worker.account.chats.load
+      busy = Nokogiri::HTML.fragment(I18n.with_locale(locale) { ApplicationController.render(partial: "messages/form", locals: { chat: worker }) })
       assert_select busy, "form[data-chat-followup][data-generation-busy=true][data-generation-stopped=false][data-chat-account-target=form][data-action='submit->chat-account#guard']", count: 1
       assert_select busy, "form##{dom_id(@chat, :composer_stop)}[action='#{stop_chat_path(@chat)}'][data-turbo-frame=_top]", count: 1
 
-      @chat.stop_generation!
-      stopped = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
+      web = Chat.find(@chat.id)
+      assert_not_same worker, web
+      web.stop_generation!
+      refute_predicate worker, :generation_stopped?, "The preloaded worker must not see the web instance's Stop in memory"
+      assert_predicate Chat.find(@chat.id), :generation_stopped?
+      stopped = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { worker.finish_generation! }
+      refute_predicate worker, :generation_stopped?, "Rendering must leave the worker's cached state untouched"
       assert_equal %w[replace remove refresh], stopped.map { |stream| stream["action"] }
       assert_equal "#{dom_id(@chat)}_message_form", stopped.first["target"]
       payload = stopped.first.at_css("template")
@@ -205,9 +253,12 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
       assert_select payload, "form##{dom_id(@chat, :composer_stop)}", count: 0
       assert_select payload, "button[aria-label='#{I18n.t('nosia.chat.send', locale: locale)}']:not([disabled])", count: 1
 
+      prior_turn = Chat.find(@chat.id)
+      assert_predicate prior_turn, :generation_stopped?
       @chat.start_generation!
-      fresh = Nokogiri::HTML.fragment(I18n.with_locale(locale) { ApplicationController.render(partial: "messages/form", locals: { chat: @chat }) })
+      fresh = Nokogiri::HTML.fragment(I18n.with_locale(locale) { ApplicationController.render(partial: "messages/form", locals: { chat: prior_turn }) })
       assert_select fresh, "form[data-chat-followup][data-generation-busy=true][data-generation-stopped=false]", count: 1
+      assert_predicate prior_turn, :generation_stopped?, "A fresh turn must not reload an older caller either"
       completed = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
       assert_select completed.first.at_css("template"), "form[data-chat-followup][data-generation-busy=false][data-generation-stopped=false]", count: 1
       assert_nil Current.user
