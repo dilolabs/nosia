@@ -297,7 +297,361 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  [ [ 1400, 1000 ], [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
+    test "reader follows only by intent while streaming at #{width}x#{height}" do
+      visit_reader(width, height)
+      pause_reader
+      anchor = reader_anchor
+
+      stream_answer(reader_answer(100))
+
+      assert_button "Latest message"
+      assert_reader_anchor anchor
+      assert_reader_following false
+      click_button "Latest message"
+      assert_reader_following true
+      assert_no_button "Latest message"
+      assert_operator reader_gap, :<=, 80
+
+      # A reader can also resume by manually returning within the threshold.
+      pause_reader
+      page.execute_script("const surface = #{reader_surface}; surface.scrollTop = surface.scrollHeight - surface.clientHeight - 60; surface.dispatchEvent(new Event('scroll'))")
+      assert_reader_following true
+      stream_answer(reader_answer(110))
+      assert_operator reader_gap, :<=, 80
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+
+    test "only a successful own follow-up resumes the reader at #{width}x#{height}" do
+      visit_reader(width, height)
+      pause_reader
+      anchor = reader_anchor
+      page.execute_script(<<~JS)
+        const form = document.querySelector('form[data-chat-followup]')
+        form.dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true }))
+        form.dispatchEvent(new CustomEvent('turbo:submit-end', { bubbles: true, detail: { success: false } }))
+      JS
+      assert_reader_following false
+      assert_reader_anchor anchor
+      assert_no_enqueued_jobs only: ChatResponseJob
+
+      visit chat_url(@chat)
+      assert_selector "lexxy-editor[connected]"
+      find("lexxy-editor .lexxy-editor__content").send_keys("A real follow-up")
+      pause_reader
+      assert_selector "lexxy-editor .lexxy-editor__content", text: "A real follow-up", visible: :all
+      page.execute_script(<<~JS)
+        document.querySelector('form[data-chat-followup]').addEventListener('turbo:submit-end', event => {
+          window.readerSubmissionSucceeded = event.detail.success
+          window.readerWasPausedAtOutcome = document.querySelector('.n-chat-workspace').dataset.readerFollowing === 'false'
+        }, { once: true })
+      JS
+
+      assert_enqueued_jobs 1, only: ChatResponseJob do
+        # Native click without WebDriver scrolling the offscreen mobile dock first.
+        page.execute_script("document.querySelector('button[aria-label=Send]').click()")
+        assert_selector "form[data-chat-followup][data-generation-busy=true] lexxy-editor[disabled]"
+        assert_reader_following true
+      end
+
+      assert page.evaluate_script("window.readerSubmissionSucceeded")
+      assert page.evaluate_script("window.readerWasPausedAtOutcome")
+      assert_equal "A real follow-up", @chat.messages.user.order(:created_at).last.content.strip
+      assert_predicate @chat.reload, :generating?
+      assert_operator reader_gap, :<=, 80
+    end
+
+    test "same URL refresh preserves paused visible content and stream focus at #{width}x#{height}" do
+      visit_reader(width, height)
+      pause_reader
+      anchor = reader_anchor
+      page.execute_script(<<~JS)
+        document.documentElement.removeAttribute('data-reader-refresh-finished')
+        document.addEventListener('turbo:render', () => { document.documentElement.dataset.readerRefreshFinished = 'true' }, { once: true })
+        Turbo.visit(window.location.href, { action: 'replace' })
+      JS
+      assert_selector "lexxy-editor[connected]"
+      assert_selector "html[data-reader-refresh-finished=true]"
+      settle_workspace_layout
+      assert_reader_following false
+      assert_reader_anchor anchor
+      page.execute_script("window.readerFocus = document.activeElement")
+
+      stream_answer(reader_answer(100))
+
+      assert_button "Latest message"
+      assert_reader_anchor anchor
+      assert page.evaluate_script("window.readerFocus === document.activeElement")
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
+  test "paused reader keeps its paragraph through surface changes and editor reflow" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+
+    set_reader_viewport(375, 812)
+    settle_workspace_layout
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_equal "n-chat-main", page.evaluate_script("#{reader_surface}.className")
+    page.execute_script("document.querySelector('lexxy-editor').value = '<div>Long draft</div>'.repeat(35)")
+    settle_workspace_layout
+    assert_reader_anchor anchor
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_reader_anchor anchor
+
+    set_reader_viewport(1400, 1000)
+    settle_workspace_layout
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_equal "n-chat-transcript", page.evaluate_script("#{reader_surface}.className")
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "other tab messages unrelated streams and blocked source submissions do not resume" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    stream_html(%(<turbo-stream action="update" target="chat-account-help"><template>Account help updated</template></turbo-stream>))
+    assert_selector "#chat-account-help", text: "Account help updated"
+    assert_no_button "Latest message"
+    answer = workspace(:messages, :workspace_answer)
+    stream_html(%(<turbo-stream action="update" target="#{dom_id(answer, :response_summary)}"><template>Response details updated</template></turbo-stream>))
+    assert_selector "##{dom_id(answer, :response_summary)}", text: "Response details updated", visible: :all
+    settle_workspace_layout
+    assert_no_button "Latest message"
+    stream_html(%(<turbo-stream action="update" target="#{dom_id(answer, :reasoning_content)}"><template>Reasoning metadata updated</template></turbo-stream>))
+    assert_selector "##{dom_id(answer, :reasoning_content)}", text: "Reasoning metadata updated", visible: :all
+    settle_workspace_layout
+    assert_no_button "Latest message"
+
+    incoming = @chat.messages.create!(role: "user", content: "A question from another tab")
+    html = ApplicationController.render(partial: "messages/message", locals: { message: incoming })
+    stream_html(%(<turbo-stream action="append" target="#{dom_id(@chat, :messages)}"><template>#{html}</template></turbo-stream>))
+    assert_selector "##{dom_id(incoming, :messages)}", text: "A question from another tab", visible: :all
+    assert_button "Latest message"
+    assert_reader_following false
+    assert_reader_anchor anchor
+
+    hold_source_registration
+    page.execute_script(<<~JS)
+      document.querySelector('lexxy-editor').dispatchEvent(new CustomEvent('lexxy:insert-link', {
+        detail: { url: 'https://second.example/reference' }, bubbles: true
+      }))
+    JS
+    assert_button "Send", disabled: true, enable_aria_label: true
+    pause_reader
+    counts = [ Chat.count, Message.count ]
+    page.execute_script("document.querySelector('form[data-chat-followup]').requestSubmit()")
+    settle_workspace_layout
+    assert_reader_following false
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+    page.execute_script("window.releaseWorkspaceSource()")
+    assert_button "Send", disabled: false, enable_aria_label: true
+  end
+
+  test "Stop and Tools form outcomes never resume a paused reader" do
+    @chat.start_generation!
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    page.execute_script(<<~JS)
+      const form = document.querySelector('#mcp-selector-modal form')
+      form.dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true }))
+      form.dispatchEvent(new CustomEvent('turbo:submit-end', { bubbles: true, detail: { success: true } }))
+    JS
+    assert_reader_following false
+    page.execute_script("document.querySelector('button[aria-label=\"Stop generating\"]').click()")
+    assert_button "Send", disabled: false, enable_aria_label: true
+    settle_workspace_layout
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_not @chat.reload.generating?
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "following positions increments instantly including reduced motion" do
+    [ false, true ].each do |reduced|
+      page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "prefers-reduced-motion", value: reduced ? "reduce" : "no-preference" } ])
+      visit_reader(1400, 1000)
+      page.execute_script(<<~JS)
+        window.readerSmoothCalls = []
+        for (const name of ['scroll', 'scrollTo', 'scrollIntoView']) {
+          const original = Element.prototype[name]
+          Element.prototype[name] = function(...args) {
+            if (args.some(arg => arg?.behavior === 'smooth')) window.readerSmoothCalls.push(name)
+            return original.apply(this, args)
+          }
+        }
+      JS
+      [ 90, 100, 110 ].each do |count|
+        stream_answer(reader_answer(count))
+        assert_reader_following true
+        assert_operator reader_gap, :<=, 1
+      end
+      assert_equal [], page.evaluate_script("window.readerSmoothCalls")
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "a replaced transcript retargets the reader without losing its anchor or pending evidence" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    answer = workspace(:messages, :workspace_answer)
+    answer.update_columns(content: reader_answer(100))
+    html = ApplicationController.render(partial: "chats/transcript", locals: { chat: @chat })
+
+    stream_html(%(<turbo-stream action="replace" targets=".n-chat-transcript"><template><section class="n-chat-transcript" data-scroll-target="viewport">#{html}</section></template></turbo-stream>))
+
+    assert_selector "##{dom_id(answer, :content)} p:last-child", text: "Paragraph 100:", visible: :all
+    settle_reader_animations
+    assert_button "Latest message"
+    assert_reader_following false
+    assert_reader_anchor anchor
+    click_button "Latest message"
+    assert_reader_following true
+    assert_operator reader_gap, :<=, 80
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "reconnecting the same saved root preserves intent and does not duplicate ownership" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    page.execute_script(<<~JS)
+      const root = document.querySelector('.n-chat-workspace--saved')
+      root.dataset.controller = root.dataset.controller.replace(' scroll', '')
+    JS
+    settle_workspace_layout
+    page.execute_script("document.querySelector('.n-chat-workspace--saved').dataset.controller += ' scroll'")
+    settle_workspace_layout
+
+    assert_reader_following false
+    assert_reader_anchor anchor
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_reader_anchor anchor
+    click_button "Latest message"
+    assert_reader_following true
+    assert_operator reader_gap, :<=, 80
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "reader scroll wins over an already scheduled incremental update" do
+    visit_reader(1400, 1000)
+    page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))
+      const surface = #{reader_surface}, height = surface.scrollHeight
+      const content = document.getElementById(arguments[0])
+      const observer = new MutationObserver(() => {
+        observer.disconnect()
+        window.readerUpdateHeightStable = surface.scrollHeight === height
+        const paragraph = document.getElementById(content.id).querySelectorAll('p')[19]
+        surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
+        surface.dispatchEvent(new Event('scroll'))
+      })
+      observer.observe(content.parentElement, { childList: true })
+    JS
+
+    stream_answer(reader_answer(80) + " More.")
+
+    assert page.evaluate_script("window.readerUpdateHeightStable"), "This case must isolate user scrolling, not layout resizing"
+    assert_reader_following false
+    anchor = reader_anchor
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_reader_anchor anchor
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   private
+    def set_reader_viewport(width, height)
+      page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: height, deviceScaleFactor: 1, mobile: false)
+      assert_equal [ width, height ], page.evaluate_script("[innerWidth, innerHeight]")
+    end
+
+    def visit_reader(width, height)
+      set_reader_viewport(width, height)
+      visit chat_url(@chat)
+      assert_selector "lexxy-editor[connected]"
+      settle_reader_animations
+      assert_reader_following true
+      assert_operator reader_gap, :<=, 80
+    end
+
+    def reader_surface
+      "(matchMedia('(max-width: 639px), (max-height: 700px)').matches ? document.querySelector('main.n-chat-main') : document.querySelector('.n-chat-transcript'))"
+    end
+
+    def settle_reader_animations
+      page.evaluate_async_script(<<~JS)
+        const done = arguments[arguments.length - 1]
+        Promise.all(document.querySelector('.n-chat-transcript').getAnimations({ subtree: true })
+          .filter(animation => animation.effect.getTiming().iterations !== Infinity)
+          .map(animation => animation.finished.catch(() => {}))).then(done)
+      JS
+    end
+
+    def pause_reader
+      page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))
+        const surface = #{reader_surface}, paragraph = document.getElementById(arguments[0]).querySelectorAll('p')[19]
+        surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
+        surface.dispatchEvent(new Event('scroll'))
+      JS
+      assert_reader_following false
+      settle_workspace_layout
+    end
+
+    def assert_reader_following(following)
+      assert_selector ".n-chat-workspace[data-reader-following=#{following}]"
+      settle_workspace_layout
+    end
+
+    def reader_gap
+      settle_workspace_layout
+      page.evaluate_script("(() => { const surface = #{reader_surface}; return surface.scrollHeight - surface.clientHeight - surface.scrollTop })()")
+    end
+
+    def reader_anchor
+      page.evaluate_script(<<~JS)
+        (() => {
+          const surface = #{reader_surface}, top = surface.getBoundingClientRect().top
+          const paragraphs = [...document.querySelectorAll('.n-chat-transcript .ai-response-content p')]
+          const paragraph = paragraphs.find(element => element.getBoundingClientRect().bottom > top)
+          return { index: paragraphs.indexOf(paragraph), text: paragraph.textContent, offset: paragraph.getBoundingClientRect().top - top }
+        })()
+      JS
+    end
+
+    def assert_reader_anchor(anchor)
+      settle_workspace_layout
+      current = reader_anchor
+      assert_equal anchor.fetch("text"), current.fetch("text"), current.to_json
+      assert_in_delta anchor.fetch("offset"), current.fetch("offset"), 1, current.to_json
+      assert_operator reader_gap, :>, 80
+    end
+
+    def reader_answer(count)
+      "## Three findings\n\n" + (1..count).map { |index| "Paragraph #{index}: efficient resource use and clearer evaluation criteria." }.join("\n\n")
+    end
+
+    def stream_answer(text)
+      message = workspace(:messages, :workspace_answer)
+      html = ApplicationController.render(partial: "messages/streaming_content",
+        locals: { message: message, content_html: Message.render_markdown_content(text) })
+      stream_html(%(<turbo-stream action="replace" target="#{dom_id(message, :content)}"><template>#{html}</template></turbo-stream>))
+      assert_selector "##{dom_id(message, :content)} p:last-child", text: text.split("\n\n").last, visible: :all
+      settle_workspace_layout
+    end
+
+    def stream_html(html)
+      page.execute_script("Turbo.renderStreamMessage(arguments[0])", html)
+    end
+
     def settle_workspace_layout
       page.evaluate_async_script("const done = arguments[arguments.length - 1]; requestAnimationFrame(() => requestAnimationFrame(done))")
     end

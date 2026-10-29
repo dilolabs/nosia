@@ -1,10 +1,10 @@
 <% content_for :title, chat_workspace_title(@chat, titles: @history_titles) %>
 <div id="chat-workspace-<%= @chat.id %>" class="n-chat-workspace n-chat-workspace--saved"
-     data-controller="chat-reconnect chat-account chat-dialog"
+     data-controller="chat-reconnect chat-account chat-dialog scroll"
      data-chat-reconnect-generating-value="<%= @chat.generating? %>"
      data-chat-account-account-id-value="<%= @chat.account_id %>"
      data-chat-account-confirm-message-value="<%= t('nosia.chat.change_account') %>"
-     data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture turbo:before-cache@document->chat-dialog#beforeCache">
+     data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture turbo:before-cache@document->chat-dialog#beforeCache turbo:before-stream-render@document->scroll#beforeStream turbo:before-render@document->scroll#capture turbo:render@document->scroll#afterRender lexxy:initialize->scroll#afterRender animationend->scroll#afterRender turbo:submit-start->scroll#submissionStarted">
   <%= render "chats/header", chat: @chat, titles: @history_titles %>
   <div class="n-chat-follow">
     <button type="button" class="n-workspace-button" hidden data-scroll-target="latest" data-action="scroll#latest"><%= t("nosia.chat_workspace.latest") %></button>
