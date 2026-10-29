@@ -1,3 +1,3 @@
-<%= tag.div id: dom_id(message, :messages), class: "message-container mb-6", data: { created_at: message.created_at.iso8601 } do %>
+<%= tag.div id: dom_id(message, :messages), class: "message-container n-chat-message #{'n-chat-message--user' if message.user?}", data: { created_at: message.created_at.iso8601 } do %>
   <%= render "messages/body", message: message %>
 <% end %>
