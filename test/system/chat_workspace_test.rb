@@ -385,6 +385,104 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       assert_no_enqueued_jobs only: ChatResponseJob
     end
 
+    [ 0, 80 ].each do |gap|
+      test "manual return resumes during actual stream growth at #{width}x#{height} with #{gap}px gap" do
+        visit_reader(width, height)
+        pause_reader
+        stream_answer(reader_answer(90))
+        assert_button "Latest message"
+        assert_reader_following false
+        page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content), gap)
+          const surface = #{reader_surface}, content = document.getElementById(arguments[0]), gap = arguments[1]
+          const root = document.querySelector('.n-chat-workspace--saved'), latest = root.querySelector('[data-scroll-target=latest]')
+          window.readerResumeRace = { heightBefore: surface.scrollHeight, topBefore: surface.scrollTop }
+          const observer = new MutationObserver(() => {
+            observer.disconnect()
+            // This return happens after real content growth, before reconciliation.
+            const evidence = window.readerResumeRace
+            evidence.heightAfter = surface.scrollHeight
+            evidence.topBeforeInput = surface.scrollTop
+            evidence.followingBeforeInput = root.dataset.readerFollowing
+            evidence.latestHiddenBeforeInput = latest.hidden
+            surface.scrollTop = surface.scrollHeight - surface.clientHeight - gap
+            evidence.requestedGap = surface.scrollHeight - surface.clientHeight - surface.scrollTop
+            evidence.returnedTop = surface.scrollTop
+            surface.dispatchEvent(new Event('scroll'))
+            evidence.followingAfterInput = root.dataset.readerFollowing
+            evidence.latestHiddenAfterInput = latest.hidden
+            evidence.gapAfterInput = surface.scrollHeight - surface.clientHeight - surface.scrollTop
+            evidence.topAfterInput = surface.scrollTop
+          })
+          observer.observe(content.parentElement, { childList: true })
+        JS
+
+        stream_answer(reader_answer(110))
+
+        evidence = page.evaluate_script("window.readerResumeRace")
+        puts "Reader resume race #{width}x#{height} gap #{gap}: #{evidence.to_json}"
+        assert_operator evidence.fetch("heightAfter"), :>, evidence.fetch("heightBefore")
+        assert_operator evidence.fetch("returnedTop"), :>, evidence.fetch("topBeforeInput")
+        assert_equal gap, evidence.fetch("requestedGap")
+        assert_equal "false", evidence.fetch("followingBeforeInput")
+        assert_not evidence.fetch("latestHiddenBeforeInput")
+        assert_equal "true", evidence.fetch("followingAfterInput")
+        assert evidence.fetch("latestHiddenAfterInput")
+        assert_operator evidence.fetch("gapAfterInput"), :<=, 80
+        assert_operator evidence.fetch("topAfterInput"), :>, evidence.fetch("topBeforeInput")
+        assert_reader_following true
+        assert_no_button "Latest message"
+        assert_operator reader_gap, :<=, 1
+        assert_operator page.evaluate_script("#{reader_surface}.scrollTop"), :>, evidence.fetch("topBeforeInput")
+        assert page.evaluate_script("document.getElementById(arguments[0]).querySelectorAll('p')[19].getBoundingClientRect().bottom < #{reader_surface}.getBoundingClientRect().top", dom_id(workspace(:messages, :workspace_answer), :content))
+
+        stream_answer(reader_answer(120))
+
+        assert_reader_following true
+        assert_no_button "Latest message"
+        assert_operator reader_gap, :<=, 1
+        assert_no_enqueued_jobs only: ChatResponseJob
+      end
+    end
+
+    test "native anchoring without reader movement stays paused during growth at #{width}x#{height}" do
+      visit_reader(width, height)
+      page.execute_script("const surface = #{reader_surface}; surface.scrollTop = surface.scrollHeight - surface.clientHeight - 160; surface.dispatchEvent(new Event('scroll'))")
+      assert_reader_following false
+      anchor = reader_anchor
+      page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))
+        const surface = #{reader_surface}, content = document.getElementById(arguments[0])
+        const root = document.querySelector('.n-chat-workspace--saved')
+        window.readerNativeGrowth = { heightBefore: surface.scrollHeight, topBefore: surface.scrollTop }
+        const observer = new MutationObserver(() => {
+          observer.disconnect()
+          const evidence = window.readerNativeGrowth
+          evidence.heightAfter = surface.scrollHeight
+          evidence.nativeTop = surface.scrollTop
+          // Deliver scroll at the browser's anchored position, without moving it.
+          surface.dispatchEvent(new Event('scroll'))
+          evidence.followingAfterScroll = root.dataset.readerFollowing
+        })
+        observer.observe(content.parentElement, { childList: true })
+      JS
+
+      stream_answer(reader_answer(100))
+
+      evidence = page.evaluate_script("window.readerNativeGrowth")
+      puts "Reader native growth #{width}x#{height}: #{evidence.to_json}"
+      assert_operator evidence.fetch("heightAfter"), :>, evidence.fetch("heightBefore")
+      if width <= 639
+        assert_operator evidence.fetch("nativeTop"), :>, evidence.fetch("topBefore")
+      else
+        # Which surviving element the browser anchors varies with available height.
+        assert_operator evidence.fetch("nativeTop"), :>=, evidence.fetch("topBefore")
+      end
+      assert_equal "false", evidence.fetch("followingAfterScroll")
+      assert_reader_following false
+      assert_reader_anchor anchor
+      assert_button "Latest message"
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+
     readings = %w[earlier recent]
     readings << "previous" if width <= 639 || height <= 700
     readings.each do |reading|

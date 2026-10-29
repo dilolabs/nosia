@@ -52,17 +52,17 @@ export default class extends Controller {
     const updateTop = this.updatePosition?.surface === surface ? this.updatePosition.top : this.position?.top
     // Layout and our own positioning also dispatch scroll, but do not change intent.
     if (event.target !== surface || (this.frame && this.rendering) || this.position?.surface !== surface || updateTop === surface.scrollTop) return
-    // Content growing below the reader can anchor the browser downward, but an
-    // upward move is reader intent and must beat the queued follow reconciliation.
-    const scrolledBackDuringGrowth = this.updatedMessages.size > 0 && surface.scrollHeight > this.position.height && surface.scrollTop < updateTop
-    if (this.position.clientHeight !== surface.clientHeight || (this.position.height !== surface.scrollHeight && !scrolledBackDuringGrowth)) {
+    // Native anchoring is already included in updateTop. Reader movement away
+    // from that position in either direction must beat queued reconciliation.
+    const movedDuringGrowth = this.updatedMessages.size > 0 && surface.scrollHeight > this.position.height && surface.scrollTop !== updateTop
+    if (this.position.clientHeight !== surface.clientHeight || (this.position.height !== surface.scrollHeight && !movedDuringGrowth)) {
       this.schedule()
       return
     }
 
     this.state.paused = this.gap > 80
     if (!this.state.paused) this.state.pending = false
-    if (scrolledBackDuringGrowth) this.changed ||= this.updatedContentBelow()
+    if (movedDuringGrowth) this.changed ||= this.updatedContentBelow()
     this.capture()
     this.reflect()
     this.rememberPosition()
