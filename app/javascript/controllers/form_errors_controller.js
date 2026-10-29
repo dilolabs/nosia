@@ -7,6 +7,10 @@ export default class extends Controller {
     summary.focus()
   }
 
+  focusSummary() {
+    if (this.hasSummaryTarget) this.summaryTarget.focus()
+  }
+
   revealInvalid(event) {
     for (let disclosure = event.target.closest("details"); disclosure; disclosure = disclosure.parentElement?.closest("details")) disclosure.open = true
   }

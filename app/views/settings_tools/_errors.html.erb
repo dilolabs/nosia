@@ -1,6 +1,6 @@
 <%# locals: (items:) %>
 <% if items.any? %>
-  <section class="n-settings-tool-errors" role="alert" tabindex="-1" data-form-errors-target="summary" aria-labelledby="settings-tool-errors-title">
+  <section class="n-settings-tool-errors" role="alert" tabindex="-1" data-form-errors-target="summary" data-action="turbo:morph@document->form-errors#focusSummary" aria-labelledby="settings-tool-errors-title">
     <h2 id="settings-tool-errors-title" class="n-workspace-section-title"><%= t("nosia.settings_tools.errors", count: items.size) %></h2>
     <ul class="!list-none" role="list"><% items.each do |item| %><li>
       <% if item[:target] %><%= link_to item[:message], "##{item[:target]}", class: "n-workspace-link", data: { error_field: item[:target] } %><% else %><%= item[:message] %><% end %>
