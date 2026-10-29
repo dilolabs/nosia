@@ -1010,6 +1010,77 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       assert_no_enqueued_jobs only: ChatResponseJob
     end
 
+    test "remote Stop unlock announces stopped before refresh and a fresh turn completes in #{locale}" do
+      set_workspace_language(locale)
+      @chat.messages.assistant.destroy_all
+      @chat.start_generation!
+      visit chat_url(@chat)
+      assert_workspace_status I18n.t("nosia.chat.phases.preparing.title", locale: locale)
+      assert_selector ".n-chat-workspace[data-chat-generation-stopped=false]"
+      # Replay the actual worker payloads once, without also receiving their Cable copy.
+      page.execute_script("document.querySelectorAll('turbo-cable-stream-source').forEach(source => source.remove())")
+      assert_no_selector "turbo-cable-stream-source", visible: :all
+      observe_workspace_announcements
+
+      Current.reset
+      @chat.stop_generation!
+      streams = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
+      assert_equal %w[replace remove refresh], streams.map { |stream| stream["action"] }
+      unlock, removal, refresh = streams
+      assert_equal "#{dom_id(@chat)}_message_form", unlock["target"]
+      File.write(File.join(chat_evidence_directory, "remote-stop-#{locale}.html"), streams.map(&:to_html).join)
+      stream_html(unlock.to_html)
+
+      assert_button I18n.t("nosia.chat.send", locale: locale), disabled: false, enable_aria_label: true
+      assert_selector ".n-chat-workspace[data-chat-generation-stopped=false]"
+      assert_workspace_status I18n.t("nosia.chat_workspace.stopped", locale: locale)
+      assert_no_selector "[data-chat-feedback-target=status]", text: I18n.t("nosia.chat_workspace.completed", locale: locale), visible: :all
+      assert_equal [ I18n.t("nosia.chat_workspace.stopped", locale: locale) ], page.evaluate_script("window.workspaceAnnouncements")
+
+      stream_html(removal.to_html)
+      assert_no_selector "#thinking_animation", visible: :all
+      stream_html(refresh.to_html)
+      assert_selector ".n-chat-workspace[data-chat-generation-stopped=true]"
+      assert_workspace_status I18n.t("nosia.chat_workspace.stopped", locale: locale)
+      reconnect_workspace_feedback
+      assert_workspace_status I18n.t("nosia.chat_workspace.stopped", locale: locale)
+      assert page.evaluate_script("window.workspaceStatus === document.querySelector('[data-chat-feedback-target=status]')")
+      assert_equal [ I18n.t("nosia.chat_workspace.stopped", locale: locale) ], page.evaluate_script("window.workspaceAnnouncements")
+      assert_no_enqueued_jobs only: ChatResponseJob
+
+      # The real morph restores subscriptions. Detach them again before replaying
+      # the next turn's captured broadcasts, rather than mixing two deliveries.
+      assert_selector "turbo-cable-stream-source", visible: :all
+      page.execute_script("document.querySelectorAll('turbo-cable-stream-source').forEach(source => source.remove())")
+      assert_no_selector "turbo-cable-stream-source", visible: :all
+      find("lexxy-editor .lexxy-editor__content").send_keys("A fresh follow-up")
+      fresh_turn = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) do
+        assert_enqueued_jobs 1, only: ChatResponseJob do
+          click_button I18n.t("nosia.chat.send", locale: locale), enable_aria_label: true
+          assert_selector "form[data-chat-followup][data-generation-busy=true]"
+        end
+      end
+      assert fresh_turn.any? { |stream| stream["action"] == "append" && stream["target"] == dom_id(@chat, :messages) }
+      fresh_turn.each { |stream| stream_html(stream.to_html) }
+      refute_predicate @chat.reload, :generation_stopped?
+      assert_workspace_status I18n.t("nosia.chat.phases.preparing.title", locale: locale)
+      assert_selector ".n-chat-workspace[data-chat-generation-stopped=true]"
+      assert_selector "form[data-chat-followup][data-generation-busy=true][data-generation-stopped=false]"
+      Current.reset
+      completion = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
+      assert_equal %w[replace remove refresh], completion.map { |stream| stream["action"] }
+      File.write(File.join(chat_evidence_directory, "fresh-completion-#{locale}.html"), completion.map(&:to_html).join)
+      stream_html(completion.first.to_html)
+      assert_button I18n.t("nosia.chat.send", locale: locale), disabled: false, enable_aria_label: true
+      assert_workspace_status I18n.t("nosia.chat_workspace.completed", locale: locale)
+      completion.drop(1).each { |stream| stream_html(stream.to_html) }
+      assert_selector ".n-chat-workspace[data-chat-generation-stopped=false]"
+      reconnect_workspace_feedback
+      assert_workspace_status I18n.t("nosia.chat_workspace.completed", locale: locale)
+      assert_equal [ I18n.t("nosia.chat_workspace.stopped", locale: locale), I18n.t("nosia.chat.phases.preparing.title", locale: locale),
+        I18n.t("nosia.chat_workspace.completed", locale: locale) ], page.evaluate_script("window.workspaceAnnouncements")
+    end
+
     test "live stopped feedback is truthful without an assistant answer in #{locale}" do
       set_workspace_language(locale)
       @chat.messages.assistant.destroy_all
@@ -1270,6 +1341,38 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     end
   end
 
+  test "incomplete composer metadata does not invent completion before an authoritative unlock" do
+    %w[data-generation-busy data-generation-stopped].each do |attribute|
+      @chat.messages.assistant.destroy_all
+      @chat.start_generation!
+      visit chat_url(@chat)
+      preparing = I18n.t("nosia.chat.phases.preparing.title")
+      assert_workspace_status preparing
+      page.execute_script("document.querySelectorAll('turbo-cable-stream-source').forEach(source => source.remove())")
+      assert_no_selector "turbo-cable-stream-source", visible: :all
+      observe_workspace_announcements
+
+      Current.reset
+      @chat.stop_generation!
+      streams = capture_turbo_stream_broadcasts([ @chat, :messages, :en ]) { @chat.finish_generation! }
+      unlock = streams.first
+      # This guard case deliberately omits metadata; the cross-tab regressions
+      # above replay the unmodified server payloads in both locales.
+      incomplete = unlock.dup
+      incomplete.at_css("template form[data-chat-followup]").remove_attribute(attribute)
+      stream_html(incomplete.to_html)
+      assert_selector "form[data-chat-followup]:not([#{attribute}])", visible: :all
+      settle_workspace_layout
+      assert_workspace_status preparing
+      assert_equal [], page.evaluate_script("window.workspaceAnnouncements")
+
+      stream_html(unlock.to_html)
+      assert_workspace_status I18n.t("nosia.chat_workspace.stopped")
+      assert_equal [ I18n.t("nosia.chat_workspace.stopped") ], page.evaluate_script("window.workspaceAnnouncements")
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "live completion after a stopped turn follows the new busy composer rather than stale stop state" do
     @chat.messages.assistant.destroy_all
     @chat.start_generation!
@@ -1515,6 +1618,23 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def observe_workspace_announcements
+      page.execute_script(<<~JS)
+        const status = document.querySelector('[data-chat-feedback-target=status]')
+        window.workspaceStatus = status
+        window.workspaceAnnouncements = []
+        window.workspaceStatusObserver = new MutationObserver(() => window.workspaceAnnouncements.push(status.textContent))
+        window.workspaceStatusObserver.observe(status, { childList: true, subtree: true, characterData: true })
+      JS
+    end
+
+    def reconnect_workspace_feedback
+      page.execute_script("document.querySelector('.n-chat-workspace').dataset.controller = document.querySelector('.n-chat-workspace').dataset.controller.replace(' chat-feedback', '')")
+      settle_workspace_layout
+      page.execute_script("document.querySelector('.n-chat-workspace').dataset.controller += ' chat-feedback'")
+      settle_workspace_layout
+    end
+
     def set_workspace_language(locale)
       select locale.to_s.upcase, from: "language_preference_locale"
       assert_selector "html[lang=#{locale}]"

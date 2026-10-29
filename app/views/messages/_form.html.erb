@@ -3,7 +3,7 @@
   <% skills = JSON.parse(agent_skill_autocomplete_data(chat.account)) %>
   <% stop_form_id = dom_id(chat, :composer_stop) if generating %>
   <%= form_with model: Message.new, url: [chat, chat.messages.new], class: "w-full",
-        data: { chat_account_target: "form", generation_busy: generating, chat_followup: true,
+        data: { chat_account_target: "form", generation_busy: generating, generation_stopped: chat.generation_stopped?, chat_followup: true,
           action: "submit->chat-account#guard" } do |form| %>
     <%= render "chats/composer", form: form, chat: chat, field: :content,
       skills: skills, generating: generating, stop_form_id: stop_form_id %>

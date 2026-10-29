@@ -186,6 +186,35 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
   end
 
   %i[en fr].each do |locale|
+    test "actual #{locale} composer payload carries authoritative generation state without Current" do
+      Current.reset
+      assert_nil Current.user
+      assert_nil Current.attributes[:account]
+      @chat.start_generation!
+      busy = Nokogiri::HTML.fragment(I18n.with_locale(locale) { ApplicationController.render(partial: "messages/form", locals: { chat: @chat }) })
+      assert_select busy, "form[data-chat-followup][data-generation-busy=true][data-generation-stopped=false][data-chat-account-target=form][data-action='submit->chat-account#guard']", count: 1
+      assert_select busy, "form##{dom_id(@chat, :composer_stop)}[action='#{stop_chat_path(@chat)}'][data-turbo-frame=_top]", count: 1
+
+      @chat.stop_generation!
+      stopped = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
+      assert_equal %w[replace remove refresh], stopped.map { |stream| stream["action"] }
+      assert_equal "#{dom_id(@chat)}_message_form", stopped.first["target"]
+      payload = stopped.first.at_css("template")
+      assert_select payload, "turbo-frame##{dom_id(@chat)}_message_form", count: 1
+      assert_select payload, "form[data-chat-followup][data-generation-busy=false][data-generation-stopped=true][data-chat-account-target=form][data-action='submit->chat-account#guard']", count: 1
+      assert_select payload, "form##{dom_id(@chat, :composer_stop)}", count: 0
+      assert_select payload, "button[aria-label='#{I18n.t('nosia.chat.send', locale: locale)}']:not([disabled])", count: 1
+
+      @chat.start_generation!
+      fresh = Nokogiri::HTML.fragment(I18n.with_locale(locale) { ApplicationController.render(partial: "messages/form", locals: { chat: @chat }) })
+      assert_select fresh, "form[data-chat-followup][data-generation-busy=true][data-generation-stopped=false]", count: 1
+      completed = capture_turbo_stream_broadcasts([ @chat, :messages, locale ]) { @chat.finish_generation! }
+      assert_select completed.first.at_css("template"), "form[data-chat-followup][data-generation-busy=false][data-generation-stopped=false]", count: 1
+      assert_nil Current.user
+      assert_nil Current.attributes[:account]
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+
     test "actual #{locale} totals replacement stays inside the stable Usage disclosure" do
       sign_in_picker_user
       get chat_url(@chat), headers: { "Accept-Language" => locale.to_s }

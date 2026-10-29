@@ -5,11 +5,11 @@ export default class extends Controller {
   static values = { completed: String, stopped: String }
 
   connect() {
-    this.state = this.element.chatFeedbackState ||= { generating: this.busy, phase: null }
+    this.state = this.element.chatFeedbackState ||= { generating: this.generation?.busy, phase: null }
     this.observer = new MutationObserver(() => this.update())
     this.observer.observe(this.element, {
       childList: true, subtree: true, attributes: true,
-      attributeFilter: ["data-generation-busy", "data-chat-generation-stopped"]
+      attributeFilter: ["data-generation-busy", "data-generation-stopped"]
     })
     this.update()
   }
@@ -19,13 +19,12 @@ export default class extends Controller {
   }
 
   update() {
-    const busy = this.busy
-    // A newly busy server-rendered composer starts a fresh turn, clearing the old stop.
-    if (busy && !this.state.generating && this.element.dataset.chatGenerationStopped === "true") {
-      this.element.dataset.chatGenerationStopped = "false"
-    }
+    const generation = this.generation
+    if (!generation) return
+
+    const { busy, stopped } = generation
     if (this.state.generating && !busy) {
-      this.announce(this.element.dataset.chatGenerationStopped === "true" ? this.stoppedValue : this.completedValue)
+      this.announce(stopped ? this.stoppedValue : this.completedValue)
       this.state.phase = null
     } else if (busy) {
       const phase = [...this.element.querySelectorAll(".n-chat-phase[data-phase]")].at(-1)
@@ -41,7 +40,10 @@ export default class extends Controller {
     if (this.statusTarget.textContent !== text) this.statusTarget.textContent = text
   }
 
-  get busy() {
-    return !!this.element.querySelector('[data-generation-busy="true"]')
+  get generation() {
+    const form = this.element.querySelector("form[data-chat-followup]")
+    if (form && ["true", "false"].includes(form.dataset.generationBusy) && ["true", "false"].includes(form.dataset.generationStopped)) {
+      return { busy: form.dataset.generationBusy === "true", stopped: form.dataset.generationStopped === "true" }
+    }
   }
 }
