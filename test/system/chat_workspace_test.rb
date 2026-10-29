@@ -1025,6 +1025,77 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  [ [ "send", false ], [ "send", true ], [ "removed", true ], [ "modal", true ], [ "outside", true ], [ "early", true ], [ "early_removed", true ] ].each do |destination, asynchronous|
+    test "ID-bearing summary yields to intentional #{destination} focus during #{asynchronous ? 'async' : 'sync'} stream rendering" do
+      answer = workspace(:messages, :workspace_answer)
+      visit chat_url(@chat)
+      find("##{dom_id(answer, :response_summary)}").click
+      page.execute_script(<<~JS, dom_id(answer, :response_summary), dom_id(answer, :messages), destination, asynchronous)
+        const summary = document.getElementById(arguments[0]), target = arguments[1]
+        const destination = arguments[2], asynchronous = arguments[3]
+        const root = document.querySelector('.n-chat-workspace--saved')
+        summary.focus()
+        window.focusRaceTimeline = []
+        window.focusRaceRenderCalls = 0
+        const record = name => window.focusRaceTimeline.push({ name, active: document.activeElement.id || document.activeElement.getAttribute('aria-label') || document.activeElement.tagName })
+        document.addEventListener('focusin', event => record('focusin'), true)
+        document.addEventListener('turbo:before-stream-render', event => {
+          if (event.target.getAttribute('target') === target) record('stream-arrived')
+        }, true)
+        document.addEventListener('turbo:before-stream-render', event => {
+          if (event.target.getAttribute('target') !== target) return
+          if (destination.startsWith('early')) requestAnimationFrame(() => {
+            window.intentionalFocus = root.querySelector('button[aria-label=Send]')
+            window.intentionalFocus.focus({ preventScroll: true })
+            if (destination === 'early_removed') window.intentionalFocus.remove()
+            record('intentional-focus-before-render')
+          })
+          const render = event.detail.render
+          event.detail.render = async stream => {
+            window.focusRaceRenderCalls++
+            record('render-start')
+            const result = render(stream)
+            record('body-updated')
+            if (destination.startsWith('early')) {
+              record('keep-earlier-intent')
+            } else if (destination === 'modal') {
+              root.querySelector('button[aria-controls=chat-history]').click()
+              window.intentionalFocus = document.activeElement
+            } else {
+              window.intentionalFocus = destination === 'outside' ? document.getElementById('theme-toggle') : root.querySelector('button[aria-label=Send]')
+              window.intentionalFocus.focus({ preventScroll: true })
+              if (destination === 'removed') window.intentionalFocus.remove()
+            }
+            record('intentional-focus')
+            await result
+            if (asynchronous) await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+            record('render-resolved')
+            root.dataset.focusRaceRendered = 'true'
+          }
+        }, { capture: true, once: true })
+      JS
+
+      deliver_answer_update(answer, :en)
+      assert_selector ".n-chat-workspace[data-focus-race-rendered=true]"
+      settle_workspace_layout
+      puts "ID-bearing focus timeline #{destination} async=#{asynchronous}: #{page.evaluate_script('window.focusRaceTimeline').to_json}"
+      assert_equal 1, page.evaluate_script("window.focusRaceRenderCalls")
+      if destination.include?("removed")
+        assert_not page.evaluate_script("window.intentionalFocus.isConnected")
+        assert_equal "BODY", page.evaluate_script("document.activeElement.tagName")
+        assert_no_selector "##{dom_id(answer, :response_summary)}:focus"
+        stream_html(%(<turbo-stream action="update" target="chat-account-help"><template>Unrelated update</template></turbo-stream>))
+        settle_workspace_layout
+        assert_no_selector "##{dom_id(answer, :response_summary)}:focus"
+      else
+        assert page.evaluate_script("window.intentionalFocus === document.activeElement"), page.evaluate_script("document.activeElement.outerHTML.slice(0, 300)")
+        assert_dialog_focus "chat-history" if destination == "modal"
+      end
+      assert_selector "##{dom_id(answer, :response_details)}[open]", visible: :all
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
   test "live completion after a stopped turn follows the new busy composer rather than stale stop state" do
     @chat.messages.assistant.destroy_all
     @chat.start_generation!

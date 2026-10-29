@@ -3,6 +3,9 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   connect() {
     this.states = this.element.chatDetailStates ||= new Map()
+    this.streamRenders = new Set()
+    this.nativeFocusPasses = new Set()
+    this.streamRevision = 0
     this.observer = new MutationObserver(() => this.restore())
     this.observer.observe(this.element, { childList: true, subtree: true })
     this.restore()
@@ -12,6 +15,7 @@ export default class extends Controller {
     this.observer.disconnect()
     this.pendingFocus = null
     this.pendingDialog = null
+    for (const cancel of this.streamRenders) cancel()
   }
 
   beforeVisit(event) {
@@ -51,7 +55,69 @@ export default class extends Controller {
     const active = document.activeElement
     const detail = active?.closest("details[data-chat-detail][id]")
     if (target?.contains(active) && detail && this.element.contains(detail)) {
-      this.pendingFocus = { id: active.id, summaryId: detail.querySelector("summary[id]")?.id }
+      const pending = { element: active, id: active.id, summaryId: detail.querySelector("summary[id]")?.id }
+      if (event.type === "turbo:before-stream-render") {
+        this.renderWithFocus(event, pending)
+      } else {
+        this.pendingFocus = pending
+      }
+    }
+  }
+
+  renderWithFocus(event, pending) {
+    const render = event.detail.render
+    const focus = this.streamFocus ||= { element: pending.element, intent: null }
+    let active = true
+    // This listener only records intent for this render; it never owns document focus.
+    const focused = event => {
+      if (this.restoringFocus || (this.nativeFocusPasses.size && event.target === focus.element)) return
+      focus.intent = event.target === focus.element ? null : event.target
+    }
+    const cancel = () => {
+      active = false
+      document.removeEventListener("focusin", focused, true)
+      this.streamRenders.delete(cancel)
+      this.nativeFocusPasses.delete(cancel)
+      if (!this.streamRenders.size) this.streamFocus = null
+    }
+    this.streamRenders.add(cancel)
+    document.addEventListener("focusin", focused, true)
+    this.streamRevision++
+    event.detail.render = async stream => {
+      this.nativeFocusPasses.add(cancel)
+      await this.settleNativeFocus()
+      this.nativeFocusPasses.delete(cancel)
+      try {
+        if (active && focus.intent) this.restoreIntent(pending, focus.intent)
+        const result = await render(stream)
+        if (active && this.element.isConnected) {
+          this.restore()
+          if (!focus.intent || focus.intent === pending.element) this.restoreFocus(pending)
+        }
+        return result
+      } finally {
+        cancel()
+      }
+    }
+  }
+
+  async settleNativeFocus() {
+    let revision
+    do {
+      revision = this.streamRevision
+      // All queued envelopes get their native ID focus pass before any loses its node.
+      await new Promise(resolve => requestAnimationFrame(resolve))
+    } while (revision !== this.streamRevision)
+  }
+
+  restoreIntent(pending, intent) {
+    if (document.activeElement !== pending.element || intent === pending.element) return
+    this.restoringFocus = true
+    try {
+      if (intent.isConnected && !intent.closest("dialog:not([open])")) intent.focus({ preventScroll: true })
+      if (document.activeElement === pending.element) pending.element.blur()
+    } finally {
+      this.restoringFocus = false
     }
   }
 
@@ -79,11 +145,22 @@ export default class extends Controller {
 
     const pending = this.pendingFocus
     this.pendingFocus = null
+    if (pending) this.restoreFocus(pending)
+  }
+
+  restoreFocus(pending) {
     if (!pending || (document.activeElement !== document.body && document.activeElement !== document.documentElement)) return
     const find = id => id && this.element.querySelector(`#${CSS.escape(id)}`)
     const target = find(pending.id) || find(pending.summaryId)
     const dialog = target?.closest("dialog")
     const modal = this.element.querySelector("dialog[open]")
-    if (target && (!dialog || dialog.open) && (!modal || modal.contains(target))) target.focus({ preventScroll: true })
+    if (target && (!dialog || dialog.open) && (!modal || modal.contains(target))) {
+      this.restoringFocus = true
+      try {
+        target.focus({ preventScroll: true })
+      } finally {
+        this.restoringFocus = false
+      }
+    }
   }
 }
