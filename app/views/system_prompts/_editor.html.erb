@@ -1,0 +1,23 @@
+<%# locals: (prompt:) %>
+<div class="n-workspace n-settings-tool" data-settings-tool data-settings-screen="<%= settings_tool_account_route? ? 'account-prompt-edit' : 'prompt-edit' %>">
+  <%= render "settings_tools/header", title: t("nosia.settings_tools.prompt_edit"), description: t("nosia.settings_tools.prompt_help"), trail: prompt_workspace_trail(prompt, editing: true), scope_label: t("nosia.workspace.account", name: prompt.account.name) %>
+  <%= render "settings_tools/feedback" %>
+  <% if settings_tool_account_route? %>
+    <p class="n-settings-tool-badge" data-prompt-state><%= t(prompt.persisted? ? "nosia.settings_tools.prompt_saved" : "nosia.settings_tools.prompt_builtin") %></p>
+  <% end %>
+  <%= form_with model: prompt, url: prompt_workspace_read_path(prompt), method: :patch, class: "n-settings-tool-form", data: { controller: "form-errors html-form", action: "click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML" } do |form| %>
+    <%= render "settings_tools/errors", items: settings_tool_errors(prompt, targets: { content: "prompt_content" }) %>
+    <section class="n-workspace-panel space-y-4">
+      <%= form.label :content, t("nosia.prompts.label"), class: "n-settings-tool-label" %>
+      <%= form.text_area :content, id: "prompt_content", required: true, class: "n-settings-tool-input n-settings-tool-editor", aria: settings_tool_field_aria("prompt_content", invalid: prompt.errors[:content].any?) %>
+      <p id="prompt_content_help" class="n-workspace-help"><%= t("nosia.settings_tools.required") %></p>
+      <% if prompt.errors[:content].any? %>
+        <p id="prompt_content_error" class="n-settings-tool-error"><%= prompt.errors.full_messages_for(:content).join(" ") %></p>
+      <% end %>
+    </section>
+    <div class="n-workspace-actions">
+      <%= form.submit t("nosia.actions.save"), class: "n-workspace-button n-workspace-primary", data: { turbo_submits_with: t("nosia.settings_tools.saving") } %>
+      <%= link_to t("nosia.actions.cancel"), prompt_workspace_read_path(prompt), class: "n-workspace-link" %>
+    </div>
+  <% end %>
+</div>

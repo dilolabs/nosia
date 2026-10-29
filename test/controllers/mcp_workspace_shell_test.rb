@@ -71,9 +71,16 @@ class McpWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "non-MCP drawers remain while secrets and long identifiers are escaped" do
-    get api_tokens_path
+  test "composer drawers and token shell coexist while secrets and long identifiers are escaped" do
+    get new_chat_path
+    assert_response :success
     assert_select "#drawer-right, #accordion-right-actions", count: 2
+
+    get api_tokens_path
+    assert_response :success
+    assert_select "[data-settings-tool][data-settings-screen=tokens]", count: 1
+    assert_select "#drawer-right, #accordion-right-actions", count: 0
+    assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
     @first_server.update!(name: "<script>#{'LongName' * 30}</script>", notes: "saved-secret")
     get mcp_servers_path
     assert_select "main script", count: 0

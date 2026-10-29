@@ -1,0 +1,26 @@
+.n-settings-tool { overflow-wrap: anywhere; }
+.n-settings-tool [hidden] { display: none !important; }
+.n-settings-tool .n-workspace-link { min-inline-size: 2.75rem; }
+.n-settings-tool .n-workspace-button:not(.n-workspace-primary):hover { @apply bg-neutral-50 dark:bg-neutral-900; }
+.n-settings-tool .n-workspace-button:disabled { opacity: 1; }
+.n-settings-tool input[type=submit].n-workspace-primary:focus { @apply outline-green-950 dark:outline-green-700; }
+.n-settings-tool form { max-inline-size: 100%; }
+.n-settings-tool-rows { @apply grid min-w-0 gap-4; }
+.n-settings-tool-row { @apply flex min-w-0 flex-wrap items-center justify-between gap-4 rounded-xl border border-neutral-500 bg-white p-5 dark:bg-neutral-800; }
+.n-settings-tool-row > :first-child { min-inline-size: 0; flex: 1 1 15rem; }
+.n-settings-tool-badge { @apply inline-flex rounded-full border border-neutral-500 px-3 py-1 text-sm; }
+.n-settings-tool-label { @apply mb-2 block text-base font-medium; }
+.n-settings-tool-input { @apply block min-h-11 w-full min-w-0 rounded-md border border-neutral-500 bg-white px-3 py-2 text-base text-neutral-900 focus:outline-2 focus:outline-offset-2 focus:outline-green-700 dark:bg-neutral-800 dark:text-neutral-100 dark:focus:outline-green-300; }
+.n-settings-tool-input[aria-invalid=true] { @apply border-red-700 dark:border-red-300; }
+.n-settings-tool-editor { min-block-size: 20rem; resize: vertical; line-height: 1.75; }
+.n-settings-tool-reading { max-inline-size: 80ch; white-space: pre-wrap; overflow-wrap: anywhere; @apply text-base leading-relaxed; }
+.n-settings-tool-errors { @apply rounded-lg border border-red-700 bg-red-50 p-4 text-red-900 focus:outline-2 focus:outline-offset-2 focus:outline-red-700 dark:border-red-300 dark:bg-red-950 dark:text-red-200 dark:focus:outline-red-300; }
+.n-settings-tool-error { @apply text-base text-red-800 dark:text-red-200; }
+.n-settings-tool-message { @apply rounded-lg border border-neutral-500 bg-white p-4 text-base dark:bg-neutral-800; }
+.n-settings-tool-form { @apply grid min-w-0 gap-5; }
+.n-settings-tool-token-layout { @apply grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(16rem,1fr)_minmax(0,2fr)]; }
+.n-settings-tool-copy { @apply flex min-w-0 flex-wrap items-end gap-3; }
+.n-settings-tool-copy > div { min-inline-size: 0; flex: 1 1 18rem; }
+.n-settings-tool-reveal:focus { @apply outline-2 outline-offset-2 outline-green-700 dark:outline-green-300; }
+main:has([data-settings-tool]) { min-width: 0; scroll-padding-block-start: .5rem; scroll-padding-block-end: 6rem; }
+@media (width < 64rem) { main:has([data-settings-tool]) { margin-block-end: 5rem; } }

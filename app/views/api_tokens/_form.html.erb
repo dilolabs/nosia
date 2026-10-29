@@ -1,19 +1,19 @@
-<%= form_with(model: api_token, url: @account ? account_api_tokens_path(@account) : api_tokens_path) do |form| %>
-  <div class="n-form-field">
-    <%= form.label :name, t("nosia.tokens.name"), class: "n-label" %>
-    <%= form.text_field :name, required: true, class: "n-field" %>
-  </div>
-
-  <div class="n-form-field">
-    <% if @account %>
-      <p class="n-label"><%= t("nosia.tokens.default_account") %></p>
-      <%= form.hidden_field :account_id, value: @account.id %>
-      <p><%= @account.name %></p>
-    <% else %>
-      <%= form.label :account_id, t("nosia.tokens.default_account"), class: "n-label" %>
-      <%= form.collection_select :account_id, Current.user.accounts, :id, :name, { prompt: true, required: true }, { class: "n-select" } %>
-    <% end %>
-  </div>
-
-  <%= form.submit t("nosia.tokens.generate"), class: "n-btn-primary" %>
+<%# locals: (api_token:) %>
+<%= form_with model: api_token, url: @account ? account_api_tokens_path(@account) : api_tokens_path, class: "n-settings-tool-form", data: { controller: "form-errors html-form", action: "click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML" } do |form| %>
+  <%= render "settings_tools/errors", items: settings_tool_errors(api_token, targets: { name: "api_token_name", account: @account ? nil : "api_token_account_id" }) %>
+  <section class="n-workspace-panel space-y-4"><h2 class="n-workspace-section-title"><%= t("nosia.settings_tools.create_token") %></h2>
+    <div><%= form.label :name, t("nosia.settings_tools.token_name"), class: "n-settings-tool-label" %>
+      <%= form.text_field :name, required: true, class: "n-settings-tool-input", aria: settings_tool_field_aria("api_token_name", invalid: api_token.errors[:name].any?) %>
+      <p id="api_token_name_help" class="n-workspace-help"><%= t("nosia.settings_tools.required") %></p>
+      <% if api_token.errors[:name].any? %><p id="api_token_name_error" class="n-settings-tool-error"><%= api_token.errors.full_messages_for(:name).join(" ") %></p><% end %>
+    </div>
+    <div><% if @account %><p class="n-settings-tool-label"><%= t("nosia.settings_tools.default_account") %></p><%= form.hidden_field :account_id, value: @account.id %><p><%= @account.name %></p>
+      <% else %><%= form.label :account_id, t("nosia.settings_tools.default_account"), class: "n-settings-tool-label" %>
+        <%= form.collection_select :account_id, Current.user.accounts, :id, :name, { prompt: true }, { required: true, class: "n-settings-tool-input", aria: settings_tool_field_aria("api_token_account_id", invalid: api_token.errors[:account].any?) } %>
+        <p id="api_token_account_id_help" class="n-workspace-help"><%= t("nosia.settings_tools.account_help") %></p>
+        <% if api_token.errors[:account].any? %><p id="api_token_account_id_error" class="n-settings-tool-error"><%= api_token.errors.full_messages_for(:account).join(" ") %></p><% end %>
+      <% end %>
+    </div>
+    <%= form.submit t("nosia.settings_tools.generate"), class: "n-workspace-button n-workspace-primary", data: { turbo_submits_with: t("nosia.settings_tools.generating") } %>
+  </section>
 <% end %>

@@ -1,0 +1,11 @@
+<%# locals: (token:, plain:) %>
+<% content_for :head do %><meta name="turbo-cache-control" content="no-cache"><% end %>
+<section id="<%= dom_id(token, :reveal) %>" class="n-workspace-panel n-settings-tool-reveal space-y-4" data-token-reveal tabindex="-1" aria-labelledby="created_api_token_title" data-controller="token-reveal" data-action="turbo:before-cache@document->token-reveal#clear pagehide@window->token-reveal#clear" data-token-reveal-success-content-value="<%= t('nosia.settings_tools.copied') %>" data-token-reveal-copying-value="<%= t('nosia.settings_tools.copying') %>" data-token-reveal-failure-value="<%= t('nosia.settings_tools.copy_failed') %>">
+  <h2 id="created_api_token_title" class="n-workspace-section-title"><%= t("nosia.settings_tools.created_title") %></h2>
+  <p><%= token.name %> · <%= t("nosia.settings_tools.default_account") %>: <%= token.account.name %></p>
+  <p id="created_api_token_help" class="n-workspace-help"><%= t("nosia.settings_tools.created_help") %></p>
+  <div class="n-settings-tool-copy"><div><label for="created_api_token" class="n-settings-tool-label"><%= t("nosia.settings_tools.secret_label") %></label><input id="created_api_token" type="text" readonly value="<%= plain %>" class="n-settings-tool-input" aria-describedby="created_api_token_help" data-token-reveal-target="source"></div>
+    <button type="button" class="n-workspace-button" data-action="token-reveal#copy" data-token-reveal-target="button"><%= inline_svg "svg/clipboard.svg", aria_hidden: true, class: "h-5 w-5 shrink-0" %><%= t("nosia.settings_tools.copy") %></button>
+  </div>
+  <p id="created_api_token_status" role="status" aria-live="polite" class="n-workspace-help" data-token-reveal-target="status"></p>
+</section>

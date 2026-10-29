@@ -42,11 +42,17 @@ class SettingsWorkspaceTest < ActionDispatch::IntegrationTest
     assert_select "[data-settings-workspace] .hidden.lg\\:block a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
     assert_select ".lg\\:hidden a[href='#{new_chat_path}']", minimum: 1
 
-    [ new_chat_path, api_tokens_path, system_prompts_path ].each do |path|
+    [ new_chat_path ].each do |path|
       get path
       assert_response :success
       assert_select "#accordion-right-actions, #drawer-right", count: 2
     end
+
+    get system_prompts_path
+    assert_response :success
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
+    assert_select ".lg\\:hidden a[href=?]", new_chat_path
 
     get mcp_servers_path
     assert_response :success
@@ -56,6 +62,12 @@ class SettingsWorkspaceTest < ActionDispatch::IntegrationTest
 
     get account_settings_path(@second)
     assert_redirected_to account_path(@second)
+
+    get api_tokens_path
+    assert_response :success
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
+    assert_select ".lg\\:hidden a[href=?]", new_chat_path
   end
 
   test "hub remains static and read only for members and users without accounts" do

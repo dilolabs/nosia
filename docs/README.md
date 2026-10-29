@@ -8,6 +8,9 @@ Nosia is a self-hosted Retrieval Augmented Generation (RAG) platform that allows
 
 ## Documentation Structure
 
+### [Separate Settings Tools Workspaces](settings-tools-workspace.md)
+Dedicated prompt, member and personal API-token pages, recovery and verification boundaries.
+
 ### [Architecture Documentation](ARCHITECTURE.md)
 Detailed technical documentation covering the system design and implementation of Nosia.
 

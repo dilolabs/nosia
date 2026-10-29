@@ -20,7 +20,7 @@ class SystemPromptsController < ApplicationController
     if @system_prompt.update(system_prompt_params)
       redirect_to system_prompt_path(@system_prompt), notice: t("nosia.prompts.updated")
     else
-      render :show, status: :unprocessable_entity
+      render :edit, status: :unprocessable_entity
     end
   end
 

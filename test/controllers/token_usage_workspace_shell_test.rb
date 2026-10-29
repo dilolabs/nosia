@@ -54,12 +54,16 @@ class TokenUsageWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_select "details", minimum: 1
   end
 
-  test "unrelated tools keep their drawers and Sources keep their existing shell" do
-    [ new_chat_path, api_tokens_path ].each do |path|
-      get path
-      assert_response :success
-      assert_select "#accordion-right-actions, #drawer-right", count: 2
-    end
+  test "composer keeps legacy drawers while converted tools keep dedicated shells" do
+    get new_chat_path
+    assert_response :success
+    assert_select "#accordion-right-actions, #drawer-right", count: 2
+
+    get api_tokens_path
+    assert_response :success
+    assert_select "[data-settings-tool][data-settings-screen=tokens]", count: 1
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
 
     get sources_path
     assert_select "[data-source-workspace]"

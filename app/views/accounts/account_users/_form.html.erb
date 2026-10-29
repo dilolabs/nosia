@@ -1,0 +1,13 @@
+<%= form_with scope: :account_user, url: account_account_users_path(@account), method: :post, class: "n-settings-tool-form", data: { controller: "form-errors html-form", action: "click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML" } do |form| %>
+  <%= render "settings_tools/errors", items: @member_error ? [ { message: @member_error, target: "account_user_email" } ] : [] %>
+  <section class="n-workspace-panel space-y-4">
+    <h2 class="n-workspace-section-title"><%= t("nosia.settings_tools.add_existing") %></h2>
+    <p id="account_user_email_help" class="n-workspace-help"><%= t("nosia.settings_tools.existing_user_help") %></p>
+    <%= form.label :email, t("nosia.settings_tools.email"), class: "n-settings-tool-label" %>
+    <%= form.email_field :email, id: "account_user_email", value: @member_email, required: true, class: "n-settings-tool-input", aria: settings_tool_field_aria("account_user_email", invalid: @member_error.present?) %>
+    <% if @member_error %>
+      <p id="account_user_email_error" class="n-settings-tool-error"><%= @member_error %></p>
+    <% end %>
+    <%= form.submit t("nosia.settings_tools.add_member"), class: "n-workspace-button n-workspace-primary", data: { turbo_submits_with: t("nosia.settings_tools.adding_member") } %>
+  </section>
+<% end %>

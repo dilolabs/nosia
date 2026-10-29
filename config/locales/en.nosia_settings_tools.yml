@@ -1,0 +1,65 @@
+en:
+  nosia:
+    settings_tools:
+      errors:
+        one: "1 error:"
+        other: "%{count} errors:"
+      required: Required
+      saving: Saving…
+      prompts_description: Review the instructions associated with your accounts.
+      prompt_title: System prompt
+      prompt_edit: Edit system prompt
+      prompt_open: Open prompt
+      prompt_edit_action: Edit prompt
+      account_default: Account default
+      user_specific: User-specific
+      prompt_saved: Saved account prompt
+      prompt_builtin: Built-in default
+      prompt_fallback: This account has no saved default prompt. The built-in instructions are shown below; only a successful Save creates a saved account prompt.
+      prompt_precedence: A user-specific prompt takes precedence over the account default.
+      prompt_help: Edit plain text. Existing placeholders and formatting are retained; the content cannot be blank.
+      prompts_empty: No saved system prompts
+      prompts_empty_help: Open an account to review its saved or built-in default instructions.
+      open_accounts: Open accounts
+      members_title: Account members
+      members_description: Manage membership for this account. Only its owner can add or remove members.
+      add_existing: Add an existing user
+      existing_user_help: Enter the email of someone who already has a Nosia user account. This does not send an invitation.
+      email: Email address
+      add_member: Add member
+      adding_member: Adding member…
+      remove_member: Remove member
+      removing_member: Removing member…
+      member_confirm: "Remove %{email} from %{account}? This removes their membership from this account, not their user account."
+      member_unknown: No existing user was found for this email address.
+      member_duplicate: This user already belongs to this account.
+      member_failed: The member could not be added. Check the email and try again.
+      owner: Owner
+      you: You
+      member: Member
+      owner_protected: The owner cannot be removed.
+      no_additional_members: No additional members yet. Add an existing user above to share this account.
+      tokens_description: Create and revoke your personal API access tokens.
+      personal_tokens: Your tokens
+      create_token: Create a token
+      token_name: Token name
+      default_account: Default account
+      account_help: Choose the default account for requests using this token.
+      generate: Generate
+      generating: Generating…
+      revoke: Revoke token
+      revoking: Revoking…
+      revoke_confirm: "Revoke %{name} (default account: %{account})? Clients using this token will stop authenticating."
+      token_removed: The API token has been revoked.
+      created_title: Copy your new token now
+      created_help: This value is shown only once and cannot be retrieved later. Store it securely before leaving this page.
+      secret_label: New token value
+      copy: Copy token
+      copying: Copying…
+      copied: Copied.
+      copy_failed: Copying was not available. Select the value above and copy it manually.
+      token_security: Saved token values cannot be retrieved. Revoke a token when it is no longer needed.
+      tokens_empty: You have no API tokens yet.
+      tokens_empty_account: You have no API tokens for this account.
+      setup_account: Add an account
+      setup_account_help: An account is needed before you can create a token. Existing personal tokens remain available below.

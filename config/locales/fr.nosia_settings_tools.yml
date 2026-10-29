@@ -1,0 +1,65 @@
+fr:
+  nosia:
+    settings_tools:
+      errors:
+        one: "1 erreur :"
+        other: "%{count} erreurs :"
+      required: Obligatoire
+      saving: Enregistrement…
+      prompts_description: Consultez les instructions associées à vos comptes.
+      prompt_title: Instructions système
+      prompt_edit: Modifier les instructions système
+      prompt_open: Ouvrir les instructions
+      prompt_edit_action: Modifier les instructions
+      account_default: Instructions par défaut du compte
+      user_specific: Instructions propres à un utilisateur
+      prompt_saved: Instructions enregistrées du compte
+      prompt_builtin: Instructions intégrées par défaut
+      prompt_fallback: Ce compte n’a pas d’instructions par défaut enregistrées. Les instructions intégrées sont affichées ci-dessous ; seul un enregistrement réussi crée les instructions du compte.
+      prompt_precedence: Les instructions propres à un utilisateur priment sur celles du compte.
+      prompt_help: Modifiez le texte brut. Les variables et la mise en forme sont conservées ; le contenu ne peut pas être vide.
+      prompts_empty: Aucune instruction système enregistrée
+      prompts_empty_help: Ouvrez un compte pour consulter ses instructions enregistrées ou intégrées.
+      open_accounts: Ouvrir les comptes
+      members_title: Membres du compte
+      members_description: Gérez les membres de ce compte. Seul son propriétaire peut ajouter ou retirer des membres.
+      add_existing: Ajouter un utilisateur existant
+      existing_user_help: Saisissez l’adresse d’une personne ayant déjà un compte utilisateur Nosia. Aucune invitation n’est envoyée.
+      email: Adresse e-mail
+      add_member: Ajouter un membre
+      adding_member: Ajout du membre…
+      remove_member: Retirer le membre
+      removing_member: Retrait du membre…
+      member_confirm: "Retirer %{email} de %{account} ? Ce retrait concerne son appartenance à ce compte, pas son compte utilisateur."
+      member_unknown: Aucun utilisateur existant ne correspond à cette adresse e-mail.
+      member_duplicate: Cet utilisateur est déjà membre de ce compte.
+      member_failed: Le membre n’a pas pu être ajouté. Vérifiez l’adresse et réessayez.
+      owner: Propriétaire
+      you: Vous
+      member: Membre
+      owner_protected: Le propriétaire ne peut pas être retiré.
+      no_additional_members: Aucun autre membre pour le moment. Ajoutez un utilisateur existant ci-dessus pour partager ce compte.
+      tokens_description: Créez et révoquez vos jetons personnels d’accès à l’API.
+      personal_tokens: Vos jetons
+      create_token: Créer un jeton
+      token_name: Nom du jeton
+      default_account: Compte par défaut
+      account_help: Choisissez le compte par défaut des requêtes utilisant ce jeton.
+      generate: Générer
+      generating: Génération…
+      revoke: Révoquer le jeton
+      revoking: Révocation…
+      revoke_confirm: "Révoquer %{name} (compte par défaut : %{account}) ? Les clients utilisant ce jeton ne pourront plus s’authentifier."
+      token_removed: Le jeton API a été révoqué.
+      created_title: Copiez votre nouveau jeton maintenant
+      created_help: Cette valeur n’est affichée qu’une fois et ne peut pas être récupérée ensuite. Conservez-la en lieu sûr avant de quitter cette page.
+      secret_label: Valeur du nouveau jeton
+      copy: Copier le jeton
+      copying: Copie…
+      copied: Copié.
+      copy_failed: La copie n’est pas disponible. Sélectionnez la valeur ci-dessus et copiez-la manuellement.
+      token_security: Les valeurs des jetons enregistrés ne peuvent pas être récupérées. Révoquez les jetons devenus inutiles.
+      tokens_empty: Vous n’avez pas encore de jeton API.
+      tokens_empty_account: Vous n’avez pas de jeton API pour ce compte.
+      setup_account: Ajouter un compte
+      setup_account_help: Un compte est nécessaire pour créer un jeton. Vos jetons personnels existants restent disponibles ci-dessous.
