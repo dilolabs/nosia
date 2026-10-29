@@ -31,6 +31,7 @@ module ChatWorkspaceBrowserChecks
       path = File.join(chat_evidence_directory, "#{state}.png")
       page.save_screenshot(path)
       puts "Chat visual evidence: #{path}"
+      path
     end
 
     # Real Tab traversal, not focus(), establishes keyboard modality and reachability.
@@ -157,5 +158,73 @@ module ChatWorkspaceBrowserChecks
           geometry: dialog.getBoundingClientRect().toJSON(), limitation: 'Backdrop composition requires screenshot inspection; no automated contrast claim' }
         })()
       JS
+    end
+
+    # Only this known stroked X on a uniform, opaque native dialog is supported.
+    # Its core intersection and clear interior point are recorded for independent
+    # screenshot-pixel sampling; neither point is on the green focus indicator.
+    def chat_native_close_contrast(selector, screenshot:, minimum: 3)
+      button = find(selector)
+      sample = page.evaluate_script(<<~JS, button)
+        (() => {
+          const button = arguments[0], dialog = button.closest('dialog'), svg = button.querySelector('svg'), path = svg?.querySelector('path')
+          if (!dialog?.matches(':modal') || !path || svg.querySelectorAll('path').length !== 1 ||
+              path.getAttribute('d') !== 'M6 18L18 6M6 6l12 12' || svg.getAttribute('viewBox') !== '0 0 24 24')
+            throw new Error('Native icon measurement requires the known modal close X')
+          const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
+          const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
+          const rgba = color => {
+            if (!CSS.supports('color', color)) throw new Error(`Unparsed native icon color: ${color}`)
+            context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1)
+            return [...context.getImageData(0, 0, 1, 1).data]
+          }
+          const surface = rgba(getComputedStyle(dialog).backgroundColor)
+          if (surface[3] !== 255) throw new Error('Native dialog surface must be opaque')
+          for (let node = path; node; node = node.parentElement) {
+            const style = getComputedStyle(node)
+            if (style.backgroundImage !== 'none' || Number(style.opacity) !== 1 || style.filter !== 'none' ||
+                style.backdropFilter !== 'none' || style.mixBlendMode !== 'normal' || style.maskImage !== 'none' ||
+                style.boxShadow !== 'none' || style.textShadow !== 'none' || style.clipPath !== 'none')
+              throw new Error(`Unmeasured native icon paint effect on ${node.tagName}`)
+            if (dialog.contains(node)) {
+              const background = rgba(style.backgroundColor)
+              if (background[3] !== 0 && background.some((channel, index) => channel !== surface[index]))
+                throw new Error('Nonuniform native icon backing surface')
+              for (const pseudo of ['::before', '::after']) {
+                if (!['none', 'normal'].includes(getComputedStyle(node, pseudo).content))
+                  throw new Error('Unmeasured generated native icon paint')
+              }
+            }
+          }
+          const stroke = getComputedStyle(path), style = getComputedStyle(button)
+          const foreground = rgba(stroke.stroke), outline = rgba(style.outlineColor)
+          if (stroke.fill !== 'none' || Number(stroke.strokeOpacity) !== 1 || foreground[3] !== 255 || outline[3] !== 255)
+            throw new Error('Native close measurement requires an opaque stroke and outline without fill')
+          const luminance = color => color.slice(0, 3).map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
+            .reduce((sum, c, index) => sum + c * [.2126, .7152, .0722][index], 0)
+          const ratio = color => { const a = luminance(color), b = luminance(surface); return (Math.max(a, b) + .05) / (Math.min(a, b) + .05) }
+          const point = (x, y) => { const p = new DOMPoint(x, y).matrixTransform(svg.getScreenCTM()); return [Math.floor(p.x), Math.floor(p.y)] }
+          const core = point(12, 12), background = point(12, 4), rect = button.getBoundingClientRect()
+          const outset = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+          return { foreground, surface, ratio: ratio(foreground), stroke: stroke.stroke, strokeWidth: parseFloat(stroke.strokeWidth),
+            path: path.getAttribute('d'), geometry: rect.toJSON(), svgGeometry: svg.getBoundingClientRect().toJSON(),
+            outline, outlineRatio: ratio(outline), outlineWidth: parseFloat(style.outlineWidth), outlineStyle: style.outlineStyle,
+            outlineFits: rect.left - outset >= 0 && rect.right + outset <= innerWidth && rect.top - outset >= 0 && rect.bottom + outset <= innerHeight,
+            pixelPoints: { coreStroke: core, clearSurface: background }, pixelScale: devicePixelRatio,
+            coreHit: button.contains(document.elementFromPoint(...core)), surfaceHit: button.contains(document.elementFromPoint(...background)),
+            limitation: 'Only this opaque uniform top-layer surface; backdrop contrast is not inferred' }
+        })()
+      JS
+      chat_measurement(sample.merge("kind" => "native-close-glyph", "selector" => selector, "screenshot" => screenshot, "threshold" => minimum))
+      assert_selector "#{selector}:focus-visible"
+      assert_equal 1, sample.fetch("pixelScale")
+      assert_equal [ 40, 40 ], sample.fetch("geometry").values_at("width", "height")
+      assert sample.fetch("coreHit") && sample.fetch("surfaceHit"), sample.to_json
+      assert sample.fetch("outlineFits"), sample.to_json
+      assert_operator sample.fetch("outlineWidth"), :>=, 2
+      refute_equal "none", sample.fetch("outlineStyle")
+      assert_operator sample.fetch("outlineRatio"), :>=, 3, sample.to_json
+      assert_operator sample.fetch("strokeWidth"), :>=, 2
+      assert_operator sample.fetch("ratio"), :>=, minimum, "Native close glyph (not its outline): #{sample.to_json}"
     end
 end

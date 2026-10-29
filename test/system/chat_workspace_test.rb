@@ -1472,6 +1472,32 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     end
   end
 
+  %i[en fr].each do |locale|
+    [ false, true ].each do |dark|
+      test "native Tools close glyph has independent contrast in #{locale} #{dark ? 'dark' : 'light'}" do
+        set_workspace_language(locale)
+        [ [ 812, 375 ], [ 375, 812 ] ].each do |width, height|
+          chat_viewport(width, height)
+          visit chat_url(@chat)
+          assert_selector "lexxy-editor[connected]"
+          chat_theme(dark)
+          chat_keyboard_focus ".n-composer-tools-trigger"
+          page.driver.browser.action.send_keys(:enter).perform
+          assert_native_dialog "mcp-selector-modal"
+          selector = "#mcp-selector-modal button[aria-label='#{I18n.t('nosia.chat_workspace.close', locale: locale)}']"
+          assert_selector "#{selector}:focus"
+          chat_reachable selector, scroll: false
+          screenshot = chat_screenshot "close-glyph-#{locale}-#{dark ? 'dark' : 'light'}-#{width}x#{height}"
+          chat_native_close_contrast selector, screenshot: screenshot
+          page.driver.browser.action.send_keys(:enter).perform
+          assert_no_selector "#mcp-selector-modal[open]", visible: :all
+          assert_selector ".n-composer-tools-trigger:focus"
+          assert_no_enqueued_jobs only: ChatResponseJob
+        end
+      end
+    end
+  end
+
   private
     def set_workspace_language(locale)
       select locale.to_s.upcase, from: "language_preference_locale"
