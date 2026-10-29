@@ -23,7 +23,11 @@ export default class extends Controller {
   }
 
   closed(event) {
-    const opener = this.openers.get(event.target.id)
+    let opener = this.openers.get(event.target.id)
+    if (!opener?.isConnected) {
+      const id = CSS.escape(event.target.id)
+      opener = this.element.querySelector(`[data-chat-dialog-id-param="${id}"][aria-controls="${id}"]`)
+    }
     if (!this.caching && !this.element.querySelector("dialog[open]") && opener?.isConnected) opener.focus()
     this.openers.delete(event.target.id)
   }

@@ -67,6 +67,35 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "Tools returns focus to the current trigger after its composer frame is replaced" do
+    @chat.start_generation!
+    visit chat_url(@chat)
+    assert_button "Stop generating", enable_aria_label: true
+    counts = [ Chat.count, Message.count ]
+    page.execute_script("window.originalToolsTrigger = document.querySelector('.n-composer-tools-trigger')")
+    find(".n-composer-tools-trigger").click
+    assert_native_dialog "mcp-selector-modal"
+
+    @chat.stop_generation!
+    Current.reset
+    replacement = ApplicationController.render(
+      inline: '<%= turbo_stream.replace target, partial: "messages/form", locals: { chat: chat } %>',
+      locals: { target: "#{dom_id(@chat)}_message_form", chat: @chat }
+    )
+    page.execute_script("Turbo.renderStreamMessage(arguments[0])", replacement)
+
+    assert_selector "turbo-frame##{dom_id(@chat)}_message_form button[aria-label=Send]:not([disabled])"
+    assert_not page.evaluate_script("window.originalToolsTrigger.isConnected")
+    assert_native_dialog "mcp-selector-modal"
+    assert_dialog_focus "mcp-selector-modal"
+    within("#mcp-selector-modal") { click_button "Close", exact: true }
+
+    assert_no_selector "#mcp-selector-modal[open]", visible: :all
+    assert_selector "turbo-frame##{dom_id(@chat)}_message_form .n-composer-tools-trigger:focus"
+    assert_equal counts, [ Chat.count, Message.count ]
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "History navigates and deletes an authorized conversation" do
     first_chat = workspace(:chats, :workspace_first_chat)
     visit chat_url(@chat)
