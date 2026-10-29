@@ -120,6 +120,7 @@ export default class extends Controller {
   }
 
   recordInput() {
+    this.disclosureActivation = null
     this.state.paused = this.gap > 80
     if (!this.state.paused) this.state.pending = false
     this.capture()
@@ -220,6 +221,7 @@ export default class extends Controller {
       // A trusted native disclosure owns this one layout change, not later resizes.
       if (this.updatedContentBelow() && this.gap > 80) this.state.pending = true
       this.reflect()
+      this.capture()
     } else if (this.state.paused) {
       // Judge visibility at the reader's anchor, not native anchoring's temporary
       // position. The Latest HUD can then reflow the surface without moving it.

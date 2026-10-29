@@ -288,7 +288,153 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     end
   end
 
+  [ [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
+    test "native Usage stream overlap keeps the summary through HUD reflow at #{width}x#{height}" do
+      @second.update_columns(name: "CompteDeRecherche" * 12)
+      header_viewport(width, height)
+      visit chat_path(@chat)
+      assert_selector "lexxy-editor[connected]"
+      header_top
+      header_tab_to("#chat-usage-summary")
+      assert_no_button "Latest message"
+      before = page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top")
+      header_hold_reader_frame
+
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "#chat-usage-details[open]"
+      message = workspace(:messages, :workspace_answer)
+      text = message.content + "\n\nOrdering overlap: genuinely new content below the viewport."
+      html = ApplicationController.render(partial: "messages/streaming_content",
+        locals: { message: message, content_html: Message.render_markdown_content(text) })
+      stream = %(<turbo-stream action="replace" target="#{dom_id(message, :content)}"><template>#{html}</template></turbo-stream>)
+      page.execute_script("Turbo.renderStreamMessage(arguments[0])", stream)
+      assert_selector ".ai-response-content p:last-child", text: "Ordering overlap:", visible: :all
+      page.execute_script("window.headerOrderingBoundary.mark('before-release'); window.headerOrderingBoundary.release()")
+      3.times { header_settle }
+      sample = page.evaluate_script("window.headerOrderingBoundary.sample()")
+      header_record("ordering-stream-hud", sample, screenshot: true)
+
+      assert sample.fetch("trace").any? { |entry| entry["event"] == "restoreDisclosure:after" && entry["restored"] }, sample.to_json
+      assert sample.fetch("trace").any? { |entry| entry["event"] == "restoreAnchor:after" && entry["latestVisible"] }, sample.to_json
+      assert sample.fetch("trace").any? { |entry| entry["event"] == "schedule" && entry["latestVisible"] && entry["stack"].include?("ResizeObserver") }, sample.to_json
+      assert_button "Latest message"
+      assert_in_delta before, page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top"), 1, sample.to_json
+      header_hit("#chat-usage-summary")
+      assert_no_enqueued_jobs only: ChatResponseJob
+    ensure
+      page.execute_script("window.headerOrderingBoundary?.restore()")
+    end
+
+    test "native Tab supersedes a pending Usage activation at #{width}x#{height}" do
+      @second.update_columns(name: "CompteDeRecherche" * 12)
+      header_viewport(width, height)
+      visit chat_path(@chat)
+      assert_selector "lexxy-editor[connected]"
+      header_top
+      header_tab_to("#chat-usage-summary")
+      header_hold_reader_frame
+
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "#chat-usage-details[open]"
+      target = "##{dom_id(workspace(:messages, :workspace_answer), :reasoning_summary)}"
+      header_tab_to(target)
+      page.execute_script("window.headerOrderingBoundary.mark('native-tab-accepted')")
+      accepted = page.evaluate_script("window.headerOrderingBoundary.sample().trace.find(entry => entry.event === 'native-tab-accepted')")
+      page.execute_script("window.headerOrderingBoundary.release()")
+      3.times { header_settle }
+      sample = page.evaluate_script("window.headerOrderingBoundary.sample()")
+      header_record("ordering-native-tab", sample, screenshot: true)
+
+      key = sample.fetch("trace").find { |entry| entry["event"] == "keydown" && entry["key"] == "Tab" }
+      assert key.fetch("trusted"), sample.to_json
+      refute_nil key.fetch("activation"), sample.to_json
+      assert_operator accepted.fetch("top"), :>, key.fetch("top"), sample.to_json
+      assert sample.fetch("trace").any? { |entry| entry["event"] == "recordInput:before" && entry["activation"] && entry["active"] != "chat-usage-summary" }, sample.to_json
+      assert accepted.fetch("paused"), sample.to_json
+      assert_in_delta accepted.fetch("top"), page.evaluate_script("document.querySelector('[data-application-scroll]').scrollTop"), 1, sample.to_json
+      assert_selector "#{target}:focus"
+      assert_in_delta accepted.fetch("activeTop"), page.evaluate_script("document.activeElement.getBoundingClientRect().top"), 1
+      header_hit(target)
+      assert_no_button "Latest message"
+      assert_no_enqueued_jobs only: ChatResponseJob
+    ensure
+      page.execute_script("window.headerOrderingBoundary?.restore()")
+    end
+  end
+
   private
+    def header_hold_reader_frame
+      page.execute_script(<<~JS)
+        (() => {
+          const root = document.querySelector('.n-chat-workspace--saved'), surface = root.closest('[data-application-scroll]')
+          const reader = window.Stimulus.getControllerForElementAndIdentifier(root, 'scroll')
+          const summary = root.querySelector('#chat-usage-summary')
+          const raf = window.requestAnimationFrame, caf = window.cancelAnimationFrame, schedule = reader.schedule
+          const callbacks = new Map(), originals = new Map()
+          let scheduling = false, holding = true, serial = 0
+          const boundary = window.headerOrderingBoundary = { trace: [] }
+          const mark = (event, extra = {}) => {
+            const anchor = reader.state.anchor, message = anchor && document.getElementById(anchor.id)
+            const block = message && (reader.blocksFor(message)[anchor.block] || message)
+            const active = document.activeElement
+            boundary.trace.push({ event, ...extra, top: surface.scrollTop, height: surface.scrollHeight,
+              summaryTop: summary.getBoundingClientRect().top, summaryBottom: summary.getBoundingClientRect().bottom,
+              active: active.id || active.tagName, activeTop: active.getBoundingClientRect().top,
+              activation: reader.disclosureActivation ? { offset: reader.disclosureActivation.offset, open: reader.disclosureActivation.open } : null,
+              anchor: anchor && { ...anchor }, blockTop: block?.getBoundingClientRect().top,
+              latestVisible: !reader.latestTarget.hidden, paused: reader.state.paused, pending: reader.state.pending })
+          }
+          // Hold only the existing reader's actual queued RAF callbacks. All other
+          // native frame work (including Turbo rendering) runs normally. No input,
+          // focus, scroll, geometry, reader state or observer acknowledgment is forged.
+          window.requestAnimationFrame = callback => {
+            if (!holding || !scheduling) return raf.call(window, callback)
+            const id = --serial
+            callbacks.set(id, { callback, delivered: null })
+            return id
+          }
+          window.cancelAnimationFrame = id => {
+            const entry = callbacks.get(id)
+            if (entry) { caf.call(window, entry.delivered); callbacks.delete(id) }
+            else caf.call(window, id)
+          }
+          reader.schedule = function(...args) {
+            mark('schedule', { stack: new Error().stack })
+            scheduling = true
+            try { return schedule.apply(this, args) } finally { scheduling = false }
+          }
+          for (const name of ['restoreDisclosure', 'recordInput', 'capture', 'reflect', 'restoreAnchor', 'reconcile']) {
+            const original = reader[name]
+            originals.set(name, original)
+            reader[name] = function(...args) {
+              mark(`${name}:before`)
+              const result = original.apply(this, args)
+              mark(`${name}:after`, name === 'restoreDisclosure' ? { restored: !!result } : {})
+              return result
+            }
+          }
+          const keydown = event => mark('keydown', { key: event.key, trusted: event.isTrusted })
+          const focusin = () => mark('focusin-after-reader')
+          surface.addEventListener('keydown', keydown, true)
+          surface.addEventListener('focusin', focusin)
+          boundary.mark = mark
+          boundary.release = () => {
+            holding = false
+            for (const [id, entry] of callbacks) entry.delivered = raf.call(window, time => { callbacks.delete(id); entry.callback(time) })
+          }
+          boundary.sample = () => { mark('settled'); return { trace: boundary.trace, heldCallbacks: callbacks.size } }
+          boundary.restore = () => {
+            for (const entry of callbacks.values()) caf.call(window, entry.delivered)
+            window.requestAnimationFrame = raf; window.cancelAnimationFrame = caf; reader.schedule = schedule
+            for (const [name, original] of originals) reader[name] = original
+            surface.removeEventListener('keydown', keydown, true)
+            surface.removeEventListener('focusin', focusin)
+          }
+          mark('installed')
+        })()
+      JS
+    end
+
     def header_prepare_paused_chat(direction)
       @second.update_columns(name: "CompteDeRecherche" * 12)
       header_viewport(375, 812)
