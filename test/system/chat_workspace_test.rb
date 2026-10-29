@@ -1359,13 +1359,13 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
         const wrapper = document.querySelector('.ai-response-content .table-wrapper')
         const before = document.documentElement.scrollWidth
         wrapper.scrollLeft = 120
-        return { left: wrapper.scrollLeft, before, after: document.documentElement.scrollWidth, viewport: innerWidth, overflow: getComputedStyle(wrapper).overflowX }
+        return { left: wrapper.scrollLeft, before, after: document.documentElement.scrollWidth, viewportWidth: innerWidth, overflow: getComputedStyle(wrapper).overflowX }
         })()
       JS
       chat_measurement(overflow.merge("kind" => "wide-table-local-scroll"))
       assert_operator overflow.fetch("left"), :>, 0, overflow.to_json
       assert_equal overflow.fetch("before"), overflow.fetch("after")
-      assert_operator overflow.fetch("after"), :<=, overflow.fetch("viewport")
+      assert_operator overflow.fetch("after"), :<=, overflow.fetch("viewportWidth")
 
       [ "sources_summary", "response_summary" ].each do |prefix|
         selector = "##{dom_id(answer, prefix)}"
@@ -1470,6 +1470,22 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       chat_screenshot "FAILED-stateful-#{dark ? 'dark' : 'light'}"
       raise
     end
+  end
+
+  test "browser measurement reserves its page context keys" do
+    visit chat_url(@chat)
+    chat_measurement("kind" => "context-guard-probe")
+    evidence = File.join(chat_evidence_directory, "measurements.jsonl")
+    original = File.read(evidence)
+
+    %w[theme locale viewport path].each do |key|
+      [ key, key.to_sym ].each do |reserved|
+        error = assert_raises(ArgumentError) { chat_measurement(reserved => "must not replace context") }
+        assert_includes error.message, key
+      end
+    end
+
+    assert_equal original, File.read(evidence), "Rejected payloads must not alter the evidence file"
   end
 
   %i[en fr].each do |locale|

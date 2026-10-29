@@ -24,6 +24,10 @@ module ChatWorkspaceBrowserChecks
 
     def chat_measurement(data)
       context = page.evaluate_script("({ theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light', locale: document.documentElement.lang, viewport: [innerWidth, innerHeight], path: location.pathname })")
+      collisions = data.keys.map(&:to_s) & context.keys
+      unless collisions.empty?
+        raise ArgumentError, "Reserved chat measurement context keys: #{collisions.join(', ')}"
+      end
       File.open(File.join(chat_evidence_directory, "measurements.jsonl"), "a") { |file| file.puts(context.merge(data).to_json) }
     end
 
@@ -207,7 +211,7 @@ module ChatWorkspaceBrowserChecks
           const core = point(12, 12), background = point(12, 4), rect = button.getBoundingClientRect()
           const outset = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
           return { foreground, surface, ratio: ratio(foreground), stroke: stroke.stroke, strokeWidth: parseFloat(stroke.strokeWidth),
-            path: path.getAttribute('d'), geometry: rect.toJSON(), svgGeometry: svg.getBoundingClientRect().toJSON(),
+            svgPath: path.getAttribute('d'), geometry: rect.toJSON(), svgGeometry: svg.getBoundingClientRect().toJSON(),
             outline, outlineRatio: ratio(outline), outlineWidth: parseFloat(style.outlineWidth), outlineStyle: style.outlineStyle,
             outlineFits: rect.left - outset >= 0 && rect.right + outset <= innerWidth && rect.top - outset >= 0 && rect.bottom + outset <= innerHeight,
             pixelPoints: { coreStroke: core, clearSurface: background }, pixelScale: devicePixelRatio,
