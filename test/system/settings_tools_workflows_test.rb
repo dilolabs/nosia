@@ -2,7 +2,7 @@ require "application_system_test_case"
 require_relative "../support/settings_tool_fixtures"
 require_relative "../support/settings_tool_browser_checks"
 
-# Exercises real recovery and destructive workflows at a representative desktop state.
+# Exercises real recovery workflows and bounded generated-result interaction states.
 class SettingsToolsWorkflowsTest < ApplicationSystemTestCase
   include SettingsToolFixtures
   include SettingsToolBrowserChecks
@@ -314,7 +314,191 @@ class SettingsToolsWorkflowsTest < ApplicationSystemTestCase
       foreign_membership_preserved: true, default_unchanged: true, no_jobs: true })
   end
 
+  %w[global account].product(%w[light dark], [ [ 375, 812 ], [ 1440, 1000 ] ]).each do |route, theme, (width, height)|
+    test "generated token result controls #{route} #{theme} #{width}x#{height}" do
+      @tools_result_case = "#{route}-en-#{theme}-#{width}x#{height}"
+      path = route == "global" ? api_tokens_path : account_api_tokens_path(@second)
+      before = [ Prompt.count, Chat.count, ApiToken.count ]
+      defaults = @user.api_tokens.order(:id).pluck(:id, :account_id)
+      visit path
+      tools_size(width, height)
+      tools_theme(theme)
+      fill_in "api_token_name", with: "Result measurement"
+      select @second.name, from: "api_token_account_id" if route == "global"
+      click_button "Generate"
+      assert_current_path path
+      assert_selector "[data-token-reveal]:focus"
+      assert_selector "html[lang=en]", visible: :all
+      assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
+      token = @user.api_tokens.order(:created_at, :id).last
+      plain = find("#created_api_token[readonly]").value
+      assert ApiToken.authenticate_token(plain) == token, "The generated local result must authenticate exactly"
+      assert_equal [ @user.id, @second.id ], [ token.user_id, token.account_id ]
+      assert_selector "[data-token-reveal] > p:first-of-type", text: @second.name
+      tools_record("result-cases", { case_key: @tools_result_case, stage: "generated", authorized_context: true,
+        exact_authentication: true, reveal_focused: true })
+      tools_result_measure("normal")
+      tools_result_keyboard
+      tools_result_hover
+      find("#theme-toggle").hover
+      tools_wait
+      tools_result_feedback(plain)
+
+      assert_equal [ before[0], before[1], before[2] + 1 ], [ Prompt.count, Chat.count, ApiToken.count ]
+      assert_equal defaults, @user.api_tokens.where.not(id: token.id).order(:id).pluck(:id, :account_id)
+      assert_equal @first, @user.reload.first_account
+      assert_no_enqueued_jobs
+      tools_record("result-cases", { case_key: @tools_result_case, stage: "complete", token_delta: 1,
+        prompt_chat_counts_unchanged: true, defaults_unchanged: true, no_jobs: true, no_screenshots: true })
+    ensure
+      page.execute_script("window.toolsResultPending?.resolve()")
+    end
+  end
+
   private
+    def tools_result_identify
+      # Tag otherwise anonymous result samples; no styles, values or focus change.
+      page.execute_script(<<~JS)
+        const result = document.querySelector('[data-token-reveal]');
+        result.querySelector('p:first-of-type').id = 'tools_result_context';
+        result.querySelector('label[for=created_api_token]').id = 'tools_result_label';
+        const copy = result.querySelector('button[data-action="token-reveal#copy"]');
+        copy.id = 'tools_result_copy';
+        copy.querySelector('svg').id = 'tools_result_icon';
+      JS
+    end
+
+    def tools_result_measure(phase, feedback: false)
+      tools_result_identify
+      ids = %w[created_api_token_title tools_result_context created_api_token_help tools_result_label created_api_token tools_result_copy tools_result_icon]
+      ids << "created_api_token_status" if feedback
+      tools_layout
+      layout = tools_probe("layout").fetch("rows").select { |row| ids.include?(row.fetch("id")) }
+      # The shared text-layout probe intentionally omits text inputs and SVGs.
+      # Supplement their actual outer bounds, allowing readonly input content scrolling.
+      bounds = page.evaluate_script(<<~JS)
+        (() => {
+          const result = document.querySelector('[data-token-reveal]'), panel = result.getBoundingClientRect();
+          const main = document.querySelector('main').getBoundingClientRect();
+          return ['created_api_token', 'tools_result_icon'].map(id => {
+            const element = document.getElementById(id), r = element.getBoundingClientRect();
+            const parent = element.parentElement.getBoundingClientRect();
+            return {id, tag: element.tagName, kind: 'outer-bounds', width: r.width, height: r.height,
+              left: r.left, right: r.right, parentLeft: parent.left, parentRight: parent.right,
+              fits: r.width > 0 && r.height > 0 && r.left >= Math.max(panel.left, main.left, parent.left) &&
+                r.right <= Math.min(panel.right, main.right, parent.right, innerWidth)};
+          });
+        })()
+      JS
+      layout.concat(bounds)
+      ids.each { |id| assert_equal 1, layout.count { |row| row.fetch("id") == id }, "Missing result layout sample: #{id}" }
+      bounds.each { |row| assert row.fetch("fits"), row.to_json }
+
+      tools_contrast("result-#{phase}")
+      contrast = tools_probe("contrast").select { |row| ids.include?(row.fetch("id")) }
+      ids.each do |id|
+        text = contrast.select { |row| row.fetch("id") == id && row.fetch("property") == "color" }
+        assert_equal 1, text.size, "Missing result contrast sample: #{id}"
+        assert_equal id == "tools_result_icon" ? 3 : 4.5, text.first.fetch("minimum")
+      end
+      %w[created_api_token tools_result_copy].each do |id|
+        borders = contrast.select { |row| row.fetch("id") == id && row.fetch("property") == "borderTopColor" }
+        assert_equal [ false, true ], borders.map { |row| row.fetch("outside") }.sort_by { |outside| outside ? 1 : 0 }
+        borders.each { |row| assert_equal 3, row.fetch("minimum") }
+      end
+      tools_record("result-measurements", { case_key: @tools_result_case, phase: phase, feedback_nonempty: feedback,
+        layout: layout, contrast: contrast, required_ids: ids })
+    end
+
+    def tools_result_hover
+      copy = find("#tools_result_copy[data-action='token-reveal#copy']")
+      assert_selector "[data-token-reveal] button[data-action='token-reveal#copy']", count: 1
+      page.execute_script("document.querySelectorAll('[data-tools-hover]').forEach(e=>e.removeAttribute('data-tools-hover'));arguments[0].setAttribute('data-tools-hover','');", copy)
+      find("main").scroll_to(copy, align: :center)
+      find("#theme-toggle").hover
+      tools_wait
+      before = tools_probe("hover")
+      refute before.fetch("hovered"), before.to_json
+      copy.hover
+      tools_wait
+      after = tools_probe("hover")
+      tools_record("result-copy-hover", { case_key: @tools_result_case, selector: "button[data-action='token-reveal#copy']", before: before, after: after })
+      assert_equal "tools_result_copy", before.fetch("id")
+      assert_equal "tools_result_copy", after.fetch("id")
+      assert before.fetch("capable"), before.to_json
+      assert after.fetch("capable"), after.to_json
+      assert after.fetch("hovered"), after.to_json
+      assert_equal before.fetch("bounds"), after.fetch("bounds"), after.to_json
+      refute_equal before.fetch("backgroundCSS"), after.fetch("backgroundCSS"), after.to_json
+      refute_equal before.fetch("rgba"), after.fetch("rgba"), after.to_json
+      tools_result_measure("copy-hover")
+    end
+
+    def tools_result_keyboard
+      tools_probe("walk")
+      find("#theme-toggle").hover
+      tools_tab_to("#created_api_token[readonly]")
+      tools_result_focus("#created_api_token", "forward-field")
+      page.send_keys(:tab)
+      tools_wait
+      tools_result_focus("#tools_result_copy", "forward-copy")
+      page.send_keys(:tab)
+      page.send_keys([ :shift, :tab ])
+      tools_wait
+      tools_result_focus("#tools_result_copy", "reverse-copy")
+      page.send_keys([ :shift, :tab ])
+      tools_wait
+      tools_result_focus("#created_api_token", "reverse-field")
+    end
+
+    def tools_result_focus(selector, direction)
+      assert_selector "#{selector}:focus"
+      tools_assert_keyboard(Integer(find(selector)["data-tools-walk"]), "result-#{direction}")
+      tools_record("result-keyboard", { case_key: @tools_result_case, selector: selector, direction: direction, sample: tools_probe("focus") })
+      tools_result_measure("keyboard-#{direction}")
+    end
+
+    def tools_result_feedback(plain)
+      %w[copied rejected unavailable].each do |outcome|
+        page.execute_script(<<~JS, outcome)
+          window.toolsResultWrites = [];
+          Object.defineProperty(navigator, 'clipboard', {configurable: true, value: arguments[0] === 'unavailable' ? undefined : {
+            writeText(value) {
+              window.toolsResultWrites.push(value);
+              return new Promise((resolve, reject) => window.toolsResultPending = {resolve, reject});
+            }
+          }});
+        JS
+        page.send_keys(:tab)
+        assert_selector "#tools_result_copy:focus"
+        page.send_keys(:enter)
+        unless outcome == "unavailable"
+          assert_selector "#tools_result_copy[aria-disabled=true]:focus", exact_text: I18n.t("nosia.settings_tools.copying", locale: :en)
+          assert_selector "#created_api_token_status", exact_text: "", visible: :all
+          assert page.evaluate_script("window.toolsResultWrites").eql?([ plain ]), "Only the exact revealed value must be copied"
+          tools_record("result-feedback", { case_key: @tools_result_case, outcome: outcome, stage: "pending",
+            exact_write: true, status_empty: true, copy_focused: true })
+          page.execute_script(outcome == "copied" ? "window.toolsResultPending.resolve()" : "window.toolsResultPending.reject(new Error('denied'))")
+        end
+        key = outcome == "copied" ? "copied" : "copy_failed"
+        assert_selector "#created_api_token_status", exact_text: I18n.t("nosia.settings_tools.#{key}", locale: :en)
+        assert_selector "#tools_result_copy[aria-disabled=false]:focus", exact_text: I18n.t("nosia.settings_tools.copy", locale: :en)
+        assert find("#created_api_token[readonly]").value == plain, "Copy feedback must preserve the exact readonly value"
+        refute find("#created_api_token_status").text.include?(plain), "Live feedback must not announce the token"
+        tools_result_measure(outcome, feedback: true)
+        # Native Shift+Tab and Select All retain a manual fallback without an OS clipboard claim.
+        page.send_keys([ :shift, :tab ])
+        tools_wait
+        assert_selector "#created_api_token[readonly]:focus"
+        page.send_keys([ :control, "a" ])
+        assert_equal plain.length, page.evaluate_script("((e)=>e.selectionEnd-e.selectionStart)(document.querySelector('#created_api_token'))")
+        tools_assert_keyboard(Integer(find("#created_api_token")["data-tools-walk"]), "result-manual-#{outcome}")
+        tools_result_measure("selected-#{outcome}", feedback: true)
+        tools_record("result-feedback", { case_key: @tools_result_case, outcome: outcome, stage: "complete",
+          copy_focus_retained: true, readonly_exact: true, no_secret_announcement: true, native_manual_selection: true })
+      end
+    end
+
     def tools_status(key)
       assert_selector "[data-settings-tool] [role=status]", exact_text: I18n.t(key, locale: :en)
     end
