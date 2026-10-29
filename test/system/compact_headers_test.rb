@@ -80,7 +80,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     end
 
     def header_record(label, sample, screenshot: false)
-      @header_evidence ||= Dir.mktmpdir("compact-headers-", ENV.fetch("EVIDENCE"))
+      @header_evidence ||= Dir.mktmpdir("compact-headers-", ENV.fetch("EVIDENCE", Dir.tmpdir))
       context = page.evaluate_script("({ path: location.pathname, locale: document.documentElement.lang, dark: document.documentElement.classList.contains('dark'), viewport: [innerWidth, innerHeight] })")
       entry = context.merge(label: label, sample: sample)
       if screenshot
