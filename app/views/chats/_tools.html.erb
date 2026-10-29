@@ -1,8 +1,8 @@
 <%# locals: (chat:) %>
 <% if chat.persisted? %>
   <button type="button" class="n-composer-control n-composer-tools-trigger"
-          data-controller="modal-open" data-modal-open-target-value="mcp-selector-modal"
-          data-action="click->modal-open#open" aria-controls="mcp-selector-modal">
+          data-action="chat-dialog#open" data-chat-dialog-id-param="mcp-selector-modal"
+          aria-haspopup="dialog" aria-controls="mcp-selector-modal">
     <%= t("nosia.chat.tools") %> <span class="n-composer-count"><%= chat.chat_mcp_sessions.count %></span>
   </button>
 <% else %>

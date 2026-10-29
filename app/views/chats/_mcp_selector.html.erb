@@ -1,75 +1,67 @@
 <%# MCP Server Selector Modal %>
-<div id="mcp-selector-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" data-controller="mcp-selector">
-  <div class="flex min-h-screen items-center justify-center p-4">
-    <%# Backdrop %>
-    <div class="fixed inset-0 bg-black/50 transition-opacity" data-action="click->mcp-selector#close"></div>
+<dialog id="mcp-selector-modal" class="n-chat-dialog" aria-labelledby="chat-tools-title" data-action="close->chat-dialog#closed">
+  <%# Header %>
+  <div class="flex items-center justify-between border-b n-main-border px-6 py-4">
+    <h3 id="chat-tools-title" class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"><%= t("nosia.mcp.title") %></h3>
+    <button type="button" data-action="chat-dialog#close" aria-label="<%= t('nosia.chat_workspace.close') %>" class="n-btn-icon n-main-hover n-main-focus text-neutral-400 hover:text-neutral-500 dark:hover:text-neutral-300">
+      <svg class="h-6 w-6" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+  </div>
 
-    <%# Modal content %>
-    <div class="relative z-10 w-full max-w-2xl rounded-xl bg-white dark:bg-neutral-800 shadow-xl">
-      <%# Header %>
-      <div class="flex items-center justify-between border-b n-main-border px-6 py-4">
-        <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"><%= t("nosia.mcp.title") %></h3>
-        <button type="button" data-action="click->mcp-selector#close" class="n-btn-icon n-main-hover n-main-focus text-neutral-400 hover:text-neutral-500 dark:hover:text-neutral-300">
-          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
+  <%# Body %>
+  <div class="p-6">
+    <% available_servers = ready_chat_mcp_servers(chat.account) %>
 
-      <%# Body %>
-      <div class="p-6">
-        <% available_servers = ready_chat_mcp_servers(chat.account) %>
-
-        <% if available_servers.any? %>
-          <div class="space-y-3">
-            <% available_servers.each do |server| %>
-              <% session = chat.chat_mcp_sessions.find_by(mcp_server: server) %>
-              <div class="flex items-center justify-between rounded-lg border n-main-border p-4 n-main-hover transition-colors">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-neutral-900 dark:text-neutral-100 truncate"><%= server.name %></h4>
-                    <span class="n-tag n-tag-ready">
-                      <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
-                      <%= t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms)) %>
-                    </span>
-                  </div>
-                  <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400 truncate"><%= server.endpoint || server.command %></p>
-                </div>
-
-                <div id="mcp_server_<%= server.id %>_actions" class="ml-4 shrink-0">
-                  <% if session %>
-                    <%= button_to chat_mcp_session_path(chat, session),
-                      method: :delete,
-                      data: { turbo_method: :delete },
-                      class: "n-btn border n-main-border text-red-600 dark:text-red-300 n-main-hover-danger n-main-focus-danger" do %>
-                      <%= t("nosia.actions.remove") %>
-                    <% end %>
-                  <% else %>
-                    <%= button_to chat_mcp_sessions_path(chat, mcp_server_id: server.id),
-                      method: :post,
-                      data: { turbo_method: :post },
-                      class: "n-btn-primary" do %>
-                      <%= t("nosia.actions.add") %>
-                    <% end %>
-                  <% end %>
-                </div>
+    <% if available_servers.any? %>
+      <div class="space-y-3">
+        <% available_servers.each do |server| %>
+          <% session = chat.chat_mcp_sessions.find_by(mcp_server: server) %>
+          <div class="flex items-center justify-between rounded-lg border n-main-border p-4 n-main-hover transition-colors">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <h4 class="font-medium text-neutral-900 dark:text-neutral-100 truncate"><%= server.name %></h4>
+                <span class="n-tag n-tag-ready">
+                  <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+                  <%= t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms)) %>
+                </span>
               </div>
-            <% end %>
-          </div>
-        <% else %>
-          <div class="text-center py-8">
-            <p class="text-neutral-500 dark:text-neutral-400 mb-4"><%= t("nosia.chat.no_ready_servers") %></p>
-            <%= link_to t("nosia.chat.configure_server"), mcp_servers_path, class: "n-btn-primary inline-flex items-center gap-2" %>
+              <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400 truncate"><%= server.endpoint || server.command %></p>
+            </div>
+
+            <div id="mcp_server_<%= server.id %>_actions" class="ml-4 shrink-0">
+              <% if session %>
+                <%= button_to chat_mcp_session_path(chat, session),
+                  method: :delete,
+                  data: { turbo_method: :delete },
+                  class: "n-btn border n-main-border text-red-600 dark:text-red-300 n-main-hover-danger n-main-focus-danger" do %>
+                  <%= t("nosia.actions.remove") %>
+                <% end %>
+              <% else %>
+                <%= button_to chat_mcp_sessions_path(chat, mcp_server_id: server.id),
+                  method: :post,
+                  data: { turbo_method: :post },
+                  class: "n-btn-primary" do %>
+                  <%= t("nosia.actions.add") %>
+                <% end %>
+              <% end %>
+            </div>
           </div>
         <% end %>
       </div>
-
-      <%# Footer %>
-      <div class="flex justify-end gap-2 border-t n-main-border px-6 py-4">
-        <button type="button" data-action="click->mcp-selector#close" class="n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary">
-          <%= t("nosia.actions.close") %>
-        </button>
+    <% else %>
+      <div class="text-center py-8">
+        <p class="text-neutral-500 dark:text-neutral-400 mb-4"><%= t("nosia.chat.no_ready_servers") %></p>
+        <%= link_to t("nosia.chat.configure_server"), account_mcp_servers_path(chat.account), class: "n-btn-primary inline-flex items-center gap-2" %>
       </div>
-    </div>
+    <% end %>
   </div>
-</div>
+
+  <%# Footer %>
+  <div class="flex justify-end gap-2 border-t n-main-border px-6 py-4">
+    <button type="button" data-action="chat-dialog#close" class="n-btn border n-main-border n-main-hover-tertiary n-main-focus-tertiary">
+      <%= t("nosia.actions.close") %>
+    </button>
+  </div>
+</dialog>

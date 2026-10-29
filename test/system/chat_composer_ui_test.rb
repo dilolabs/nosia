@@ -395,7 +395,7 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     assert_selector "form[data-generation-busy=false]"
     assert_selector "[data-chat-account-readonly]", text: "Account: #{@first.name}"
     find(".n-composer-tools-trigger").click
-    assert_selector "#mcp-selector-modal:not(.hidden)", text: "First tool"
+    assert_selector "dialog#mcp-selector-modal[open]", text: "First tool"
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
     page.current_window.resize_to(1400, 1400)

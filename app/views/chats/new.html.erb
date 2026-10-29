@@ -1,9 +1,9 @@
 <% content_for :title, t("nosia.chat.new") %>
 <div id="new-chat-workspace" class="n-chat-workspace n-chat-workspace--new"
-     data-controller="chat-account"
+     data-controller="chat-account chat-dialog"
      data-chat-account-account-id-value="<%= @chat.account_id %>"
      data-chat-account-confirm-message-value="<%= t('nosia.chat.change_account') %>"
-     data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture">
+     data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture turbo:before-cache@document->chat-dialog#beforeCache">
   <%= render "chats/header", chat: @chat, titles: @history_titles %>
   <section class="n-chat-start n-chat-reading-column">
     <p class="n-chat-eyebrow"><%= t("nosia.chat_workspace.new_eyebrow") %></p>

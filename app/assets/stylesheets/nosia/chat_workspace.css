@@ -26,12 +26,14 @@
 .n-chat-start > :is(h1, p) { text-align: center; }
 .n-chat-start > .n-workspace-help { margin: .5rem auto 1.5rem; max-width: 45ch; }
 .n-chat-eyebrow { @apply text-sm font-medium text-green-800 dark:text-green-200; }
-.n-chat-workspace--new { overflow-y: auto; }
+.n-chat-workspace--new { overflow-y: auto; scrollbar-gutter: stable; }
 .n-chat-transcript { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scroll-padding-block: 1rem; overflow-anchor: none; }
 .n-chat-dock { flex: none; padding-bottom: .25rem; }
 .n-chat-follow { flex: none; position: sticky; top: 0; z-index: 10; align-self: center; }
 .n-chat-workspace [hidden] { display: none !important; }
 .n-chat-workspace .n-composer-editor .lexxy-editor__content { min-block-size: 5rem; max-block-size: 22dvh; overflow-y: auto; }
+/* Reserve the native toolbar's own height so formatting cannot move the action row. */
+.n-chat-workspace .n-chat-composer:not([data-formatting-open]) lexxy-toolbar { display: flex; visibility: hidden; }
 .n-chat-workspace [data-chat-no-account] { @apply text-neutral-600 dark:text-neutral-300; }
 
 .n-chat-dialog {
