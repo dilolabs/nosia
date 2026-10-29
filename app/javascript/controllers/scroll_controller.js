@@ -14,6 +14,7 @@ export default class extends Controller {
     this.onFocusOut = event => {
       if (!this.main.contains(event.relatedTarget)) this.navigation = null
     }
+    this.onDisclosureClick = this.disclosureClicked.bind(this)
     this.submissions = new Map()
     this.updatedMessages = new Set()
     this.observeSurface()
@@ -42,6 +43,7 @@ export default class extends Controller {
     this.main.addEventListener("keyup", this.onKeyup)
     this.main.addEventListener("focusin", this.onFocus)
     this.main.addEventListener("focusout", this.onFocusOut)
+    this.main.addEventListener("click", this.onDisclosureClick)
     this.contentChanged()
     this.rememberPosition()
     this.mutations = new MutationObserver(records => {
@@ -65,7 +67,9 @@ export default class extends Controller {
     this.main?.removeEventListener("keyup", this.onKeyup)
     this.main?.removeEventListener("focusin", this.onFocus)
     this.main?.removeEventListener("focusout", this.onFocusOut)
+    this.main?.removeEventListener("click", this.onDisclosureClick)
     this.navigation = null
+    this.disclosureActivation = null
     this.mutations?.disconnect()
     this.resize?.disconnect()
   }
@@ -93,6 +97,26 @@ export default class extends Controller {
     // A native Tab scroll is input even while resize acknowledgment is pending.
     // Existing focus and preventScroll restoration alone never override the anchor.
     if (navigation && !navigation.event.defaultPrevented && navigation.top !== this.surface.scrollTop) this.recordInput()
+  }
+
+  disclosureClicked(event) {
+    const summary = event.target.closest(".n-chat-header details > summary")
+    if (!event.isTrusted || event.defaultPrevented || !summary || !this.element.contains(summary)) return
+
+    this.disclosureActivation = { event, summary, surface: this.surface, open: summary.parentElement.open,
+      offset: summary.getBoundingClientRect().top - this.surface.getBoundingClientRect().top }
+    this.schedule()
+  }
+
+  restoreDisclosure() {
+    const activation = this.disclosureActivation
+    this.disclosureActivation = null
+    if (!activation || activation.event.defaultPrevented || activation.surface !== this.surface ||
+        !this.element.contains(activation.summary) || activation.summary.parentElement.open === activation.open) return false
+
+    this.surface.scrollTop += activation.summary.getBoundingClientRect().top - this.surface.getBoundingClientRect().top - activation.offset
+    this.recordInput()
+    return true
   }
 
   recordInput() {
@@ -192,7 +216,11 @@ export default class extends Controller {
     if (!this.element.isConnected || !this.hasViewportTarget) return
     if (this.viewport !== this.viewportTarget || this.main !== this.element.closest("[data-application-scroll]")) this.observeSurface()
 
-    if (this.state.paused) {
+    if (this.restoreDisclosure()) {
+      // A trusted native disclosure owns this one layout change, not later resizes.
+      if (this.updatedContentBelow() && this.gap > 80) this.state.pending = true
+      this.reflect()
+    } else if (this.state.paused) {
       // Judge visibility at the reader's anchor, not native anchoring's temporary
       // position. The Latest HUD can then reflow the surface without moving it.
       this.restoreAnchor()

@@ -253,6 +253,41 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  [ [ 375, 812 ], [ 812, 375 ] ].product(%w[keyboard pointer]).each do |(width, height), input|
+    test "native Usage #{input} keeps its summary operable at #{width}x#{height}" do
+      @second.update_columns(name: "CompteDeRecherche" * 12)
+      header_viewport(width, height)
+      visit chat_path(@chat)
+      assert_selector "lexxy-editor[connected]"
+      header_top
+      header_tab_to("#chat-usage-summary")
+      before = page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top")
+
+      [ true, false ].each do |open|
+        header_record("usage-#{input}-before-#{open}", header_geometry, screenshot: true)
+        if input == "keyboard"
+          page.driver.browser.action.send_keys(open ? :enter : :space).perform
+        else
+          find("#chat-usage-summary").click
+        end
+        assert_selector "#chat-usage-details#{open ? '[open]' : ':not([open])'}"
+        header_settle
+        header_record("usage-#{input}-after-#{open}", header_geometry, screenshot: true)
+        assert_selector "#chat-usage-summary:focus"
+        assert_in_delta before, page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top"), 1
+        if input == "keyboard"
+          header_hit("#chat-usage-summary")
+        else
+          chat_reachable "#chat-usage-summary", scroll: false
+        end
+        assert_selector ".n-chat-workspace[data-reader-following='false']"
+        assert_no_button "Latest message"
+        assert_equal [ 0, 0 ], page.evaluate_script("[document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop]")
+      end
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
   private
     def header_prepare_paused_chat(direction)
       @second.update_columns(name: "CompteDeRecherche" * 12)
