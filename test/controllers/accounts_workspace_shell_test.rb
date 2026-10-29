@@ -48,7 +48,9 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
         assert_select "[aria-current='page']", text: @second.name, count: 1
         assert_select "a[href='#{account_path(@second)}']", count: 0
       end
-      assert_select ".n-workspace-header .n-workspace-help", text: /#{Regexp.escape(@second.uid)}/
+      assert_select ".n-workspace-header [data-workspace-scope]", text: "#{@second.uid} · #{I18n.t('nosia.account_experience.roles.owner', locale: locale)}", count: 1
+      assert_select ".n-workspace-header details [data-workspace-scope]", count: 0
+      assert_select ".n-workspace-header details[data-header-details]:not([open])", count: 1
       assert_select ".n-workspace-header a.n-workspace-button[href='#{edit_account_path(@second)}']:not(.n-workspace-primary)"
       assert_select ".n-workspace-header a.n-workspace-primary[href='#{new_chat_path(account_id: @second.id)}']" do
         assert_select "span", text: I18n.t("nosia.account_experience.new_conversation", locale: locale)
@@ -62,10 +64,15 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
 
   test "member retains contextual conversation action without owner editing" do
     sign_in_overview(@member)
-    get account_path(@second)
-    assert_response :success
-    assert_select ".n-workspace-header a[href='#{edit_account_path(@second)}']", count: 0
-    assert_select ".n-workspace-header a[href='#{new_chat_path(account_id: @second.id)}']"
+    %i[en fr].each do |locale|
+      get account_path(@second), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select ".n-workspace-header [data-workspace-scope]", text: "#{@second.uid} · #{I18n.t('nosia.account_experience.roles.member', locale: locale)}", count: 1
+      assert_select ".n-workspace-header details [data-workspace-scope]", count: 0
+      assert_select ".n-workspace-header details[data-header-details]:not([open])", count: 1
+      assert_select ".n-workspace-header a[href='#{edit_account_path(@second)}']", count: 0
+      assert_select ".n-workspace-header a[href='#{new_chat_path(account_id: @second.id)}']"
+    end
     get edit_account_path(@second)
     assert_response :forbidden
     get account_path(@foreign)

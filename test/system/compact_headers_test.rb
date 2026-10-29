@@ -3,6 +3,7 @@ require "json"
 require "tmpdir"
 require_relative "../support/chat_workspace_fixtures"
 require_relative "../support/chat_workspace_browser_checks"
+require_relative "../support/account_experience_fixtures"
 
 class CompactHeadersSystemTest < ApplicationSystemTestCase
   include ChatWorkspaceFixtures
@@ -452,5 +453,88 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       end
       File.open(File.join(@header_evidence, "measurements.jsonl"), "a") { |file| file.puts(entry.to_json) }
       puts "Compact header evidence: #{@header_evidence}; #{entry.to_json}"
+    end
+end
+
+class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
+  include AccountExperienceFixtures
+
+  setup do
+    @original_size = page.current_window.size
+    page.current_window.resize_to(1400, 1000)
+    page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false)
+    @context_evidence = Dir.mktmpdir("compact-account-context-", ENV.fetch("EVIDENCE", Dir.tmpdir))
+  end
+
+  teardown do
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+    page.current_window.resize_to(*@original_size) if @original_size
+  end
+
+  test "account uid and viewer role stay visible while heading Details is closed" do
+    { owner: @user, member: @member }.each do |role, user|
+      visit root_url
+      fill_in "email", with: user.email
+      fill_in "password", with: AccountExperienceFixtures::PASSWORD
+      find("form[action='#{login_path}'] input[type='submit']").click
+      assert_selector "[data-dashboard]"
+
+      %i[en fr].each do |locale|
+        visit account_path(@second)
+        select locale.to_s.upcase, from: "language_preference_locale"
+        assert_selector "html[lang='#{locale}']"
+        assert_selector "[data-account-overview='#{@second.id}']"
+        assert_selector ".n-workspace-header details[data-header-details]:not([open])", count: 1
+        sample = record_account_context(role, locale)
+        expected = "#{@second.uid} · #{I18n.t("nosia.account_experience.roles.#{role}", locale: locale)}"
+
+        assert_selector ".n-workspace-header", text: expected
+        assert_selector ".n-workspace-header [data-workspace-scope]", text: expected, exact_text: true, count: 1
+        assert_no_selector ".n-workspace-header details [data-workspace-scope]", visible: :all
+        assert_no_selector ".n-workspace-header .n-workspace-trail"
+        assert sample.fetch("scope").fetch("visible"), sample.to_json
+        bounds = sample.fetch("scope").fetch("bounds")
+        assert_operator bounds.fetch("left"), :>=, 0, sample.to_json
+        assert_operator bounds.fetch("right"), :<=, sample.fetch("viewport").first, sample.to_json
+        assert_operator bounds.fetch("top"), :>=, 0, sample.to_json
+        assert_operator bounds.fetch("bottom"), :<=, sample.fetch("viewport").last, sample.to_json
+        assert sample.fetch("scope").fetch("hits").all?, sample.to_json
+        assert_operator sample.fetch("scope").fetch("scrollWidth"), :<=, sample.fetch("scope").fetch("clientWidth"), sample.to_json
+        edit = ".n-workspace-header a[href='#{edit_account_path(@second)}']"
+        if role == :owner
+          assert_selector edit, text: I18n.t("nosia.account_experience.edit_account", locale: locale), count: 1
+        else
+          assert_no_selector edit, visible: :all
+        end
+        assert_selector ".n-workspace-header details[data-header-details]:not([open])", count: 1
+      end
+
+      find("#dropdownUser").click
+      find("#dropdown a[href='#{logout_path}']").click
+      assert_selector "form[action='#{login_path}']"
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  private
+    def record_account_context(role, locale)
+      sample = page.evaluate_script(<<~JS)
+        (() => {
+          const header = document.querySelector('.n-workspace-header'), scope = header.querySelector('[data-workspace-scope]')
+          const rect = scope?.getBoundingClientRect()
+          const hits = rect && [[rect.x + rect.width / 2, rect.y + rect.height / 2], [rect.left + 2, rect.top + 2], [rect.right - 2, rect.bottom - 2]]
+            .map(([x, y]) => { const hit = document.elementFromPoint(x, y); return !!hit && (hit === scope || scope.contains(hit)) })
+          return { path: location.pathname, locale: document.documentElement.lang, viewport: [innerWidth, innerHeight],
+            closed: !header.querySelector('details[data-header-details]').open, renderedText: header.innerText, allText: header.textContent.trim(),
+            scope: scope && { text: scope.textContent, visible: scope.checkVisibility(), bounds: rect.toJSON(), hits,
+              scrollWidth: scope.scrollWidth, clientWidth: scope.clientWidth } }
+        })()
+      JS
+      screenshot = File.join(@context_evidence, "#{role}-#{locale}.png")
+      page.save_screenshot(screenshot)
+      entry = sample.merge("role" => role, "screenshot" => screenshot)
+      File.open(File.join(@context_evidence, "measurements.jsonl"), "a") { |file| file.puts(entry.to_json) }
+      puts "Account header context evidence: #{entry.to_json}"
+      sample
     end
 end
