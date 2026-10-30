@@ -851,6 +851,77 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "reconnecting the same reader reports rendered growth delivered while disconnected" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    assert_match(/\AParagraph 19:/, anchor.fetch("text"))
+    assert_operator reader_gap, :>, 80
+    assert_no_button "Latest message"
+    assert_not page.evaluate_script("document.querySelector('.n-chat-workspace--saved').chatReaderState.pending")
+    page.execute_script(<<~JS)
+      const root = document.querySelector('.n-chat-workspace--saved')
+      window.disconnectedReader = { root, controller: Stimulus.getControllerForElementAndIdentifier(root, 'scroll'),
+        editor: root.querySelector('lexxy-editor'), sources: [...root.querySelectorAll('turbo-cable-stream-source')],
+        ids: [...root.querySelectorAll('[id]')].map(node => node.id).sort(), controllers: root.dataset.controller, trace: [] }
+      // Read-only synchronous wrappers expose callback order and ledger evidence;
+      // they never schedule work, alter arguments, or write reader state.
+      for (const name of ['surfaceTargetConnected', 'connect', 'contentChanged']) {
+        const original = window.disconnectedReader.controller[name]
+        window.disconnectedReader.controller[name] = function(...args) {
+          const sample = phase => window.disconnectedReader.trace.push({ name, phase, pending: this.state.pending,
+            updated: [...this.updatedMessages], hasGrowth: [...this.contents.values()].some(text => text.includes('Paragraph 100:')) })
+          sample('before')
+          const result = original.apply(this, args)
+          sample('after')
+          return result
+        }
+      }
+      root.dataset.controller = root.dataset.controller.replace(' scroll', '')
+    JS
+    settle_workspace_layout
+    assert page.evaluate_script("window.disconnectedReader.root.isConnected")
+    assert_nil page.evaluate_script("Stimulus.getControllerForElementAndIdentifier(window.disconnectedReader.root, 'scroll')")
+
+    stream_answer(reader_answer(100))
+    assert_selector ".ai-response-content p:last-child", text: "Paragraph 100:", visible: :all
+    assert_nil page.evaluate_script("Stimulus.getControllerForElementAndIdentifier(window.disconnectedReader.root, 'scroll')")
+    assert_reader_anchor anchor
+    assert_no_button "Latest message"
+    page.execute_script("window.disconnectedReader.root.dataset.controller = window.disconnectedReader.controllers")
+    settle_reader_animations
+
+    identity = page.evaluate_script(<<~JS)
+      (() => {
+        const saved = window.disconnectedReader, root = document.querySelector('.n-chat-workspace--saved')
+        const sources = [...root.querySelectorAll('turbo-cable-stream-source')]
+        const ids = [...root.querySelectorAll('[id]')].map(node => node.id).sort()
+        return { sameRoot: root === saved.root && root.isConnected,
+          sameController: Stimulus.getControllerForElementAndIdentifier(root, 'scroll') === saved.controller,
+          sameEditor: root.querySelector('lexxy-editor') === saved.editor && root.querySelectorAll('lexxy-editor').length === 1,
+          sameSources: sources.length === saved.sources.length && sources.every((source, index) => source === saved.sources[index]),
+          sameIds: JSON.stringify(ids) === JSON.stringify(saved.ids), uniqueIds: new Set(ids).size === ids.length,
+          pending: root.chatReaderState.pending, latestHidden: root.querySelector('[data-scroll-target=latest]').hidden,
+          trace: saved.trace }
+      })()
+    JS
+    puts "Reader disconnected growth reconnect: #{identity.to_json}"
+    chat_measurement("kind" => "disconnected-growth-reconnect", "sample" => identity, "anchor" => reader_anchor)
+    chat_screenshot("disconnected-growth-reconnected")
+    %w[sameRoot sameController sameEditor sameSources sameIds uniqueIds].each { |key| assert identity.fetch(key), identity.to_json }
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_button "Latest message"
+    click_button "Latest message"
+    assert_reader_following true
+    assert_operator reader_gap, :<=, 80
+    stream_answer(reader_answer(120))
+    assert_reader_following true
+    assert_operator reader_gap, :<=, 80
+    assert_no_button "Latest message"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "reader scroll wins over an already scheduled incremental update" do
     visit_reader(1400, 1000)
     page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))

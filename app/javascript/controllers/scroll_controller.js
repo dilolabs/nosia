@@ -17,11 +17,13 @@ export default class extends Controller {
     this.onDisclosureClick = this.disclosureClicked.bind(this)
     this.submissions = new Map()
     this.updatedMessages = new Set()
+    this.connected = true
     this.observeSurface()
     this.schedule()
   }
 
   disconnect() {
+    this.connected = false
     this.stopObserving()
     cancelAnimationFrame(this.frame)
     this.frame = null
@@ -34,7 +36,7 @@ export default class extends Controller {
   }
 
   surfaceTargetConnected() {
-    if (this.state && this.element.isConnected && this.hasViewportTarget) {
+    if (this.connected && this.element.isConnected && this.hasViewportTarget) {
       this.observeSurface()
       this.schedule()
     }
