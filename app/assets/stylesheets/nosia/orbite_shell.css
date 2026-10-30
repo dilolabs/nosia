@@ -108,6 +108,7 @@
   border-radius: 0;
   background: transparent;
 }
+.n-orbite-shell .n-orbite-navigation[data-inline=true] .n-chat-history-row { display: grid; grid-template-columns: minmax(0, 1fr); }
 .n-orbite-shell:has(> .n-orbite-navigation[data-inline=true][open]) > main { grid-column: 3; }
 .n-orbite-panel-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; flex: none; min-width: 0; }
 .n-orbite-panel-heading h2 { min-width: 0; overflow-wrap: anywhere; }

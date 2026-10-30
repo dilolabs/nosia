@@ -415,6 +415,62 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  %w[en fr].product(%w[new saved], [ false, true ]).each do |locale, entry, dark|
+    test "inline history keeps readable rows and native controls in #{locale} on #{entry} in #{dark ? 'dark' : 'light'}" do
+      @second.update_columns(name: "CompteDeRecherche" * 12)
+      orbite_viewport(1400, 1000)
+      orbite_select_language(locale.upcase)
+      visit(entry == "new" ? new_chat_path(account_id: @second.id) : chat_path(@chat))
+      assert_selector "html[lang=#{locale}]"
+      assert_selector "lexxy-editor[connected]"
+      assert_selector "#chat-history[data-inline=true][open]"
+      orbite_theme(dark)
+      conversations = { workspace(:chats, :workspace_first_chat) => "First account question",
+        @chat => "What are the key findings in this report?" }
+      sample = orbite_history_rows
+      orbite_record("inline-history-#{entry}-#{locale}-#{dark ? 'dark' : 'light'}", sample, screenshot: true)
+      assert_in_delta 240, sample.fetch("panel").fetch("width"), 1
+      assert_operator sample.fetch("scrollWidth"), :<=, sample.fetch("clientWidth"), sample.to_json
+      conversations.each do |conversation, title|
+        row = "#chat-history [data-history-chat='#{conversation.id}']"
+        geometry = sample.fetch("rows").find { |item| item.fetch("id") == conversation.id.to_s }
+        refute_nil geometry, sample.to_json
+        # Eight actual font ems allow several normal words, not merely a positive
+        # hitbox or a one-character column. The panel itself is not widened.
+        minimum = [ geometry.fetch("row").fetch("width"), geometry.fetch("fontSize") * 8 ].min
+        assert_operator geometry.fetch("body").fetch("width"), :>=, minimum, geometry.to_json
+        assert_operator geometry.fetch("link").fetch("width"), :>=, minimum, geometry.to_json
+        assert geometry.fetch("textFits"), geometry.to_json
+        assert geometry.fetch("separateAction"), geometry.to_json
+        %w[link form button].each do |part|
+          bounds = geometry.fetch(part)
+          assert_operator bounds.fetch("left"), :>=, geometry.fetch("row").fetch("left"), geometry.to_json
+          assert_operator bounds.fetch("right"), :<=, geometry.fetch("row").fetch("right"), geometry.to_json
+        end
+        assert_operator geometry.fetch("button").fetch("height"), :>=, 44, geometry.to_json
+        assert_selector "#{row} > div > a", text: title, exact_text: true
+        assert_selector "#{row} > div > p", text: conversation.account.name, exact_text: true
+        assert_selector "#{row} time[datetime='#{conversation.updated_at.iso8601}']",
+          text: I18n.l(conversation.updated_at, format: :short, locale: locale), exact_text: true
+        assert_selector "#{row} > div > a[aria-current=page]", count: entry == "saved" && conversation == @chat ? 1 : 0
+        assert_selector "#{row} > div > p > span", text: I18n.t("nosia.chat_workspace.current", locale: locale),
+          count: entry == "saved" && conversation == @chat ? 1 : 0
+        assert_selector "#{row} form[action='#{chat_path(conversation)}'][method=post] input[name=_method][value=delete]", visible: :all
+        button = find("#{row} button")
+        assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), button.text
+        assert_equal I18n.t("nosia.actions.confirm_delete", locale: locale), button["data-turbo-confirm"]
+      end
+      controls = conversations.keys.flat_map do |conversation|
+        row = "#chat-history [data-history-chat='#{conversation.id}']"
+        [ "#{row} > div > a", "#{row} button" ]
+      end
+      controls.each { |selector| orbite_history_tab_to(selector) }
+      controls.reverse_each { |selector| orbite_history_tab_to(selector, reverse: true) }
+      assert_equal 0, page.evaluate_script("document.scrollingElement.scrollTop")
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
   test "one native history panel reflows across mobile tablet and inline modes" do
     orbite_viewport(375, 812)
     visit new_chat_path(account_id: @second.id)
@@ -486,6 +542,38 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def orbite_history_rows
+      page.evaluate_script(<<~JS)
+        (() => {
+          const panel = document.querySelector('#chat-history'), content = panel.querySelector('.n-orbite-panel-content')
+          const rect = node => node.getBoundingClientRect().toJSON()
+          return { panel: rect(panel), clientWidth: content.clientWidth, scrollWidth: content.scrollWidth,
+            rows: [...panel.querySelectorAll('[data-history-chat]')].map(row => {
+              const body = row.querySelector(':scope > div'), link = body.querySelector('a')
+              const form = row.querySelector('form'), button = form.querySelector('button'), b = rect(body), f = rect(form)
+              const textFits = [...body.querySelectorAll('a, p')].every(node => {
+                const range = document.createRange(); range.selectNodeContents(node)
+                return [...range.getClientRects()].every(line => line.left >= b.left - 1 && line.right <= b.right + 1)
+              })
+              return { id: row.dataset.historyChat, row: rect(row), body: b, link: rect(link), form: f, button: rect(button),
+                fontSize: parseFloat(getComputedStyle(link).fontSize), textFits,
+                separateAction: f.top >= b.bottom || b.top >= f.bottom || f.left >= b.right || b.left >= f.right }
+            }) }
+        })()
+      JS
+    end
+
+    def orbite_history_tab_to(selector, reverse: false)
+      # Only trusted Tab/Shift+Tab brings vertically offscreen rows into the
+      # panel's own scrollport. Never focus(), scrollIntoView(), or click Delete.
+      sample = orbite_tab_to(selector, reverse: reverse)
+      content = page.evaluate_script("document.querySelector('#chat-history .n-orbite-panel-content').getBoundingClientRect().toJSON()")
+      assert_operator sample.fetch("top"), :>=, content.fetch("top"), sample.to_json
+      assert_operator sample.fetch("bottom"), :<=, content.fetch("bottom"), sample.to_json
+      assert_operator sample.fetch("left"), :>=, content.fetch("left"), sample.to_json
+      assert_operator sample.fetch("right"), :<=, content.fetch("right"), sample.to_json
+    end
+
     def orbite_settle_reader
       page.evaluate_async_script(<<~JS)
         const done = arguments[arguments.length - 1]
