@@ -84,6 +84,7 @@ Production deployment strategies, best practices, and operational guidance.
 - [Chat account selection](chat-account-selection.md) — picker behavior, account boundaries, and source request context.
 - [Chat composer](chat-composer.md) — shared presentation, native Lexxy controls, and UI verification.
 - [Chat workspace](chat-workspace.md) — focused new/saved conversations, private history, reader-aware following, and live details.
+- [Compact application headers](compact-headers.md) — scrolling global/page headers, secondary Details, and one primary scroll surface on every viewport.
 - [Internationalization](internationalization.md) — English/French language selection, rollout requirements, translation workflow, and verification.
 - [Profile management](profile-management.md) — credential changes, browser sessions, and privacy guarantees.
 - [Code of Conduct](../CODE_OF_CONDUCT.md) - Community guidelines

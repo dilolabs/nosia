@@ -39,11 +39,15 @@ visible paragraph's position, including when the layout changes. A full browser
 reload may start at the latest message. This state is temporary page state, not a
 saved preference or browser-storage record.
 
-At widths up to 639px **or** heights up to 700px, the page is the sole conversation
-scroll surface; otherwise the transcript scrolls. Tablet layouts reserve space
-for bottom navigation. Wide code and tables scroll locally. The composer stays
-in the layout rather than covering messages; short screens may require scrolling
-to reach the header, answer, or composer. Reduced-motion settings are respected.
+At every viewport size, `#application-scroll` is the sole primary scroll surface:
+the global bar, page header, and conversation content scroll together. Neither
+`main` nor the transcript scrolls independently. This supersedes the old
+desktop-transcript versus narrow/short-page split; see
+[compact application headers](compact-headers.md). Tablet layouts retain bottom
+navigation clearance. Bounded editors, dialogs, wide code and tables scroll
+locally. The composer stays in the layout rather than covering messages; short
+screens may require scrolling to reach the header, answer, or composer.
+Reduced-motion settings are respected.
 
 ## Sources, reasoning, and usage
 
@@ -97,14 +101,30 @@ samples, and baseline differences in the execution evidence—not inferred passe
 
 Recorded browser evidence covers English/French, light/dark, actual CSS viewports
 375×812, 768×1024, 1400×1000, and short 812×375, with keyboard, layout, reduced-motion,
-and sampled contrast checks. The 64 base/state captures and eight corrected Tools
-glyph captures were visually inspected in contact sheets. These are not a complete
-human accessibility audit or proof of all WebSocket delivery orderings.
+and sampled contrast checks. Earlier focused-chat evidence included 64 base/state
+captures and eight corrected Tools glyph captures, visually inspected in contact
+sheets. These are not a complete human accessibility audit or proof of all
+WebSocket delivery orderings.
+
+Fresh selected verification on **2026-10-30**, at source `1347e452` with only
+documentation edits pending, passed: Tailwind build; 25 focused files (**231 tests /
+14,658 assertions**); five chat/browser files (**215 / 32,932**); seven workspace
+browser files (**73 / 81,054**); RuboCop on all 20 Ruby files changed since the
+compact-header specification; and syntax checks for the four existing workspace
+controllers. Each test group had zero failures, errors, or skips and ran sequentially
+in the dedicated test database. The fresh header matrix covers **176 contexts**
+(eleven routes × EN/FR × four CSS viewports × two themes), including 16 saved-chat
+contexts with real long transcripts; 120 other contexts use labelled synthetic
+overflow. These selected gates are not the unrestricted suite.
 
 Native **200% browser zoom** and **screen-reader operation** are separately
 **UNVERIFIED**; CSS viewport/CDP device scaling proves neither. Live providers are
 also unverified. The unrestricted suite was **NOT RUN / UNVERIFIED** because of an
 existing unsafe robots/crawl/embedding network path. Two accepted Brakeman baseline
 warnings (API-token mass assignment and Rails end-of-support) and the existing
-GET `/login` waiting-scaffold setup error remain outside this change. No all-tests
-or security-clean claim is made; the last security scan predates the Tools color fix.
+GET `/login` waiting-scaffold setup error remain outside this change. The fresh
+installed Brakeman scan on **2026-10-30**, after the Tools color and compact-header
+changes, exited **3** with exactly the same two baseline warning fingerprints,
+no new or removed warnings, and no scan errors. No all-tests or security-clean
+claim is made. The dated [composer results](chat-composer.md#verified-results--2026-10-19)
+remain historical rather than fresh verification.

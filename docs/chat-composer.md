@@ -75,5 +75,8 @@ Its unlayered `nosia/chat_workspace.css` import is scoped to chat-page classes;
 the dashboard's shared composer keeps its existing sizing and safeguards.
 The saved Tools trigger delegates to the page-local native `chat-dialog` owner;
 its Add/Remove server operations and background-renderable composer locals are
-unchanged. The workspace guide records current verification limits; the results
+unchanged. The global bar, page header, and content now share one application
+scroll surface at every viewport size; bounded editor/dialog scrolling remains
+local. See [compact application headers](compact-headers.md) for that shell
+boundary. The workspace guide records current verification limits; the results
 above remain the historical composer verification record.
