@@ -7,6 +7,21 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_picker_user }
 
+  %i[en fr].each do |locale|
+    test "rail navigation label describes chat and non chat content in #{locale}" do
+      get accounts_path, headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "#chat-history [data-history-chat]", count: 0
+      assert_select "#workspace-history-rail-trigger", text: I18n.t("nosia.orbite.navigation", locale: locale), count: 1
+
+      [ new_chat_path, chat_path(@chat) ].each do |path|
+        get path, headers: { "Accept-Language" => locale.to_s }
+        assert_response :success
+        assert_select "#workspace-history-rail-trigger", text: I18n.t("nosia.orbite.expand_history", locale: locale), count: 1
+      end
+    end
+  end
+
   test "intermediate chat surface stays distinct from main" do
     [ new_chat_path, chat_path(@chat) ].each do |path|
       get path

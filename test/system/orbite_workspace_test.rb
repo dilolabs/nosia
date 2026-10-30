@@ -21,6 +21,75 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     page.current_window.resize_to(*@original_size) if @original_size
   end
 
+  test "downward navigation reflow keeps a paused saved paragraph and visible focus" do
+    orbite_viewport(812, 375)
+    visit chat_path(@chat)
+    assert_selector "lexxy-editor[connected]"
+    find("lexxy-editor .lexxy-editor__content").send_keys("Keep this editor through downward navigation reflow")
+    page.execute_script("window.orbiteDownwardEditor = document.querySelector('lexxy-editor')")
+    orbite_tab_to("#workspace-history-rail-trigger", reverse: true)
+    page.execute_script(<<~JS)
+      const surface = document.querySelector('[data-application-scroll]')
+      const paragraph = document.querySelectorAll('.ai-response-content p')[19]
+      surface.scrollTop += paragraph.getBoundingClientRect().top - surface.getBoundingClientRect().top - 24
+      surface.dispatchEvent(new Event('scroll'))
+    JS
+    orbite_settle_reader
+    assert_selector ".n-chat-workspace[data-reader-following=false]"
+    before = orbite_paragraph_anchor
+    assert_operator page.evaluate_script("document.querySelector('#workspace-history-trigger').getBoundingClientRect().bottom"), :<, 0
+    assert_selector "#workspace-history-rail-trigger:focus"
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector "#chat-history:modal"
+    assert page.evaluate_script("document.querySelector('#chat-history').contains(document.activeElement)")
+
+    orbite_viewport(375, 812)
+    orbite_settle_reader
+    orbite_assert_downward_focus("saved-chat-downward")
+    after = orbite_paragraph_anchor
+    orbite_record("saved-chat-downward-anchor", { before: before, after: after })
+    assert_equal before.fetch("text"), after.fetch("text"), after.to_json
+    assert_in_delta before.fetch("offset"), after.fetch("offset"), 1, after.to_json
+    assert_selector ".n-chat-workspace[data-reader-following=false]"
+    assert_operator page.evaluate_script("(() => { const surface = document.querySelector('[data-application-scroll]'); return surface.scrollHeight - surface.clientHeight - surface.scrollTop })()"), :>, 80
+    assert_equal [ 0, 0 ], page.evaluate_script("[document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop]")
+    assert page.evaluate_script("window.orbiteDownwardEditor === document.querySelector('lexxy-editor')")
+    assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep this editor through downward navigation reflow"
+    orbite_assert_next_tab_usable
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "downward navigation reflow gives a long non chat page a visible focus handoff" do
+    orbite_viewport(812, 375)
+    visit accounts_path
+    orbite_tab_to("#workspace-history-rail-trigger", reverse: true)
+    # Explicit geometry-only fixture, not a claim of a long account workflow.
+    page.execute_script(<<~JS)
+      const surface = document.querySelector('[data-application-scroll]'), fixture = document.createElement('div')
+      fixture.dataset.orbiteDownwardOverflowFixture = ''
+      fixture.inert = true
+      fixture.style.cssText = 'height:2200px;flex:none'
+      surface.append(fixture)
+      surface.scrollTop = 700
+      surface.dispatchEvent(new Event('scroll'))
+    JS
+    orbite_settle
+    assert_selector "main[data-application-scroll] > [data-orbite-downward-overflow-fixture][inert]", count: 1, visible: :all
+    assert_operator page.evaluate_script("document.querySelector('main h1').getBoundingClientRect().bottom"), :<, 0
+    refute page.evaluate_script("document.querySelector('#workspace-mobile-trigger').checkVisibility()")
+    assert_selector "#workspace-history-rail-trigger:focus"
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector "#chat-history:modal"
+
+    orbite_viewport(375, 812)
+    assert_operator page.evaluate_script("document.querySelector('#workspace-mobile-trigger').getBoundingClientRect().bottom"), :<, 0
+    orbite_assert_downward_focus("non-chat-downward-geometry")
+    assert_in_delta 700, page.evaluate_script("document.querySelector('[data-application-scroll]').scrollTop"), 1
+    assert_no_selector "[data-history-chat]", visible: :all
+    orbite_assert_next_tab_usable
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "inline History panel Close resumes after a real refresh" do
     orbite_viewport(1400, 1000)
     visit chat_path(@chat)
@@ -307,6 +376,60 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def orbite_settle_reader
+      page.evaluate_async_script(<<~JS)
+        const done = arguments[arguments.length - 1]
+        Promise.all(document.querySelector('.n-chat-transcript').getAnimations({ subtree: true })
+          .filter(animation => Number.isFinite(animation.effect.getComputedTiming().endTime))
+          .map(animation => animation.finished.catch(() => {})))
+          .then(() => requestAnimationFrame(() => requestAnimationFrame(done)))
+      JS
+    end
+
+    def orbite_paragraph_anchor
+      page.evaluate_script(<<~JS)
+        (() => {
+          const top = document.querySelector('[data-application-scroll]').getBoundingClientRect().top
+          const paragraph = [...document.querySelectorAll('.ai-response-content p')].find(node => node.getBoundingClientRect().bottom > top)
+          return { text: paragraph.textContent, offset: paragraph.getBoundingClientRect().top - top }
+        })()
+      JS
+    end
+
+    def orbite_assert_downward_focus(label)
+      assert_no_selector "dialog:modal"
+      assert_no_selector "#chat-history[open]", visible: :all
+      sample = page.evaluate_script(<<~JS)
+        (() => {
+          const active = document.activeElement
+          return { tag: active.tagName, id: active.id, visible: active.checkVisibility(),
+            bounds: active.getBoundingClientRect().toJSON(), inert: !!active.closest('[inert]'),
+            focusVisible: active.matches(':focus-visible'), outlineWidth: parseFloat(getComputedStyle(active).outlineWidth) }
+        })()
+      JS
+      orbite_record(label, sample, screenshot: true)
+      refute_includes %w[BODY HTML], sample.fetch("tag"), sample.to_json
+      assert sample.fetch("visible"), sample.to_json
+      refute sample.fetch("inert"), sample.to_json
+      assert_selector "#orbite-shell[tabindex='-1'][role=region][aria-label]:focus"
+      assert_equal page.title, find("#orbite-shell")["aria-label"]
+      reachable = orbite_assert_reachable("#orbite-shell")
+      assert reachable.fetch("focusVisible"), reachable.to_json
+      assert_operator reachable.fetch("outlineWidth"), :>=, 2, reachable.to_json
+    end
+
+    def orbite_assert_next_tab_usable
+      # Native input after the handoff may intentionally scroll to its next
+      # control; paragraph preservation is measured before that new user intent.
+      page.driver.browser.action.send_keys(:tab).perform
+      orbite_settle
+      assert page.evaluate_script("document.activeElement.matches('a[href], button, select, input, summary, [contenteditable=true]')")
+      refute page.evaluate_script("!!document.activeElement.closest('#chat-history, [inert]')")
+      sample = orbite_assert_reachable(":focus")
+      assert sample.fetch("focusVisible"), sample.to_json
+      assert_operator sample.fetch("outlineWidth"), :>=, 2, sample.to_json
+    end
+
     def orbite_close_state
       page.evaluate_script(<<~JS)
         ({ open: document.querySelector('#chat-history').open,

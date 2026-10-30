@@ -141,6 +141,7 @@
 .n-orbite-utilities select { min-height: 2.75rem; min-width: 2.75rem; border-radius: .375rem; }
 .n-orbite-utilities select { font-size: .75rem; padding-block: .25rem; }
 .n-orbite-shell :is(a, button, select, summary):focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
+.n-orbite-shell:focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
 .n-orbite-shell .n-orbite-mobile-only { display: none; }
 
 @media (max-width: 767px) {

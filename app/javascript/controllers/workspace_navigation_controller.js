@@ -82,10 +82,8 @@ export default class extends Controller {
   }
 
   fallback() {
-    return this.triggerTargets.find(element => {
-      const box = element.getBoundingClientRect()
-      return element.checkVisibility() && box.top >= 0 && box.bottom <= innerHeight
-    }) || this.element.querySelector("#workspace-utilities-trigger")
+    const candidates = [...this.triggerTargets, this.element.querySelector("#workspace-utilities-trigger"), this.element]
+    return candidates.find(element => this.chatDialogOutlet.focusable(element))
   }
 
   reflect() {

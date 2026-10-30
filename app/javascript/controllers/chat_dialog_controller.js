@@ -72,7 +72,16 @@ export default class extends Controller {
     configure()
     if (active?.isConnected && active.checkVisibility()) {
       if (document.activeElement !== active) active.focus({ preventScroll: true })
-    } else if (inside && fallback?.isConnected) fallback.focus({ preventScroll: true })
+    } else if (inside && this.focusable(fallback)) fallback.focus({ preventScroll: true })
+  }
+
+  focusable(element) {
+    if (!element?.isConnected || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) ||
+        element.matches(":disabled") || element.closest("[inert]") ||
+        (element.tabIndex < 0 && !element.hasAttribute("tabindex"))) return false
+
+    const box = element.getBoundingClientRect()
+    return box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight
   }
 
   focus(element) {

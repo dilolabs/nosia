@@ -361,7 +361,8 @@ end %>
 
 ```erb
 <%# locals: (page:) %>
-<div id="orbite-shell" class="n-orbite-shell"
+<div id="orbite-shell" class="n-orbite-shell" role="region" tabindex="-1"
+     <%= tag.attributes(aria: { label: content_for(:title).presence || "Nosia" }) %>
      data-controller="chat-dialog workspace-navigation"
      data-workspace-navigation-chat-dialog-outlet="#orbite-shell"
      data-workspace-navigation-history-value="<%= chat_workspace_page? %>"
@@ -375,7 +376,7 @@ end %>
             aria-controls="chat-history" aria-expanded="false"
             data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle">
       <%= inline_svg "svg/menu.svg", aria_hidden: true, class: "h-5 w-5" %>
-      <span class="sr-only"><%= t("nosia.orbite.expand_history") %></span>
+      <span class="sr-only"><%= t(chat_workspace_page? ? "nosia.orbite.expand_history" : "nosia.orbite.navigation") %></span>
     </button>
     <button type="button" id="workspace-utilities-trigger" class="n-orbite-control n-orbite-utilities-trigger"
             aria-controls="chat-history" aria-haspopup="dialog" data-action="workspace-navigation#utilities">
@@ -535,9 +536,17 @@ export default class extends Controller {
     configure()
     if (active?.isConnected && active.checkVisibility()) {
       if (document.activeElement !== active) active.focus({ preventScroll: true })
-    } else if (inside && fallback?.isConnected) {
+    } else if (inside && this.focusable(fallback)) {
       fallback.focus({ preventScroll: true })
     }
+  }
+
+  focusable(element) {
+    if (!element?.isConnected || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) ||
+        element.matches(":disabled") || element.closest("[inert]") ||
+        (element.tabIndex < 0 && !element.hasAttribute("tabindex"))) return false
+    const box = element.getBoundingClientRect()
+    return box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight
   }
 
   focus(element) { element?.focus() }
@@ -587,6 +596,8 @@ The owner closes only top-layer dialogs when opening Tools/navigation; it does n
 The shared Close button must never be a document-startup autofocus candidate. A controlled removal of its unconditional `autofocus` is verified against the existing paused-paragraph/editor-focus case before the modal-only correction. Only `openDialog` temporarily marks the shared initial-focus control while native `showModal()` selects focus, then removes the marker attribute; connect/inline/reflow never force editor focus. Add targeted tests for this and shared-History recovery before extending the owner. Recover only an actually modal shared History for the same URL/page context; capture before cache cleanup, keep snapshots closed, consume visit intent, restore valid current in-panel focus/opener by identity/stable ID, and refuse recovery after explicit close/navigation/reconfigure, newer Tools or deliberate outside focus. Existing chat-disclosures still owns only its original in-chat Tools recovery through chat-dialog; do not duplicate it or alter that controller. No stream wrapper, receiver fork, focus classification or render/RAF delivery gate is permitted.
 
 Cache mode is snapshot-scoped, not a latched mode of a retained same-URL controller: clear the dialog owner's flag at the start of `afterRender`, including its no-recovery/inline early returns, and navigation's flag after `layout` has restored/reflected presentation. Keep the existing open-panel guards in both close handlers so queued snapshot-generated close events do not undo already-reopened inline or modal state. Verify with real refresh → native panel Close at ≥1280 → false expanded state/current visible fallback focus → next refresh remaining collapsed, plus recovered 1024/375 modal Close and Escape checking every trigger's closed expanded state, current opener focus and no reopening. Do not pre-toggle the rail/utilities in these regressions, force controller state, or weaken the editor/reader/cache/focus protections.
+
+Responsive focus handoff must never choose a connected-but-hidden rail control or an offscreen page trigger. Navigation selects only qualified visible/focusable viewport-fit candidates, preferring triggers and the utility entry, then the existing bounded shell. The sole chat-dialog owner rechecks that fallback after the presentation change and applies `focus({ preventScroll: true })` only when focus was inside the closed panel. The shell is a deliberately named region (existing page title, default Nosia) with `tabindex=-1`, not a new Tab stop, with a visible inset keyboard outline. Do not focus it merely because a reader/editor is offscreen during resize; do not scroll reading to an old page trigger or introduce a deferred composer launcher. Test a genuine 812×375 → 375×812 downward modal cleanup after scrolling past the page trigger, using both the real saved answer and an explicitly labelled inert non-chat overflow fixture. Assert visible region focus/five-point hits, native next-Tab operability, retained editor/draft and paused 1px paragraph/80px/nested-zero protections before that next new native input. Also verify EN/FR rail labels: Navigation on non-chat pages with no history, history-specific text on chat pages.
 
 - [ ] **Step 5: Add the focused navigation presentation controller.**
 
@@ -668,10 +679,8 @@ export default class extends Controller {
   }
 
   fallback() {
-    return this.triggerTargets.find(element => {
-      const box = element.getBoundingClientRect()
-      return element.checkVisibility() && box.top >= 0 && box.bottom <= innerHeight
-    }) || this.element.querySelector("#workspace-utilities-trigger")
+    const candidates = [...this.triggerTargets, this.element.querySelector("#workspace-utilities-trigger"), this.element]
+    return candidates.find(element => this.chatDialogOutlet.focusable(element))
   }
 
   reflect() {
@@ -744,6 +753,7 @@ The initial outlet-connected callback can precede `connect`; `layout()` guards i
 .n-orbite-utilities :is(#theme-toggle, #dropdownUser, #language_preference_locale) { min-height: 2.75rem; min-width: 2.75rem; border-radius: .375rem; }
 .n-orbite-utilities #language_preference_locale { font-size: .75rem; padding-block: .25rem; }
 .n-orbite-shell :is(a, button, select, summary):focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
+.n-orbite-shell:focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
 .n-orbite-mobile-only { display: none; }
 @media (max-width: 767px) {
   .n-orbite-shell { grid-template-columns: minmax(0, 1fr); padding: .5rem; gap: 0; }
