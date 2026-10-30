@@ -4,43 +4,5 @@
       <%= image_tag "nosia-logo.png", alt: "", aria: { hidden: true }, class: "h-6" %>
     <% end %>
   </div>
-  <div class="flex flex-wrap items-center gap-2">
-    <%= render "language_preference" %>
-    <div class="flex items-center">
-      <button id="theme-toggle" type="button" class="n-nav-link n-main-hover">
-        <span class="sr-only"><%= t("nosia.nav.toggle_dark_mode") %></span>
-        <%= inline_svg "svg/moon.svg", id: "theme-toggle-dark-icon", aria_hidden: true, class:"hidden h-6 w-6" %>
-        <%= inline_svg "svg/sun.svg", id: "theme-toggle-light-icon", aria_hidden: true, class:"hidden h-6 w-6" %>
-      </button>
-    </div>
-
-    <% if Current.user %>
-      <button id="dropdownUser" data-dropdown-toggle="dropdown" aria-expanded="false" class="n-nav-link n-main-hover flex shrink-0 rounded-full">
-        <span class="sr-only"><%= t("nosia.nav.open_user_menu") %></span>
-        <%= inline_svg "svg/user-circle.svg", aria_hidden: true, class: "w-6 h-6" %>
-      </button>
-      <div id="dropdown" class="hidden n-dropdown-menu border n-main-border" data-popper-placement="bottom">
-        <ul aria-labelledby="dropdownButton" class="n-dropdown-list">
-          <li>
-            <%= link_to profile_path, class:"group n-dropdown-item n-main-hover n-main-focus" do %>
-              <%= inline_svg "svg/identification.svg", aria_hidden: true, class: "w-6 h-6" %>
-              <span><%= t("nosia.nav.user_info") %></span>
-            <% end %>
-          </li>
-          <li>
-            <%= link_to settings_path, class:"group n-dropdown-item n-main-hover n-main-focus" do %>
-              <%= inline_svg "svg/cog.svg", aria_hidden: true, class: "w-6 h-6" %>
-              <span><%= t("nosia.nav.settings") %></span>
-            <% end %>
-          </li>
-          <li>
-            <%= link_to logout_path, data: { turbo_method: :delete }, title: t("nosia.nav.sign_out"), class:"group n-dropdown-item n-main-hover n-main-focus" do %>
-              <%= inline_svg "svg/power.svg", aria_hidden: true, class: "w-6 h-6" %>
-              <span><%= t("nosia.nav.sign_out") %></span>
-            <% end %>
-          </li>
-        </ul>
-      </div>
-    <% end %>
-  </div>
+  <div class="flex flex-wrap items-center gap-2"><%= render "application/orbite_utilities" %></div>
 </nav>
