@@ -424,13 +424,34 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       header_viewport(width, height)
       visit chat_path(@chat)
       assert_selector "lexxy-editor[connected]"
+      target = "##{dom_id(workspace(:messages, :workspace_answer), :reasoning_summary)}"
+      # Adversarial geometry only: the reserved composer is no longer below this
+      # target inside the reader. Supply real inert overflow, not a paused-state
+      # write, so trusted native Tab can still exercise the >80px paused case.
+      geometry = page.evaluate_script(<<~JS, target)
+        (() => {
+          const surface = document.querySelector('[data-application-scroll]')
+          const target = document.querySelector(arguments[0]), tail = document.createElement('div')
+          tail.dataset.headerPausedTabTail = ''
+          tail.inert = true
+          tail.style.cssText = `height:${Math.ceil(surface.clientHeight + target.getBoundingClientRect().height + 81)}px;flex:none;overflow-anchor:none`
+          document.querySelector('.n-chat-transcript').append(tail)
+          return { geometryOnly: true, inert: tail.inert, height: tail.getBoundingClientRect().height,
+            clientHeight: surface.clientHeight, targetHeight: target.getBoundingClientRect().height,
+            parentClass: tail.parentElement.className }
+        })()
+      JS
+      header_record("paused-tab-adversarial-tail", geometry)
+      assert geometry.fetch("inert")
+      assert_equal "n-chat-transcript", geometry.fetch("parentClass")
+      assert_operator geometry.fetch("height"), :>, geometry.fetch("clientHeight") + 80
+      header_settle
       header_top
       header_tab_to("#chat-usage-summary")
       header_hold_reader_frame
 
       page.driver.browser.action.send_keys(:enter).perform
       assert_selector "#chat-usage-details[open]"
-      target = "##{dom_id(workspace(:messages, :workspace_answer), :reasoning_summary)}"
       header_tab_to(target)
       page.execute_script("window.headerOrderingBoundary.mark('native-tab-accepted')")
       accepted = page.evaluate_script("window.headerOrderingBoundary.sample().trace.find(entry => entry.event === 'native-tab-accepted')")
@@ -445,6 +466,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       assert_operator accepted.fetch("top"), :>, key.fetch("top"), sample.to_json
       assert sample.fetch("trace").any? { |entry| entry["event"] == "recordInput:before" && entry["activation"] && entry["active"] != "chat-usage-summary" }, sample.to_json
       assert accepted.fetch("paused"), sample.to_json
+      assert_operator accepted.fetch("gap"), :>, 80, sample.to_json
       assert_in_delta accepted.fetch("top"), page.evaluate_script("document.querySelector('[data-application-scroll]').scrollTop"), 1, sample.to_json
       assert_selector "#{target}:focus"
       assert_in_delta accepted.fetch("activeTop"), page.evaluate_script("document.activeElement.getBoundingClientRect().top"), 1
@@ -460,7 +482,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     def header_hold_reader_frame
       page.execute_script(<<~JS)
         (() => {
-          const root = document.querySelector('.n-chat-workspace--saved'), surface = root.closest('[data-application-scroll]')
+          const root = document.querySelector('.n-chat-workspace--saved'), surface = root.querySelector('[data-scroll-target~="surface"]')
           const reader = window.Stimulus.getControllerForElementAndIdentifier(root, 'scroll')
           const summary = root.querySelector('#chat-usage-summary')
           const raf = window.requestAnimationFrame, caf = window.cancelAnimationFrame, schedule = reader.schedule
@@ -472,6 +494,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
             const block = message && (reader.blocksFor(message)[anchor.block] || message)
             const active = document.activeElement
             boundary.trace.push({ event, ...extra, top: surface.scrollTop, height: surface.scrollHeight,
+              clientHeight: surface.clientHeight, gap: surface.scrollHeight - surface.clientHeight - surface.scrollTop,
               summaryTop: summary.getBoundingClientRect().top, summaryBottom: summary.getBoundingClientRect().bottom,
               active: active.id || active.tagName, activeTop: active.getBoundingClientRect().top,
               activation: reader.disclosureActivation ? { offset: reader.disclosureActivation.offset, open: reader.disclosureActivation.open } : null,
@@ -553,7 +576,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           fixture: fixture, placement: "inert nonshrinking child of the actual primary surface", actualWorkflow: false })
         assert_equal "0", fixture.fetch("flexShrink")
         assert_equal "application-scroll", fixture.fetch("parentId")
-        assert_equal !page.has_selector?(".n-orbite-chat-frame", wait: 0), fixture.fetch("insideMain")
+        assert fixture.fetch("insideMain"), fixture.to_json
       end
     end
 
@@ -707,7 +730,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     def header_defer_resize_acknowledgment
       page.execute_script(<<~JS)
         (() => {
-          const root = document.querySelector('.n-chat-workspace--saved'), surface = root.closest('[data-application-scroll]')
+          const root = document.querySelector('.n-chat-workspace--saved'), surface = root.querySelector('[data-scroll-target~="surface"]')
           const reader = window.Stimulus.getControllerForElementAndIdentifier(root, 'scroll')
           const remember = reader.rememberPosition
           const boundary = window.headerResizeBoundary = { pending: true, deferred: 0, trace: [] }

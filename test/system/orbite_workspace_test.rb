@@ -21,6 +21,114 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     page.current_window.resize_to(*@original_size) if @original_size
   end
 
+  test "context scrolls away while the real composer remains visible in every viewport" do
+    @second.update_columns(name: "CompteDeRecherche" * 12)
+    [ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit chat_path(@chat)
+      assert_selector "lexxy-editor[connected]"
+      find("lexxy-editor .lexxy-editor__content").send_keys("Draft must stay in this editor")
+      page.execute_script("window.orbiteDockEditor = document.querySelector('lexxy-editor')")
+      page.execute_script(<<~JS)
+        const surface = document.querySelector('[data-application-scroll]')
+        surface.scrollTop = 0; surface.dispatchEvent(new Event('scroll'))
+      JS
+      orbite_settle
+      before = page.evaluate_script("document.querySelector('.n-chat-dock').getBoundingClientRect().toJSON()")
+      page.execute_script(<<~JS)
+        const surface = document.querySelector('[data-application-scroll]')
+        surface.scrollTop = 700; surface.dispatchEvent(new Event('scroll'))
+      JS
+      orbite_settle
+      sample = page.evaluate_script(<<~JS)
+        (() => { const rect = s => document.querySelector(s).getBoundingClientRect().toJSON(); return {
+          surface: rect('[data-application-scroll]'), header: rect('.n-chat-header'), dock: rect('.n-chat-dock'),
+          top: document.querySelector('[data-application-scroll]').scrollTop,
+          nested: [document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop],
+          sameEditor: window.orbiteDockEditor === document.querySelector('lexxy-editor'), viewport: [innerWidth, innerHeight] }; })()
+      JS
+      orbite_record("dock-#{width}x#{height}", sample, screenshot: true)
+      assert_operator sample.fetch("top"), :>=, 699, sample.to_json
+      assert_operator sample.fetch("header").fetch("bottom"), :<=, sample.fetch("surface").fetch("top"), sample.to_json
+      assert_in_delta before.fetch("top"), sample.fetch("dock").fetch("top"), 1, sample.to_json
+      assert_operator sample.fetch("surface").fetch("bottom"), :<=, sample.fetch("dock").fetch("top") + 1, sample.to_json
+      assert_operator sample.fetch("dock").fetch("bottom"), :<=, height, sample.to_json
+      assert_equal [ 0, 0 ], sample.fetch("nested"), sample.to_json
+      assert sample.fetch("sameEditor"), sample.to_json
+      assert_selector "lexxy-editor .lexxy-editor__content", text: "Draft must stay in this editor"
+      orbite_assert_reachable(".n-composer-send")
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "mobile navigation remains usable after the context has scrolled away and during generation" do
+    orbite_viewport(375, 812)
+    @chat.start_generation!
+    visit chat_path(@chat)
+    assert_button "Stop generating", enable_aria_label: true
+    assert_selector "[data-orbite-composer-navigation]:not([disabled])"
+    orbite_assert_reachable("[data-orbite-composer-navigation]")
+    find("[data-orbite-composer-navigation]").click
+    assert_selector "#chat-history:modal"
+    orbite_tab_to("#chat-history [data-action='workspace-navigation#close']")
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_selector "[data-orbite-composer-navigation]:focus"
+    orbite_assert_reachable(".n-composer-stop")
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "reserved new and saved composers keep native formatting and labels reachable" do
+    [ [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      { new: new_chat_path(account_id: @second.id), saved: chat_path(@chat) }.each do |entry, path|
+        [ false, true ].each do |dark|
+          visit path
+          assert_selector "lexxy-editor[connected]"
+          orbite_theme(dark)
+          editor = find("lexxy-editor")
+          assert_selector "label[for='#{editor[:id]}']", text: "Message", visible: :all
+          find("lexxy-editor .lexxy-editor__content").send_keys("Native formatting stays in this editor")
+          find("summary[aria-label=Formatting]").click
+          assert_selector ".n-chat-composer[data-formatting-open] lexxy-toolbar"
+          orbite_assert_reachable("lexxy-toolbar button[name=bold]")
+          orbite_assert_reachable(".n-composer-send")
+          orbite_assert_reachable(".n-composer-notice")
+          orbite_record("formatting-#{entry}-#{dark ? 'dark' : 'light'}-#{width}x#{height}", { editorId: editor[:id], formattingOpen: true }, screenshot: true)
+        end
+      end
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "new chat without an account has one guidance surface and no fake composer" do
+    orbite_open_utilities
+    find("#dropdownUser").click
+    find("#dropdown a[href='#{logout_path}']").click
+    assert_selector "form[action='#{login_path}']"
+    fill_in "email", with: users(:picker_no_account).email
+    fill_in "password", with: ChatAccountFixtures::PASSWORD
+    click_on "Sign in"
+    assert_selector "[data-dashboard]"
+
+    [ [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit new_chat_path
+      [ false, true ].each do |dark|
+        orbite_theme(dark)
+        assert_selector ".n-orbite-reading [data-chat-no-account]", count: 1
+        assert_no_selector ".n-chat-dock, lexxy-editor, [data-orbite-composer-navigation]", visible: :all
+        orbite_assert_reachable("[data-chat-no-account]")
+        orbite_assert_reachable(".n-chat-start a[href='#{accounts_path}']")
+        orbite_record("no-account-#{dark ? 'dark' : 'light'}-#{width}x#{height}", { guidance: true, composer: false }, screenshot: true)
+        find("#workspace-history-trigger").click
+        assert_selector "#chat-history:modal"
+        page.driver.browser.action.send_keys(:escape).perform
+        assert_selector "#workspace-history-trigger:focus"
+      end
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "downward navigation reflow keeps a paused saved paragraph and visible focus" do
     orbite_viewport(812, 375)
     visit chat_path(@chat)
@@ -45,7 +153,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
 
     orbite_viewport(375, 812)
     orbite_settle_reader
-    orbite_assert_downward_focus("saved-chat-downward")
+    orbite_assert_downward_focus("saved-chat-downward", destination: "[data-orbite-composer-navigation]")
     after = orbite_paragraph_anchor
     orbite_record("saved-chat-downward-anchor", { before: before, after: after })
     assert_equal before.fetch("text"), after.fetch("text"), after.to_json
@@ -260,6 +368,8 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "lexxy-editor[connected]"
     orbite_settle
     refute page.evaluate_script("document.querySelector('main') === document.querySelector('[data-application-scroll]')")
+    assert page.evaluate_script("document.querySelector('main').contains(document.querySelector('[data-application-scroll]'))")
+    assert_selector "main#application-page .n-chat-workspace > .n-orbite-reading#application-scroll[data-application-scroll]", count: 1
     assert_selector "[data-application-scroll]", count: 1
     [ 0, 700 ].each do |top|
       page.execute_script(<<~JS, top)
@@ -396,7 +506,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
       JS
     end
 
-    def orbite_assert_downward_focus(label)
+    def orbite_assert_downward_focus(label, destination: "#orbite-shell")
       assert_no_selector "dialog:modal"
       assert_no_selector "#chat-history[open]", visible: :all
       sample = page.evaluate_script(<<~JS)
@@ -411,9 +521,10 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
       refute_includes %w[BODY HTML], sample.fetch("tag"), sample.to_json
       assert sample.fetch("visible"), sample.to_json
       refute sample.fetch("inert"), sample.to_json
-      assert_selector "#orbite-shell[tabindex='-1'][role=region][aria-label]:focus"
+      assert_selector "#orbite-shell[tabindex='-1'][role=region][aria-label]"
       assert_equal page.title, find("#orbite-shell")["aria-label"]
-      reachable = orbite_assert_reachable("#orbite-shell")
+      assert_selector "#{destination}:focus"
+      reachable = orbite_assert_reachable(destination)
       assert reachable.fetch("focusVisible"), reachable.to_json
       assert_operator reachable.fetch("outlineWidth"), :>=, 2, reachable.to_json
     end

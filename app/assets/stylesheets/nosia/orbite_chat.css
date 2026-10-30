@@ -1,0 +1,37 @@
+.n-orbite-shell .n-chat-main { display: flex; flex-direction: column; overflow: hidden; padding: 0; min-height: 0; }
+.n-orbite-shell .n-chat-main > .n-orbite-page-trail:empty { display: none; }
+.n-orbite-shell .n-chat-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; flex: 1; gap: 0; height: auto; min-height: 0; overflow: hidden; }
+.n-orbite-shell .n-chat-workspace > turbo-cable-stream-source { display: none; }
+.n-orbite-shell .n-orbite-reading { min-height: 0; min-width: 0; overflow-y: auto; overflow-anchor: none; scrollbar-gutter: stable; scroll-padding-block: .75rem; }
+.n-orbite-shell .n-chat-transcript { flex: none; overflow: visible; padding: 1rem; }
+.n-orbite-shell .n-chat-header { padding: .75rem 1rem 0; }
+.n-orbite-shell .n-chat-reading-column { max-width: 74ch; }
+.n-orbite-shell .n-chat-start { min-height: 0; padding: 1.5rem 1rem; }
+.n-orbite-shell .n-chat-dock { width: 100%; max-width: 76ch; padding: .75rem 1rem .5rem; margin-inline: auto; min-width: 0; }
+.n-orbite-shell .n-chat-dock .lexxy-editor__content { min-block-size: 3rem; max-block-size: min(20dvh, 10rem); overflow-y: auto; }
+.n-orbite-shell .n-chat-dock .n-composer-errors { max-block-size: 4rem; overflow-y: auto; }
+.n-orbite-shell .n-chat-dock .n-composer-meta { padding-block: .25rem 0; }
+.n-orbite-shell .n-chat-dock .n-composer-notice { margin-block: .375rem 0; }
+.n-orbite-shell .n-chat-workspace--new { overflow: hidden; scrollbar-gutter: auto; }
+.n-orbite-shell .n-chat-composer .n-orbite-mobile-only { display: none; }
+
+@media (min-width: 640px) {
+  .n-orbite-shell .n-chat-dock .n-composer-account { flex: 0 1 20rem; max-inline-size: min(20rem, 100%); }
+}
+
+@media (max-width: 767px), (max-height: 700px) {
+  .n-orbite-shell .n-chat-main { padding: 0; }
+  .n-orbite-shell .n-chat-dock { padding: .5rem .625rem; }
+  .n-orbite-shell .n-chat-transcript { padding: .75rem; }
+}
+
+@media (max-width: 767px) {
+  .n-orbite-shell .n-chat-composer .n-orbite-mobile-only { display: inline-flex; }
+}
+
+@media (max-height: 700px) {
+  .n-orbite-shell .n-chat-start { padding-block: .5rem; }
+  .n-orbite-shell .n-chat-dock { padding-block: .25rem; }
+  .n-orbite-shell .n-orbite-reading { scroll-padding-block: 0; }
+  .n-orbite-shell .n-orbite-reading :is(button, summary, a) { scroll-margin-block: 0; }
+}

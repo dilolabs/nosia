@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["viewport", "latest"]
+  static targets = ["surface", "viewport", "latest"]
 
   connect() {
     this.state = this.element.chatReaderState ||= { paused: false, anchor: null, pending: false }
@@ -12,7 +12,7 @@ export default class extends Controller {
     this.onKeyup = () => { this.navigation = null }
     this.onFocus = this.focused.bind(this)
     this.onFocusOut = event => {
-      if (!this.main.contains(event.relatedTarget)) this.navigation = null
+      if (!this.inputRoot.contains(event.relatedTarget)) this.navigation = null
     }
     this.onDisclosureClick = this.disclosureClicked.bind(this)
     this.submissions = new Map()
@@ -33,17 +33,22 @@ export default class extends Controller {
     return this.main
   }
 
+  surfaceTargetConnected() {
+    if (this.state && this.element.isConnected && this.hasViewportTarget) {
+      this.observeSurface()
+      this.schedule()
+    }
+  }
+
   observeSurface() {
     this.stopObserving()
-    // The application scrolls; the transcript remains the observed reading content.
-    this.main = this.element.closest("[data-application-scroll]")
+    this.main = this.surfaceTarget
+    this.inputRoot = this.element.closest("#orbite-shell")
     this.viewport = this.viewportTarget
     this.main.addEventListener("scroll", this.onScroll)
-    this.main.addEventListener("keydown", this.onKeydown)
-    this.main.addEventListener("keyup", this.onKeyup)
-    this.main.addEventListener("focusin", this.onFocus)
-    this.main.addEventListener("focusout", this.onFocusOut)
-    this.main.addEventListener("click", this.onDisclosureClick)
+    for (const [type, listener] of [["keydown", this.onKeydown], ["keyup", this.onKeyup], ["focusin", this.onFocus], ["focusout", this.onFocusOut], ["click", this.onDisclosureClick]]) {
+      this.inputRoot.addEventListener(type, listener)
+    }
     this.contentChanged()
     this.rememberPosition()
     this.mutations = new MutationObserver(records => {
@@ -56,18 +61,17 @@ export default class extends Controller {
       this.rememberPosition()
       this.schedule()
     })
-    for (const element of [this.main, this.element, this.viewport, this.viewport.firstElementChild]) {
+    for (const element of [this.main, this.element, this.viewport, this.viewport.firstElementChild,
+      this.element.querySelector(".n-chat-header"), this.element.querySelector(".n-chat-follow")]) {
       if (element) this.resize.observe(element)
     }
   }
 
   stopObserving() {
     this.main?.removeEventListener("scroll", this.onScroll)
-    this.main?.removeEventListener("keydown", this.onKeydown)
-    this.main?.removeEventListener("keyup", this.onKeyup)
-    this.main?.removeEventListener("focusin", this.onFocus)
-    this.main?.removeEventListener("focusout", this.onFocusOut)
-    this.main?.removeEventListener("click", this.onDisclosureClick)
+    for (const [type, listener] of [["keydown", this.onKeydown], ["keyup", this.onKeyup], ["focusin", this.onFocus], ["focusout", this.onFocusOut], ["click", this.onDisclosureClick]]) {
+      this.inputRoot?.removeEventListener(type, listener)
+    }
     this.navigation = null
     this.disclosureActivation = null
     this.mutations?.disconnect()
@@ -96,7 +100,7 @@ export default class extends Controller {
     this.navigation = null
     // A native Tab scroll is input even while resize acknowledgment is pending.
     // Existing focus and preventScroll restoration alone never override the anchor.
-    if (navigation && !navigation.event.defaultPrevented && navigation.top !== this.surface.scrollTop) this.recordInput()
+    if (navigation && this.element.contains(document.activeElement) && !navigation.event.defaultPrevented && navigation.top !== this.surface.scrollTop) this.recordInput()
   }
 
   disclosureClicked(event) {
@@ -214,8 +218,8 @@ export default class extends Controller {
   }
 
   reconcile() {
-    if (!this.element.isConnected || !this.hasViewportTarget) return
-    if (this.viewport !== this.viewportTarget || this.main !== this.element.closest("[data-application-scroll]")) this.observeSurface()
+    if (!this.element.isConnected || !this.hasViewportTarget || !this.hasSurfaceTarget) return
+    if (this.viewport !== this.viewportTarget || this.main !== this.surfaceTarget || this.inputRoot !== this.element.closest("#orbite-shell")) this.observeSurface()
 
     if (this.restoreDisclosure()) {
       // A trusted native disclosure owns this one layout change, not later resizes.

@@ -1,4 +1,4 @@
-<%# locals: (form:, chat:, field:, skills:, generating:, stop_form_id:) %>
+<%# locals: (form:, chat:, field:, skills:, generating:, stop_form_id:, navigation: false) %>
 <% editor_id = form.field_id(field) %>
 <% validation_id = "#{editor_id}_validation" %>
 <% source_errors_id = "#{editor_id}_sources" %>
@@ -28,6 +28,13 @@
       </ul>
     <% end %>
     <div class="n-composer-actions">
+      <% if navigation %>
+        <button type="button" id="<%= dom_id(chat, :navigation) %>" class="n-composer-control n-orbite-mobile-only"
+          aria-label="<%= t('nosia.orbite.navigation') %>" aria-controls="chat-history" aria-haspopup="dialog" aria-expanded="false"
+          data-orbite-composer-navigation data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle">
+          <%= inline_svg "svg/menu.svg", aria_hidden: true, class: "n-composer-icon" %>
+        </button>
+      <% end %>
       <%= tag.div class: "n-composer-editing-tools", role: "group", aria: { label: t("nosia.chat.editor_actions"), disabled: generating },
             inert: generating, data: { chat_account_target: "editingTools" } do %>
         <button type="button" class="n-composer-control" aria-label="<%= t('nosia.chat.attach_pdf') %>" data-action="composer-chrome#upload" <%= "disabled" if generating %>>

@@ -21,7 +21,7 @@ module ChatWorkspaceBrowserChecks
     end
 
     def chat_evidence_directory
-      @chat_evidence_directory ||= Dir.mktmpdir("task7-#{name.gsub(/[^a-zA-Z0-9-]/, '-')}-", ENV.fetch("EVIDENCE", "/tmp/opencode"))
+      @chat_evidence_directory ||= Dir.mktmpdir("task7-#{name.gsub(/[^a-zA-Z0-9-]/, '-')}-", ENV.fetch("EVIDENCE", Dir.tmpdir))
     end
 
     def chat_measurement(data)
@@ -97,7 +97,7 @@ module ChatWorkspaceBrowserChecks
       sample = page.evaluate_script(<<~JS, element, outline, border)
         (() => {
         const element = arguments[0], outline = arguments[1], border = arguments[2]
-        if (element.closest('dialog')) throw new Error('Native top-layer/backdrop requires separate sampling')
+        if (element.closest('dialog:modal')) throw new Error('Native top-layer/backdrop requires separate sampling')
         const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
         const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
         const rgba = color => {
@@ -201,6 +201,7 @@ module ChatWorkspaceBrowserChecks
                   throw new Error('Unmeasured generated native icon paint')
               }
             }
+            if (node === dialog) break
           }
           const stroke = getComputedStyle(path), style = getComputedStyle(button)
           const foreground = rgba(stroke.stroke), outline = rgba(style.outlineColor)

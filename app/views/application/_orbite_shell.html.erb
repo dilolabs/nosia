@@ -45,9 +45,6 @@
       <%= render "application/orbite_utilities" %>
     </div>
   </dialog>
-  <% if chat_workspace_page? %>
-    <div id="application-scroll" class="n-orbite-chat-frame" data-application-scroll>
-  <% end %>
   <%= tag.main id: chat_workspace_page? ? "application-page" : "application-scroll",
         class: "n-application-page n-orbite-main #{'n-chat-main' if chat_workspace_page?}",
         data: { application_scroll: chat_workspace_page? ? nil : true } do %>
@@ -65,8 +62,5 @@
       <button id="workspace-mobile-trigger" type="button" class="n-orbite-control n-orbite-mobile-only" aria-controls="chat-history" aria-haspopup="dialog" data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle"><%= t("nosia.orbite.navigation") %></button>
     <% end %>
     <%= page %>
-  <% end %>
-  <% if chat_workspace_page? %>
-    </div>
   <% end %>
 </div>

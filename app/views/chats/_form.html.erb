@@ -1,3 +1,4 @@
+<%# locals: (chat:, navigation: false) %>
 <% if chat.account.present? %>
   <% generating = chat.persisted? && chat.generating? %>
   <% skills = JSON.parse(agent_skill_autocomplete_data(chat.account)) %>
@@ -8,7 +9,7 @@
     <%= form.hidden_field :model, value: @selected_model if @selected_model.present? %>
     <div id="mcp-server-hidden-fields" data-mcp-fields-sync-target="hiddenFields"></div>
     <%= render "chats/composer", form: form, chat: chat, field: :prompt,
-      skills: skills, generating: generating, stop_form_id: stop_form_id %>
+      skills: skills, generating: generating, stop_form_id: stop_form_id, navigation: navigation %>
   <% end %>
   <% if generating %>
     <%= form_with url: stop_chat_path(chat), method: :post, id: stop_form_id,

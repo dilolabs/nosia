@@ -18,6 +18,7 @@
 @import "../stylesheets/nosia/chat_workspace.css";
 @import "../stylesheets/nosia/application_shell.css";
 @import "../stylesheets/nosia/orbite_shell.css";
+@import "../stylesheets/nosia/orbite_chat.css";
 @import "../stylesheets/nosia/main.css" layer(utilities);
 @import "../stylesheets/nosia/menu.css" layer(utilities);
 @import "../stylesheets/nosia/tag.css" layer(utilities);

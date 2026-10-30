@@ -22,19 +22,19 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "intermediate chat surface stays distinct from main" do
+  test "chat reading surface is the final primary child inside main" do
     [ new_chat_path, chat_path(@chat) ].each do |path|
       get path
       assert_response :success
       assert_select "[data-application-scroll]", count: 1
-      assert_select "#application-scroll.n-orbite-chat-frame[data-application-scroll] > main#application-page.n-chat-main", count: 1
+      assert_select "main#application-page.n-chat-main .n-orbite-reading#application-scroll[data-application-scroll]", count: 1
       assert_select "main[data-application-scroll], .n-chat-transcript[data-application-scroll]", count: 0
     end
 
     get accounts_path
     assert_response :success
     assert_select "main#application-scroll[data-application-scroll]", count: 1
-    assert_select ".n-orbite-chat-frame", count: 0
+    assert_select ".n-orbite-chat-frame, .n-orbite-reading", count: 0
   end
 
   test "signed in routes share one navigation shell without private history outside chat" do

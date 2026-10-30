@@ -8,21 +8,21 @@
      data-chat-feedback-stopped-value="<%= t('nosia.chat_workspace.stopped') %>"
      data-chat-generation-stopped="<%= @chat.generation_stopped? %>"
      data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture turbo:before-stream-render@document->scroll#beforeStream turbo:before-render@document->scroll#capture turbo:render@document->scroll#afterRender lexxy:initialize->scroll#afterRender animationend->scroll#afterRender turbo:submit-start->scroll#submissionStarted toggle->chat-disclosures#remember:capture turbo:before-visit@document->chat-disclosures#beforeVisit turbo:before-cache@document->chat-disclosures#beforeCache:capture turbo:before-morph-attribute@document->chat-disclosures#preserveAttribute turbo:before-stream-render@document->chat-disclosures#captureFocus turbo:before-render@document->chat-disclosures#captureFocus turbo:render@document->chat-disclosures#restore">
-  <%= render "chats/header", chat: @chat, titles: @history_titles %>
-  <p id="chat-feedback-status-<%= @chat.id %>" class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-chat-feedback-target="status" data-turbo-permanent></p>
-  <div class="n-chat-follow">
-    <button type="button" class="n-workspace-button" hidden data-scroll-target="latest" data-action="scroll#latest"><%= t("nosia.chat_workspace.latest") %></button>
+  <div id="application-scroll" class="n-orbite-reading" data-application-scroll data-scroll-target="surface">
+    <%= render "chats/header", chat: @chat, titles: @history_titles %>
+    <p id="chat-feedback-status-<%= @chat.id %>" class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-chat-feedback-target="status" data-turbo-permanent></p>
+    <div class="n-chat-follow">
+      <button type="button" class="n-workspace-button" hidden data-scroll-target="latest" data-action="scroll#latest"><%= t("nosia.chat_workspace.latest") %></button>
+    </div>
+    <section class="n-chat-transcript" aria-label="<%= t("nosia.chat_workspace.transcript") %>" data-scroll-target="viewport">
+      <%= render "chats/transcript", chat: @chat %>
+    </section>
   </div>
-  <section class="n-chat-transcript" aria-label="<%= t("nosia.chat_workspace.transcript") %>" data-scroll-target="viewport">
-    <%= render "chats/transcript", chat: @chat %>
-  </section>
   <section class="n-chat-dock n-chat-reading-column" aria-label="<%= t("nosia.chat_workspace.reply") %>">
     <%= render partial: "messages/form", locals: { chat: @chat } %>
   </section>
   <%= turbo_stream_from @chat, :messages, I18n.locale %>
   <%= turbo_stream_from @chat, :token_totals, I18n.locale %>
   <%= render "chats/history", chat: @chat, conversations: @history, titles: @history_titles %>
-
-  <%# MCP Selector Modal %>
   <%= render "chats/mcp_selector", chat: @chat %>
 </div>

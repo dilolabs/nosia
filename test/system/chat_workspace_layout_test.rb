@@ -1,10 +1,12 @@
 require "tmpdir"
 require "application_system_test_case"
 require_relative "../support/chat_workspace_fixtures"
+require_relative "../support/orbite_browser_checks"
 
-# Checks saved-composer clearance above the shared tablet navigation in both themes.
+# Checks reserved-composer viewport clearance in both themes.
 class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
   include ChatWorkspaceFixtures
+  include OrbiteBrowserChecks
 
   setup do
     @layout_evidence = Dir.mktmpdir("chat-layout-", ENV.fetch("EVIDENCE", "/tmp/opencode"))
@@ -32,10 +34,10 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
   end
 
   %w[light dark].each do |theme|
-    test "saved composer help and disclaimer clear tablet navigation in #{theme} theme" do
+    test "saved composer help and disclaimer retain reserved viewport clearance in #{theme} theme" do
       visit chat_path(@chat)
       assert_selector ".n-chat-dock .lexxy-editor__content"
-      find("#theme-toggle").click if page.evaluate_script("document.documentElement.classList.contains('dark')") != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script("const done=arguments[0]; requestAnimationFrame(()=>requestAnimationFrame(done));")
       page.execute_script("const surface = document.querySelector('[data-application-scroll]'); surface.scrollTop = surface.scrollHeight; surface.dispatchEvent(new Event('scroll'))")
@@ -50,10 +52,11 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
       assert_equal "application-scroll", geometry.fetch("surface").fetch("id")
       assert_equal 0, geometry.fetch("main").fetch("scrollTop")
       assert_equal 0, geometry.fetch("transcriptScrollTop")
-      assert_equal "fixed", geometry.fetch("nav").fetch("position")
-      assert geometry.fetch("nav").fetch("visible"), geometry.to_json
+      assert_no_selector ".n-nav-bottom", visible: :all
+      assert_operator geometry.fetch("reading").fetch("bottom"), :<=, geometry.fetch("dock").fetch("top") + 1
       geometry.fetch("composer").each do |sample|
-        assert_operator sample.fetch("bounds").fetch("bottom"), :<=, geometry.fetch("nav").fetch("bounds").fetch("top"), sample.to_json
+        assert_operator sample.fetch("bounds").fetch("bottom"), :<=, geometry.fetch("dock").fetch("bottom"), sample.to_json
+        assert_operator sample.fetch("bounds").fetch("bottom"), :<=, geometry.fetch("viewport").last, sample.to_json
         assert sample.fetch("unobscured"), "Composer text is clipped or covered: #{sample.to_json}"
       end
     end
@@ -69,8 +72,7 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
         (() => {
           const main = document.querySelector('.n-chat-main'), mainBounds = main.getBoundingClientRect();
           const surface = document.querySelector('[data-application-scroll]');
-          const nav = document.querySelector('.n-nav-bottom').closest('.fixed');
-          const navBounds = nav.getBoundingClientRect(), navStyle = getComputedStyle(nav);
+          const dock = document.querySelector('.n-chat-dock');
           const composer = ['.n-composer-meta', '.n-composer-notice'].map(selector => {
             const element = document.querySelector(`.n-chat-dock ${selector}`), bounds = element.getBoundingClientRect();
             const points = [bounds.left + 1, bounds.left + bounds.width / 2, bounds.right - 1].flatMap(x =>
@@ -92,8 +94,7 @@ class ChatWorkspaceLayoutTest < ApplicationSystemTestCase
             transcriptScrollTop: document.querySelector('.n-chat-transcript').scrollTop,
             main: {bounds: mainBounds.toJSON(), paddingBottom: getComputedStyle(main).paddingBottom,
               overflowY: getComputedStyle(main).overflowY, scrollTop: main.scrollTop},
-            nav: {bounds: navBounds.toJSON(), position: navStyle.position,
-              visible: nav.checkVisibility() && navBounds.width > 0 && navBounds.height > 0}, composer};
+            nav: {visible: false}, dock: dock.getBoundingClientRect().toJSON(), reading: surface.getBoundingClientRect().toJSON(), composer};
         })()
       JS
     end

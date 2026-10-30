@@ -456,14 +456,11 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
     test "native anchoring without reader movement stays paused during growth at #{width}x#{height}" do
       visit_reader(width, height)
+      prepare_native_anchor_fixture(gap: 160)
       page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content))
         const surface = #{reader_surface}
-        // The production shell disables anchoring. Opt this fixture back in to
-        // retain coverage of native dock anchoring, previously supplied by main.
-        if (matchMedia('(max-width: 639px), (max-height: 700px)').matches) surface.style.overflowAnchor = 'auto'
         surface.scrollTop = surface.scrollHeight - surface.clientHeight - 160
-        // The reachable landscape dock can be taller than the viewport. Pause
-        // on real answer content, not on an offscreen paragraph above the dock.
+        // Even in the short reading zone, pause on a real answer paragraph.
         const paragraph = document.getElementById(arguments[0]).querySelector('p:last-child')
         surface.scrollTop -= Math.max(0, surface.getBoundingClientRect().top + 24 - paragraph.getBoundingClientRect().top)
         surface.dispatchEvent(new Event('scroll'))
@@ -479,6 +476,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
           const evidence = window.readerNativeGrowth
           evidence.heightAfter = surface.scrollHeight
           evidence.nativeTop = surface.scrollTop
+          const anchor = window.readerNativeAnchorFixture
+          evidence.nativeAnchor = anchor && { sameNode: anchor === surface.querySelector('[data-reader-native-anchor-fixture]'),
+            connected: anchor.isConnected, bounds: anchor.getBoundingClientRect().toJSON(), overflowAnchor: getComputedStyle(anchor).overflowAnchor }
           // Deliver scroll at the browser's anchored position, without moving it.
           surface.dispatchEvent(new Event('scroll'))
           evidence.followingAfterScroll = root.dataset.readerFollowing
@@ -486,10 +486,15 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
         observer.observe(content.parentElement, { childList: true })
       JS
 
+      native_anchor_diagnostic("native-growth-before-#{width}x#{height}")
       stream_answer(reader_answer(100))
 
       evidence = page.evaluate_script("window.readerNativeGrowth")
       puts "Reader native growth #{width}x#{height}: #{evidence.to_json}"
+      if (native_anchor = evidence.fetch("nativeAnchor"))
+        assert native_anchor.fetch("sameNode") && native_anchor.fetch("connected"), evidence.to_json
+        assert_operator evidence.fetch("nativeTop"), :>, evidence.fetch("topBefore")
+      end
       assert_operator evidence.fetch("heightAfter"), :>, evidence.fetch("heightBefore")
       if width <= 639
         assert_operator evidence.fetch("nativeTop"), :>, evidence.fetch("topBefore")
@@ -509,12 +514,10 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     readings.each do |reading|
       test "reader scroll wins after actual stream height growth at #{width}x#{height} while reading #{reading}" do
         visit_reader(width, height)
+        prepare_native_anchor_fixture
         page.execute_script(<<~JS, dom_id(workspace(:messages, :workspace_answer), :content), reading)
           const surface = #{reader_surface}, content = document.getElementById(arguments[0])
           const reading = arguments[1]
-          // Exercise the old native-anchored race on the new actual surface;
-          // the application's default overflow-anchor remains disabled.
-          if (matchMedia('(max-width: 639px), (max-height: 700px)').matches) surface.style.overflowAnchor = 'auto'
           const root = document.querySelector('.n-chat-workspace--saved')
           window.readerGrowthRace = { heightBefore: surface.scrollHeight, topBefore: surface.scrollTop }
           const observer = new MutationObserver(() => {
@@ -523,6 +526,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
             const evidence = window.readerGrowthRace
             evidence.heightAfter = surface.scrollHeight
             evidence.topBeforeInput = surface.scrollTop
+            const anchor = window.readerNativeAnchorFixture
+            evidence.nativeAnchor = anchor && { sameNode: anchor === surface.querySelector('[data-reader-native-anchor-fixture]'),
+              connected: anchor.isConnected, bounds: anchor.getBoundingClientRect().toJSON(), overflowAnchor: getComputedStyle(anchor).overflowAnchor }
             evidence.contentBottomBeforeInput = document.getElementById(content.id).getBoundingClientRect().bottom
             evidence.surfaceBottom = surface.getBoundingClientRect().bottom
             evidence.followingBeforeInput = root.dataset.readerFollowing
@@ -547,10 +553,15 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
           observer.observe(content.parentElement, { childList: true })
         JS
 
+        native_anchor_diagnostic("growth-race-before-#{width}x#{height}-#{reading}")
         stream_answer(reader_answer(100))
 
         evidence = page.evaluate_script("window.readerGrowthRace")
         puts "Reader growth race #{width}x#{height} #{reading}: #{evidence.to_json}"
+        if (native_anchor = evidence.fetch("nativeAnchor"))
+          assert native_anchor.fetch("sameNode") && native_anchor.fetch("connected"), evidence.to_json
+          assert_operator evidence.fetch("topBeforeInput"), :>, evidence.fetch("topBefore")
+        end
         assert_operator evidence.fetch("heightAfter"), :>, evidence.fetch("heightBefore")
         assert_operator evidence.fetch("topAfterInput"), :<, evidence.fetch("topBeforeInput")
         if reading == "previous"
@@ -604,8 +615,12 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     [ true, false ].each do |open|
       # Geometry stimulus only: native disclosure keyboard behavior is covered
       # independently, without scrolling this paused paragraph to its summary.
+      before_geometry = task3_reading_geometry
       page.execute_script("document.querySelector('#chat-usage-details').open = arguments[0]", open)
       settle_workspace_layout
+      geometry = { before: before_geometry, after: task3_reading_geometry }
+      chat_measurement("kind" => "task3-usage-geometry-diagnostic", "sample" => geometry)
+      puts "Task3 Usage geometry: #{geometry.to_json}"
       assert_reader_following false
       assert_reader_anchor anchor
       assert_no_button "Latest message"
@@ -761,7 +776,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "a replaced application surface preserves the same reader root and paused paragraph" do
+  test "a replaced explicit child surface preserves the same reader root and paused paragraph" do
     visit_reader(1400, 1000)
     assert_selector "[data-application-scroll]"
     pause_reader
@@ -777,7 +792,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     JS
     settle_reader_animations
 
-    puts "Reader ancestor retarget: #{page.evaluate_script("({ state: window.preservedReaderRoot.chatReaderState, top: document.querySelector('[data-application-scroll]').scrollTop, oldConnected: window.previousApplicationSurface.isConnected, animations: window.preservedReaderRoot.getAnimations({ subtree: true }).length })").to_json}"
+    puts "Reader explicit surface retarget: #{page.evaluate_script("({ state: window.preservedReaderRoot.chatReaderState, top: document.querySelector('[data-application-scroll]').scrollTop, oldConnected: window.previousApplicationSurface.isConnected, animations: window.preservedReaderRoot.getAnimations({ subtree: true }).length })").to_json}"
 
     assert page.evaluate_script("window.preservedReaderRoot === document.querySelector('.n-chat-workspace--saved')")
     assert_not page.evaluate_script("window.previousApplicationSurface.isConnected")
@@ -1538,7 +1553,27 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
             assert_selector "html[lang=#{locale}]"
             assert_selector "lexxy-editor[connected]"
             chat_theme(dark)
+            before_bounds_geometry = task3_reading_geometry if height <= 700
             assert_chat_bounds
+            if height <= 700
+              geometry = { before: before_bounds_geometry, after: task3_reading_geometry }
+              chat_measurement("kind" => "task3-landscape-title-diagnostic", "sample" => geometry)
+              before, after = geometry.values_at(:before, :after)
+              puts "Task3 landscape title geometry: #{ { before: before.fetch('boxes'), after: after.fetch('boxes'), account: after.fetch('account'), actionChildren: after.fetch('actionChildren') }.to_json}"
+              [ before, after ].each do |sample|
+                assert_equal 0, sample.fetch("documentTop"), sample.to_json
+                assert_equal height, sample.fetch("boxes").fetch("html").fetch("height"), sample.to_json
+                assert_equal 1, sample.fetch("primaryCount")
+                assert_equal 0, sample.fetch("boxes").fetch("main").fetch("top")
+              end
+              if entry == :new
+                reading = after.fetch("boxes").fetch("[data-application-scroll]").fetch("bounds")
+                title = after.fetch("boxes").fetch("h1.n-chat-title").fetch("bounds")
+                assert_operator title.fetch("top"), :>=, reading.fetch("top"), geometry.to_json
+                assert_operator title.fetch("bottom"), :<=, reading.fetch("bottom"), geometry.to_json
+                assert after.fetch("titleHit"), geometry.to_json
+              end
+            end
             chat_contrast "h1.n-chat-title"
             if width >= 1280
               assert_selector "#chat-history[data-inline=true][open]"
@@ -1951,6 +1986,106 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       assert_equal anchor.fetch("text"), current.fetch("text"), current.to_json
       assert_in_delta anchor.fetch("offset"), current.fetch("offset"), 1, current.to_json
       assert_operator reader_gap, :>, 80
+    end
+
+    def task3_reading_geometry
+      page.evaluate_script(<<~JS)
+        (() => {
+          const selectors = ['html', 'body', '#orbite-shell', 'main', '.n-chat-workspace', '[data-application-scroll]', '.n-chat-header',
+            '.n-chat-transcript', '.n-chat-transcript > div', '.n-chat-start', 'h1.n-chat-title', '.n-chat-dock', 'lexxy-editor']
+          const describe = node => {
+            const style = getComputedStyle(node), bounds = node.getBoundingClientRect()
+            return { tag: node.tagName, id: node.id, class: node.className, bounds: bounds.toJSON(),
+              documentBottom: bounds.bottom + scrollY, position: style.position,
+              offsetParent: node.offsetParent && { tag: node.offsetParent.tagName, id: node.offsetParent.id, class: node.offsetParent.className },
+              top: node.scrollTop, clientHeight: node.clientHeight, height: node.scrollHeight,
+              width: style.width, minWidth: style.minWidth, maxWidth: style.maxWidth, flex: style.flex, order: style.order,
+              minHeight: style.minHeight, padding: style.padding, gap: style.gap,
+              insetTop: style.top, insetBottom: style.bottom, marginTop: style.marginTop, marginBottom: style.marginBottom,
+              scrollMarginBlock: style.scrollMarginBlock, scrollPaddingBlock: style.scrollPaddingBlock, clipPath: style.clipPath }
+          }
+          const rail = document.querySelector('#orbite-shell > .n-orbite-rail')
+          const actions = document.querySelector('.n-composer-actions')
+          const title = document.querySelector('h1.n-chat-title'), titleRect = title?.getBoundingClientRect()
+          const hit = titleRect && document.elementFromPoint(titleRect.x + titleRect.width / 2, titleRect.y + titleRect.height / 2)
+          return { viewport: [innerWidth, innerHeight], documentTop: document.scrollingElement.scrollTop,
+            primaryCount: document.querySelectorAll('[data-application-scroll]').length,
+            rail: rail && describe(rail), railItems: rail && [...rail.children].map(describe),
+            railLabels: rail && [...rail.querySelectorAll('.sr-only')].map(describe),
+            actionChildren: actions && [...actions.children].map(describe),
+            account: actions && describe(actions.querySelector('.n-composer-account')),
+            picker: actions?.querySelector('select') && describe(actions.querySelector('select')),
+            titleHit: !!hit && (hit === title || title.contains(hit)), titleHitTag: hit?.tagName,
+            active: document.activeElement.id, boxes: Object.fromEntries(selectors.map(selector => {
+              const node = document.querySelector(selector)
+              if (!node) return [selector, null]
+              const style = getComputedStyle(node)
+              return [selector, { bounds: node.getBoundingClientRect().toJSON(), top: node.scrollTop,
+                height: node.scrollHeight, clientHeight: node.clientHeight, overflow: style.overflow,
+                display: style.display, minHeight: style.minHeight, flex: style.flex, gridRows: style.gridTemplateRows,
+                visible: node.checkVisibility({ contentVisibilityAuto: true }) }]
+            })) }
+        })()
+      JS
+    end
+
+    def prepare_native_anchor_fixture(gap: 0)
+      return unless page.evaluate_script("matchMedia('(max-width: 639px), (max-height: 700px)').matches")
+
+      # Adversarial geometry only: production anchoring stays disabled. The real
+      # dock no longer supplies an eligible survivor inside the reading surface,
+      # and the transcript excludes all of its descendants from native anchoring.
+      page.execute_script(<<~JS, gap)
+        const surface = #{reader_surface}, transcript = document.querySelector('.n-chat-transcript')
+        const paragraph = transcript.querySelector('.ai-response-content p:last-child')
+        const tail = transcript.getBoundingClientRect().bottom - paragraph.getBoundingClientRect().bottom
+        const anchor = document.createElement('div'), spacer = document.createElement('div')
+        anchor.dataset.readerNativeAnchorFixture = ''
+        anchor.inert = true
+        // The transparent box spans only the existing tail after the last real
+        // paragraph, so it intersects even a short reading zone without opting
+        // actual transcript descendants back into anchoring or copying content.
+        anchor.style.cssText = `height:${tail + 2}px;margin-top:-${tail}px;overflow-anchor:auto;pointer-events:none`
+        spacer.dataset.readerNativeAnchorSpacer = ''
+        spacer.inert = true
+        spacer.style.cssText = `height:${arguments[0] + Math.max(1, Math.floor(surface.clientHeight / 4))}px;overflow-anchor:none;pointer-events:none`
+        surface.style.overflowAnchor = 'auto'
+        surface.append(anchor, spacer)
+        window.readerNativeAnchorFixture = anchor
+        surface.scrollTop = surface.scrollHeight
+        surface.dispatchEvent(new Event('scroll'))
+      JS
+      settle_reader_animations
+    end
+
+    def native_anchor_diagnostic(label)
+      sample = page.evaluate_script(<<~JS)
+        (() => {
+          const sample = node => ({ tag: node.tagName, id: node.id, class: node.className,
+            overflowAnchor: getComputedStyle(node).overflowAnchor, bounds: node.getBoundingClientRect().toJSON() })
+          const surface = document.querySelector('[data-application-scroll]')
+          const content = document.querySelector('.ai-response-content')
+          const ancestors = []; for (let node = content; node; node = node.parentElement) ancestors.push(sample(node))
+          const anchor = surface.querySelector('[data-reader-native-anchor-fixture]')
+          return { geometryOnly: true, productionPolicyOverriddenByFixture: surface.style.overflowAnchor === 'auto',
+            surface: { ...sample(surface), top: surface.scrollTop, height: surface.scrollHeight, clientHeight: surface.clientHeight },
+            ancestors, fixture: anchor && { ...sample(anchor), sameNode: anchor === window.readerNativeAnchorFixture,
+              inert: anchor.inert, parentId: anchor.parentElement.id,
+              visibleHeight: Math.min(anchor.getBoundingClientRect().bottom, surface.getBoundingClientRect().bottom) - Math.max(anchor.getBoundingClientRect().top, surface.getBoundingClientRect().top) },
+            spacer: surface.querySelector('[data-reader-native-anchor-spacer]') && sample(surface.querySelector('[data-reader-native-anchor-spacer]')),
+            survivingNodes: [...document.querySelectorAll('.n-chat-transcript details > summary, .n-chat-dock')].map(sample) }
+        })()
+      JS
+      chat_measurement("kind" => "adversarial-native-anchor-diagnostic", "label" => label, "sample" => sample)
+      puts "Native anchor diagnostic #{label}: #{sample.to_json}"
+      if (fixture = sample.fetch("fixture"))
+        assert fixture.fetch("sameNode"), fixture.to_json
+        assert fixture.fetch("inert"), fixture.to_json
+        assert_equal "application-scroll", fixture.fetch("parentId")
+        assert_equal "auto", fixture.fetch("overflowAnchor")
+        assert_operator fixture.fetch("bounds").fetch("height"), :>, 0
+        assert_operator fixture.fetch("visibleHeight"), :>, 0, fixture.to_json
+      end
     end
 
     def reader_answer(count)
