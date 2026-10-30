@@ -48,7 +48,7 @@ class SourcesWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_select "dialog#chat-history:not([open])", count: 1
-    assert_select "button[aria-controls='chat-history'][data-action='chat-dialog#open']",
+    assert_select "#workspace-history-trigger[aria-controls='chat-history'][data-action='workspace-navigation#toggle']",
       text: I18n.t("nosia.chat_workspace.history", locale: css_select("html").first["lang"]), count: 1
   end
 end

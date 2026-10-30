@@ -1,9 +1,12 @@
 require "json"
 require "tmpdir"
+require_relative "orbite_browser_checks"
 
 # Browser measurements deliberately reject effects that computed ancestor colors
 # cannot describe. Native dialog backdrops need separate screenshot inspection.
 module ChatWorkspaceBrowserChecks
+  include OrbiteBrowserChecks
+
   private
     def chat_viewport(width, height)
       page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
@@ -13,8 +16,7 @@ module ChatWorkspaceBrowserChecks
     end
 
     def chat_theme(dark)
-      find("#theme-toggle").click if page.evaluate_script("document.documentElement.classList.contains('dark')") != dark
-      assert_equal dark, page.evaluate_script("document.documentElement.classList.contains('dark')")
+      orbite_theme(dark)
       settle_workspace_layout
     end
 
@@ -41,7 +43,8 @@ module ChatWorkspaceBrowserChecks
     # Real Tab traversal, not focus(), establishes keyboard modality and reachability.
     def chat_keyboard_focus(selector, reverse: false)
       160.times do
-        page.driver.browser.action.send_keys(*(reverse ? [ [ :shift, :tab ] ] : [ :tab ])).perform
+        action = page.driver.browser.action
+        reverse ? action.key_down(:shift).send_keys(:tab).key_up(:shift).perform : action.send_keys(:tab).perform
         if page.evaluate_script("document.activeElement.matches(arguments[0])", selector)
           assert_selector "#{selector}:focus"
           settle_workspace_layout

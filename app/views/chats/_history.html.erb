@@ -1,9 +1,5 @@
-<%= tag.dialog id: "chat-history", class: "n-chat-dialog n-chat-history",
-      aria: { labelledby: "chat-history-title" },
-      data: { action: "close->chat-dialog#closed", history_empty: conversations.empty? ? true : nil } do %>
-  <header class="n-chat-toolbar">
-    <h2 id="chat-history-title" class="n-workspace-section-title"><%= t("nosia.chat_workspace.history_title") %></h2>
-    <button type="button" class="n-workspace-button" autofocus data-action="chat-dialog#close"><%= t("nosia.chat_workspace.close") %></button>
-  </header>
+<%# locals: (chat:, conversations:, titles:) %>
+<% content_for :orbite_history do %>
   <%= render "chats/history_items", chat: chat, conversations: conversations, titles: titles %>
 <% end %>
+<% content_for :orbite_history_empty, "true" if conversations.empty? %>

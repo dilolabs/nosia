@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/account_experience_fixtures"
 
 class AccountExperienceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include AccountExperienceFixtures
 
   setup do
@@ -199,7 +201,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
   test "long French account content remains accessible in distinct light and dark surfaces" do
     @second.update_columns(name: "Un compte de recherche avec un nom très long " * 4, uid: "unbroken-identifiant-" * 8)
     visit account_path(@second)
-    select "FR", from: "language_preference_locale"
+    orbite_select_language("FR")
     assert_selector "html[lang='fr']"
     assert_selector "h2", text: "Vos conversations récentes"
     resize_account_viewport(375, 812)
@@ -251,6 +253,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: [ AddDocumentJob, ChatResponseJob ]
     save_account_evidence("source-validation-error")
 
+    orbite_open_utilities
     find("#dropdownUser").click
     click_on "Sign out"
     fill_in "email", with: @member.email
@@ -358,10 +361,9 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     end
 
     def set_account_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       if page.evaluate_script("localStorage.getItem('color-theme')").nil?
-        2.times { find("#theme-toggle").click }
+        orbite_with_utilities { 2.times { find("#theme-toggle").click } }
       end
       assert_equal theme, page.evaluate_script("localStorage.getItem('color-theme')")
     end

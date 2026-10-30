@@ -7,7 +7,7 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_picker_user }
 
-  test "application pages share one scrolling surface around branding and main" do
+  test "application pages share one primary surface beside the navigation rail" do
     [ user_root_path, accounts_path, account_path(@second), sources_path, token_usage_path,
       settings_path, profile_path, account_agent_skills_path(@second), account_mcp_servers_path(@second),
       new_chat_path, chat_path(@chat) ].each do |path|
@@ -15,11 +15,19 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
 
       assert_response :success
       assert_select "[data-application-scroll]", count: 1
-      assert_select "[data-application-scroll] > nav[data-application-header]", count: 1
-      assert_select "nav.n-application-header a.n-application-home[href='#{root_path}'][aria-label]", count: 1 do
-        assert_select "img.h-6[src*='nosia-logo'][alt=''][aria-hidden='true']", count: 1
+      assert_select "#orbite-shell", count: 1
+      assert_select ".n-orbite-rail", count: 1
+      assert_select "[data-application-header]", count: 0
+      assert_select ".n-orbite-rail > a.n-orbite-logo[href='#{root_path}'][aria-label]", count: 1 do
+        assert_select "img[src*='nosia-logo'][alt=''][aria-hidden='true']", count: 1
       end
-      assert_select "[data-application-scroll] main", count: 1
+      if [ new_chat_path, chat_path(@chat) ].include?(path)
+        assert_select "#application-scroll.n-orbite-chat-frame[data-application-scroll] > main#application-page.n-chat-main", count: 1
+        assert_select "main[data-application-scroll]", count: 0
+      else
+        assert_select "main#application-scroll[data-application-scroll]", count: 1
+        assert_select ".n-orbite-chat-frame", count: 0
+      end
       assert_select "main", count: 1
       assert_select "#theme-toggle", count: 1
       assert_select "#language_preference_locale", count: 1
@@ -59,7 +67,7 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".n-chat-toolbar h1.n-chat-title", count: 1
     assert_select ".n-chat-toolbar [data-chat-account-label]", text: @second.name, count: 1
-    assert_select ".n-chat-toolbar button[aria-controls='chat-history']", text: I18n.t("nosia.chat_workspace.history"), count: 1
+    assert_select ".n-chat-toolbar #workspace-history-trigger", text: I18n.t("nosia.chat_workspace.history"), count: 1
     assert_select ".n-chat-toolbar a[href='#{new_chat_path}']", text: I18n.t("nosia.chat_workspace.new_chat"), count: 1
     assert_select ".n-chat-toolbar #chat-usage-details:not([open])", count: 1 do
       assert_select "##{dom_id(@chat, :token_totals)}", count: 1

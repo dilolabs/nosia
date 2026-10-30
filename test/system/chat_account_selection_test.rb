@@ -357,7 +357,13 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
       document.querySelector("#mcp-server-hidden-fields").append(hiddenTool)
     JS
 
-    click_link "New chat"
+    if page.has_selector?(".n-orbite-rail a[href='#{new_chat_path}']", wait: 0)
+      find(".n-orbite-rail a[href='#{new_chat_path}']").click
+    else
+      find("#workspace-mobile-trigger").click
+      assert_selector "#chat-history:modal"
+      find("#chat-history .n-orbite-panel-links a[href='#{new_chat_path}']").click
+    end
     assert_current_path new_chat_path
     page.go_back
 

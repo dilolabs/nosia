@@ -255,6 +255,18 @@ Pass SPEC→QUALITY before the structural cutover.
 
 **Test-first ordering:** The complete new helper and browser-test source is printed in Steps 9–10. Prepare those files together with Step 1, then run both `orbite-shell-red` and `orbite-shell-native-red` **before any Step 2–6 production edit**. Steps 9–10 are source listings for that initial test preparation, not permission to postpone browser RED. The whole structural task remains one implementation/review unit.
 
+**User-authorized intermediate amendment (2026-10-30):** “Conserver le conteneur” preserves a distinct ancestor primary surface for chat until Task 3. In Task 2 only, `.n-orbite-chat-frame#application-scroll[data-application-scroll]` wraps non-scrolling `main#application-page`; non-chat main remains its own primary surface. This corrects the original same-node contradiction without changing the approved final design or the protected main/transcript-zero, 1px/80px, native-input and focus oracles. The existing reader's ancestor lookup remains unchanged in Task 2. Task 3 removes this temporary wrapper/CSS atomically when introducing its explicit child reading surface. Include this plan amendment in Task 2's exact-file commit.
+
+**User-authorized regression correction (2026-10-30):** “Corriger ces régressions” additionally authorizes shared-History-only same-URL recovery in the sole chat-dialog owner, modal-only initial focus, scoped enlarged-panel reflow, native rail reachability before short-screen icon sampling, and two real New chat link setup migrations. `test/system/chat_account_selection_test.rb` is mutation-owned only for its ambiguous “Turbo history does not restore unsent…” New chat setup; retain its URL/Back/draft/reference/tool/default-account assertions. Reader/disclosure/composer production, Turbo transport and all protected input/focus/scroll/contrast/accounting oracles remain unchanged. Record the controlled single-variable autofocus experiment and targeted RED/GREENs separately from the initial and broad REDs; rerun every Task2 gate before committing.
+
+Before applying this amendment, add `intermediate chat surface stays distinct from main` to `OrbiteShellTest`: new/saved chat must have one primary marker on the frame directly containing `main#application-page.n-chat-main`, never on main/transcript; accounts must keep primary main and no frame. Add `distinct chat surface scrolls without nested scrolling` to `OrbiteWorkspaceSystemTest`: actual 1400×1000 long saved chat, distinct main/surface identity, real scroll 0 then 700 with scroll events and two-frame settling, actual geometry/screenshot, primary top ≥699 and main/transcript top zero. Run both targeted REDs before the markup/CSS correction, then build and run both targeted GREENs. Retain the earlier RED artifacts and record additive test-source provenance separately:
+
+```bash
+record orbite-shell-distinct-request-red rails_test test test/integration/orbite_shell_test.rb -i '/intermediate_chat_surface/'
+record orbite-shell-distinct-native-red browser_test test/system/orbite_workspace_test.rb -i '/distinct_chat_surface/'
+# Apply only the amended shell markup/CSS, then build and repeat with -green labels.
+```
+
 - [ ] **Step 1: Add the missing shared-shell request contract and run RED.**
 
 Append inside `OrbiteShellTest`:
@@ -353,7 +365,7 @@ end %>
      data-controller="chat-dialog workspace-navigation"
      data-workspace-navigation-chat-dialog-outlet="#orbite-shell"
      data-workspace-navigation-history-value="<%= chat_workspace_page? %>"
-     data-action="turbo:before-cache@document->workspace-navigation#beforeCache turbo:before-cache@document->chat-dialog#beforeCache turbo:render@document->workspace-navigation#layout turbo:before-morph-attribute@document->workspace-navigation#preserve">
+     data-action="turbo:before-visit@document->chat-dialog#beforeVisit turbo:before-cache@document->workspace-navigation#beforeCache turbo:before-cache@document->chat-dialog#beforeCache turbo:before-render@document->chat-dialog#beforeRender turbo:render@document->chat-dialog#afterRender turbo:render@document->workspace-navigation#layout turbo:before-morph-attribute@document->workspace-navigation#preserve">
   <nav class="n-orbite-rail" aria-label="<%= t('nosia.orbite.navigation') %>">
     <%= link_to root_path, class: "n-orbite-logo", aria: { label: t("nosia.nav.home_page") } do %>
       <%= image_tag "nosia-logo.png", alt: "", aria: { hidden: true } %>
@@ -380,7 +392,7 @@ end %>
         <%= image_tag "nosia-logo.png", alt: "", aria: { hidden: true } %>
       <% end %>
       <h2 id="chat-history-title"><%= t("nosia.orbite.navigation") %></h2>
-      <button type="button" class="n-orbite-control" autofocus data-action="workspace-navigation#close"><%= t("nosia.chat_workspace.close") %></button>
+      <button id="workspace-navigation-close" type="button" class="n-orbite-control" data-chat-dialog-initial-focus data-action="workspace-navigation#close"><%= t("nosia.chat_workspace.close") %></button>
     </header>
     <div class="n-orbite-panel-content">
       <nav class="n-orbite-panel-links" aria-label="<%= t('nosia.orbite.navigation') %>"><%= render "application/orbite_links" %></nav>
@@ -394,7 +406,12 @@ end %>
     <div class="n-orbite-utilities" aria-label="<%= t('nosia.orbite.utilities') %>"><%= render "application/orbite_utilities" %></div>
   </dialog>
 
-  <%= tag.main id: "application-scroll", class: "n-application-page n-orbite-main #{'n-chat-main' if chat_workspace_page?}", data: { application_scroll: true } do %>
+  <% if chat_workspace_page? %>
+    <div id="application-scroll" class="n-orbite-chat-frame" data-application-scroll>
+  <% end %>
+  <%= tag.main id: chat_workspace_page? ? "application-page" : "application-scroll",
+        class: "n-application-page n-orbite-main #{'n-chat-main' if chat_workspace_page?}",
+        data: { application_scroll: chat_workspace_page? ? nil : true } do %>
     <%= render "flash" unless agent_skills_workspace_page? || mcp_workspace_page? %>
     <div class="n-orbite-page-trail">
       <% unless agent_skills_workspace_page? || account_workspace_header? || mcp_workspace_page? || chat_workspace_page? %>
@@ -411,10 +428,13 @@ end %>
     <% end %>
     <%= page %>
   <% end %>
+  <% if chat_workspace_page? %>
+    </div>
+  <% end %>
 </div>
 ```
 
-This task temporarily leaves the existing chat scroll placement intact; Task 3 performs its explicit target cutover. The sole primary marker moves then, not in two separate partial implementations. The New chat destination reuses the existing MCP/Skills scoped-path helpers; never replace it with an unscoped global shortcut on those pages.
+This task preserves a distinct chat ancestor primary surface in the temporary frame, never on chat main. Task 3 removes that frame and moves the sole marker to its explicit child reading surface in one target cutover; main stays non-scrolling throughout. Render the page/flash/guards once, with no duplicated renderer, body, editor or stream. The New chat destination reuses the existing MCP/Skills scoped-path helpers; never replace it with an unscoped global shortcut on those pages.
 
 In layout, preserve the entire `<head>` and body dark-mode controller. Replace its signed-in body contents with `render "application/orbite_shell", page: capture { yield }`. The complete new body is:
 
@@ -460,7 +480,7 @@ Replace `chat_dialog_controller.js` with:
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  connect() { this.openers = new Map(); this.caching = false }
+  connect() { this.openers = new Map(); this.caching = false; this.recovery = null }
 
   open(event) {
     event.preventDefault()
@@ -469,12 +489,15 @@ export default class extends Controller {
 
   openDialog(dialog, opener) {
     if (!dialog || !this.element.contains(dialog)) return
+    this.recovery = null
     this.caching = false
     this.openers.set(dialog.id, { element: opener, id: opener?.id })
     this.element.querySelectorAll("dialog:modal").forEach(item => { if (item !== dialog) item.close() })
     if (!dialog.matches(":modal")) {
       if (dialog.open) dialog.close()
-      dialog.showModal()
+      const initialFocus = dialog.querySelector("[data-chat-dialog-initial-focus]")
+      initialFocus?.setAttribute("autofocus", "")
+      try { dialog.showModal() } finally { initialFocus?.removeAttribute("autofocus") }
     }
   }
 
@@ -482,24 +505,30 @@ export default class extends Controller {
 
   closeDialog(dialog, fallback = null) {
     if (!dialog) return
+    this.recovery = null
     if (!this.openers.has(dialog.id) && fallback) this.openers.set(dialog.id, { element: fallback, id: fallback.id })
     dialog.close()
   }
 
   closed(event) {
     if (event.target.open) return
-    const entry = this.openers.get(event.target.id)
-    let opener = entry?.element
-    if (!opener?.isConnected && entry?.id) opener = document.getElementById(entry.id)
-    if (!opener?.isConnected && entry) {
-      const id = CSS.escape(event.target.id)
-      opener = this.element.querySelector(`[data-chat-dialog-id-param="${id}"][aria-controls="${id}"]`)
-    }
+    const opener = this.openerFor(event.target.id)
     if (!this.caching && !this.element.querySelector("dialog:modal") && opener?.isConnected) opener.focus()
     this.openers.delete(event.target.id)
   }
 
+  openerFor(id, entry = this.openers.get(id)) {
+    let opener = entry?.element
+    if (!opener?.isConnected && entry?.id) opener = document.getElementById(entry.id)
+    if (!opener?.isConnected && entry) {
+      const escaped = CSS.escape(id)
+      opener = this.element.querySelector(`[data-chat-dialog-id-param="${escaped}"][aria-controls="${escaped}"]`)
+    }
+    return opener
+  }
+
   reconfigure(dialog, configure, fallback) {
+    this.recovery = null
     const active = document.activeElement, inside = dialog.contains(active)
     this.openers.delete(dialog.id)
     if (dialog.open) dialog.close()
@@ -513,15 +542,48 @@ export default class extends Controller {
 
   focus(element) { element?.focus() }
 
+  beforeVisit(event) {
+    this.recovery = null
+    this.refreshURL = event.detail.url === location.href ? location.href : null
+  }
+
   beforeCache() {
+    const panel = this.element.querySelector("#chat-history:modal"), active = document.activeElement
+    this.recovery = this.refreshURL && panel ? {
+      url: this.refreshURL, context: this.element.querySelector(".n-chat-workspace")?.id,
+      opener: this.openers.get(panel.id), focus: { element: active, id: active.id }
+    } : null
+    this.refreshURL = null
     this.caching = true
     this.openers.clear()
     this.element.querySelectorAll("dialog[open]").forEach(dialog => dialog.close())
+  }
+
+  beforeRender(event) {
+    if (!this.recovery) return
+    const shell = event.detail.newBody.querySelector(`#${CSS.escape(this.element.id)}`)
+    if (!shell || (this.recovery.context && !shell.querySelector(`#${CSS.escape(this.recovery.context)}`))) this.recovery = null
+  }
+
+  afterRender() {
+    const recovery = this.recovery
+    this.recovery = null
+    if (!recovery || recovery.url !== location.href || !this.element.isConnected) return
+    const panel = this.element.querySelector("#chat-history")
+    if (!panel || panel.dataset.inline === "true" || this.element.querySelector("dialog:modal")) return
+    const opener = this.openerFor(panel.id, recovery.opener), active = document.activeElement
+    if (active !== document.body && active !== document.documentElement && active !== opener) return
+    this.openDialog(panel, opener)
+    const focus = recovery.focus.element.isConnected ? recovery.focus.element :
+      recovery.focus.id && panel.querySelector(`#${CSS.escape(recovery.focus.id)}`)
+    if (focus && panel.contains(focus) && focus.checkVisibility()) focus.focus({ preventScroll: true })
   }
 }
 ```
 
 The owner closes only top-layer dialogs when opening Tools/navigation; it does not collapse an inline desktop history panel. Stable opener IDs precede the existing Tools-selector fallback after background form replacement. `reconfigure` owns focus across responsive changes; navigation code must not call `focus()` independently.
+
+The shared Close button must never be a document-startup autofocus candidate. A controlled removal of its unconditional `autofocus` is verified against the existing paused-paragraph/editor-focus case before the modal-only correction. Only `openDialog` temporarily marks the shared initial-focus control while native `showModal()` selects focus, then removes the marker attribute; connect/inline/reflow never force editor focus. Add targeted tests for this and shared-History recovery before extending the owner. Recover only an actually modal shared History for the same URL/page context; capture before cache cleanup, keep snapshots closed, consume visit intent, restore valid current in-panel focus/opener by identity/stable ID, and refuse recovery after explicit close/navigation/reconfigure, newer Tools or deliberate outside focus. Existing chat-disclosures still owns only its original in-chat Tools recovery through chat-dialog; do not duplicate it or alter that controller. No stream wrapper, receiver fork, focus classification or render/RAF delivery gate is permitted.
 
 - [ ] **Step 5: Add the focused navigation presentation controller.**
 
@@ -657,6 +719,8 @@ The initial outlet-connected callback can precede `connect`; `layout()` guards i
 .n-orbite-control:hover, .n-orbite-link:hover { background: var(--orbite-bubble); color: var(--orbite-text); }
 .n-orbite-utilities-trigger { margin-top: auto; }
 .n-orbite-shell .n-orbite-main { min-height: 0; min-width: 0; overflow-y: auto; padding: 1rem; background: var(--orbite-paper); border: 1px solid var(--orbite-line); border-radius: 1.25rem; scroll-padding-block: .75rem 2rem; }
+.n-orbite-shell .n-orbite-chat-frame { min-height: 0; min-width: 0; overflow-y: auto; overflow-anchor: none; scrollbar-gutter: stable; background: var(--orbite-paper); border: 1px solid var(--orbite-line); border-radius: 1.25rem; scroll-padding-block: .75rem; }
+.n-orbite-shell .n-orbite-chat-frame > main.n-chat-main { overflow: visible; border: 0; border-radius: 0; min-height: 100%; }
 .n-orbite-shell .n-orbite-page-trail > ul { margin-block: 0 .75rem; }
 .n-orbite-navigation { width: min(24rem, calc(100vw - 1.5rem)); max-height: calc(100dvh - 1.5rem); padding: 1rem; border: 1px solid var(--orbite-control); border-radius: 1rem; background: var(--orbite-paper); color: var(--orbite-text); }
 .n-orbite-navigation[open] { display: flex; flex-direction: column; }
@@ -664,10 +728,11 @@ The initial outlet-connected callback can precede `connect`; `layout()` guards i
 .n-orbite-navigation:modal { position: fixed; }
 .n-orbite-navigation::backdrop { background: rgb(0 0 0 / .6); }
 .n-orbite-navigation[data-inline=true][open] { position: static; grid-column: 2; width: 15rem; max-width: none; height: 100%; max-height: none; margin: 0; padding: .5rem; border: 0; border-radius: 0; background: transparent; }
-.n-orbite-shell:has(> .n-orbite-navigation[data-inline=true][open]) > main { grid-column: 3; }
-.n-orbite-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex: none; }
+.n-orbite-shell:has(> .n-orbite-navigation[data-inline=true][open]) > :is(main, .n-orbite-chat-frame) { grid-column: 3; }
+.n-orbite-panel-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; flex: none; min-width: 0; }
+.n-orbite-panel-heading h2 { min-width: 0; overflow-wrap: anywhere; }
 .n-orbite-panel-heading h2, .n-orbite-history-heading { font-size: .875rem; font-weight: 600; }
-.n-orbite-panel-content { min-height: 0; overflow: auto; flex: 1; padding-block: .5rem; }
+.n-orbite-panel-content { min-height: 0; min-width: 0; overflow: auto; flex: 1; padding-block: .5rem; }
 .n-orbite-panel-links { display: grid; margin-bottom: 1rem; }
 .n-orbite-panel-links .n-orbite-link { justify-content: flex-start; }
 .n-orbite-navigation[data-inline=true] .n-orbite-panel-links { display: none; }
@@ -681,6 +746,7 @@ The initial outlet-connected callback can precede `connect`; `layout()` guards i
   .n-orbite-rail { display: none; }
   .n-orbite-mobile-only { display: inline-flex; }
   .n-orbite-shell .n-orbite-main { padding: .75rem; border-radius: .875rem; }
+  .n-orbite-shell .n-orbite-chat-frame { border-radius: .875rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .n-orbite-shell *, .n-orbite-shell *::before, .n-orbite-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -1046,13 +1112,15 @@ Expect the flow composer to move/out-of-bounds or the absent mobile composer ope
 
 - [ ] **Step 2: Move context/transcript into one explicit child surface.**
 
-In `_orbite_shell.html.erb` replace only `tag.main`'s identity/data expression:
+In `_orbite_shell.html.erb` remove the conditional temporary `.n-orbite-chat-frame` opening/closing wrapper from Task 2. Retain the same conditional `tag.main` identity/data expression (chat main is already non-primary):
 
 ```erb
 <%= tag.main id: chat_workspace_page? ? "application-page" : "application-scroll",
       class: "n-application-page n-orbite-main #{'n-chat-main' if chat_workspace_page?}",
       data: { application_scroll: chat_workspace_page? ? nil : true } do %>
 ```
+
+Remove all temporary `.n-orbite-chat-frame` CSS, including its child-main override and mobile radius rule. Restore the inline-history canvas grid selector to `> main` now that main is again the direct grid child. Migrate Task 2's new intermediate request/native cases to assert the final explicit child reading surface, retaining exactly one owner, distinct/non-scrolling main and transcript, actual scroll/geometry and screenshots; do not delete those overall protections.
 
 For `show.html.erb`, keep its opening workspace tag/attributes/action list from Task 2 unchanged. Replace only the body after that opening tag with:
 
@@ -1611,7 +1679,7 @@ end
 
 Again use `sample` at the matrix site. Non-chat main **is** the actual scroller; do not report a fabricated zero. Keep all chat nested-scroll zero assertions in native-ordering cases unchanged.
 
-In `header_overflow_fixture`, replace only its placement/diagnostics: append the same inert `height:2200px;flex:none` fixture to `[data-application-scroll]` and assert `[data-application-scroll] > [data-header-overflow-fixture][inert]`; record placement as `"inert nonshrinking child of the actual primary surface"`. Replace `refute fixture.fetch("insideMain")` with `assert fixture.fetch("insideMain")`. Preserve its overflow threshold, real-saved-chat `refute syntheticOverflow`, actual dimensions and `flexShrink == '0'`. Rename the first four generated test labels to “page header scrolls away beside persistent navigation …”.
+In `header_overflow_fixture`, replace only its placement/diagnostics: append the same inert `height:2200px;flex:none` fixture to `[data-application-scroll]` and assert `[data-application-scroll] > [data-header-overflow-fixture][inert]`; record placement as `"inert nonshrinking child of the actual primary surface"`. During Task 2, assert `insideMain` is false for the temporary chat ancestor frame and true for non-chat main (also assert actual parent ID); this is placement reporting, not a relaxed scroll oracle. Task 3 migrates the chat fixture to its explicit child surface inside main, so `insideMain` then becomes true for every page. Preserve its overflow threshold, real-saved-chat `refute syntheticOverflow`, actual dimensions and `flexShrink == '0'`. Rename the first four generated test labels to “page header scrolls away beside persistent navigation …”.
 
 Replace `header_theme` with:
 
@@ -1662,6 +1730,9 @@ On widths ≥768px add this known-currentColor rail-icon check to the same matri
 
 ```ruby
 if width >= 768
+  home = ".n-orbite-rail .n-orbite-link[href='#{root_path}']"
+  orbite_tab_to(home, reverse: true)
+  header_hit(home)
   icon = ".n-orbite-rail .n-orbite-link[href='#{root_path}'] svg"
   assert page.evaluate_script(<<~JS, find(icon))
     (()=>{const svg=arguments[0],path=svg.querySelector('path'),paint=getComputedStyle(path);
@@ -1672,6 +1743,10 @@ end
 ```
 
 The static icon has a 2px opaque currentColor stroke; verify that equality before using its inherited color measurement. This does not infer glyph contrast from a focus outline or decorative border.
+
+At short landscape heights native modal-close focus can legitimately scroll the independent rail to its lower opener. Reach Home with actual held-Shift Tab before icon sampling, retaining full real bounds/hits/contrast rather than resetting rail scroll or fabricating rectangles. The enlarged-text failure is corrected with scoped heading wrap/min-width and content min-width only; keep 200% text, native Tab, rounded-corner hits, actual no-horizontal-overflow and `nativeZoomVerified: false`.
+
+In `test/system/chat_composer_ui_test.rb`'s “Tools follows its trigger…” and only the authorized “Turbo history does not restore unsent…” case in `test/system/chat_account_selection_test.rb`, scope the ambiguous New chat native click to `.n-orbite-rail a[href='#{new_chat_path}']` when visible. Below the permanent rail breakpoint, open `#workspace-mobile-trigger`, assert `#chat-history:modal`, then click `#chat-history .n-orbite-panel-links a[href='#{new_chat_path}']`. Preserve the exact URL, actual native click, Back, draft/source/tool reset and default-account assertions; never substitute a visit.
 
 The native profile navigation case opens utilities before traversal; replace its old global-home Tab target with `#chat-history .n-orbite-panel-links a[href='#{root_path}']` and sample panel controls instead of removed header controls. Keep native Enter, resulting URL/h1/theme/locale and screenshot assertions. Use `#workspace-history-trigger` in saved-header `historyTop` and native-forward target queries, not the rail trigger.
 

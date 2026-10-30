@@ -1,8 +1,10 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/agent_skills_workspace_fixtures"
 
 # Exercises responsive Skills rows and fully visible keyboard focus in a browser.
 class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include AgentSkillsWorkspaceFixtures
 
   setup do
@@ -221,7 +223,7 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
     }
     assert_no_enqueued_jobs do
       %w[en fr].each do |locale|
-        select locale.upcase, from: "language_preference_locale"
+        orbite_select_language(locale.upcase)
         paths.each do |kind, path|
           [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ] ].each do |width, height|
             resize_skills_viewport(width, height)
@@ -263,7 +265,7 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
   test "empty setup and validation feedback stay readable in both locales and themes" do
     resize_skills_viewport(375, 812)
     %w[en fr].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       %w[light dark].each do |theme|
         visit account_agent_skills_path(@empty)
         set_skills_theme(theme)
@@ -291,7 +293,7 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
     fill_in "password", with: AccountExperienceFixtures::PASSWORD
     click_on "Sign in"
     %w[en fr].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       %w[light dark].each do |theme|
         visit agent_skills_path
         set_skills_theme(theme)
@@ -374,8 +376,7 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
     end
 
     def set_skills_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
     end
 

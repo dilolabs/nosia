@@ -1,7 +1,9 @@
 require "application_system_test_case"
 require_relative "../support/chat_account_fixtures"
+require_relative "../support/orbite_browser_checks"
 
 class LocalizationSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include ChatAccountFixtures
   include ActionCable::TestHelper
   include ActionView::RecordIdentifier
@@ -15,7 +17,7 @@ class LocalizationSystemTest < ApplicationSystemTestCase
     assert_selector "lexxy-editor[connected]"
     previous_origin = page.evaluate_script("performance.timeOrigin")
 
-    select "FR", from: "language_preference_locale"
+    orbite_select_language("FR")
 
     assert_selector "html[lang=fr]"
     assert_current_path url
@@ -109,10 +111,11 @@ class LocalizationSystemTest < ApplicationSystemTestCase
       visit url
       assert_selector "html[lang=fr]"
       [ false, true ].each do |dark|
-        page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
+        orbite_theme(dark)
+        orbite_open_utilities
         assert_equal 375, page.evaluate_script("innerWidth")
-        assert_selector "nav label.sr-only[for=language_preference_locale]", text: "Langue", visible: :all
-        assert_selector "nav select#language_preference_locale"
+        assert_selector ".n-language-preference label.sr-only[for=language_preference_locale]", text: "Langue", visible: :all
+        assert_selector ".n-language-preference select#language_preference_locale"
         find("#language_preference_locale").send_keys(:escape)
         assert_selector "#language_preference_locale:focus-visible"
         assert_language_control_geometry
@@ -273,8 +276,8 @@ class LocalizationSystemTest < ApplicationSystemTestCase
     def assert_language_control_geometry
       layout = page.evaluate_script(<<~JS)
         (() => {
-          const nav = document.querySelector('nav');
-          const form = nav.querySelector('form');
+          const panel = document.querySelector('#chat-history');
+          const form = panel.querySelector('.n-language-preference');
           const box = element => {
             const { left, right, top, bottom, width, height } = element.getBoundingClientRect();
             return { left, right, top, bottom, width, height };
@@ -282,11 +285,14 @@ class LocalizationSystemTest < ApplicationSystemTestCase
           const controls = [...form.querySelectorAll('select')];
           const focus = document.activeElement;
           const style = getComputedStyle(focus);
+          const select = form.querySelector('select'), rect = select.getBoundingClientRect();
+          const points = [[rect.x + rect.width / 2, rect.y + rect.height / 2], [rect.left + 2, rect.top + 2], [rect.right - 2, rect.bottom - 2]];
           return {
             overflow: document.documentElement.scrollWidth - innerWidth,
-            nav: box(nav), controls: controls.map(box), logo: box(nav.querySelector('a')),
-            wrap: getComputedStyle(nav).flexWrap,
-            focus: box(focus), outline: style.outlineStyle, outlineWidth: parseFloat(style.outlineWidth)
+            panel: box(panel), form: box(form), controls: controls.map(box), logo: box(panel.querySelector('.n-orbite-logo')),
+            wrap: getComputedStyle(form.parentElement).flexWrap,
+            hits: points.map(([x, y]) => { const hit = document.elementFromPoint(x, y); return !!hit && (hit === select || select.contains(hit)) }),
+            focus: box(focus), outline: style.outlineStyle, outlineWidth: parseFloat(style.outlineWidth), outlineOffset: parseFloat(style.outlineOffset), viewport: [innerWidth, innerHeight]
           };
         })()
       JS
@@ -298,14 +304,18 @@ class LocalizationSystemTest < ApplicationSystemTestCase
       layout.fetch("controls").each do |box|
         assert_operator box.fetch("left"), :>=, 0
         assert_operator box.fetch("right"), :<=, 375
-        assert_operator box.fetch("bottom"), :<=, layout.fetch("nav").fetch("bottom")
-        assert_operator box.fetch("width"), :>, 0
-        assert_operator box.fetch("height"), :>, 0
+        assert_operator box.fetch("bottom"), :<=, layout.fetch("panel").fetch("bottom")
+        assert_operator box.fetch("width"), :>=, 44
+        assert_operator box.fetch("height"), :>=, 44
       end
+      assert layout.fetch("hits").all?, layout.to_json
       assert_not_equal "none", layout.fetch("outline")
-      assert_operator layout.fetch("outlineWidth"), :>, 0
+      assert_operator layout.fetch("outlineWidth"), :>=, 2
       focus = layout.fetch("focus")
-      assert_operator focus.fetch("left") - layout.fetch("outlineWidth"), :>=, 0
-      assert_operator focus.fetch("right") + layout.fetch("outlineWidth"), :<=, 375
+      outset = [ layout.fetch("outlineWidth") + layout.fetch("outlineOffset"), 0 ].max
+      assert_operator focus.fetch("left") - outset, :>=, 0
+      assert_operator focus.fetch("right") + outset, :<=, 375
+      assert_operator focus.fetch("top") - outset, :>=, 0
+      assert_operator focus.fetch("bottom") + outset, :<=, layout.fetch("viewport").last
     end
 end

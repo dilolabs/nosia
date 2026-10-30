@@ -54,12 +54,12 @@ class TokenUsageWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_select "details", minimum: 1
   end
 
-  test "API tokens and Sources keep dedicated shells while chat uses native History" do
+  test "API tokens and Sources share navigation while chat publishes native History" do
     get new_chat_path
     assert_response :success
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_select "dialog#chat-history:not([open])", count: 1
-    assert_select "button[aria-controls='chat-history'][data-action='chat-dialog#open']",
+    assert_select "#workspace-history-trigger[aria-controls='chat-history'][data-action='workspace-navigation#toggle']",
       text: I18n.t("nosia.chat_workspace.history", locale: css_select("html").first["lang"]), count: 1
 
     get api_tokens_path
@@ -67,6 +67,8 @@ class TokenUsageWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_select "[data-settings-tool][data-settings-screen=tokens]", count: 1
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
+    assert_select ".n-orbite-rail a[href='#{new_chat_path}']", count: 1
+    assert_select "#chat-history [data-history-chat]", count: 0
 
     get sources_path
     assert_select "[data-source-workspace]"

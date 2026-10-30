@@ -26,7 +26,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
   end
 
   %w[dashboard account sources saved_chat].each do |route|
-    test "global and page headers scroll away together on #{route} with labelled overflow" do
+    test "page header scrolls away beside persistent navigation on #{route} with labelled overflow" do
       visit({ "dashboard" => user_root_path, "account" => account_path(@second),
         "sources" => sources_path, "saved_chat" => chat_path(@chat) }.fetch(route))
       assert_selector "main h1"
@@ -48,55 +48,56 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
 
       assert_selector "[data-application-scroll]", count: 1
       assert_operator geometry.fetch("surface").fetch("scrollTop"), :>=, 699, geometry.to_json
-      assert_operator geometry.fetch("global").fetch("bottom"), :<=, geometry.fetch("surface").fetch("top"), geometry.to_json
+      assert_no_selector "[data-application-header]", visible: :all
+      if page.evaluate_script("innerWidth >= 768")
+        assert_operator geometry.fetch("navigation").fetch("top"), :>=, 0, geometry.to_json
+      end
       assert_operator geometry.fetch("heading").fetch("bottom"), :<=, geometry.fetch("surface").fetch("top"), geometry.to_json
-      assert_equal 0, geometry.fetch("main").fetch("scrollTop"), geometry.to_json
+      if page.has_selector?(".n-chat-workspace", wait: 0)
+        assert_equal 0, geometry.fetch("main").fetch("scrollTop"), geometry.to_json
+      else
+        assert_equal geometry.fetch("surface").fetch("scrollTop"), geometry.fetch("main").fetch("scrollTop"), geometry.to_json
+      end
       assert_no_enqueued_jobs only: ChatResponseJob
     end
   end
 
-  test "global bar is compact without shrinking its usable controls" do
-    samples = [ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ].map do |width, height|
+  test "rail and native utilities retain full target sizes without an old global bar" do
+    [ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ].each do |width, height|
       header_viewport(width, height)
       visit accounts_path
-      assert_selector "[data-application-header]"
+      assert_no_selector "[data-application-header], .n-nav-bottom", visible: :all
+      orbite_open_utilities
       header_settle
       sample = page.evaluate_script(<<~JS)
-        (() => {
-          const nav = document.querySelector('[data-application-header]')
-          return { bar: nav.getBoundingClientRect().toJSON(),
-            controls: ['a', '#theme-toggle', '#dropdownUser', '#language_preference_locale'].map(selector =>
-              ({ selector, geometry: nav.querySelector(selector).getBoundingClientRect().toJSON() })) }
-        })()
+        ({ controls: ['#language_preference_locale', '#theme-toggle', '#dropdownUser'].map(selector =>
+          ({ selector, geometry: document.querySelector(selector).getBoundingClientRect().toJSON() })) })
       JS
-      header_record("normal-bar-#{width}x#{height}", sample, screenshot: true)
-      sample
-    end
-
-    samples.each do |sample|
-      assert_operator sample.fetch("bar").fetch("height"), :>=, 48, sample.to_json
-      assert_operator sample.fetch("bar").fetch("height"), :<=, 52, sample.to_json
+      header_record("orbite-targets-#{width}x#{height}", sample, screenshot: true)
       sample.fetch("controls").each do |control|
         assert_operator control.fetch("geometry").fetch("height"), :>=, 44, control.to_json
         assert_operator control.fetch("geometry").fetch("width"), :>=, 44, control.to_json
+        orbite_assert_reachable(control.fetch("selector"))
       end
+      orbite_close_navigation
     end
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "bar controls retain native language theme and profile navigation" do
+  test "panel controls retain native language theme and profile navigation" do
     [ [ 375, 812 ], [ 812, 375 ], [ 1400, 375 ], [ 768, 1024 ], [ 1400, 1000 ] ].each do |width, height|
       header_viewport(width, height)
       %w[en fr].each do |locale|
         visit accounts_path
-        select locale.upcase, from: "language_preference_locale"
+        orbite_select_language(locale.upcase)
         assert_selector "html[lang='#{locale}']"
 
         [ false, true ].each do |dark|
           visit accounts_path
           assert_selector "html[lang='#{locale}']"
           header_theme(dark)
-          [ "[data-application-header] a", "#language_preference_locale", "#theme-toggle", "#dropdownUser" ].each do |selector|
+          orbite_open_utilities
+          [ "#chat-history .n-orbite-panel-links a[href='#{root_path}']", "#language_preference_locale", "#theme-toggle", "#dropdownUser" ].each do |selector|
             header_tab_to(selector)
           end
           page.driver.browser.action.send_keys(:enter).perform
@@ -105,7 +106,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           header_record("native-dropdown", {
             menu: find("#dropdown").text,
             controls: page.evaluate_script(<<~JS)
-              [...document.querySelectorAll('[data-application-header] a, [data-application-header] button, [data-application-header] select')].map(element =>
+              [...document.querySelectorAll('#chat-history a, #chat-history button, #chat-history select')].map(element =>
                 ({ id: element.id, name: element.getAttribute('aria-label') || element.textContent.trim(), value: element.value }))
             JS
           }, screenshot: true)
@@ -149,7 +150,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       (() => ({
         headerHeight: document.querySelector('.n-chat-header').getBoundingClientRect().height,
         titleTop: document.querySelector('.n-chat-title').getBoundingClientRect().top,
-        historyTop: document.querySelector('button[aria-controls="chat-history"]').getBoundingClientRect().top,
+        historyTop: document.querySelector('#workspace-history-trigger').getBoundingClientRect().top,
         sameEditor: window.headerDraftEditor === document.querySelector('lexxy-editor'),
         draft: document.querySelector('lexxy-editor .lexxy-editor__content').textContent,
         totalsTargets: document.querySelectorAll(`[id="${arguments[0]}"]`).length
@@ -171,7 +172,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     header_viewport(1400, 1000)
     %w[en fr].each do |locale|
       visit profile_path
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
       header_theme(locale == "fr")
       assert_selector "details[data-header-details]:not([open])"
@@ -219,7 +220,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       assert_equal direction == "backward", key.fetch("shift"), sample.to_json
       refute_equal key.fetch("ledger").fetch("clientWidth"), key.fetch("clientWidth"), sample.to_json
       assert_operator sample.fetch("deferred"), :>, 0, sample.to_json
-      target = direction == "backward" ? ".n-chat-toolbar a[href='#{new_chat_path}']" : "button[aria-controls='chat-history']"
+      target = direction == "backward" ? ".n-chat-toolbar a[href='#{new_chat_path}']" : "#workspace-history-trigger"
       assert_selector "#{target}:focus"
       header_hit(target)
       assert_selector ".n-chat-workspace[data-reader-following='false']"
@@ -250,7 +251,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     test "compact headers across eleven routes in #{locale} at #{width}x#{height} in #{dark ? 'dark' : 'light'}" do
       @second.update_columns(name: "CompteDeRecherche" * 12)
       header_viewport(width, height)
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
 
       header_pages.each_with_index do |path, index|
@@ -259,7 +260,8 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
         assert_selector "html[lang='#{locale}']"
         assert_selector "main", count: 1
         assert_selector "main h1", count: 1
-        assert_selector "[data-application-header]", count: 1
+        assert_selector "#orbite-shell", count: 1
+        assert_no_selector "[data-application-header]", visible: :all
         assert_selector "[data-application-scroll]", count: 1
         assert_selector "lexxy-editor[connected]" if [ user_root_path, new_chat_path(account_id: @second.id), chat_path(@chat) ].include?(path)
         header_theme(dark)
@@ -271,9 +273,23 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           assert_no_selector "details [data-workspace-scope]", visible: :all
         end
         header_contrast("main h1")
-        header_contrast("#theme-toggle svg:not(.hidden)", minimum: 3, property: "fill")
-        header_tab_to("#language_preference_locale")
-        header_tab_to("#theme-toggle")
+        orbite_with_utilities do
+          header_contrast("#language_preference_locale")
+          header_contrast("#theme-toggle svg:not(.hidden)", minimum: 3, property: "fill")
+          header_tab_to("#language_preference_locale")
+          header_tab_to("#theme-toggle")
+        end
+        if width >= 768
+          home = ".n-orbite-rail .n-orbite-link[href='#{root_path}']"
+          orbite_tab_to(home, reverse: true)
+          header_hit(home)
+          icon = ".n-orbite-rail .n-orbite-link[href='#{root_path}'] svg"
+          assert page.evaluate_script(<<~JS, find(icon))
+            (() => { const svg = arguments[0], path = svg.querySelector('path'), paint = getComputedStyle(path)
+              return paint.stroke === getComputedStyle(svg).color && Number(paint.strokeOpacity) === 1 && paint.fill === 'none' })()
+          JS
+          header_contrast(icon, minimum: 3, property: "color")
+        end
         header_top
         header_record("matrix-top-#{index}", header_matrix_geometry, screenshot: true)
         header_disclosures(index)
@@ -291,10 +307,15 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
         sample = header_matrix_geometry
         header_record("matrix-scrolled-#{index}", sample, screenshot: true)
         assert_operator sample.fetch("surface").fetch("scrollTop"), :>=, 699, sample.to_json
-        assert_operator sample.fetch("global").fetch("bottom"), :<=, sample.fetch("surface").fetch("top"), sample.to_json
+        assert_no_selector "[data-application-header]", visible: :all
+        assert_operator sample.fetch("navigation").fetch("top"), :>=, 0, sample.to_json if width >= 768
         assert_operator sample.fetch("heading").fetch("bottom"), :<=, sample.fetch("surface").fetch("top"), sample.to_json
         assert_in_delta before_scroll.fetch("heading").fetch("bottom") - sample.fetch("surface").fetch("scrollTop"), sample.fetch("heading").fetch("bottom"), 1, sample.to_json
-        assert_equal 0, sample.fetch("main").fetch("scrollTop"), sample.to_json
+        if page.has_selector?(".n-chat-workspace", wait: 0)
+          assert_equal 0, sample.fetch("main").fetch("scrollTop"), sample.to_json
+        else
+          assert_equal sample.fetch("surface").fetch("scrollTop"), sample.fetch("main").fetch("scrollTop"), sample.to_json
+        end
         refute sample.fetch("syntheticOverflow"), sample.to_json if path == chat_path(@chat)
       end
       assert_equal 11, header_pages.size
@@ -309,15 +330,18 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     page.execute_script("document.documentElement.style.fontSize = '200%'")
     header_top
     assert_header_widths
-    header_record("enlarged-css-text-before-tab", header_matrix_geometry.merge(
-      "nativeZoomVerified" => false, "textSizeMethod" => "CSS root font-size: 200%"
-    ), screenshot: true)
-    header_tab_to("#language_preference_locale", enlarged: true)
-    header_tab_to("#theme-toggle", enlarged: true)
-    header_top
-    sample = header_matrix_geometry.merge("nativeZoomVerified" => false, "textSizeMethod" => "CSS root font-size: 200%")
-    header_record("enlarged-css-text", sample, screenshot: true)
-    assert_operator sample.fetch("global").fetch("height"), :>, 52, sample.to_json
+    orbite_with_utilities do
+      header_record("enlarged-css-text-before-tab", header_matrix_geometry.merge(
+        "nativeZoomVerified" => false, "textSizeMethod" => "CSS root font-size: 200%"
+      ), screenshot: true)
+      header_tab_to("#language_preference_locale", enlarged: true)
+      header_tab_to("#theme-toggle", enlarged: true)
+      header_top
+      sample = header_matrix_geometry.merge("nativeZoomVerified" => false, "textSizeMethod" => "CSS root font-size: 200%")
+      header_record("enlarged-css-text", sample, screenshot: true)
+      assert_operator find("#language_preference_locale").native.rect.height, :>=, 44
+      assert page.evaluate_script("document.querySelector('#chat-history').scrollWidth <= document.querySelector('#chat-history').clientWidth")
+    end
     assert_no_enqueued_jobs only: ChatResponseJob
   ensure
     page.execute_script("document.documentElement.style.setProperty('font-size', arguments[0])", original) if original
@@ -508,17 +532,16 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     def header_overflow_fixture(label)
       if page.evaluate_script("document.querySelector('[data-application-scroll]').scrollHeight - document.querySelector('[data-application-scroll]').clientHeight < 900")
         before = header_geometry
-        # Geometry only: an inert sibling of the frame, never a flex-row child
-        # of main that stretches/recenters the new-chat hero.
+        # Geometry only: a nonshrinking child of the actual primary surface.
         page.execute_script(<<~JS)
           const fixture = document.createElement('div')
           fixture.dataset.headerOverflowFixture = ''
           fixture.inert = true
           fixture.style.cssText = 'height:2200px;flex:none'
-          document.querySelector('[data-application-scroll] > .n-application-frame').after(fixture)
+          document.querySelector('[data-application-scroll]').append(fixture)
         JS
         header_settle
-        assert_selector "[data-application-scroll] > .n-application-frame + [data-header-overflow-fixture][inert]", count: 1, visible: :all
+        assert_selector "[data-application-scroll] > [data-header-overflow-fixture][inert]", count: 1, visible: :all
         fixture = page.evaluate_script(<<~JS)
           (() => {
             const fixture = document.querySelector('[data-header-overflow-fixture]'), style = getComputedStyle(fixture)
@@ -527,9 +550,10 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           })()
         JS
         header_record("#{label}-fixture-layout", { before: before, after: header_geometry,
-          fixture: fixture, placement: "inert nonshrinking sibling after application frame, outside main", actualWorkflow: false })
+          fixture: fixture, placement: "inert nonshrinking child of the actual primary surface", actualWorkflow: false })
         assert_equal "0", fixture.fetch("flexShrink")
-        refute fixture.fetch("insideMain")
+        assert_equal "application-scroll", fixture.fetch("parentId")
+        assert_equal !page.has_selector?(".n-orbite-chat-frame", wait: 0), fixture.fetch("insideMain")
       end
     end
 
@@ -551,7 +575,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       header_geometry.merge(page.evaluate_script(<<~JS))
         (() => {
           const header = document.querySelector('main header, .n-dashboard-heading')
-          const controls = [...document.querySelectorAll('[data-application-header] a, [data-application-header] button, [data-application-header] select, main header a, main header button, main header summary')]
+          const controls = [...document.querySelectorAll('.n-orbite-rail a, .n-orbite-rail button, #chat-history a, #chat-history button, #chat-history select, main header a, main header button, main header summary')]
             .filter(element => element.checkVisibility() && getComputedStyle(element).visibility === 'visible')
           return { pageHeader: header.getBoundingClientRect().toJSON(),
             controls: controls.map(element => ({ id: element.id, text: element.textContent.trim(), geometry: element.getBoundingClientRect().toJSON() })) }
@@ -604,8 +628,8 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       header_top
     end
 
-    # Ordinary opaque canvas surfaces only; never infer dialog/backdrop or focus
-    # contrast from text color (or glyph contrast from an outline/border).
+    # Opaque canvas or modal interiors only, never backdrop composition or glyph
+    # contrast inferred from a focus outline/border.
     def header_contrast(selector, minimum: 4.5, property: "color")
       element = find(selector)
       page.evaluate_async_script(<<~JS)
@@ -616,7 +640,6 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       sample = page.evaluate_script(<<~JS, element, property)
         (() => {
           const element = arguments[0], property = arguments[1]
-          if (element.closest('dialog')) throw new Error('Native top layer requires separate sampling')
           const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
           const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
           const rgba = color => {
@@ -625,7 +648,9 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
             return [...context.getImageData(0, 0, 1, 1).data].map(channel => channel / 255)
           }
           const over = (fg, bg) => [...fg.slice(0, 3).map((channel, i) => channel * fg[3] + bg[i] * (1 - fg[3])), 1]
-          const chain = []; for (let node = element; node; node = node.parentElement) chain.unshift(node)
+          const modal = element.closest('dialog:modal'), chain = []
+          for (let node = element; node; node = node.parentElement) { chain.unshift(node); if (node === modal) break }
+          if (modal && rgba(getComputedStyle(modal).backgroundColor)[3] !== 1) throw new Error('Modal interior must have an opaque backing surface')
           const backgrounds = chain.map(node => {
             const style = getComputedStyle(node)
             if (style.backgroundImage !== 'none' || Number(style.opacity) !== 1 || style.filter !== 'none' || style.backdropFilter !== 'none' || style.mixBlendMode !== 'normal')
@@ -751,8 +776,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
 
     def header_theme(dark)
       header_top
-      find("#theme-toggle").click if page.evaluate_script("document.documentElement.classList.contains('dark')") != dark
-      assert_equal dark, page.evaluate_script("document.documentElement.classList.contains('dark')")
+      orbite_theme(dark)
       header_settle
     end
 
@@ -815,7 +839,8 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       sample = page.evaluate_script(<<~JS, element)
         (() => {
           const element = arguments[0], rect = element.getBoundingClientRect(), style = getComputedStyle(element)
-          const points = [[rect.x + rect.width / 2, rect.y + rect.height / 2], [rect.left + 2, rect.top + 2], [rect.right - 2, rect.bottom - 2]]
+          const points = [[rect.x + rect.width / 2, rect.y + rect.height / 2], [rect.x + rect.width / 2, rect.top + 2],
+            [rect.x + rect.width / 2, rect.bottom - 2], [rect.left + 2, rect.y + rect.height / 2], [rect.right - 2, rect.y + rect.height / 2]]
           const hits = points.map(([x, y]) => { const hit = document.elementFromPoint(x, y); return !!hit && (hit === element || element.contains(hit)) })
           const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
           const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
@@ -824,7 +849,9 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
             return [...context.getImageData(0, 0, 1, 1).data].map(channel => channel / 255)
           }
           const over = (fg, bg) => [...fg.slice(0, 3).map((channel, i) => channel * fg[3] + bg[i] * (1 - fg[3])), 1]
-          const chain = []; for (let node = element; node; node = node.parentElement) chain.unshift(node)
+          const modal = element.closest('dialog:modal'), chain = []
+          for (let node = element; node; node = node.parentElement) { chain.unshift(node); if (node === modal) break }
+          if (modal && rgba(getComputedStyle(modal).backgroundColor)[3] !== 1) throw new Error('Modal interior must have an opaque backing surface')
           for (const node of chain) {
             const paint = getComputedStyle(node)
             if (paint.backgroundImage !== 'none' || Number(paint.opacity) !== 1 || paint.filter !== 'none' || paint.backdropFilter !== 'none' || paint.mixBlendMode !== 'normal')
@@ -867,7 +894,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
         (() => {
           const sample = element => ({ ...element.getBoundingClientRect().toJSON(),
             id: element.id, scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight })
-          return { global: sample(document.querySelector('[data-application-header]') || document.querySelector('body > nav')),
+          return { navigation: sample(document.querySelector('.n-orbite-rail')),
             heading: sample(document.querySelector('main h1')), main: sample(document.querySelector('main')),
             surface: sample(document.querySelector('[data-application-scroll]')),
             syntheticOverflow: !!document.querySelector('[data-header-overflow-fixture]') }
@@ -891,6 +918,7 @@ end
 
 class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
   include AccountExperienceFixtures
+  include OrbiteBrowserChecks
 
   setup do
     @original_size = page.current_window.size
@@ -914,7 +942,7 @@ class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
 
       %i[en fr].each do |locale|
         visit account_path(@second)
-        select locale.to_s.upcase, from: "language_preference_locale"
+        orbite_select_language(locale.to_s.upcase)
         assert_selector "html[lang='#{locale}']"
         assert_selector "[data-account-overview='#{@second.id}']"
         assert_selector ".n-workspace-header details[data-header-details]:not([open])", count: 1
@@ -942,6 +970,7 @@ class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
         assert_selector ".n-workspace-header details[data-header-details]:not([open])", count: 1
       end
 
+      orbite_open_utilities
       find("#dropdownUser").click
       find("#dropdown a[href='#{logout_path}']").click
       assert_selector "form[action='#{login_path}']"

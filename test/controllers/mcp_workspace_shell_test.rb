@@ -39,9 +39,11 @@ class McpWorkspaceShellTest < ActionDispatch::IntegrationTest
       [ api_tokens_path, new_chat_path ] ].each do |path, composer|
       get path
       assert_response :success
-      assert_select ".lg\\:hidden a.n-nav-bottom[aria-label=?]", I18n.t("nosia.nav.new_chat"), count: 1 do |links|
+      assert_select "#chat-history .n-orbite-panel-links a[aria-label=?]", I18n.t("nosia.nav.new_chat"), count: 1 do |links|
         assert_equal composer, links.first["href"]
       end
+      assert_select ".n-orbite-rail a[href='#{composer}']", count: 1
+      assert_select "#chat-history [data-history-chat]", count: 0
     end
     assert_equal @first, @user.reload.first_account
   end
@@ -71,16 +73,18 @@ class McpWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "composer drawers and token shell coexist while secrets and long identifiers are escaped" do
+  test "non-MCP pages share navigation while secrets and long identifiers are escaped" do
     get new_chat_path
     assert_response :success
-    assert_select "#drawer-right, #accordion-right-actions", count: 2
+    assert_select "#drawer-right, #accordion-right-actions", count: 0
 
     get api_tokens_path
     assert_response :success
     assert_select "[data-settings-tool][data-settings-screen=tokens]", count: 1
     assert_select "#drawer-right, #accordion-right-actions", count: 0
     assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
+    assert_select ".n-orbite-rail a[href='#{new_chat_path}']", count: 1
+    assert_select "#chat-history [data-history-chat]", count: 0
     @first_server.update!(name: "<script>#{'LongName' * 30}</script>", notes: "saved-secret")
     get mcp_servers_path
     assert_select "main script", count: 0

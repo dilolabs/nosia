@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/dashboard_fixtures"
 
 class DashboardSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include DashboardFixtures
 
   setup do
@@ -87,7 +89,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
 
   test "French long labels fit responsive layouts in both themes with visible keyboard actions" do
     @first.update_columns(name: "CompteDeRecherche" * 12)
-    select "FR", from: "language_preference_locale"
+    orbite_select_language("FR")
     assert_selector "html[lang='fr']"
     surfaces = []
 
@@ -158,8 +160,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
     end
 
     def set_dashboard_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script(<<~JS)
         const done=arguments[0];

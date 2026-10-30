@@ -1,8 +1,10 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require "tempfile"
 require_relative "../support/chat_account_fixtures"
 
 class ChatComposerUiSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include ChatAccountFixtures
   include ActionView::RecordIdentifier
 
@@ -321,7 +323,13 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
       settle_composer_layout
       assert_tools_panel_attachment
 
-      click_link "New chat"
+      if page.has_selector?(".n-orbite-rail a[href='#{new_chat_path}']", wait: 0)
+        find(".n-orbite-rail a[href='#{new_chat_path}']").click
+      else
+        find("#workspace-mobile-trigger").click
+        assert_selector "#chat-history:modal"
+        find("#chat-history .n-orbite-panel-links a[href='#{new_chat_path}']").click
+      end
       assert_current_path new_chat_path, ignore_query: true
       assert_selector "lexxy-editor[connected]"
       assert_no_selector "[data-composer-tools][open]"
@@ -421,7 +429,7 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
   test "saved PDF action registers a real native upload in the stored account in English and French" do
     { "EN" => "Attach PDF", "FR" => "Joindre un PDF" }.each do |language, label|
       visit chat_url(chats(:picker_second_chat))
-      select language, from: "language_preference_locale"
+      orbite_select_language(language)
       assert_selector "html[lang=#{language.downcase}]"
       assert_selector "lexxy-editor[connected]"
       with_pdf do |path|
@@ -568,9 +576,9 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     end
 
     def set_theme(dark)
-      page.evaluate_async_script(<<~JS, dark)
+      orbite_theme(dark)
+      page.evaluate_async_script(<<~JS)
         const done = arguments[arguments.length - 1];
-        document.documentElement.classList.toggle('dark', arguments[0]);
         getComputedStyle(document.body).backgroundColor;
         const transitions = document.getAnimations().filter(animation => animation instanceof CSSTransition);
         Promise.all(transitions.map(animation => animation.finished.catch(() => {}))).then(done);

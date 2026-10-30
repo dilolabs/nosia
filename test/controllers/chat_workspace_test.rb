@@ -105,7 +105,7 @@ class ChatWorkspaceTest < ActionDispatch::IntegrationTest
     assert_select "a[href='#{accounts_path}']", text: "Configurer un compte", count: 1
     assert_select ".n-chat-composer", count: 0
     assert_select "#chat-history[data-history-empty]", count: 1
-    assert_select "button[aria-controls=chat-history]", text: "Historique", count: 1
+    assert_select "#workspace-history-trigger", text: "Historique", count: 1
   end
 
   private
@@ -113,7 +113,7 @@ class ChatWorkspaceTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select ".n-chat-workspace h1", count: 1
       assert_select "main.n-chat-main", count: 1
-      assert_select "button[aria-controls=chat-history]", text: "History", count: 1
+      assert_select "#workspace-history-trigger", text: "History", count: 1
       assert_select "dialog#chat-history:not([open])", count: 1
       assert_select "#accordion-right-actions, #drawer-right", count: 0
       assert_select ".n-chat-composer", count: 1

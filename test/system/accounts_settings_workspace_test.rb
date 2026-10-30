@@ -1,8 +1,10 @@
 require "tmpdir"
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/account_experience_fixtures"
 
 class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include AccountExperienceFixtures
 
   DESKTOP_INPUT_ARGUMENT = "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4".freeze
@@ -91,7 +93,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
     @second.update_columns(name: "CompteDeRecherche" * 12, uid: "identifiant-sans-espace-" * 7)
     states = []
     %w[en fr].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']", visible: :all
       [ [ :directory, accounts_path ], [ :account, account_path(@second) ], [ :settings, settings_path ] ].each do |name, path|
         [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ], [ 812, 375 ] ].each do |width, height|
@@ -187,8 +189,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
     end
 
     def set_workspace_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script("const done=arguments[0]; Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))).then(()=>done());")
     end
@@ -244,7 +245,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
       card = first("[data-settings-card]")
       page.execute_script("arguments[0].scrollIntoView({block:'center'})", card)
       wait_for_keyboard_scroll
-      find("#theme-toggle").hover
+      find("main h1").hover
       wait_for_keyboard_scroll
       before_hover = settings_card_sample(card)
       refute before_hover.fetch("hovered"), before_hover.to_json

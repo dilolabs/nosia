@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/chat_account_fixtures"
 
 class ProfileManagementTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include ChatAccountFixtures
 
   setup do
@@ -10,7 +12,7 @@ class ProfileManagementTest < ApplicationSystemTestCase
     fill_in "email", with: @user.email
     fill_in "password", with: ChatAccountFixtures::PASSWORD
     click_button "Sign in"
-    assert_selector "#dropdownUser"
+    assert_selector "#orbite-shell"
     visit profile_path
     assert_selector "#profile-email-form"
   end
@@ -206,7 +208,7 @@ class ProfileManagementTest < ApplicationSystemTestCase
   end
 
   %w[en fr].product(%w[light dark]).each do |locale, theme|
-    test "native Tab keeps every #{locale} #{theme} mobile profile control fully above the bottom navigation" do
+    test "native Tab keeps every #{locale} #{theme} mobile profile control inside main and unobscured by navigation" do
       browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 900, deviceScaleFactor: 1, mobile: true)
       switch_language(locale)
       set_theme(theme)
@@ -348,14 +350,13 @@ class ProfileManagementTest < ApplicationSystemTestCase
     end
 
     def switch_language(locale)
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
       assert_selector "#profile-email-form"
     end
 
     def set_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       settle_transitions
     end
@@ -463,7 +464,7 @@ class ProfileManagementTest < ApplicationSystemTestCase
           }
         })()
       JS
-      assert geometry.fetch("fullyVisible"), "Focused control must be fully inside main and above the bottom navigation: #{geometry}"
+      assert geometry.fetch("fullyVisible"), "Focused control must be fully inside main and unobscured by navigation: #{geometry}"
       assert geometry.fetch("unobscured"), "Focused control must be unobscured at its corners and center: #{geometry}"
       geometry
     end

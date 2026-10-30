@@ -36,30 +36,34 @@ class SettingsWorkspaceTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "Settings and MCP keep navigation while tools retain drawers and chat uses native History" do
+  test "Settings MCP and tools share navigation while chat publishes native History" do
     get settings_path
     assert_select "#accordion-right-actions, #drawer-right, [data-drawer-target]", count: 0
     assert_select "[data-settings-workspace] .hidden.lg\\:block a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
-    assert_select ".lg\\:hidden a[href='#{new_chat_path}']", minimum: 1
+    assert_select "#chat-history .n-orbite-panel-links a[href='#{new_chat_path}']", count: 1
 
     get new_chat_path
     assert_response :success
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_select "dialog#chat-history:not([open])", count: 1
-    assert_select "button[aria-controls='chat-history'][data-action='chat-dialog#open']",
+    assert_select "#workspace-history-trigger[aria-controls='chat-history'][data-action='workspace-navigation#toggle']",
       text: I18n.t("nosia.chat_workspace.history", locale: css_select("html").first["lang"]), count: 1
 
-    get system_prompts_path
-    assert_response :success
-    assert_select "#accordion-right-actions, #drawer-right", count: 0
-    assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
-    assert_select ".lg\\:hidden a[href=?]", new_chat_path
+    [ api_tokens_path, system_prompts_path ].each do |path|
+      get path
+      assert_response :success
+      assert_select "#accordion-right-actions, #drawer-right", count: 0
+      assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
+      assert_select "#chat-history .n-orbite-panel-links a[href=?]", new_chat_path
+      assert_select ".n-orbite-rail a[href='#{new_chat_path}']", count: 1
+      assert_select "#chat-history [data-history-chat]", count: 0
+    end
 
     get mcp_servers_path
     assert_response :success
     assert_select "#accordion-right-actions, #drawer-right, [data-drawer-target]", count: 0
     assert_select ".n-workspace-header .hidden.lg\\:block a[href='#{new_chat_path}']", text: I18n.t("nosia.nav.new_chat")
-    assert_select ".lg\\:hidden a[href='#{new_chat_path}']", minimum: 1
+    assert_select "#chat-history .n-orbite-panel-links a[href='#{new_chat_path}']", count: 1
 
     get account_settings_path(@second)
     assert_redirected_to account_path(@second)
@@ -68,7 +72,7 @@ class SettingsWorkspaceTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
-    assert_select ".lg\\:hidden a[href=?]", new_chat_path
+    assert_select "#chat-history .n-orbite-panel-links a[href=?]", new_chat_path
   end
 
   test "hub remains static and read only for members and users without accounts" do

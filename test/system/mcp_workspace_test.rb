@@ -1,9 +1,11 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/mcp_workspace_fixtures"
 require_relative "../support/mcp_browser_checks"
 
 # Exercises account-scoped MCP management with local integrations only.
 class McpWorkspaceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include McpWorkspaceFixtures
   include McpBrowserChecks
 
@@ -30,7 +32,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     states = []
     puts "MCP matrix evidence: #{@mcp_evidence}"
     [ "en", "fr" ].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang=#{locale}]"
       screens.each do |screen, path|
         [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ], [ 812, 375 ] ].each do |width, height|
@@ -508,7 +510,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
 
   test "local edit keeps credential controls active and forms fit phone and desktop" do
     [ "en", "fr" ].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang=#{locale}]"
       [ 375, 1400 ].each do |width|
         page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 844, deviceScaleFactor: 1, mobile: false)
@@ -588,7 +590,9 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     before = Chat.count
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
     visit account_mcp_servers_path(@second)
-    target = ".lg\\:hidden a.n-nav-bottom[aria-label='#{I18n.t('nosia.nav.new_chat')}']"
+    find("#workspace-mobile-trigger").click
+    assert_selector "#chat-history:modal"
+    target = "#chat-history .n-orbite-panel-links a[aria-label='#{I18n.t('nosia.nav.new_chat')}']"
     assert_selector target, count: 1
     120.times do
       page.send_keys(:tab)
@@ -605,4 +609,10 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
+
+  private
+    def mcp_theme(theme)
+      orbite_theme(theme == "dark")
+      page.driver.browser.execute_async_script("const done=arguments[0];Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))).then(()=>done());")
+    end
 end

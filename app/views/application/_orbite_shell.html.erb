@@ -1,0 +1,70 @@
+<%# locals: (page:) %>
+<div id="orbite-shell" class="n-orbite-shell" data-controller="chat-dialog workspace-navigation"
+     data-workspace-navigation-chat-dialog-outlet="#orbite-shell"
+     data-workspace-navigation-history-value="<%= chat_workspace_page? %>"
+     data-action="turbo:before-visit@document->chat-dialog#beforeVisit turbo:before-cache@document->workspace-navigation#beforeCache turbo:before-cache@document->chat-dialog#beforeCache turbo:before-render@document->chat-dialog#beforeRender turbo:render@document->chat-dialog#afterRender turbo:render@document->workspace-navigation#layout turbo:before-morph-attribute@document->workspace-navigation#preserve">
+  <nav class="n-orbite-rail" aria-label="<%= t('nosia.orbite.navigation') %>">
+    <%= link_to root_path, class: "n-orbite-logo", aria: { label: t("nosia.nav.home_page") } do %>
+      <%= image_tag "nosia-logo.png", alt: "", aria: { hidden: true } %>
+    <% end %>
+    <%= render "application/orbite_links", compact: true %>
+    <button id="workspace-history-rail-trigger" type="button" class="n-orbite-control" aria-controls="chat-history" aria-expanded="false"
+            data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle">
+      <%= inline_svg "svg/menu.svg", aria_hidden: true, class: "h-5 w-5" %>
+      <span class="sr-only"><%= t("nosia.orbite.expand_history") %></span>
+    </button>
+    <button id="workspace-utilities-trigger" type="button" class="n-orbite-control n-orbite-utilities-trigger" aria-controls="chat-history" aria-haspopup="dialog" data-action="workspace-navigation#utilities">
+      <%= inline_svg "svg/user-circle.svg", aria_hidden: true, class: "h-5 w-5" %>
+      <span class="sr-only"><%= t("nosia.orbite.utilities") %></span>
+    </button>
+  </nav>
+  <dialog id="chat-history" class="n-orbite-navigation" aria-labelledby="chat-history-title"
+          data-workspace-navigation-target="panel" <%= 'data-history-empty' if content_for?(:orbite_history_empty) %>
+          data-action="close->chat-dialog#closed close->workspace-navigation#closed">
+    <header class="n-orbite-panel-heading">
+      <%= link_to root_path, class: "n-orbite-logo", aria: { label: t("nosia.nav.home_page") } do %>
+        <%= image_tag "nosia-logo.png", alt: "", aria: { hidden: true } %>
+      <% end %>
+      <h2 id="chat-history-title"><%= t("nosia.orbite.navigation") %></h2>
+      <button id="workspace-navigation-close" type="button" class="n-orbite-control" data-chat-dialog-initial-focus data-action="workspace-navigation#close"><%= t("nosia.chat_workspace.close") %></button>
+    </header>
+    <div class="n-orbite-panel-content">
+      <nav class="n-orbite-panel-links" aria-label="<%= t('nosia.orbite.navigation') %>">
+        <%= render "application/orbite_links" %>
+      </nav>
+      <% if content_for?(:orbite_history) %>
+        <section data-orbite-history aria-label="<%= t('nosia.chat_workspace.history_title') %>">
+          <h3 class="n-orbite-history-heading"><%= t("nosia.chat_workspace.history_title") %></h3>
+          <%= content_for(:orbite_history) %>
+        </section>
+      <% end %>
+    </div>
+    <div class="n-orbite-utilities" aria-label="<%= t('nosia.orbite.utilities') %>">
+      <%= render "application/orbite_utilities" %>
+    </div>
+  </dialog>
+  <% if chat_workspace_page? %>
+    <div id="application-scroll" class="n-orbite-chat-frame" data-application-scroll>
+  <% end %>
+  <%= tag.main id: chat_workspace_page? ? "application-page" : "application-scroll",
+        class: "n-application-page n-orbite-main #{'n-chat-main' if chat_workspace_page?}",
+        data: { application_scroll: chat_workspace_page? ? nil : true } do %>
+    <%= render "flash" unless agent_skills_workspace_page? || mcp_workspace_page? %>
+    <div class="n-orbite-page-trail">
+      <% unless agent_skills_workspace_page? || account_workspace_header? || mcp_workspace_page? || chat_workspace_page? %>
+        <% if account_page? && @account %>
+          <%= render "accounts/breadcrumb", account: @account, title: content_for(:account_tool_title) %>
+        <% else %>
+          <%= render "navbar" %>
+        <% end %>
+      <% end %>
+    </div>
+    <% unless chat_workspace_page? %>
+      <button id="workspace-mobile-trigger" type="button" class="n-orbite-control n-orbite-mobile-only" aria-controls="chat-history" aria-haspopup="dialog" data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle"><%= t("nosia.orbite.navigation") %></button>
+    <% end %>
+    <%= page %>
+  <% end %>
+  <% if chat_workspace_page? %>
+    </div>
+  <% end %>
+</div>

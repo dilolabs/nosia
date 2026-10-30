@@ -7,6 +7,53 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_picker_user }
 
+  test "intermediate chat surface stays distinct from main" do
+    [ new_chat_path, chat_path(@chat) ].each do |path|
+      get path
+      assert_response :success
+      assert_select "[data-application-scroll]", count: 1
+      assert_select "#application-scroll.n-orbite-chat-frame[data-application-scroll] > main#application-page.n-chat-main", count: 1
+      assert_select "main[data-application-scroll], .n-chat-transcript[data-application-scroll]", count: 0
+    end
+
+    get accounts_path
+    assert_response :success
+    assert_select "main#application-scroll[data-application-scroll]", count: 1
+    assert_select ".n-orbite-chat-frame", count: 0
+  end
+
+  test "signed in routes share one navigation shell without private history outside chat" do
+    scoped_routes = [ account_agent_skills_path(@second), account_mcp_servers_path(@second) ]
+    routes = [ user_root_path, accounts_path, account_path(@second), sources_path,
+      token_usage_path, settings_path, profile_path, *scoped_routes, api_tokens_path,
+      system_prompts_path, new_chat_path, chat_path(@chat) ]
+
+    routes.each do |path|
+      get path
+      assert_response :success
+      assert_select "#orbite-shell[data-controller~=workspace-navigation][data-controller~=chat-dialog]", count: 1
+      assert_select ".n-orbite-rail", count: 1
+      assert_select "dialog#chat-history:not([open])", count: 1
+      assert_select "main", count: 1
+      assert_select "#theme-toggle, #language_preference_locale, #dropdownUser", count: 3
+      assert_select "[data-application-header], .n-nav-bottom, #accordion-right-actions, #drawer-right", count: 0
+      shortcut = scoped_routes.include?(path) ? new_chat_path(account_id: @second.id) : new_chat_path
+      assert_select "#chat-history .n-orbite-panel-links a[href='#{shortcut}']", count: 1
+      assert_select "[data-history-chat]", count: 0 unless [ new_chat_path, chat_path(@chat) ].include?(path)
+    end
+  end
+
+  test "public root keeps its accessible header without private navigation" do
+    delete logout_path
+    get root_path
+
+    assert_response :success
+    assert_select "[data-application-header]", count: 1
+    assert_select "#theme-toggle, #language_preference_locale", count: 2
+    assert_select "#orbite-shell, #chat-history, [data-history-chat], #dropdownUser", count: 0
+    assert_select "form[action='#{login_path}']", count: 1
+  end
+
   test "history keeps personal roots current item and existing delete confirmation" do
     get chat_path(@chat)
     assert_response :success

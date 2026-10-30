@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/chat_account_fixtures"
 
 class McpCatalogSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include ChatAccountFixtures
 
   setup do
@@ -24,7 +26,7 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
     [ 375, 768, 1400 ].each do |width|
       test "kChat configuration is fully displayed at #{width}px in #{locale}" do
         if locale == "fr"
-          select language, from: "language_preference_locale"
+          orbite_select_language(language)
         end
         assert_selector "html[lang=#{locale}]"
         page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 844, deviceScaleFactor: 1, mobile: false)
@@ -32,7 +34,7 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
         assert_selector 'input[name="config[kchat_team_name]"]'
 
         [ false, true ].each do |dark|
-          page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
+          orbite_theme(dark)
           assert_configuration_fits_card
         end
       end

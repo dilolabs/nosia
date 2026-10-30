@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/dashboard_fixtures"
 
 class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include DashboardFixtures
 
   setup do
@@ -69,7 +71,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
 
     assert_no_enqueued_jobs do
       %w[en fr].each do |locale|
-        select locale.upcase, from: "language_preference_locale"
+        orbite_select_language(locale.upcase)
         assert_selector "html[lang='#{locale}']", visible: :all
         { global: token_usage_path, account: account_token_usage_path(@second) }.each do |scope, path|
           [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ], [ 812, 375 ] ].each do |width, height|
@@ -203,8 +205,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
     end
 
     def set_usage_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script(<<~JS)
         const done=arguments[0];

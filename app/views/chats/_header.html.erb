@@ -12,8 +12,8 @@
       <% if chat.persisted? %>
         <%= link_to t("nosia.nav.home"), user_root_path, class: "n-workspace-link" %>
       <% end %>
-      <button type="button" class="n-workspace-button" aria-controls="chat-history" aria-haspopup="dialog"
-              data-action="chat-dialog#open" data-chat-dialog-id-param="chat-history"><%= t("nosia.chat_workspace.history") %></button>
+      <button id="workspace-history-trigger" type="button" class="n-workspace-button" aria-controls="chat-history" aria-expanded="false"
+              data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle"><%= t("nosia.chat_workspace.history") %></button>
       <% if chat.persisted? %>
         <%= link_to t("nosia.chat_workspace.new_chat"), new_chat_path, class: "n-workspace-button" %>
       <% end %>
