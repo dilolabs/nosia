@@ -292,6 +292,7 @@ class AgentSkillsWorkspaceSystemTest < ApplicationSystemTestCase
     fill_in "email", with: experience(:users, :overview_no_account).email
     fill_in "password", with: AccountExperienceFixtures::PASSWORD
     click_on "Sign in"
+    assert_selector "[data-dashboard]"
     %w[en fr].each do |locale|
       orbite_select_language(locale.upcase)
       %w[light dark].each do |theme|

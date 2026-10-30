@@ -703,6 +703,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
       fill_in "email", with: user.email
       fill_in "password", with: AccountExperienceFixtures::PASSWORD
       click_on "Sign in"
+      assert_selector "[data-dashboard]"
       orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
     end

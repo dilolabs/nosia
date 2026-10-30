@@ -297,20 +297,22 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
         # Only insufficient real overflow receives a labelled geometry fixture.
         # The saved chat already contains the real eighty-paragraph answer.
         header_overflow_fixture("matrix-#{index}")
-        before_scroll = header_geometry
-        page.execute_script(<<~JS)
+        before_scroll = header_geometry.merge(header_scroll_context)
+        header_record("matrix-before-scroll-#{index}", before_scroll)
+        assert_operator before_scroll.fetch("surface").fetch("scrollHeight") - before_scroll.fetch("surface").fetch("clientHeight") - before_scroll.fetch("surface").fetch("scrollTop"), :>=, 700, before_scroll.to_json
+        page.execute_script(<<~JS, before_scroll.fetch("surface").fetch("scrollTop") + 700)
           const surface = document.querySelector('[data-application-scroll]')
-          surface.scrollTop = 700
+          surface.scrollTop = arguments[0]
           surface.dispatchEvent(new Event('scroll'))
         JS
         header_settle
-        sample = header_matrix_geometry
+        sample = header_matrix_geometry.merge(header_scroll_context)
         header_record("matrix-scrolled-#{index}", sample, screenshot: true)
         assert_operator sample.fetch("surface").fetch("scrollTop"), :>=, 699, sample.to_json
         assert_no_selector "[data-application-header]", visible: :all
         assert_operator sample.fetch("navigation").fetch("top"), :>=, 0, sample.to_json if width >= 768
         assert_operator sample.fetch("heading").fetch("bottom"), :<=, sample.fetch("surface").fetch("top"), sample.to_json
-        assert_in_delta before_scroll.fetch("heading").fetch("bottom") - sample.fetch("surface").fetch("scrollTop"), sample.fetch("heading").fetch("bottom"), 1, sample.to_json
+        assert_header_scroll_movement(before_scroll, sample)
         if page.has_selector?(".n-chat-workspace", wait: 0)
           assert_equal 0, sample.fetch("main").fetch("scrollTop"), sample.to_json
         else
@@ -321,6 +323,41 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       assert_equal 11, header_pages.size
       assert_no_enqueued_jobs only: ChatResponseJob
     end
+  end
+
+  test "labelled geometry probe measures real heading movement from a nonzero primary baseline" do
+    @second.update_columns(name: "CompteDeRecherche" * 12)
+    header_viewport(812, 375)
+    orbite_select_language("FR")
+    visit chat_path(@chat)
+    assert_selector "lexxy-editor[connected]"
+    header_theme(false)
+    header_disclosures(10)
+
+    # Adversarial geometry only, not native user input or a reader-state write.
+    page.execute_script(<<~JS)
+      const surface = document.querySelector('[data-application-scroll]')
+      surface.scrollTop = 3
+      surface.dispatchEvent(new Event('scroll'))
+    JS
+    header_settle
+    before_scroll = header_geometry.merge(header_scroll_context)
+    header_record("adversarial-nonzero-before", before_scroll.merge("geometryOnly" => true, "nativeUserInput" => false), screenshot: true)
+    assert_equal 3, before_scroll.fetch("surface").fetch("scrollTop"), before_scroll.to_json
+    assert_operator before_scroll.fetch("surface").fetch("scrollHeight") - before_scroll.fetch("surface").fetch("clientHeight") - before_scroll.fetch("surface").fetch("scrollTop"), :>=, 700
+    page.execute_script(<<~JS, before_scroll.fetch("surface").fetch("scrollTop") + 700)
+      const surface = document.querySelector('[data-application-scroll]')
+      surface.scrollTop = arguments[0]
+      surface.dispatchEvent(new Event('scroll'))
+    JS
+    header_settle
+    sample = header_matrix_geometry.merge(header_scroll_context)
+    header_record("adversarial-nonzero-after", sample.merge("geometryOnly" => true, "nativeUserInput" => false), screenshot: true)
+    assert_equal 700, sample.fetch("surface").fetch("scrollTop") - before_scroll.fetch("surface").fetch("scrollTop"), sample.to_json
+    assert_equal 0, sample.fetch("main").fetch("scrollTop"), sample.to_json
+    refute sample.fetch("syntheticOverflow"), sample.to_json
+    assert_header_scroll_movement(before_scroll, sample)
+    assert_no_enqueued_jobs only: ChatResponseJob
   end
 
   test "headers allow enlarged text to grow without clipping controls" do
@@ -910,6 +947,42 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
 
     def settle_workspace_layout
       page.evaluate_async_script("const done = arguments[arguments.length - 1]; requestAnimationFrame(() => requestAnimationFrame(done))")
+    end
+
+    def assert_header_scroll_movement(before_scroll, sample)
+      delta = sample.fetch("surface").fetch("scrollTop") - before_scroll.fetch("surface").fetch("scrollTop")
+      diagnostic = { before: before_scroll, after: sample, actual_delta: delta }.to_json
+      assert_operator delta, :>=, 699, diagnostic
+      %w[surface main].each do |element|
+        %w[left top width height].each do |dimension|
+          assert_in_delta before_scroll.fetch(element).fetch(dimension), sample.fetch(element).fetch(dimension), 1, diagnostic
+        end
+      end
+      %w[left right width height].each do |dimension|
+        assert_in_delta before_scroll.fetch("heading").fetch(dimension), sample.fetch("heading").fetch(dimension), 1, diagnostic
+      end
+      contexts = %w[viewport windowScroll documentElement body usageOpen]
+      assert_equal before_scroll.fetch("scrollContext").slice(*contexts), sample.fetch("scrollContext").slice(*contexts), diagnostic
+      assert_in_delta before_scroll.fetch("heading").fetch("bottom") - delta, sample.fetch("heading").fetch("bottom"), 1, diagnostic
+    end
+
+    def header_scroll_context
+      page.evaluate_script(<<~JS)
+        (() => {
+          const sample = element => {
+            const style = getComputedStyle(element)
+            return { geometry: element.getBoundingClientRect().toJSON(), scrollTop: element.scrollTop, scrollLeft: element.scrollLeft,
+              scrollHeight: element.scrollHeight, scrollWidth: element.scrollWidth, clientHeight: element.clientHeight, clientWidth: element.clientWidth,
+              scrollPaddingStart: style.scrollPaddingBlockStart, scrollPaddingEnd: style.scrollPaddingBlockEnd,
+              scrollMarginStart: style.scrollMarginBlockStart, scrollMarginEnd: style.scrollMarginBlockEnd }
+          }
+          const active = document.activeElement, usage = document.querySelector('#chat-usage-details')
+          return { scrollContext: { surface: sample(document.querySelector('[data-application-scroll]')), main: sample(document.querySelector('main')),
+            documentElement: sample(document.documentElement), body: sample(document.body),
+            active: { tag: active.tagName, id: active.id, geometry: active.getBoundingClientRect().toJSON() },
+            usageOpen: usage ? usage.open : null, viewport: [innerWidth, innerHeight], windowScroll: [scrollX, scrollY] } }
+        })()
+      JS
     end
 
     def header_geometry

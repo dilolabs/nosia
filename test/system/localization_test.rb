@@ -112,29 +112,52 @@ class LocalizationSystemTest < ApplicationSystemTestCase
       assert_selector "html[lang=fr]"
       [ false, true ].each do |dark|
         orbite_theme(dark)
-        orbite_open_utilities
+        observe_language_navigation
+        opener = open_language_navigation(reverse: dark)
         assert_equal 375, page.evaluate_script("innerWidth")
         assert_selector ".n-language-preference label.sr-only[for=language_preference_locale]", text: "Langue", visible: :all
-        assert_selector ".n-language-preference select#language_preference_locale"
-        find("#language_preference_locale").send_keys(:escape)
+        assert_selector ".n-language-preference select#language_preference_locale[aria-describedby=language_preference_hint]"
+        assert_selector "#language_preference_hint", text: I18n.t("nosia.language.auto_switch_hint", locale: :fr), visible: :all
+        assert_equal %w[auto fr en], all("#language_preference_locale option", visible: :all).map(&:value)
+        assert_equal "fr", find("#language_preference_locale").value
         assert_selector "#language_preference_locale:focus-visible"
         assert_language_control_geometry
+        record_language_navigation("keyboard-select-#{dark}")
+
+        page.driver.browser.action.send_keys(:escape).perform
+        assert_no_selector "#chat-history[open]", visible: :all
+        assert_no_selector "dialog:modal"
+        assert_selector "#{opener}:focus-visible"
+        assert_selector "#{opener}[aria-expanded=false]"
+        assert_operator orbite_assert_reachable(opener).fetch("outlineWidth"), :>=, 2
+        sample = record_language_navigation("keyboard-after-escape-#{dark}")
+        refute sample.fetch("active").fetch("inert"), sample.to_json
       end
     end
 
+    open_language_navigation
+    record_language_navigation("keyboard-before-end")
     previous_origin = page.evaluate_script("performance.timeOrigin")
-    find("#language_preference_locale").send_keys(:end)
+    page.driver.browser.action.send_keys(:end).perform
 
     assert_selector "html[lang=en]"
     assert_current_path sources_path
     assert_not_equal previous_origin, page.evaluate_script("performance.timeOrigin")
     assert_selector "input[placeholder='Search sources…']"
+    assert_selector "#language_preference_locale option[value=en][selected]", visible: :all
+    orbite_record("language-native-end-reload", { before_origin: previous_origin,
+      after_origin: page.evaluate_script("performance.timeOrigin"), url: page.current_url }, screenshot: true)
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
 
   test "language switcher is a single compact control in both locales and themes" do
     visit root_url
+    assert_no_selector "#orbite-shell", visible: :all
+    assert_no_selector "#chat-history", visible: :all
+    assert_selector "nav form[action='/language_preference']", count: 1
+    assert_selector "nav form[action='/language_preference'] select", count: 1
+    assert_selector "nav form[action='/language_preference'][method=post][data-turbo=false] input[name='_method'][value=patch]", visible: :all
 
     { "EN" => "en", "FR" => "fr" }.each do |language, locale|
       select language, from: "language_preference_locale"
@@ -154,14 +177,19 @@ class LocalizationSystemTest < ApplicationSystemTestCase
                 return { width, height };
               };
               return { select: box(select), form: box(form), label: box(label),
+                rootFont: getComputedStyle(document.documentElement).fontSize,
+                minHeight: getComputedStyle(select).minHeight,
                 overflow: document.documentElement.scrollWidth - innerWidth };
             })()
           JS
 
+          orbite_record("public-language-#{locale}-#{width}-#{dark}", layout, screenshot: true)
+          assert_equal "16px", layout.fetch("rootFont")
           assert_in_delta layout.dig("select", "height"), layout.dig("form", "height"), 1
           assert_operator layout.dig("select", "width"), :<=, 80
-          assert_operator layout.dig("select", "height"), :>=, 32
-          assert_operator layout.dig("select", "height"), :<=, 36
+          assert_operator layout.dig("select", "width"), :>=, 44
+          assert_operator layout.dig("select", "height"), :>=, 44
+          assert_in_delta 44, layout.dig("select", "height"), 1
           assert_equal 1, layout.dig("label", "width")
           assert_equal 1, layout.dig("label", "height")
           assert_equal 0, layout.fetch("overflow")
@@ -259,6 +287,53 @@ class LocalizationSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def open_language_navigation(reverse: false)
+      opener = page.has_selector?("[data-orbite-composer-navigation]", wait: 0) ? "[data-orbite-composer-navigation]" : "#workspace-mobile-trigger"
+      orbite_tab_to(opener, reverse: reverse)
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "#chat-history:modal"
+      assert_selector "dialog:modal", count: 1
+      orbite_tab_to("#language_preference_locale")
+      assert_selector "#language_preference_locale:focus-visible"
+      opener
+    end
+
+    # Passive diagnostic only: observes native DOM events, never changes delivery or focus.
+    def observe_language_navigation
+      page.execute_script(<<~JS)
+        if (!window.languageNavigationTrace) {
+          window.languageNavigationTrace = []
+          window.languageNavigationSnapshot = () => {
+            const sample = element => {
+              if (!element) return null
+              const style = getComputedStyle(element), box = element.getBoundingClientRect()
+              const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+              return { id: element.id, tag: element.tagName, geometry: box.toJSON(),
+                focusVisible: element.matches(':focus-visible'), outline: style.outlineStyle, outlineWidth: style.outlineWidth,
+                visible: element.checkVisibility(), inert: !!element.closest('[inert]'),
+                hit: !!hit && (hit === element || element.contains(hit)), expanded: element.getAttribute('aria-expanded') }
+            }
+            const panel = document.querySelector('#chat-history')
+            return { active: sample(document.activeElement), select: sample(document.querySelector('#language_preference_locale')),
+              panel: { open: panel.open, modal: panel.matches(':modal') },
+              triggers: [...document.querySelectorAll('[aria-controls="chat-history"]')].map(sample), viewport: [innerWidth, innerHeight] }
+          }
+          for (const type of ['keydown', 'focusin', 'cancel', 'close']) {
+            document.addEventListener(type, event => {
+              window.languageNavigationTrace.push({ type, trusted: event.isTrusted, key: event.key || null,
+                target: { id: event.target.id, tag: event.target.tagName }, time: performance.now(),
+                state: window.languageNavigationSnapshot() })
+            }, { capture: true, passive: true })
+          }
+        }
+      JS
+    end
+
+    def record_language_navigation(label)
+      sample = page.evaluate_script("({ ...window.languageNavigationSnapshot(), events: window.languageNavigationTrace })")
+      orbite_record("language-#{label}", sample, screenshot: true)
+    end
+
     def sign_in_with_language(language, locale, sign_in)
       visit root_url
       select language, from: "language_preference_locale"
