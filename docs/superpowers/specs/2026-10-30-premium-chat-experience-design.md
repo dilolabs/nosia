@@ -1,6 +1,6 @@
 # Premium chat experience
 
-Status: **Design sections approved; finalized specification awaiting user review before planning.**
+Status: **Written specification approved by the user; implementation planning authorized.**
 
 Date: 2026-10-30
 
@@ -52,9 +52,13 @@ composer while retaining the application's existing capabilities.
   and reader intent; native mobile navigation; unchanged private history,
   accounts, PDF, sources, streaming, Stop/Retry and accounting; isolated testing.
   Rationale: approve the functional design before finalizing this written spec.
+- User answered “Oui” after being asked to review the committed written
+  specification at `f1b03b7` before the implementation plan.
+  Rationale: approve this written design and authorize writing-plans, not automatic
+  application implementation or branch integration.
 
-These chat approvals authorize this specification, not application implementation.
-The user must still review the finalized committed document before writing-plans.
+The written-review gate is complete. These approvals authorize the implementation
+plan, not automatic application implementation.
 
 ## Existing baseline and boundaries
 
@@ -329,8 +333,8 @@ been performed for this design finalization.
 
 ## Required next gates
 
-The design sections are approved in chat. Commit and review this finalized
-document, ask the user to review the written specification, and wait for explicit
-approval. Only then invoke writing-plans to create the implementation plan. The
-written-spec approval and subsequent implementation-plan/execution gates must not
-be skipped; no merge, push, PR or cleanup is authorized automatically.
+The user reviewed and approved the written specification at `f1b03b7`.
+Writing-plans is now authorized. Create and self-review the implementation plan,
+then offer the execution-mode choice before starting application work. Subsequent
+implementation/review gates must not be skipped; no merge, push, PR or cleanup is
+authorized automatically.
