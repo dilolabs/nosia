@@ -61,6 +61,67 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "Orbite prose and controls retain measured typography and native editing" do
+    %w[EN FR].each do |language|
+      orbite_select_language(language)
+      [ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ].each do |width, height|
+        [ false, true ].each do |dark|
+          orbite_viewport(width, height)
+          visit chat_path(@chat)
+          assert_selector "lexxy-editor[connected]"
+          orbite_theme(dark)
+          lines = (1..35).flat_map { |index| [ "Native draft line #{index}", [ :shift, :enter ] ] }
+          find("lexxy-editor .lexxy-editor__content").send_keys(*lines[0...-1])
+          assert_selector ".lexxy-editor__content", text: "Native draft line 35"
+          assert_no_enqueued_jobs only: ChatResponseJob
+          find("[data-composer-chrome-target=formatting] > summary").click
+          assert_selector "[data-formatting-open] lexxy-toolbar", visible: true
+          sample = page.evaluate_script(<<~JS)
+            (() => {
+              const box = selector => document.querySelector(selector).getBoundingClientRect().toJSON()
+              const body = document.querySelector('.n-chat-assistant-body:not([data-chat-error=true])'), style = getComputedStyle(body)
+              const text = getComputedStyle(body.querySelector('.ai-response-content'))
+              const editor = document.querySelector('.lexxy-editor__content')
+              const measure = document.createElement('canvas').getContext('2d'); measure.font = text.fontSize + ' ' + text.fontFamily
+              const selectors = ['.n-composer-send', '.n-composer-control[aria-label]', '.n-composer-formatting > summary']
+              return { assistant: { border: style.borderTopWidth, background: style.backgroundColor, padding: style.paddingLeft },
+                typography: { size: parseFloat(text.fontSize), line: parseFloat(text.lineHeight), font: text.fontFamily, zero: measure.measureText('0').width },
+                prose: box('.n-chat-transcript .n-chat-reading-column'), editor: { client: editor.clientHeight, height: editor.scrollHeight },
+                reading: box('[data-application-scroll]'), dock: box('.n-chat-dock'),
+                overflow: { document: document.documentElement.scrollWidth - innerWidth, main: document.querySelector('main').scrollWidth - document.querySelector('main').clientWidth },
+                controls: selectors.flatMap(selector => [...document.querySelectorAll(selector)]).filter(element => element.checkVisibility())
+                  .map(element => ({ name: element.getAttribute('aria-label') || element.textContent, box: element.getBoundingClientRect().toJSON() })) }
+            })()
+          JS
+          orbite_record("visual-materials-#{language}-#{width}-#{dark}", sample, screenshot: true)
+          assert_equal "0px", sample.fetch("assistant").fetch("border"), sample.to_json
+          assert_equal "rgba(0, 0, 0, 0)", sample.fetch("assistant").fetch("background"), sample.to_json
+          assert_in_delta 16, sample.fetch("typography").fetch("size"), 0.1
+          assert_operator sample.fetch("typography").fetch("line"), :>=, 25.6
+          assert_operator sample.fetch("typography").fetch("line"), :<=, 28
+          if width >= 1280
+            characters = sample.fetch("prose").fetch("width") / sample.fetch("typography").fetch("zero")
+            assert_operator characters, :>=, 65
+            assert_operator characters, :<=, 75
+          end
+          assert_operator sample.fetch("editor").fetch("height"), :>, sample.fetch("editor").fetch("client")
+          assert_equal({ "document" => 0, "main" => 0 }, sample.fetch("overflow"))
+          assert_operator sample.fetch("reading").fetch("bottom"), :<=, sample.fetch("dock").fetch("top") + 1
+          assert_operator sample.fetch("reading").fetch("height"), :>, 0
+          sample.fetch("controls").each do |control|
+            assert_operator control.fetch("box").fetch("width"), :>=, 44, control.to_json
+            assert_operator control.fetch("box").fetch("height"), :>=, 44, control.to_json
+          end
+          orbite_assert_reachable(".n-composer-send")
+          page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "prefers-reduced-motion", value: "reduce" } ])
+          assert page.evaluate_script("[...document.querySelectorAll('#orbite-shell button')].every(element => getComputedStyle(element).transitionDuration.split(',').every(value => parseFloat(value) === 0))")
+          page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
+        end
+      end
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "mobile navigation remains usable after the context has scrolled away and during generation" do
     orbite_viewport(375, 812)
     @chat.start_generation!

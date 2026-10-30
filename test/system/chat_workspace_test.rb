@@ -1732,8 +1732,8 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       page.driver.browser.action.send_keys(:enter).perform
       chat_contrast "[data-chat-total-input]"
       chat_contrast "[data-chat-total-output]"
-      chat_contrast ".n-chat-user-body", minimum: 3, border: true
-      chat_contrast ".n-chat-assistant-body", minimum: 3, border: true
+      chat_contrast ".n-chat-user-body p"
+      chat_contrast ".n-chat-assistant-body .ai-response-content h2"
       chat_contrast ".n-chat-source", minimum: 3, border: true
       chat_reachable "##{dom_id(answer, :sources_summary)}"
       chat_screenshot "details-#{dark ? 'dark' : 'light'}-375x812"
