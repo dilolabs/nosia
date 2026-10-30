@@ -37,6 +37,7 @@ export default class extends Controller {
       this.mode = mode
     } else if (mode === "inline" && !this.panelTarget.matches(":modal")) this.panelTarget.open = this.expanded
     this.reflect()
+    this.caching = false
   }
 
   chatDialogOutletConnected() {

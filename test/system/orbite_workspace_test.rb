@@ -21,6 +21,62 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     page.current_window.resize_to(*@original_size) if @original_size
   end
 
+  test "inline History panel Close resumes after a real refresh" do
+    orbite_viewport(1400, 1000)
+    visit chat_path(@chat)
+    assert_selector "#chat-history[data-inline=true][open]"
+    orbite_refresh
+    assert_selector "#chat-history[data-inline=true][open]"
+    assert_no_selector "#chat-history:modal"
+    assert_selector "lexxy-editor[connected]"
+    find("lexxy-editor .lexxy-editor__content").send_keys("Keep this editor while closing refreshed History")
+    page.execute_script("window.orbiteRefreshedEditor = document.querySelector('lexxy-editor')")
+    orbite_tab_to("#workspace-navigation-close", reverse: true)
+    page.driver.browser.action.send_keys(:enter).perform
+
+    assert_no_selector "#chat-history[open]", visible: :all
+    orbite_record("refreshed-inline-panel-close", orbite_close_state)
+    orbite_assert_history_closed("#workspace-history-rail-trigger")
+    assert page.evaluate_script("window.orbiteRefreshedEditor === document.querySelector('lexxy-editor')")
+    assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep this editor while closing refreshed History"
+    assert_equal [ 0, 0 ], page.evaluate_script("[document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop]")
+
+    orbite_refresh
+    assert_no_selector "#chat-history[open]", visible: :all
+    assert_no_selector "#chat-history:modal"
+    assert_selector "#workspace-history-rail-trigger[aria-expanded=false]"
+    assert_selector "#workspace-history-trigger[aria-expanded=false]", visible: :all
+    ids = page.evaluate_script("[...document.querySelectorAll('[id]')].map(node => node.id)")
+    assert_equal ids.uniq, ids
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  [ [ 1024, 1000 ], [ 375, 812 ] ].product(%w[close escape]).each do |(width, height), action|
+    test "recovered History #{action} resumes closed state at #{width}px" do
+      orbite_viewport(width, height)
+      visit chat_path(@chat)
+      opener = width >= 768 ? "#workspace-history-rail-trigger" : "#workspace-history-trigger"
+      find(opener).click
+      assert_selector "#chat-history:modal"
+      orbite_refresh
+      assert_selector "#chat-history:modal"
+      assert page.evaluate_script("document.querySelector('#chat-history').contains(document.activeElement)")
+
+      if action == "close"
+        find("#workspace-navigation-close").click
+      else
+        page.driver.browser.action.send_keys(:escape).perform
+      end
+      assert_no_selector "#chat-history[open]", visible: :all
+      orbite_record("recovered-#{width}-#{action}", orbite_close_state)
+      orbite_assert_history_closed(opener)
+      orbite_refresh
+      assert_no_selector "#chat-history[open]", visible: :all
+      assert_no_selector "dialog:modal"
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
+  end
+
   test "shared History modal alone selects Close without consuming editor autofocus" do
     orbite_viewport(1024, 1000)
     visit chat_path(@chat)
@@ -251,6 +307,24 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def orbite_close_state
+      page.evaluate_script(<<~JS)
+        ({ open: document.querySelector('#chat-history').open,
+          expanded: document.querySelector('#orbite-shell').dataset.orbiteHistoryExpanded,
+          active: document.activeElement.id || document.activeElement.tagName,
+          triggers: [...document.querySelectorAll('[data-workspace-navigation-target~=trigger]')].map(node => ({ id: node.id, expanded: node.getAttribute('aria-expanded') })) })
+      JS
+    end
+
+    def orbite_assert_history_closed(opener)
+      assert_no_selector "[data-workspace-navigation-target~=trigger][aria-expanded=true]", visible: :all
+      all("[data-workspace-navigation-target~=trigger]", visible: true).each do |trigger|
+        assert_equal "false", trigger["aria-expanded"], trigger[:id]
+      end
+      assert_selector "#{opener}:focus"
+      orbite_assert_reachable(opener)
+    end
+
     def orbite_refresh
       page.execute_script(<<~JS)
         document.documentElement.removeAttribute('data-orbite-refreshed')

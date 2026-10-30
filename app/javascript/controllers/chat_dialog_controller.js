@@ -109,6 +109,7 @@ export default class extends Controller {
   }
 
   afterRender() {
+    this.caching = false
     const recovery = this.recovery
     this.recovery = null
     if (!recovery || recovery.url !== location.href || !this.element.isConnected) return

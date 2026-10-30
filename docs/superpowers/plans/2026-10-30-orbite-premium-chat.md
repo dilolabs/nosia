@@ -566,6 +566,7 @@ export default class extends Controller {
   }
 
   afterRender() {
+    this.caching = false
     const recovery = this.recovery
     this.recovery = null
     if (!recovery || recovery.url !== location.href || !this.element.isConnected) return
@@ -584,6 +585,8 @@ export default class extends Controller {
 The owner closes only top-layer dialogs when opening Tools/navigation; it does not collapse an inline desktop history panel. Stable opener IDs precede the existing Tools-selector fallback after background form replacement. `reconfigure` owns focus across responsive changes; navigation code must not call `focus()` independently.
 
 The shared Close button must never be a document-startup autofocus candidate. A controlled removal of its unconditional `autofocus` is verified against the existing paused-paragraph/editor-focus case before the modal-only correction. Only `openDialog` temporarily marks the shared initial-focus control while native `showModal()` selects focus, then removes the marker attribute; connect/inline/reflow never force editor focus. Add targeted tests for this and shared-History recovery before extending the owner. Recover only an actually modal shared History for the same URL/page context; capture before cache cleanup, keep snapshots closed, consume visit intent, restore valid current in-panel focus/opener by identity/stable ID, and refuse recovery after explicit close/navigation/reconfigure, newer Tools or deliberate outside focus. Existing chat-disclosures still owns only its original in-chat Tools recovery through chat-dialog; do not duplicate it or alter that controller. No stream wrapper, receiver fork, focus classification or render/RAF delivery gate is permitted.
+
+Cache mode is snapshot-scoped, not a latched mode of a retained same-URL controller: clear the dialog owner's flag at the start of `afterRender`, including its no-recovery/inline early returns, and navigation's flag after `layout` has restored/reflected presentation. Keep the existing open-panel guards in both close handlers so queued snapshot-generated close events do not undo already-reopened inline or modal state. Verify with real refresh → native panel Close at ≥1280 → false expanded state/current visible fallback focus → next refresh remaining collapsed, plus recovered 1024/375 modal Close and Escape checking every trigger's closed expanded state, current opener focus and no reopening. Do not pre-toggle the rail/utilities in these regressions, force controller state, or weaken the editor/reader/cache/focus protections.
 
 - [ ] **Step 5: Add the focused navigation presentation controller.**
 
@@ -626,6 +629,7 @@ export default class extends Controller {
       this.panelTarget.open = this.expanded
     }
     this.reflect()
+    this.caching = false
   }
 
   chatDialogOutletConnected() { this.layout() }
