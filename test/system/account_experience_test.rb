@@ -415,7 +415,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     end
 
     def record_account_contrast(name)
-      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       tab_to_account_action(URI(find(".n-workspace-header .n-workspace-primary", match: :first)[:href]).request_uri)
       rows = page.evaluate_script(<<~JS)
         (() => {

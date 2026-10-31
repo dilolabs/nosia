@@ -102,8 +102,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             visit path
             set_workspace_theme(theme)
             assert_selector "main h1", count: 1
-            find("[data-header-details] > summary").click
-            assert_selector "[data-header-details][open]"
+            assert_no_selector "[data-header-details], .n-header-details", visible: :all
             assert_selector "main .n-workspace-header nav", count: 1
             assert_no_text(/translation missing|missing translation/i)
             assert_workspace_layout

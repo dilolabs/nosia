@@ -198,7 +198,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
     end
 
     def verify_dashboard_contrast
-      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       rows = page.evaluate_script(<<~JS)
         (()=>{
           const canvas=document.createElement('canvas');canvas.width=canvas.height=1;

@@ -666,20 +666,26 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
         html: document.activeElement.outerHTML.slice(0, 500) }
     JS
 
-    [ true, false ].each do |open|
-      # Geometry stimulus only: native disclosure keyboard behavior is covered
-      # independently, without scrolling this paused paragraph to its summary.
-      before_geometry = task3_reading_geometry
-      page.execute_script("document.querySelector('#chat-usage-details').open = arguments[0]", open)
-      settle_workspace_layout
-      geometry = { before: before_geometry, after: task3_reading_geometry }
-      chat_measurement("kind" => "task3-usage-geometry-diagnostic", "sample" => geometry)
-      puts "Task3 Usage geometry: #{geometry.to_json}"
-      assert_reader_following false
-      assert_reader_anchor anchor
-      assert_no_button "Latest message"
-      assert page.evaluate_script("window.compactReaderFocus === document.activeElement")
+    before_height = page.evaluate_script("document.querySelector('.n-chat-header').getBoundingClientRect().height")
+    Current.reset
+    totals = capture_turbo_stream_broadcasts([ @chat, :token_totals, :en ]) do
+      TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :agent_skill,
+        model_id: "picker-test-model", input_tokens: 1, output_tokens: 0)
     end
+    replacement = totals.find { |stream| stream["target"] == dom_id(@chat, :token_totals) }
+    assert replacement, "Expected the actual localized accounting replacement"
+    assert_equal "replace", replacement["action"]
+    stream_html(replacement.to_html)
+    assert_selector "section#chat-usage-details tr[data-usage-kind=agent_skill]", visible: :all
+    settle_workspace_layout
+    after_height = page.evaluate_script("document.querySelector('.n-chat-header').getBoundingClientRect().height")
+    assert_operator after_height, :>, before_height
+    chat_measurement("kind" => "visible-usage-accounting-growth", "beforeHeight" => before_height,
+      "afterHeight" => after_height, "payload" => replacement.to_html)
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_no_button "Latest message"
+    assert page.evaluate_script("window.compactReaderFocus === document.activeElement")
     [ [ 375, 812 ], [ 1400, 1000 ] ].each do |width, height|
       set_reader_viewport(width, height)
       settle_workspace_layout
@@ -713,7 +719,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_equal "message_content-content", focused_id
     assert_selector "##{focused_id}:focus"
     chat_measurement("kind" => "compact-header-reader", "anchor" => anchor, "currentAnchor" => reader_anchor,
-      "usageProgrammaticGeometryOnly" => true, "nativeZoomVerified" => false)
+      "usageActualAccountingBroadcast" => true, "nativeZoomVerified" => false)
     chat_screenshot "compact-header-reader-reflow"
     assert_no_enqueued_jobs only: ChatResponseJob
   end
@@ -1154,7 +1160,8 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       chunk = insert_picker_chunk(@second, texts(:picker_second_text), "Saved local evidence", [ 1.0 ] + Array.new(width - 1, 0.0))
       answer.update_columns(similar_chunk_ids: [ chunk.id.to_s ])
       visit chat_url(@chat)
-      find("#chat-usage-summary").click
+      assert_selector "section#chat-usage-details > h2#chat-usage-summary"
+      assert_no_selector "#chat-usage-details summary", visible: :all
       find("##{dom_id(answer, :sources_summary)}").click
       find("##{dom_id(answer, :response_summary)}").click
       page.execute_script("document.getElementById(arguments[0]).focus()", dom_id(answer, :response_summary))
@@ -1167,7 +1174,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       replacement = totals.find { |stream| stream["target"] == dom_id(@chat, :token_totals) }
       assert replacement, "Expected the actual localized token totals broadcast"
       stream_html(replacement.to_html)
-      assert_selector "#chat-usage-details[open] [data-chat-total-input]", text: "126"
+      assert_selector "section#chat-usage-details [data-chat-total-input]", text: "126"
       assert_selector "##{dom_id(answer, :response_summary)}:focus"
 
       deliver_answer_update(answer, locale)
@@ -1356,7 +1363,6 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     set_reader_viewport(1024, 1000)
     answer = workspace(:messages, :workspace_answer)
     visit chat_url(@chat)
-    find("#chat-usage-summary").click
     find("##{dom_id(answer, :response_summary)}").click
     click_button "History"
     assert_native_dialog "chat-history"
@@ -1384,7 +1390,8 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     click_button "History"
     within("[data-history-chat='#{first_chat.id}']") { click_link "First account question" }
     assert_current_path chat_path(first_chat)
-    assert_no_selector "#chat-usage-details[open]", visible: :all
+    assert_selector "section#chat-usage-details ##{dom_id(first_chat, :token_totals)}", count: 1, visible: :all
+    assert_no_selector "##{dom_id(@chat, :token_totals)}", visible: :all
     assert_no_selector "dialog[open]", visible: :all
     assert_selector "[data-chat-feedback-target=status]", text: "", visible: :all
     assert_no_enqueued_jobs only: ChatResponseJob
@@ -1663,6 +1670,48 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   %i[en fr].each do |locale|
+    [ false, true ].each do |dark|
+      test "saved landscape feedback stays contained in its reader in #{locale} #{dark ? 'dark' : 'light'}" do
+        @second.update_columns(name: "CompteDeRecherche" * 12)
+        set_workspace_language(locale)
+        counts = [ Chat.count, Message.count, @chat.token_usages.count ]
+        chat_viewport(812, 375)
+        visit chat_url(@chat)
+        assert_selector "lexxy-editor[connected]"
+        chat_theme(dark)
+        assert_selector "section#chat-usage-details > h2#chat-usage-summary", text: I18n.t("nosia.chat_workspace.usage_details", locale: locale), visible: :all
+        assert_selector "#chat-usage-details [data-chat-total-input]", text: "125", exact_text: true, visible: :all
+        assert_selector "#chat-usage-details [data-chat-total-output]", text: "24", exact_text: true, visible: :all
+        assert_no_selector "#chat-usage-details details, #chat-usage-details summary", visible: :all
+        sample = saved_feedback_geometry
+        chat_measurement("kind" => "saved-landscape-feedback-containment", "sample" => sample)
+        chat_screenshot "feedback-containment-#{locale}-#{dark ? 'dark' : 'light'}"
+
+        assert_operator sample.fetch("header").fetch("height"), :>, sample.fetch("reader").fetch("height"), sample.to_json
+        assert_equal "chat-feedback-status-#{@chat.id}", sample.fetch("status").fetch("id")
+        assert_equal [ "status", "polite", "true", true ], sample.fetch("status").values_at("role", "live", "atomic", "permanent")
+        assert_equal [ 1, 1 ], sample.fetch("status").values_at("width", "height")
+        assert sample.fetch("status").fetch("srOnly")
+        assert_equal 375, sample.fetch("root").fetch("height"), sample.to_json
+        assert_equal [ 375, 0, 0 ], sample.fetch("root").values_at("client", "top", "windowTop"), sample.to_json
+        assert_equal "application-scroll", sample.fetch("status").fetch("offsetParent"), sample.to_json
+        assert_equal [ 0, 0 ], sample.values_at("mainTop", "transcriptTop"), sample.to_json
+        assert_operator sample.fetch("reader").fetch("height"), :>, 0
+        assert_operator sample.fetch("dock").fetch("height"), :>, 0
+        assert_in_delta sample.fetch("reader").fetch("bottom"), sample.fetch("dock").fetch("top"), 1
+        assert_operator sample.fetch("dock").fetch("bottom"), :<=, 375
+        assert_chat_bounds
+        after = saved_feedback_geometry
+        assert_equal sample.fetch("root"), after.fetch("root"), after.to_json
+        assert_equal sample.fetch("reader"), after.fetch("reader"), after.to_json
+        assert_equal sample.fetch("dock"), after.fetch("dock"), after.to_json
+        assert_equal sample.fetch("status").slice("id", "role", "live", "atomic", "permanent", "width", "height", "offsetParent"),
+          after.fetch("status").slice("id", "role", "live", "atomic", "permanent", "width", "height", "offsetParent")
+        assert_equal counts, [ Chat.count, Message.count, @chat.token_usages.count ]
+        assert_no_enqueued_jobs only: ChatResponseJob
+      end
+    end
+
     test "responsive visual keyboard matrix in #{locale}" do
       @second.update!(name: "CompteDeRecherche" * 12)
       answer = workspace(:messages, :workspace_answer)
@@ -1781,9 +1830,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       chat_contrast ".n-chat-source p.font-medium"
       chat_contrast "##{dom_id(answer, :response_details)} .n-workspace-help:not([data-estimate-note])"
       chat_contrast "##{dom_id(answer, :response_details)} .n-chat-values > div:first-child dd"
-      chat_keyboard_focus "#chat-usage-summary", reverse: true
-      chat_contrast "#chat-usage-summary", minimum: 3, outline: true
-      page.driver.browser.action.send_keys(:enter).perform
+      chat_keyboard_focus ".n-chat-toolbar a[href='#{user_root_path}']", reverse: true
+      assert_selector "section#chat-usage-details > h2#chat-usage-summary"
+      assert_no_selector "#chat-usage-details summary", visible: :all
       chat_contrast "[data-chat-total-input]"
       chat_contrast "[data-chat-total-output]"
       chat_contrast ".n-chat-user-body p"
@@ -1920,6 +1969,22 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def saved_feedback_geometry
+      page.evaluate_script(<<~JS)
+        (() => {
+          const reader = document.querySelector('[data-application-scroll]'), status = document.querySelector('[data-chat-feedback-target=status]')
+          const root = document.scrollingElement, rect = status.getBoundingClientRect()
+          return {root: {height: root.scrollHeight, client: root.clientHeight, top: root.scrollTop, windowTop: scrollY},
+            header: document.querySelector('.n-chat-header').getBoundingClientRect().toJSON(),
+            reader: reader.getBoundingClientRect().toJSON(), dock: document.querySelector('.n-chat-dock').getBoundingClientRect().toJSON(),
+            mainTop: document.querySelector('main').scrollTop, transcriptTop: document.querySelector('.n-chat-transcript').scrollTop,
+            status: {id: status.id, role: status.getAttribute('role'), live: status.getAttribute('aria-live'), atomic: status.getAttribute('aria-atomic'),
+              permanent: status.hasAttribute('data-turbo-permanent'), srOnly: status.classList.contains('sr-only'),
+              width: rect.width, height: rect.height, offsetParent: status.offsetParent?.id || status.offsetParent?.tagName}}
+        })()
+      JS
+    end
+
     def observe_workspace_announcements
       page.execute_script(<<~JS)
         const status = document.querySelector('[data-chat-feedback-target=status]')
@@ -1961,7 +2026,8 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     end
 
     def assert_live_disclosures(answer, sources:, reasoning:)
-      assert_selector "#chat-usage-details[open]"
+      assert_selector "section#chat-usage-details > h2#chat-usage-summary"
+      assert_no_selector "#chat-usage-details summary", visible: :all
       assert_selector "##{dom_id(answer, :response_details)}[open]"
       assert_selector "##{dom_id(answer, :response_summary)}:focus"
       { sources: sources, reasoning_details: reasoning }.each do |prefix, open|

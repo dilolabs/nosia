@@ -2,11 +2,6 @@
 <div class="n-dashboard" data-dashboard>
   <header class="n-dashboard-heading n-workspace-heading-row">
     <h1><%= t("nosia.dashboard.welcome") %></h1>
-    <details class="n-header-details" data-header-details>
-      <summary><%= t("nosia.layout.details") %></summary>
-      <p class="n-dashboard-help"><%= t("nosia.dashboard.title") %></p>
-      <p class="n-dashboard-help"><%= t("nosia.dashboard.introduction") %></p>
-    </details>
   </header>
   <div class="n-dashboard-top">
     <%= render "composer", chat: @chat %>

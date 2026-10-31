@@ -1,5 +1,5 @@
 <div class="n-workspace n-skills-workspace" data-skills-workspace>
-  <%= render "agent_skills/header", title: t("nosia.skills.title"), description: t("nosia.skills_workspace.description"), primary: (@agent_skills.any? ? link_to(t("nosia.skills.create"), skill_workspace_new_path, class: "n-workspace-button n-workspace-primary") : nil) %>
+  <%= render "agent_skills/header", title: t("nosia.skills.title"), primary: (@agent_skills.any? ? link_to(t("nosia.skills.create"), skill_workspace_new_path, class: "n-workspace-button n-workspace-primary") : nil) %>
   <%= render "agent_skills/feedback" %>
   <% total = @agent_skills.size; enabled = @agent_skills.count(&:enabled?) %>
   <p class="n-workspace-help" data-skills-count data-total="<%= total %>" data-enabled="<%= enabled %>"><%= t("nosia.skills_workspace.counts", count: total, total: number_with_delimiter(total), enabled: number_with_delimiter(enabled)) %></p>

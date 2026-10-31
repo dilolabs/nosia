@@ -25,7 +25,8 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
         assert_select "span", text: I18n.t("nosia.accounts.add", locale: locale)
         assert_select "svg[aria-hidden='true']", count: 1
       end
-      assert_select ".n-workspace-help", text: I18n.t("nosia.accounts_workspace.description", locale: locale)
+      assert_select ".n-workspace-header p", text: I18n.t("nosia.accounts_workspace.description", locale: locale), count: 0
+      assert_select ".n-workspace-header .n-workspace-context nav", count: 1
       assert_select "[data-account-id]", count: 3
       assert_select "#accordion-right-actions, #drawer-right", count: 0
       refute_match(/translation missing|missing translation/i, response.body)
@@ -50,7 +51,8 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
       end
       assert_select ".n-workspace-header [data-workspace-scope]", text: "#{@second.uid} · #{I18n.t('nosia.account_experience.roles.owner', locale: locale)}", count: 1
       assert_select ".n-workspace-header details [data-workspace-scope]", count: 0
-      assert_select ".n-workspace-header details[data-header-details]:not([open])", count: 1
+      assert_select ".n-header-details, [data-header-details]", count: 0
+      assert_select ".n-workspace-header .n-workspace-context .n-workspace-trail", count: 1
       assert_select ".n-workspace-header a.n-workspace-button[href='#{edit_account_path(@second)}']:not(.n-workspace-primary)"
       assert_select ".n-workspace-header a.n-workspace-primary[href='#{new_chat_path(account_id: @second.id)}']" do
         assert_select "span", text: I18n.t("nosia.account_experience.new_conversation", locale: locale)
@@ -69,7 +71,8 @@ class AccountsWorkspaceShellTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select ".n-workspace-header [data-workspace-scope]", text: "#{@second.uid} · #{I18n.t('nosia.account_experience.roles.member', locale: locale)}", count: 1
       assert_select ".n-workspace-header details [data-workspace-scope]", count: 0
-      assert_select ".n-workspace-header details[data-header-details]:not([open])", count: 1
+      assert_select ".n-header-details, [data-header-details]", count: 0
+      assert_select ".n-workspace-header .n-workspace-context .n-workspace-trail", count: 1
       assert_select ".n-workspace-header a[href='#{edit_account_path(@second)}']", count: 0
       assert_select ".n-workspace-header a[href='#{new_chat_path(account_id: @second.id)}']"
     end

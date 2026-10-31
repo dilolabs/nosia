@@ -746,7 +746,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
 
     def assert_source_layout
       assert_selector "[data-source-workspace] .n-workspace-header h1", count: 1
-      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       assert_no_text(/translation missing|missing translation/i)
       assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1"), "Source workspace overflows horizontally"
     end

@@ -93,7 +93,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
               assert_usage_text_unclipped
 
               # Turbo may restore native details state; close it only to establish the keyboard scenario.
-              page.execute_script("document.querySelectorAll('[data-usage-workspace] details:not([data-header-details])').forEach(e=>e.open=false)")
+              page.execute_script("document.querySelectorAll('[data-usage-workspace] details').forEach(e=>e.open=false)")
               page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
               name = "#{scope}-#{locale}-#{width}-#{height}-#{theme}"
               save_usage_screenshot("#{name}-overview")
@@ -215,7 +215,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
 
     def assert_usage_layout(width)
       assert_selector "h1", count: 1
-      page.execute_script("document.querySelectorAll('[data-header-details]').forEach(details => details.open = true)")
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       assert_no_text(/translation missing|missing translation/i)
       assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1"), "Main overflows horizontally"
       assert page.evaluate_script("document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1"), "Document overflows horizontally"

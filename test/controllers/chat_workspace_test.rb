@@ -21,7 +21,8 @@ class ChatWorkspaceTest < ActionDispatch::IntegrationTest
     assert_workspace_shell
     assert_select "#chat-workspace-#{@chat.id}.n-chat-workspace--saved", count: 1
     assert_select ".n-chat-header h1", text: "What are the key findings in this report?"
-    assert_select "#chat-usage-details:not([open]) #chat-usage-summary", text: "Usage details"
+    assert_select "section#chat-usage-details > h2#chat-usage-summary", text: "Usage details", count: 1
+    assert_select "#chat-usage-details summary, .n-header-details", count: 0
   end
 
   test "history includes only personal root chats in accessible accounts" do

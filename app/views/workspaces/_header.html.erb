@@ -2,14 +2,11 @@
 <% content_for :title, title %>
 <header class="n-workspace-header">
   <div class="n-workspace-heading-row">
-    <div class="min-w-0">
+    <div class="n-workspace-heading min-w-0">
       <h1 class="n-workspace-title"><%= title %></h1>
-      <% if scope_label %><p class="n-workspace-scope" data-workspace-scope><%= scope_label %></p><% end %>
-    </div>
-    <div class="n-workspace-actions">
-      <% if description.present? || trail.any? %>
-        <details class="n-header-details" data-header-details>
-          <summary><%= t("nosia.layout.details") %></summary>
+      <% if scope_label || description.present? || trail.any? %>
+        <div class="n-workspace-context">
+          <% if scope_label %><p class="n-workspace-scope" data-workspace-scope><%= scope_label %></p><% end %>
           <% if description.present? %><p class="n-workspace-help"><%= description %></p><% end %>
           <% if trail.any? %>
             <nav aria-label="<%= breadcrumb_label || t('nosia.workspace.breadcrumb') %>" class="n-workspace-help">
@@ -27,8 +24,10 @@
               </ol>
             </nav>
           <% end %>
-        </details>
+        </div>
       <% end %>
+    </div>
+    <div class="n-workspace-actions">
       <% if back_path %><%= link_to t("nosia.actions.back"), back_path, class: "n-workspace-link", data: { workspace_back: true } %><% end %>
       <% if show_new_chat %>
         <div class="hidden lg:block"><%= link_to t("nosia.nav.new_chat"), new_chat_path, class: "n-workspace-link" %></div>

@@ -1,6 +1,7 @@
 require "application_system_test_case"
 require "json"
 require "tmpdir"
+require "turbo/broadcastable/test_helper"
 require_relative "../support/chat_workspace_fixtures"
 require_relative "../support/chat_workspace_browser_checks"
 require_relative "../support/account_experience_fixtures"
@@ -9,6 +10,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
   include ChatWorkspaceFixtures
   include ActionView::RecordIdentifier
   include ChatWorkspaceBrowserChecks
+  include Turbo::Broadcastable::TestHelper
 
   setup do
     @original_size = page.current_window.size
@@ -261,7 +263,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "saved header is compact and preserves the draft while disclosing usage" do
+  test "saved header keeps visible complete Usage and the same native draft editor" do
     header_viewport(1400, 1000)
     visit chat_path(@chat)
     assert_selector "lexxy-editor[connected]"
@@ -269,24 +271,30 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     page.execute_script("window.headerDraftEditor = document.querySelector('lexxy-editor')")
     header_top
 
-    find("#chat-usage-summary").click
-    assert_selector "#chat-usage-details[open]"
+    assert_selector ".n-chat-header > section#chat-usage-details > h2#chat-usage-summary", text: I18n.t("nosia.chat_workspace.usage_details")
+    assert_no_selector ".n-header-details, [data-header-details], #chat-usage-details summary, #chat-usage-summary[tabindex]", visible: :all
     within "#chat-usage-details" do
       assert_selector "dt", text: I18n.t("nosia.usage.input"), exact_text: true
       assert_selector "[data-chat-total-input]", text: "125", exact_text: true
       assert_selector "dt", text: I18n.t("nosia.usage.output"), exact_text: true
       assert_selector "[data-chat-total-output]", text: "24", exact_text: true
+      assert_selector "caption", text: I18n.t("nosia.usage.per_kind")
+      %w[completion embedding].each { |kind| assert_selector "tr[data-usage-kind='#{kind}'] th[scope=row]" }
+      assert_selector "[data-estimate-note]", count: 1
+      assert_text I18n.t("nosia.chat_workspace.estimates")
+      assert_text "kWh"
+      assert_text "gCO₂e"
     end
-    header_settle
-    header_record("saved-heading-usage-open", header_geometry.merge(
-      "headerHeight" => page.evaluate_script("document.querySelector('.n-chat-header').getBoundingClientRect().height")
-    ), screenshot: true)
-    find("#chat-usage-summary").click
-    assert_selector "#chat-usage-details:not([open])"
     header_settle
     geometry = page.evaluate_script(<<~JS, dom_id(@chat, :token_totals))
       (() => ({
         headerHeight: document.querySelector('.n-chat-header').getBoundingClientRect().height,
+        headerPosition: getComputedStyle(document.querySelector('.n-chat-header')).position,
+        insideReader: document.querySelector('[data-application-scroll]').contains(document.querySelector('.n-chat-header')),
+        usageTop: document.querySelector('#chat-usage-details').getBoundingClientRect().top,
+        actionsBottom: document.querySelector('.n-chat-toolbar .n-workspace-actions').getBoundingClientRect().bottom,
+        surfaceBottom: document.querySelector('[data-application-scroll]').getBoundingClientRect().bottom,
+        dockTop: document.querySelector('.n-chat-dock').getBoundingClientRect().top,
         titleTop: document.querySelector('.n-chat-title').getBoundingClientRect().top,
         historyTop: document.querySelector('#workspace-history-trigger').getBoundingClientRect().top,
         sameEditor: window.headerDraftEditor === document.querySelector('lexxy-editor'),
@@ -296,7 +304,11 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     JS
     header_record("saved-heading", geometry, screenshot: true)
 
-    assert_operator geometry.fetch("headerHeight"), :<=, 92, geometry.to_json
+    assert_operator geometry.fetch("headerHeight"), :>, 92, geometry.to_json
+    refute_includes %w[fixed sticky], geometry.fetch("headerPosition"), geometry.to_json
+    assert geometry.fetch("insideReader"), geometry.to_json
+    assert_operator geometry.fetch("usageTop"), :>=, geometry.fetch("actionsBottom"), geometry.to_json
+    assert_operator geometry.fetch("surfaceBottom"), :<=, geometry.fetch("dockTop") + 1, geometry.to_json
     assert_operator (geometry.fetch("titleTop") - geometry.fetch("historyTop")).abs, :<=, 20, geometry.to_json
     assert_selector ".n-chat-toolbar h1.n-chat-title", count: 1
     assert geometry.fetch("sameEditor"), geometry.to_json
@@ -306,35 +318,26 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "page heading descriptions and trails remain operable through native details" do
+  test "useful page context is visible under h1 with native breadcrumb navigation" do
     header_viewport(1400, 1000)
     %w[en fr].each do |locale|
       visit profile_path
       orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
       header_theme(locale == "fr")
-      assert_selector "details[data-header-details]:not([open])"
-      summary = "details[data-header-details] > summary"
-      assert_selector summary, text: I18n.t("nosia.layout.details", locale: locale), exact_text: true
-      assert_no_selector ".n-workspace-header .n-workspace-trail"
-      header_tab_to(summary)
-      header_record("page-heading-closed", header_geometry.merge(
+      assert_no_selector ".n-header-details, [data-header-details]", visible: :all
+      assert_no_selector ".n-workspace-header p", text: I18n.t("nosia.profile.introduction", locale: locale), visible: :all
+      assert_selector ".n-workspace-context nav[aria-label='#{I18n.t('nosia.workspace.breadcrumb', locale: locale)}'] .n-workspace-trail"
+      home = ".n-workspace-context a[href='#{user_root_path}']"
+      header_tab_to(home)
+      header_record("page-heading-inline-#{locale}", header_geometry.merge(
         "headerHeight" => page.evaluate_script("document.querySelector('.n-workspace-header').getBoundingClientRect().height")
       ), screenshot: true)
 
       page.driver.browser.action.send_keys(:enter).perform
-      assert_selector "details[data-header-details][open]"
-      assert_selector ".n-workspace-header .n-workspace-help", text: I18n.t("nosia.profile.introduction", locale: locale), exact_text: true
-      assert_selector ".n-workspace-header nav[aria-label='#{I18n.t('nosia.workspace.breadcrumb', locale: locale)}'] .n-workspace-trail"
-      header_hit(summary)
-      header_record("page-heading-open", header_geometry.merge(
-        "headerHeight" => page.evaluate_script("document.querySelector('.n-workspace-header').getBoundingClientRect().height")
-      ), screenshot: true)
-
-      page.driver.browser.action.send_keys(:space).perform
-      assert_selector "details[data-header-details]:not([open])"
-      assert_no_selector ".n-workspace-header .n-workspace-trail"
-      header_hit(summary)
+      assert_current_path user_root_path
+      assert_selector "[data-dashboard] lexxy-editor[connected]"
+      assert_no_selector ".n-dashboard-heading details, .n-dashboard-heading p", visible: :all
     end
     assert_no_enqueued_jobs only: ChatResponseJob
   end
@@ -358,7 +361,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       assert_equal direction == "backward", key.fetch("shift"), sample.to_json
       refute_equal key.fetch("ledger").fetch("clientWidth"), key.fetch("clientWidth"), sample.to_json
       assert_operator sample.fetch("deferred"), :>, 0, sample.to_json
-      target = direction == "backward" ? ".n-chat-toolbar a[href='#{new_chat_path}']" : "#workspace-history-trigger"
+      target = "#workspace-history-trigger"
       assert_selector "#{target}:focus"
       header_hit(target)
       assert_selector ".n-chat-workspace[data-reader-following='false']"
@@ -380,8 +383,9 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_equal before.fetch("text"), after.fetch("text"), after.to_json
     assert_in_delta before.fetch("offset"), after.fetch("offset"), 1, after.to_json
     assert_selector ".n-chat-workspace[data-reader-following='false']"
-    assert_selector "#chat-usage-summary:focus", visible: :all
-    assert_operator page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().bottom"), :<, 0
+    target = ".n-chat-toolbar a[href='#{new_chat_path}']"
+    assert_selector "#{target}:focus", visible: :all
+    assert_operator page.evaluate_script("document.querySelector(arguments[0]).getBoundingClientRect().bottom", target), :<, 0
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
@@ -430,7 +434,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
         end
         header_top
         header_record("matrix-top-#{index}", header_matrix_geometry, screenshot: true)
-        header_disclosures(index)
+        header_context(index)
 
         # Only insufficient real overflow receives a labelled geometry fixture.
         # The saved chat already contains the real eighty-paragraph answer.
@@ -470,7 +474,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     visit chat_path(@chat)
     assert_selector "lexxy-editor[connected]"
     header_theme(false)
-    header_disclosures(10)
+    header_context(10)
 
     # Adversarial geometry only, not native user input or a reader-state write.
     page.execute_script(<<~JS)
@@ -523,86 +527,244 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
   end
 
   [ [ 375, 812 ], [ 812, 375 ] ].product(%w[keyboard pointer]).each do |(width, height), input|
-    test "native Usage #{input} keeps its summary operable at #{width}x#{height}" do
+    test "visible Usage and native History #{input} preserve the draft at #{width}x#{height}" do
       @second.update_columns(name: "CompteDeRecherche" * 12)
       header_viewport(width, height)
       visit chat_path(@chat)
       assert_selector "lexxy-editor[connected]"
+      find("lexxy-editor .lexxy-editor__content").send_keys("Keep this native History draft")
+      page.execute_script("window.headerDraftEditor = document.querySelector('lexxy-editor')")
       header_top
-      header_tab_to("#chat-usage-summary")
-      before = page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top")
-
-      [ true, false ].each do |open|
-        header_record("usage-#{input}-before-#{open}", header_geometry, screenshot: true)
-        if input == "keyboard"
-          page.driver.browser.action.send_keys(open ? :enter : :space).perform
-        else
-          find("#chat-usage-summary").click
-        end
-        assert_selector "#chat-usage-details#{open ? '[open]' : ':not([open])'}"
-        header_settle
-        header_record("usage-#{input}-after-#{open}", header_geometry, screenshot: true)
-        assert_selector "#chat-usage-summary:focus"
-        assert_in_delta before, page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top"), 1
-        if input == "keyboard"
-          header_hit("#chat-usage-summary")
-        else
-          chat_reachable "#chat-usage-summary", scroll: false
-        end
-        assert_selector ".n-chat-workspace[data-reader-following='false']"
-        assert_no_button "Latest message"
-        assert_equal [ 0, 0 ], page.evaluate_script("[document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop]")
+      assert_selector "section#chat-usage-details > h2#chat-usage-summary"
+      assert_selector "#chat-usage-details table"
+      assert_no_selector "#chat-usage-details summary, #chat-usage-summary[tabindex]", visible: :all
+      if input == "keyboard"
+        header_tab_to("#workspace-history-trigger")
+        page.driver.browser.action.send_keys(:enter).perform
+      else
+        find("#workspace-history-trigger").click
       end
+      assert_selector "#chat-history:modal"
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_selector "#workspace-history-trigger:focus"
+      header_broadcast_usage
+      header_settle
+      assert page.evaluate_script("window.headerDraftEditor === document.querySelector('lexxy-editor')")
+      assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep this native History draft"
+      assert_no_button "Latest message"
+      assert_equal [ 0, 0 ], page.evaluate_script("[document.querySelector('main').scrollTop, document.querySelector('.n-chat-transcript').scrollTop]")
+      header_record("usage-history-#{input}-#{width}x#{height}", header_geometry, screenshot: true)
       assert_no_enqueued_jobs only: ChatResponseJob
     end
   end
 
   [ [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
-    test "native Usage stream overlap keeps the summary through HUD reflow at #{width}x#{height}" do
+    test "native Reasoning and new answer content retain paused reading through HUD reflow at #{width}x#{height}" do
       @second.update_columns(name: "CompteDeRecherche" * 12)
       header_viewport(width, height)
       visit chat_path(@chat)
       assert_selector "lexxy-editor[connected]"
-      header_top
-      header_tab_to("#chat-usage-summary")
+      header_wait_for_message_animations
+      message = workspace(:messages, :workspace_answer)
+      target = "##{dom_id(message, :reasoning_summary)}"
+      header_ordering_tail(target)
+      header_tab_to(target)
+      assert_selector ".n-chat-workspace[data-reader-following='false']"
       assert_no_button "Latest message"
-      before = page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top")
-      header_hold_reader_frame
+      before = header_reader_anchor
+      header_hold_reader_frame(target)
 
       page.driver.browser.action.send_keys(:enter).perform
-      assert_selector "#chat-usage-details[open]"
-      message = workspace(:messages, :workspace_answer)
-      text = message.content + "\n\nOrdering overlap: genuinely new content below the viewport."
+      assert_selector "##{dom_id(message, :reasoning_details)}[open]"
+      header_broadcast_usage
+      text = message.content + "\n\n" + (1..20).map { |index|
+        "Ordering overlap paragraph #{index}: genuinely new answer evidence remains available below the reading viewport."
+      }.join("\n\n")
       html = ApplicationController.render(partial: "messages/streaming_content",
         locals: { message: message, content_html: Message.render_markdown_content(text) })
       stream = %(<turbo-stream action="replace" target="#{dom_id(message, :content)}"><template>#{html}</template></turbo-stream>)
       page.execute_script("Turbo.renderStreamMessage(arguments[0])", stream)
-      assert_selector ".ai-response-content p:last-child", text: "Ordering overlap:", visible: :all
+      assert_selector ".ai-response-content p:last-child", text: "Ordering overlap paragraph 20:", visible: :all
+      2.times { header_settle }
+      growth = page.evaluate_script(<<~JS)
+        (() => {
+          const paragraphs = [...document.querySelectorAll('.ai-response-content p')]
+          return {paragraphCount: paragraphs.length, lastText: paragraphs.at(-1).textContent,
+            lastParagraph: paragraphs.at(-1).getBoundingClientRect().toJSON(),
+            reader: document.querySelector('[data-application-scroll]').getBoundingClientRect().toJSON()}
+        })()
+      JS
+      header_record("ordering-real-answer-growth", growth, screenshot: true)
+      assert_operator growth.fetch("lastParagraph").fetch("bottom"), :>, growth.fetch("reader").fetch("bottom"), growth.to_json
       page.execute_script("window.headerOrderingBoundary.mark('before-release'); window.headerOrderingBoundary.release()")
       3.times { header_settle }
       sample = page.evaluate_script("window.headerOrderingBoundary.sample()")
       header_record("ordering-stream-hud", sample, screenshot: true)
 
-      assert sample.fetch("trace").any? { |entry| entry["event"] == "restoreDisclosure:after" && entry["restored"] }, sample.to_json
       assert sample.fetch("trace").any? { |entry| entry["event"] == "restoreAnchor:after" && entry["latestVisible"] }, sample.to_json
       assert sample.fetch("trace").any? { |entry| entry["event"] == "schedule" && entry["latestVisible"] && entry["stack"].include?("ResizeObserver") }, sample.to_json
+      assert sample.fetch("trace").all? { |entry| entry["activation"].nil? }, sample.to_json
+      after = header_reader_anchor(before.fetch("index"))
+      assert_equal before.fetch("text"), after.fetch("text")
+      assert_in_delta before.fetch("offset"), after.fetch("offset"), 1, sample.to_json
       assert_button "Latest message"
-      assert_in_delta before, page.evaluate_script("document.querySelector('#chat-usage-summary').getBoundingClientRect().top"), 1, sample.to_json
-      header_hit("#chat-usage-summary")
+      assert_selector "#{target}:focus", visible: :all
+      assert_selector ".n-chat-workspace[data-reader-following='false']"
       assert_no_enqueued_jobs only: ChatResponseJob
     ensure
       page.execute_script("window.headerOrderingBoundary?.restore()")
     end
 
-    test "native Tab supersedes a pending Usage activation at #{width}x#{height}" do
+    test "trusted native Tab supersedes pending visible metadata reflow at #{width}x#{height}" do
       @second.update_columns(name: "CompteDeRecherche" * 12)
+      message = workspace(:messages, :workspace_answer)
+      original = message.content
+      think_pattern = /<think>(.*?)<\/think>/m
+      think = original.match(think_pattern)
+      assert think, "The real fixture must contain its original reasoning block"
+      assert_equal 1, original.scan(think_pattern).size
+      extension = (1..20).map { |index|
+        "Reasoning extension paragraph #{index}: compare the saved evidence carefully before drawing a conclusion."
+      }.join("\n\n")
+      content = original.sub(think_pattern, "<think>#{think[1]}\n\n#{extension}</think>")
+      assert_equal original.sub(think_pattern, ""), content.sub(think_pattern, ""), "The complete original answer bytes must remain unchanged"
+      assert_equal Message.render_markdown_content(original), Message.render_markdown_content(content)
+      accounting = [ @chat.account_id, message.chat_id, @chat.input_tokens_count, @chat.output_tokens_count, @chat.token_usages.count ]
+      message.update_columns(content: content)
+      assert_equal accounting, [ @chat.reload.account_id, message.reload.chat_id, @chat.input_tokens_count, @chat.output_tokens_count, @chat.token_usages.count ]
       header_viewport(width, height)
       visit chat_path(@chat)
       assert_selector "lexxy-editor[connected]"
-      target = "##{dom_id(workspace(:messages, :workspace_answer), :reasoning_summary)}"
-      # Adversarial geometry only: the reserved composer is no longer below this
-      # target inside the reader. Supply real inert overflow, not a paused-state
-      # write, so trusted native Tab can still exercise the >80px paused case.
+      header_wait_for_message_animations
+      reasoning = "##{dom_id(message, :reasoning_summary)}"
+      target = "##{dom_id(message, :response_summary)}"
+      header_ordering_tail(target)
+      header_tab_to(reasoning)
+      header_hold_reader_frame(reasoning)
+
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "##{dom_id(message, :reasoning_details)}[open]"
+      header_broadcast_usage
+      reasoning_content = "##{dom_id(message, :reasoning_content)}"
+      assert_selector "#{reasoning_content} p", minimum: 20, visible: :all
+      assert_selector reasoning_content, text: think[1], visible: :all
+      assert_selector reasoning_content, text: "Reasoning extension paragraph 20:", visible: :all
+      offscreen = page.evaluate_script(<<~JS, target, reasoning_content)
+        (() => {
+          const target = document.querySelector(arguments[0]), content = document.querySelector(arguments[1])
+          const paragraphs = [...content.querySelectorAll('p')]
+          return {target: target.getBoundingClientRect().toJSON(), targetId: target.id,
+            reader: document.querySelector('[data-application-scroll]').getBoundingClientRect().toJSON(),
+            reasoningParagraphCount: paragraphs.length,
+            extensionParagraphCount: paragraphs.filter(paragraph => paragraph.textContent.startsWith('Reasoning extension paragraph ')).length,
+            lastReasoningText: paragraphs.at(-1).textContent}
+        })()
+      JS
+      header_record("boundary-native-tab-offscreen-reasoning", offscreen, screenshot: true)
+      assert_equal 20, offscreen.fetch("extensionParagraphCount"), offscreen.to_json
+      assert_operator offscreen.fetch("target").fetch("bottom"), :>, offscreen.fetch("reader").fetch("bottom"), offscreen.to_json
+      header_tab_to(target)
+      page.execute_script("window.headerOrderingBoundary.mark('native-tab-accepted')")
+      accepted = page.evaluate_script("window.headerOrderingBoundary.sample().trace.find(entry => entry.event === 'native-tab-accepted')")
+      page.execute_script("window.headerOrderingBoundary.release()")
+      3.times { header_settle }
+      sample = page.evaluate_script("window.headerOrderingBoundary.sample()")
+      header_record("ordering-native-tab", sample, screenshot: true)
+
+      key = sample.fetch("trace").find { |entry| entry["event"] == "keydown" && entry["key"] == "Tab" }
+      assert key.fetch("trusted"), sample.to_json
+      assert_nil key.fetch("activation"), sample.to_json
+      assert sample.fetch("trace").all? { |entry| entry["activation"].nil? }, sample.to_json
+      assert_operator accepted.fetch("top"), :>, key.fetch("top"), sample.to_json
+      assert sample.fetch("trace").any? { |entry| entry["event"] == "recordInput:before" && entry["active"] == dom_id(message, :response_summary) }, sample.to_json
+      assert accepted.fetch("paused"), sample.to_json
+      assert_operator accepted.fetch("gap"), :>, 80, sample.to_json
+      assert_in_delta accepted.fetch("top"), page.evaluate_script("document.querySelector('[data-application-scroll]').scrollTop"), 1, sample.to_json
+      assert_selector "#{target}:focus"
+      assert_in_delta accepted.fetch("activeTop"), page.evaluate_script("document.activeElement.getBoundingClientRect().top"), 1
+      header_hit(target)
+      assert_no_button "Latest message"
+      assert_no_enqueued_jobs only: ChatResponseJob
+    ensure
+      page.execute_script("window.headerOrderingBoundary?.restore()")
+    end
+  end
+
+  test "visible Usage growth preserves a paused paragraph through the actual header observer" do
+    header_prepare_paused_chat("forward")
+    before = header_reader_anchor
+    height = page.evaluate_script("document.querySelector('.n-chat-header').getBoundingClientRect().height")
+    header_hold_reader_frame(".n-chat-toolbar a[href='#{user_root_path}']")
+    header_broadcast_usage
+    grown = page.evaluate_script("document.querySelector('.n-chat-header').getBoundingClientRect().height")
+    assert_operator grown, :>, height
+    2.times { header_settle }
+    page.execute_script("window.headerOrderingBoundary.release()")
+    3.times { header_settle }
+    sample = page.evaluate_script("window.headerOrderingBoundary.sample()")
+    after = header_reader_anchor(before.fetch("index"))
+    header_record("visible-usage-growth", { before: before, after: after, beforeHeight: height, afterHeight: grown, observer: sample }, screenshot: true)
+    assert sample.fetch("trace").any? { |entry| entry["event"] == "schedule" && entry["stack"].include?("ResizeObserver") }, sample.to_json
+    assert sample.fetch("trace").all? { |entry| entry["activation"].nil? }, sample.to_json
+    assert_equal before.fetch("text"), after.fetch("text")
+    assert_in_delta before.fetch("offset"), after.fetch("offset"), 1, sample.to_json
+    assert_selector ".n-chat-workspace[data-reader-following='false']"
+    assert_no_button "Latest message"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  ensure
+    page.execute_script("window.headerOrderingBoundary?.restore()")
+  end
+
+  private
+    def header_wait_for_message_animations
+      sample = page.evaluate_async_script(<<~JS)
+        const done = arguments[arguments.length - 1]
+        const transcript = document.querySelector('.n-chat-transcript')
+        const finiteAnimations = () => transcript.getAnimations({subtree: true}).filter(animation =>
+          Number.isFinite(animation.effect.getComputedTiming().endTime) && animation.effect.getTiming().iterations !== Infinity)
+        const describe = animation => ({name: animation.animationName, state: animation.playState,
+          currentTime: animation.currentTime, endTime: animation.effect.getComputedTiming().endTime,
+          iterations: animation.effect.getTiming().iterations})
+        const animations = finiteAnimations(), before = animations.map(describe)
+        Promise.all(animations.map(animation => animation.finished.catch(() => {})))
+          .then(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+          .then(() => {
+            const paragraph = transcript.querySelectorAll('.ai-response-content p')[19]
+            const baseline = paragraph.getBoundingClientRect().toJSON()
+            requestAnimationFrame(() => requestAnimationFrame(() => done({
+              before, remaining: finiteAnimations().map(describe), baseline,
+              settled: paragraph.getBoundingClientRect().toJSON(),
+              normalMotion: !matchMedia('(prefers-reduced-motion: reduce)').matches
+            })))
+          })
+      JS
+      header_record("finite-message-animation-readiness", sample)
+      assert_empty sample.fetch("remaining"), sample.to_json
+      %w[top height].each do |dimension|
+        assert_in_delta sample.fetch("baseline").fetch(dimension), sample.fetch("settled").fetch(dimension), 1, sample.to_json
+      end
+    end
+
+    def header_broadcast_usage
+      assert_selector ".n-chat-header > section#chat-usage-details"
+      locale = page.evaluate_script("document.documentElement.lang").to_sym
+      Current.reset
+      streams = capture_turbo_stream_broadcasts([ @chat, :token_totals, locale ]) do
+        TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :agent_skill,
+          model_id: "picker-test-model", input_tokens: 1, output_tokens: 0)
+      end
+      replacement = streams.find { |stream| stream["target"] == dom_id(@chat, :token_totals) }
+      assert replacement, "Expected the actual localized accounting replacement"
+      assert_equal "replace", replacement["action"]
+      header_record("actual-usage-broadcast", { locale: locale, target: replacement["target"], payload: replacement.to_html })
+      page.execute_script("Turbo.renderStreamMessage(arguments[0])", replacement.to_html)
+      assert_selector "section#chat-usage-details tr[data-usage-kind=agent_skill]", visible: :all
+      assert_selector "section#chat-usage-details [data-chat-total-input]", text: "126", exact_text: true, visible: :all
+      assert_selector "section#chat-usage-details [data-estimate-note]", count: 1, visible: :all
+    end
+
+    def header_ordering_tail(target)
+      # Labelled inert geometry only; no content, native input or reader-ledger writes.
       geometry = page.evaluate_script(<<~JS, target)
         (() => {
           const surface = document.querySelector('[data-application-scroll]')
@@ -621,39 +783,8 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       assert_equal "n-chat-transcript", geometry.fetch("parentClass")
       assert_operator geometry.fetch("height"), :>, geometry.fetch("clientHeight") + 80
       header_settle
-      header_top
-      header_tab_to("#chat-usage-summary")
-      header_hold_reader_frame
-
-      page.driver.browser.action.send_keys(:enter).perform
-      assert_selector "#chat-usage-details[open]"
-      header_tab_to(target)
-      page.execute_script("window.headerOrderingBoundary.mark('native-tab-accepted')")
-      accepted = page.evaluate_script("window.headerOrderingBoundary.sample().trace.find(entry => entry.event === 'native-tab-accepted')")
-      page.execute_script("window.headerOrderingBoundary.release()")
-      3.times { header_settle }
-      sample = page.evaluate_script("window.headerOrderingBoundary.sample()")
-      header_record("ordering-native-tab", sample, screenshot: true)
-
-      key = sample.fetch("trace").find { |entry| entry["event"] == "keydown" && entry["key"] == "Tab" }
-      assert key.fetch("trusted"), sample.to_json
-      refute_nil key.fetch("activation"), sample.to_json
-      assert_operator accepted.fetch("top"), :>, key.fetch("top"), sample.to_json
-      assert sample.fetch("trace").any? { |entry| entry["event"] == "recordInput:before" && entry["activation"] && entry["active"] != "chat-usage-summary" }, sample.to_json
-      assert accepted.fetch("paused"), sample.to_json
-      assert_operator accepted.fetch("gap"), :>, 80, sample.to_json
-      assert_in_delta accepted.fetch("top"), page.evaluate_script("document.querySelector('[data-application-scroll]').scrollTop"), 1, sample.to_json
-      assert_selector "#{target}:focus"
-      assert_in_delta accepted.fetch("activeTop"), page.evaluate_script("document.activeElement.getBoundingClientRect().top"), 1
-      header_hit(target)
-      assert_no_button "Latest message"
-      assert_no_enqueued_jobs only: ChatResponseJob
-    ensure
-      page.execute_script("window.headerOrderingBoundary?.restore()")
     end
-  end
 
-  private
     def header_icon_stroke(selector)
       sample = page.evaluate_script(<<~JS, find(selector))
         (() => {
@@ -673,12 +804,12 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       end
     end
 
-    def header_hold_reader_frame
-      page.execute_script(<<~JS)
+    def header_hold_reader_frame(selector)
+      page.execute_script(<<~JS, selector)
         (() => {
           const root = document.querySelector('.n-chat-workspace--saved'), surface = root.querySelector('[data-scroll-target~="surface"]')
           const reader = window.Stimulus.getControllerForElementAndIdentifier(root, 'scroll')
-          const summary = root.querySelector('#chat-usage-summary')
+          const summary = root.querySelector(arguments[0])
           const raf = window.requestAnimationFrame, caf = window.cancelAnimationFrame, schedule = reader.schedule
           const callbacks = new Map(), originals = new Map()
           let scheduling = false, holding = true, serial = 0
@@ -800,25 +931,14 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       JS
     end
 
-    def header_disclosures(index)
-      if page.has_selector?("details[data-header-details]", wait: 0)
-        summary = "details[data-header-details] > summary"
-        assert_selector "details[data-header-details]:not([open])"
-        header_tab_to(summary)
-        page.driver.browser.action.send_keys(:enter).perform
-        assert_selector "details[data-header-details][open]"
-        assert_header_widths
-        header_hit(summary)
-        header_record("matrix-details-open-#{index}", header_matrix_geometry, screenshot: true)
-        page.driver.browser.action.send_keys(:space).perform
-        assert_selector "details[data-header-details]:not([open])"
-      elsif page.has_selector?("#chat-usage-summary", wait: 0)
-        header_tab_to("#chat-usage-summary")
-        page.driver.browser.action.send_keys(:enter).perform
-        assert_selector "#chat-usage-details[open]"
+    def header_context(index)
+      assert_no_selector ".n-header-details, [data-header-details]", visible: :all
+      if page.has_selector?("#chat-usage-details", wait: 0)
+        assert_selector "section#chat-usage-details > h2#chat-usage-summary:not([tabindex])"
+        assert_no_selector "#chat-usage-details summary, #chat-usage-details[open]", visible: :all
         assert_selector "#chat-usage-details > .n-workspace-help", text: @second.name, exact_text: true
         assert_header_widths
-        header_hit("#chat-usage-summary")
+        header_tab_to(".n-chat-toolbar a[href='#{user_root_path}']")
         sample = page.evaluate_script(<<~JS)
           (() => {
             const preview = document.querySelector('[data-chat-account-label]'), full = document.querySelector('#chat-usage-details > p')
@@ -827,7 +947,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
             const rect = full.getBoundingClientRect()
             return { preview: { geometry: preview.getBoundingClientRect().toJSON(), clientWidth: preview.clientWidth, scrollWidth: preview.scrollWidth,
                 textOverflow: getComputedStyle(preview).textOverflow, whiteSpace: getComputedStyle(preview).whiteSpace },
-              fullAccount: { text: full.textContent, geometry: rect.toJSON(), fits: full.scrollWidth <= full.clientWidth && [...range.getClientRects()].every(line => line.left >= rect.left - 1 && line.right <= rect.right + 1) },
+              fullAccount: { text: full.textContent, geometry: rect.toJSON(), fits: full.scrollWidth <= full.clientWidth && [...range.getClientRects()].every(line => line.left >= rect.left - 1 && line.right <= rect.right + 1 && line.top >= rect.top - 1 && line.bottom <= rect.bottom + 1) },
               ownRow: !actions.contains(usage) && usage.getBoundingClientRect().top >= actions.getBoundingClientRect().bottom }
           })()
         JS
@@ -839,8 +959,11 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
         assert_equal "nowrap", sample.fetch("preview").fetch("whiteSpace"), sample.to_json
         assert sample.fetch("fullAccount").fetch("fits"), sample.to_json
         assert sample.fetch("ownRow"), sample.to_json
-        page.driver.browser.action.send_keys(:space).perform
-        assert_selector "#chat-usage-details:not([open])"
+      elsif page.has_selector?(".n-workspace-context .n-workspace-trail a", wait: 0)
+        href = URI(find(".n-workspace-context .n-workspace-trail a", match: :first)["href"]).request_uri
+        header_tab_to(".n-workspace-context .n-workspace-trail a[href='#{href}']")
+        assert_header_widths
+        header_record("matrix-inline-context-#{index}", header_matrix_geometry, screenshot: true)
       end
       header_top
     end
@@ -897,9 +1020,8 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       header_viewport(375, 812)
       visit chat_path(@chat)
       assert_selector "lexxy-editor[connected]"
-      find("#chat-usage-summary").click
-      assert_selector "#chat-usage-details[open]"
-      header_tab_to(direction == "backward" ? "#chat-usage-summary" : ".n-chat-toolbar a[href='#{user_root_path}']")
+      header_wait_for_message_animations
+      header_tab_to(direction == "backward" ? ".n-chat-toolbar a[href='#{new_chat_path}']" : ".n-chat-toolbar a[href='#{user_root_path}']")
       page.execute_script(<<~JS)
         const surface = document.querySelector('[data-application-scroll]')
         const paragraph = document.querySelectorAll('.n-chat-transcript .ai-response-content p')[19]
@@ -1118,7 +1240,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       %w[left right width height].each do |dimension|
         assert_in_delta before_scroll.fetch("heading").fetch(dimension), sample.fetch("heading").fetch(dimension), 1, diagnostic
       end
-      contexts = %w[viewport windowScroll documentElement body usageOpen]
+      contexts = %w[viewport windowScroll documentElement body usageInline]
       assert_equal before_scroll.fetch("scrollContext").slice(*contexts), sample.fetch("scrollContext").slice(*contexts), diagnostic
       assert_in_delta before_scroll.fetch("heading").fetch("bottom") - delta, sample.fetch("heading").fetch("bottom"), 1, diagnostic
     end
@@ -1137,7 +1259,7 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           return { scrollContext: { surface: sample(document.querySelector('[data-application-scroll]')), main: sample(document.querySelector('main')),
             documentElement: sample(document.documentElement), body: sample(document.body),
             active: { tag: active.tagName, id: active.id, geometry: active.getBoundingClientRect().toJSON() },
-            usageOpen: usage ? usage.open : null, viewport: [innerWidth, innerHeight], windowScroll: [scrollX, scrollY] } }
+            usageInline: usage ? usage.tagName === 'SECTION' && !usage.hidden : null, viewport: [innerWidth, innerHeight], windowScroll: [scrollX, scrollY] } }
         })()
       JS
     end
@@ -1185,7 +1307,7 @@ class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
     page.current_window.resize_to(*@original_size) if @original_size
   end
 
-  test "account uid and viewer role stay visible while heading Details is closed" do
+  test "account uid and viewer role stay visible with inline heading context" do
     { owner: @user, member: @member }.each do |role, user|
       visit root_url
       fill_in "email", with: user.email
@@ -1198,14 +1320,15 @@ class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
         orbite_select_language(locale.to_s.upcase)
         assert_selector "html[lang='#{locale}']"
         assert_selector "[data-account-overview='#{@second.id}']"
-        assert_selector ".n-workspace-header details[data-header-details]:not([open])", count: 1
+        assert_no_selector ".n-header-details, [data-header-details]", visible: :all
         sample = record_account_context(role, locale)
         expected = "#{@second.uid} · #{I18n.t("nosia.account_experience.roles.#{role}", locale: locale)}"
 
         assert_selector ".n-workspace-header", text: expected
         assert_selector ".n-workspace-header [data-workspace-scope]", text: expected, exact_text: true, count: 1
         assert_no_selector ".n-workspace-header details [data-workspace-scope]", visible: :all
-        assert_no_selector ".n-workspace-header .n-workspace-trail"
+        assert_selector ".n-workspace-header .n-workspace-context .n-workspace-trail"
+        assert sample.fetch("inlineContext"), sample.to_json
         assert sample.fetch("scope").fetch("visible"), sample.to_json
         bounds = sample.fetch("scope").fetch("bounds")
         assert_operator bounds.fetch("left"), :>=, 0, sample.to_json
@@ -1220,7 +1343,7 @@ class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
         else
           assert_no_selector edit, visible: :all
         end
-        assert_selector ".n-workspace-header details[data-header-details]:not([open])", count: 1
+        assert_no_selector ".n-header-details, [data-header-details]", visible: :all
       end
 
       orbite_open_user_menu
@@ -1239,7 +1362,7 @@ class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
           const hits = rect && [[rect.x + rect.width / 2, rect.y + rect.height / 2], [rect.left + 2, rect.top + 2], [rect.right - 2, rect.bottom - 2]]
             .map(([x, y]) => { const hit = document.elementFromPoint(x, y); return !!hit && (hit === scope || scope.contains(hit)) })
           return { path: location.pathname, locale: document.documentElement.lang, viewport: [innerWidth, innerHeight],
-            closed: !header.querySelector('details[data-header-details]').open, renderedText: header.innerText, allText: header.textContent.trim(),
+            inlineContext: !!header.querySelector('.n-workspace-context') && !header.querySelector('.n-header-details, [data-header-details]'), renderedText: header.innerText, allText: header.textContent.trim(),
             scope: scope && { text: scope.textContent, visible: scope.checkVisibility(), bounds: rect.toJSON(), hits,
               scrollWidth: scope.scrollWidth, clientWidth: scope.clientWidth } }
         })()

@@ -1,5 +1,6 @@
 require "test_helper"
 require "turbo/broadcastable/test_helper"
+require "tmpdir"
 require_relative "../support/chat_workspace_fixtures"
 
 class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
@@ -46,7 +47,7 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
     assert_select "##{dom_id(@chat, :messages)}", count: 1
     assert_select "##{dom_id(workspace(:messages, :workspace_answer), :content)}", count: 1
     assert_select "turbo-frame[id='#{dom_id(@chat)}_message_form']", count: 1
-    assert_select "#chat-usage-details > #chat-usage-summary", text: I18n.t("nosia.chat_workspace.usage_details")
+    assert_select "section#chat-usage-details > h2#chat-usage-summary", text: I18n.t("nosia.chat_workspace.usage_details"), count: 1
     assert_select "#chat-usage-details > ##{dom_id(@chat, :token_totals)}", count: 1
     assert_select "##{dom_id(@chat, :token_totals)} summary", count: 0
   end
@@ -76,6 +77,53 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
       assert energy[:fallback], "The fixture model must exercise the existing fallback estimate"
       assert_select "p[data-estimate-note]:not([hidden])", text: I18n.t("nosia.usage.fallback_note")
     end
+  end
+
+  test "safe reasoning pipeline retains plain paragraphs without changing the ordinary answer or accounting" do
+    message = workspace(:messages, :workspace_answer)
+    original = message.content
+    pattern = /<think>(.*?)<\/think>/m
+    think = original.match(pattern)
+    assert think
+    assert_equal 1, original.scan(pattern).size
+    accounting = [ @chat.account_id, message.chat_id, @chat.input_tokens_count, @chat.output_tokens_count, @chat.token_usages.count ]
+    paragraphs = (1..20).map { |index| "Reasoning extension paragraph #{index}: compare the saved evidence carefully before drawing a conclusion." }
+    candidates = {
+      raw: original.sub(pattern, "<think>#{think[1]}\n#{paragraphs.map { |paragraph| "<p>#{paragraph}</p>" }.join("\n")}</think>"),
+      plain: original.sub(pattern, "<think>#{think[1]}\n\n#{paragraphs.join("\n\n")}</think>")
+    }
+    evidence = {}
+    directory = Dir.mktmpdir("orbite-refinement-C-containment-pipeline-", ENV.fetch("EVIDENCE", Dir.tmpdir))
+    path = File.join(directory, "reasoning-pipeline.json")
+    candidates.each do |format, content|
+      assert_equal original.sub(pattern, ""), content.sub(pattern, "")
+      assert_equal Message.render_markdown_content(original), Message.render_markdown_content(content)
+      message.update_columns(content: content)
+      message.reload
+      assert_equal content, message.content
+      stored = message.content.match(pattern)[1]
+      paragraphs.each { |paragraph| assert_includes stored, paragraph }
+      reasoning = message.reasoning_content
+      partial = ApplicationController.render(partial: "messages/reasoning_content", locals: { message: message })
+      full = ApplicationController.render(partial: "messages/message", locals: { message: message })
+      node = Nokogiri::HTML.fragment(full).at_css("##{dom_id(message, :reasoning_content)}")
+      assert node
+      counts = [ reasoning, partial, node.inner_html ].map do |html|
+        fragment = Nokogiri::HTML.fragment(html)
+        { paragraphs: fragment.css("p").size,
+          markers: paragraphs.count { |paragraph| fragment.css("p").any? { |p| p.text.include?(paragraph) } } }
+      end
+      evidence[format] = { stored_think: stored, reasoning_html: reasoning, sanitized_partial: partial,
+        full_reasoning_html: node.inner_html, counts: counts }
+      File.write(path, evidence.to_json)
+      puts "Actual reasoning pipeline: #{path}; #{format}: #{counts.to_json}"
+      if format == :plain
+        counts.each { |count| assert_equal 20, count.fetch(:markers), count.to_json }
+        assert_select node, "p", minimum: 20
+      end
+      assert_equal accounting, [ @chat.reload.account_id, message.chat_id, @chat.input_tokens_count, @chat.output_tokens_count, @chat.token_usages.count ]
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
   end
 
   test "pending assistant omits finalized response details even with token counts" do
@@ -266,7 +314,7 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
       assert_no_enqueued_jobs only: ChatResponseJob
     end
 
-    test "actual #{locale} totals replacement stays inside the stable Usage disclosure" do
+    test "actual #{locale} totals replacement stays inside the stable visible Usage section" do
       sign_in_picker_user
       get chat_url(@chat), headers: { "Accept-Language" => locale.to_s }
       assert_response :success
@@ -286,7 +334,7 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
       assert_select payload, "[data-chat-total-output]", text: "27"
       current.at_css("##{dom_id(@chat, :token_totals)}").replace(replacement.at_css("template").inner_html)
 
-      assert_select current, "#chat-usage-details > summary#chat-usage-summary", count: 1, text: I18n.t("nosia.chat_workspace.usage_details", locale: locale)
+      assert_select current, "section#chat-usage-details > h2#chat-usage-summary", count: 1, text: I18n.t("nosia.chat_workspace.usage_details", locale: locale)
       assert_select current, "#chat-usage-details > ##{dom_id(@chat, :token_totals)}", count: 1
       assert_select current, "#chat-usage-details [data-chat-total-input]", text: "127"
       assert_select current, "#chat-usage-details [data-chat-total-output]", text: "27"

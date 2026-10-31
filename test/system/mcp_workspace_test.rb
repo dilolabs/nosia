@@ -42,8 +42,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
             mcp_theme(theme)
             assert_selector "[data-mcp-workspace] h1", count: 1
             assert_selector "[data-mcp-workspace] > header.n-workspace-header", count: 1
-            find("[data-header-details] > summary").click
-            assert_selector "[data-header-details][open]"
+            assert_no_selector "[data-header-details], .n-header-details", visible: :all
             assert_selector "[data-mcp-workspace] > header nav", count: 1
             assert_no_selector "[data-mcp-workspace] [data-controller~='drawer']", visible: :all
             assert_no_selector "#drawer-right", visible: :all

@@ -2,7 +2,6 @@
 <div class="n-workspace n-usage-workspace" data-usage-workspace>
   <%= render "workspaces/header",
         title: t("nosia.usage.title"),
-        description: t("nosia.usage_workspace.purpose"),
         scope_label: @usage_account ? t("nosia.workspace.account", name: @usage_account.name) : t("nosia.usage_workspace.all_accounts"),
         trail: @usage_account ? [] : [{ label: t("nosia.nav.home"), path: user_root_path }, { label: t("nosia.usage.title"), path: nil }],
         back_path: @usage_account ? account_path(@usage_account) : nil,

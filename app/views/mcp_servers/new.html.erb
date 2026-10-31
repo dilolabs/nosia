@@ -1,6 +1,6 @@
 <% content_for :head, tag.meta(name: "turbo-cache-control", content: "no-cache") %>
 <div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="new">
-  <%= render "mcp_workspace/header", title: t("nosia.mcp.new"), current: t("nosia.mcp.new"), description: t("nosia.mcp.new_help") %>
+  <%= render "mcp_workspace/header", title: t("nosia.mcp.new"), current: t("nosia.mcp.new") %>
   <%= render "mcp_workspace/feedback" %>
   <div class="n-mcp-form-layout">
     <%= render "form", mcp_server: @mcp_server %>

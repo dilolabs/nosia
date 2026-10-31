@@ -18,12 +18,12 @@
         <%= link_to t("nosia.chat_workspace.new_chat"), new_chat_path, class: "n-workspace-button" %>
       <% end %>
     </div>
-    <% if chat.persisted? %>
-      <details id="chat-usage-details" data-chat-detail class="n-chat-details n-header-details">
-        <summary id="chat-usage-summary"><%= t("nosia.chat_workspace.usage_details") %></summary>
-        <p class="n-workspace-help"><%= chat.account.name %></p>
-        <%= render "chats/token_totals", chat: chat %>
-      </details>
-    <% end %>
   </div>
+  <% if chat.persisted? %>
+    <section id="chat-usage-details" class="n-chat-usage" aria-labelledby="chat-usage-summary">
+      <h2 id="chat-usage-summary" class="n-chat-usage-title"><%= t("nosia.chat_workspace.usage_details") %></h2>
+      <p class="n-workspace-help"><%= chat.account.name %></p>
+      <%= render "chats/token_totals", chat: chat %>
+    </section>
+  <% end %>
 </header>

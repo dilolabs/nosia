@@ -22,8 +22,8 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
         assert_select "img[src*='nosia-logo'][alt=''][aria-hidden='true']", count: 1
       end
       if [ new_chat_path, chat_path(@chat) ].include?(path)
-        assert_select "#application-scroll.n-orbite-chat-frame[data-application-scroll] > main#application-page.n-chat-main", count: 1
-        assert_select "main[data-application-scroll]", count: 0
+        assert_select "main#application-page.n-chat-main .n-orbite-reading#application-scroll[data-application-scroll]", count: 1
+        assert_select "main[data-application-scroll], .n-orbite-chat-frame", count: 0
       else
         assert_select "main#application-scroll[data-application-scroll]", count: 1
         assert_select ".n-orbite-chat-frame", count: 0
@@ -49,15 +49,36 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
     assert_select "#dropdownUser", count: 0
   end
 
-  test "page heading discloses secondary description and breadcrumb" do
-    get profile_path
+  %i[en fr].each do |locale|
+    test "#{locale} page heading exposes useful trail without a redundant profile description" do
+      get profile_path, headers: { "Accept-Language" => locale.to_s }
 
-    assert_response :success
-    assert_select ".n-workspace-header h1", count: 1
-    assert_select ".n-workspace-header details[data-header-details]:not([open])", count: 1 do
-      assert_select "summary", text: I18n.t("nosia.layout.details"), count: 1
-      assert_select ".n-workspace-help", text: I18n.t("nosia.profile.introduction"), count: 1
-      assert_select "nav[aria-label='#{I18n.t('nosia.workspace.breadcrumb')}'] .n-workspace-trail", count: 1
+      assert_response :success
+      assert_select ".n-workspace-header h1", text: I18n.t("nosia.profile.title", locale: locale), count: 1
+      assert_select ".n-workspace-header details, .n-header-details, [data-header-details]", count: 0
+      assert_select ".n-workspace-header .n-workspace-context nav[aria-label='#{I18n.t('nosia.workspace.breadcrumb', locale: locale)}'] .n-workspace-trail", count: 1
+      assert_select ".n-workspace-header p", text: I18n.t("nosia.profile.introduction", locale: locale), count: 0
+      assert_select ".n-workspace-actions .n-workspace-trail", count: 0
+      assert_select ".n-profile form", count: 2
+    end
+
+    test "#{locale} saved Usage is a labelled visible section with the exact live accounting subtree" do
+      get chat_path(@chat), headers: { "Accept-Language" => locale.to_s }
+
+      assert_response :success
+      assert_select "#application-scroll > .n-chat-header", count: 1
+      assert_select ".n-chat-header > section#chat-usage-details[aria-labelledby=chat-usage-summary]", count: 1 do
+        assert_select "h2#chat-usage-summary:not([tabindex])", text: I18n.t("nosia.chat_workspace.usage_details", locale: locale), count: 1
+        assert_select "summary, details, [data-chat-detail], [open], [hidden]", count: 0
+        assert_select "##{dom_id(@chat, :token_totals)}", count: 1
+        assert_select "[data-chat-total-input]", text: "125"
+        assert_select "[data-chat-total-output]", text: "24"
+        assert_select "caption", text: I18n.t("nosia.usage.per_kind", locale: locale)
+        assert_select "thead th[scope=col]", count: 3
+        assert_select "tbody th[scope=row]", minimum: 1
+        assert_select "[data-estimate-note]", count: 1
+      end
+      assert_select ".n-chat-toolbar #chat-usage-details, .n-chat-dock #chat-usage-details", count: 0
     end
   end
 
@@ -69,7 +90,7 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
     assert_select ".n-chat-toolbar [data-chat-account-label]", text: @second.name, count: 1
     assert_select ".n-chat-toolbar #workspace-history-trigger", text: I18n.t("nosia.chat_workspace.history"), count: 1
     assert_select ".n-chat-toolbar a[href='#{new_chat_path}']", text: I18n.t("nosia.chat_workspace.new_chat"), count: 1
-    assert_select ".n-chat-toolbar #chat-usage-details:not([open])", count: 1 do
+    assert_select ".n-chat-header > section#chat-usage-details", count: 1 do
       assert_select "##{dom_id(@chat, :token_totals)}", count: 1
     end
   end
