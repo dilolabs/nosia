@@ -569,17 +569,28 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
           assert_operator bounds.fetch("left"), :>=, geometry.fetch("row").fetch("left"), geometry.to_json
           assert_operator bounds.fetch("right"), :<=, geometry.fetch("row").fetch("right"), geometry.to_json
         end
+        assert_operator geometry.fetch("button").fetch("width"), :>=, 44, geometry.to_json
         assert_operator geometry.fetch("button").fetch("height"), :>=, 44, geometry.to_json
         assert_selector "#{row} > div > a", text: title, exact_text: true
         assert_selector "#{row} > div > p", text: conversation.account.name, exact_text: true
         assert_selector "#{row} time[datetime='#{conversation.updated_at.iso8601}']",
           text: I18n.l(conversation.updated_at, format: :short, locale: locale), exact_text: true
         assert_selector "#{row} > div > a[aria-current=page]", count: entry == "saved" && conversation == @chat ? 1 : 0
-        assert_selector "#{row} > div > p > span", text: I18n.t("nosia.chat_workspace.current", locale: locale),
-          count: entry == "saved" && conversation == @chat ? 1 : 0
+        assert_no_selector "#{row} > div > p > span", visible: :all
+        if entry == "saved" && conversation == @chat
+          %w[paddingInlineStart paddingInlineEnd textInset].each do |inset|
+            assert_operator geometry.fetch(inset), :>=, 8, geometry.to_json
+          end
+          %w[paddingBlockStart paddingBlockEnd].each do |inset|
+            assert_operator geometry.fetch(inset), :>, 0, geometry.to_json
+          end
+        end
         assert_selector "#{row} form[action='#{chat_path(conversation)}'][method=post] input[name=_method][value=delete]", visible: :all
         button = find("#{row} button")
-        assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), button.text
+        assert_empty button.text
+        assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), button["aria-label"]
+        assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), button["title"]
+        assert_selector "#{row} button svg[aria-hidden=true]", count: 1
         assert_equal I18n.t("nosia.actions.confirm_delete", locale: locale), button["data-turbo-confirm"]
       end
       controls = conversations.keys.flat_map do |conversation|
@@ -677,7 +688,12 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
                 const range = document.createRange(); range.selectNodeContents(node)
                 return [...range.getClientRects()].every(line => line.left >= b.left - 1 && line.right <= b.right + 1)
               })
+              const style = getComputedStyle(link), range = document.createRange(); range.selectNodeContents(link)
+              const firstLine = range.getClientRects()[0]
               return { id: row.dataset.historyChat, row: rect(row), body: b, link: rect(link), form: f, button: rect(button),
+                paddingInlineStart: parseFloat(style.paddingInlineStart), paddingInlineEnd: parseFloat(style.paddingInlineEnd),
+                paddingBlockStart: parseFloat(style.paddingBlockStart), paddingBlockEnd: parseFloat(style.paddingBlockEnd),
+                textInset: firstLine.left - link.getBoundingClientRect().left,
                 fontSize: parseFloat(getComputedStyle(link).fontSize), textFits,
                 separateAction: f.top >= b.bottom || b.top >= f.bottom || f.left >= b.right || b.left >= f.right }
             }) }

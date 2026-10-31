@@ -116,9 +116,16 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
     click_button "History"
     assert_native_dialog "chat-history"
-    accept_confirm do
+    dismiss_confirm I18n.t("nosia.actions.confirm_delete") do
       within "[data-history-chat='#{first_chat.id}']" do
-        click_button "Delete chat"
+        click_button I18n.t("nosia.nav.delete_chat"), enable_aria_label: true
+      end
+    end
+    assert Chat.exists?(first_chat.id)
+    assert_native_dialog "chat-history"
+    accept_confirm I18n.t("nosia.actions.confirm_delete") do
+      within "[data-history-chat='#{first_chat.id}']" do
+        click_button I18n.t("nosia.nav.delete_chat"), enable_aria_label: true
       end
     end
 
@@ -165,7 +172,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "dialog[open]", count: 1
     assert_no_selector "#mcp-selector-modal[open]", visible: :all
     assert_dialog_focus "chat-history"
-    within("#chat-history") { click_button "Close" }
+    within("#chat-history") { find("#workspace-navigation-close").click }
     assert_selector "#workspace-history-trigger:focus"
   end
 
@@ -217,7 +224,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       counts = [ Chat.count, Message.count, Website.count, Document.count ]
       click_button "History"
       assert_native_dialog "chat-history"
-      within("#chat-history") { click_button "Close" }
+      within("#chat-history") { find("#workspace-navigation-close").click }
       assert_selector "#workspace-history-trigger:focus"
       if page.has_selector?(".n-composer-tools-trigger")
         find(".n-composer-tools-trigger").click
@@ -1370,7 +1377,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_dialog_focus "chat-history"
     deliver_answer_update(answer, :en)
     assert_dialog_focus "chat-history"
-    within("#chat-history") { click_button "Close" }
+    within("#chat-history") { find("#workspace-navigation-close").click }
     assert_selector "#workspace-history-trigger:focus"
 
     first_chat = workspace(:chats, :workspace_first_chat)
@@ -1413,7 +1420,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_native_dialog "chat-history"
     stream_html(%(<turbo-stream action="update" target="chat-account-help"><template>Unrelated update</template></turbo-stream>))
     assert_dialog_focus "chat-history"
-    within("#chat-history") { click_button "Close" }
+    within("#chat-history") { find("#workspace-navigation-close").click }
     assert_selector "#workspace-history-trigger:focus"
     assert_no_enqueued_jobs only: ChatResponseJob
   end
@@ -1711,9 +1718,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
               chat_screenshot "#{state}-header" if width <= 639 || height <= 700
               page.driver.browser.action.send_keys(:enter).perform
               assert_native_dialog "chat-history"
-              close = find("#chat-history button", text: I18n.t("nosia.chat_workspace.close", locale: locale), exact_text: true)
+              close = find("#workspace-navigation-close")
               chat_reachable "#chat-history button[data-action='workspace-navigation#close']"
-              assert_equal I18n.t("nosia.chat_workspace.close", locale: locale), close.text
+              assert_equal I18n.t("nosia.chat_workspace.close", locale: locale), close["aria-label"]
               close.click
               assert_no_selector "#chat-history[open]", visible: :all
               assert_selector "#workspace-history-trigger:focus"
@@ -1792,7 +1799,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       chat_dialog_sample "chat-history"
       chat_reachable "#chat-history button[data-action='workspace-navigation#close']"
       chat_screenshot "history-#{dark ? 'dark' : 'light'}-812x375"
-      within("#chat-history") { click_button "Close" }
+      within("#chat-history") { find("#workspace-navigation-close").click }
       chat_keyboard_focus ".n-composer-tools-trigger"
       page.driver.browser.action.send_keys(:enter).perform
       assert_native_dialog "mcp-selector-modal"

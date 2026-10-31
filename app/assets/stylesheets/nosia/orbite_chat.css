@@ -42,9 +42,11 @@
 .n-orbite-shell .n-chat-workspace .n-chat-follow { width: fit-content; margin-inline: auto; }
 .n-orbite-shell .n-chat-workspace .n-chat-follow button { box-shadow: 0 2px 8px rgb(0 0 0 / .1); background: var(--orbite-paper); color: var(--orbite-text); }
 .n-orbite-shell .n-chat-history-row { border-color: var(--orbite-line); padding-block: .625rem; gap: .375rem; }
-.n-orbite-shell .n-chat-history-row .n-workspace-link { display: block; min-height: 44px; padding-block: .375rem; color: var(--orbite-text); }
+.n-orbite-shell .n-chat-history-row .n-workspace-link { display: block; min-height: 44px; padding: .375rem .5rem; color: var(--orbite-text); overflow-wrap: anywhere; }
 .n-orbite-shell .n-chat-history-row [aria-current=page] { background: var(--orbite-bubble); border-radius: .375rem; }
-.n-orbite-shell .n-chat-history-row .n-workspace-help { color: var(--orbite-muted); font-size: .75rem; }
+.n-orbite-shell .n-chat-history-row .n-workspace-help { color: var(--orbite-muted); font-size: .75rem; padding-inline: .5rem; }
+.n-orbite-shell .n-chat-history-delete { display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; min-height: 44px; padding: .5rem; color: var(--orbite-text); }
+.n-orbite-shell .n-chat-history-row form { justify-self: end; }
 .n-orbite-shell .n-chat-workspace :is(button, summary, a) { scroll-margin-block: .75rem; }
 .n-orbite-shell .n-chat-workspace :is(button, summary, a):focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
 

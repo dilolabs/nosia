@@ -23,13 +23,12 @@
   <dialog id="chat-history" class="n-orbite-navigation" aria-labelledby="chat-history-title"
           data-workspace-navigation-target="panel" <%= 'data-history-empty' if content_for?(:orbite_history_empty) %>
           data-action="close->chat-dialog#closed close->workspace-navigation#closed">
-    <header class="n-orbite-panel-heading">
-      <%= link_to root_path, class: "n-orbite-logo", aria: { label: t("nosia.nav.home_page") } do %>
-        <%= image_tag "nosia-logo.png", alt: "", aria: { hidden: true } %>
-      <% end %>
-      <h2 id="chat-history-title"><%= t("nosia.orbite.navigation") %></h2>
-      <button id="workspace-navigation-close" type="button" class="n-orbite-control" data-chat-dialog-initial-focus data-action="workspace-navigation#close"><%= t("nosia.chat_workspace.close") %></button>
-    </header>
+    <h2 id="chat-history-title" class="sr-only"><%= t("nosia.orbite.navigation") %></h2>
+    <button id="workspace-navigation-close" type="button" class="n-orbite-control n-orbite-navigation-close"
+            aria-label="<%= t('nosia.chat_workspace.close') %>" title="<%= t('nosia.chat_workspace.close') %>"
+            data-chat-dialog-initial-focus data-action="workspace-navigation#close">
+      <%= inline_svg "svg/close.svg", aria_hidden: true, class: "h-5 w-5" %>
+    </button>
     <div class="n-orbite-panel-content">
       <nav class="n-orbite-panel-links" aria-label="<%= t('nosia.orbite.navigation') %>">
         <%= render "application/orbite_links" %>

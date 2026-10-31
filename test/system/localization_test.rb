@@ -364,7 +364,9 @@ class LocalizationSystemTest < ApplicationSystemTestCase
           const points = [[rect.x + rect.width / 2, rect.y + rect.height / 2], [rect.left + 2, rect.top + 2], [rect.right - 2, rect.bottom - 2]];
           return {
             overflow: document.documentElement.scrollWidth - innerWidth,
-            panel: box(panel), form: box(form), controls: controls.map(box), logo: box(panel.querySelector('.n-orbite-logo')),
+            panel: box(panel), form: box(form), controls: controls.map(box),
+            heading: { id: panel.querySelector('h2').id, text: panel.querySelector('h2').textContent.trim(), geometry: box(panel.querySelector('h2')) },
+            close: box(panel.querySelector('#workspace-navigation-close')),
             wrap: getComputedStyle(form.parentElement).flexWrap,
             hits: points.map(([x, y]) => { const hit = document.elementFromPoint(x, y); return !!hit && (hit === select || select.contains(hit)) }),
             focus: box(focus), outline: style.outlineStyle, outlineWidth: parseFloat(style.outlineWidth), outlineOffset: parseFloat(style.outlineOffset), viewport: [innerWidth, innerHeight]
@@ -374,8 +376,13 @@ class LocalizationSystemTest < ApplicationSystemTestCase
       assert_equal 0, layout.fetch("overflow")
       assert_equal "wrap", layout.fetch("wrap")
       control = layout.fetch("controls").first
-      logo = layout.fetch("logo")
-      assert control.fetch("left") >= logo.fetch("right") || control.fetch("top") >= logo.fetch("bottom"), "Switcher must not overlap the logo"
+      heading = layout.fetch("heading")
+      assert_equal "chat-history-title", heading.fetch("id")
+      assert_equal I18n.t("nosia.orbite.navigation", locale: :fr), heading.fetch("text")
+      %w[width height].each { |dimension| assert_in_delta 1, heading.fetch("geometry").fetch(dimension), 0.1 }
+      close = layout.fetch("close")
+      %w[width height].each { |dimension| assert_operator close.fetch(dimension), :>=, 44 }
+      assert control.fetch("left") >= close.fetch("right") || control.fetch("top") >= close.fetch("bottom") || control.fetch("right") <= close.fetch("left"), "Switcher must not overlap Close"
       layout.fetch("controls").each do |box|
         assert_operator box.fetch("left"), :>=, 0
         assert_operator box.fetch("right"), :<=, 375

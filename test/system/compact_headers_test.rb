@@ -84,6 +84,39 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "History cross and trash retain native targets focus and measured strokes" do
+    @second.update_columns(name: "CompteDeRecherche" * 12)
+    %w[en fr].product([ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ], [ false, true ]).each do |locale, (width, height), dark|
+      header_viewport(width, height)
+      orbite_select_language(locale.upcase)
+      visit chat_path(@chat)
+      assert_selector "html[lang='#{locale}']"
+      assert_selector "lexxy-editor[connected]"
+      header_theme(dark)
+      orbite_open_utilities
+      assert_selector "#chat-history h2#chat-history-title.sr-only", text: I18n.t("nosia.orbite.navigation", locale: locale), visible: :all
+      assert_no_selector "#chat-history .n-orbite-panel-heading, #chat-history .n-orbite-logo, #chat-history img", visible: :all
+      [ [ "#workspace-navigation-close", "nosia.chat_workspace.close" ],
+        [ "#chat-history [data-history-chat='#{@chat.id}'] button", "nosia.nav.delete_chat" ] ].each do |selector, key|
+        header_tab_to(selector)
+        button = find(selector)
+        assert_empty button.text
+        assert_equal I18n.t(key, locale: locale), button["aria-label"]
+        assert_equal I18n.t(key, locale: locale), button["title"]
+        assert_selector "#{selector} svg[aria-hidden=true]", count: 1
+        sample = header_hit(selector)
+        assert_operator sample.fetch("geometry").fetch("width"), :>=, 44, sample.to_json
+        assert_operator sample.fetch("geometry").fetch("height"), :>=, 44, sample.to_json
+        header_icon_stroke("#{selector} svg")
+        header_contrast("#{selector} svg", minimum: 3, property: "color")
+        header_contrast(selector, minimum: 3, property: "outlineColor")
+        header_record("history-icon-#{key.split('.').last}-#{locale}-#{width}x#{height}-#{dark ? 'dark' : 'light'}", sample, screenshot: true)
+      end
+      orbite_close_navigation
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "panel controls retain native language theme and profile navigation" do
     [ [ 375, 812 ], [ 812, 375 ], [ 1400, 375 ], [ 768, 1024 ], [ 1400, 1000 ] ].each do |width, height|
       header_viewport(width, height)
@@ -516,6 +549,25 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
   end
 
   private
+    def header_icon_stroke(selector)
+      sample = page.evaluate_script(<<~JS, find(selector))
+        (() => {
+          const svg = arguments[0], color = getComputedStyle(svg).color
+          return { color, paths: [...svg.querySelectorAll('path')].map(path => {
+            const style = getComputedStyle(path)
+            return { stroke: style.stroke, strokeOpacity: style.strokeOpacity, fill: style.fill }
+          }) }
+        })()
+      JS
+      header_record("history-icon-stroke", { selector: selector, measurement: sample })
+      refute_empty sample.fetch("paths"), sample.to_json
+      sample.fetch("paths").each do |path|
+        assert_equal sample.fetch("color"), path.fetch("stroke"), sample.to_json
+        assert_equal 1, path.fetch("strokeOpacity").to_f, sample.to_json
+        assert_equal "none", path.fetch("fill"), sample.to_json
+      end
+    end
+
     def header_hold_reader_frame
       page.execute_script(<<~JS)
         (() => {

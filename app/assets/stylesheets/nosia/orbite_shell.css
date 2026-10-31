@@ -112,9 +112,7 @@
 }
 .n-orbite-shell .n-orbite-navigation[data-inline=true] .n-chat-history-row { display: grid; grid-template-columns: minmax(0, 1fr); }
 .n-orbite-shell:has(> .n-orbite-navigation[data-inline=true][open]) > main { grid-column: 3; }
-.n-orbite-panel-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; flex: none; min-width: 0; }
-.n-orbite-panel-heading h2 { min-width: 0; overflow-wrap: anywhere; }
-.n-orbite-panel-heading h2,
+.n-orbite-navigation-close { align-self: flex-end; flex: none; }
 .n-orbite-history-heading { font-size: .875rem; font-weight: 600; }
 .n-orbite-panel-content { min-height: 0; min-width: 0; overflow: auto; flex: 1; padding-block: .5rem; }
 .n-orbite-panel-links { display: grid; margin-bottom: 1rem; }

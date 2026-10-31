@@ -8,6 +8,38 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
   setup { sign_in_picker_user }
 
   %i[en fr].each do |locale|
+    test "lean History retains localized names and native delete in #{locale}" do
+      get chat_path(@chat), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "dialog#chat-history[aria-labelledby=chat-history-title]", count: 1 do
+        assert_select "h2#chat-history-title.sr-only", text: I18n.t("nosia.orbite.navigation", locale: locale), count: 1
+        assert_select ".n-orbite-panel-heading, .n-orbite-logo, img", count: 0
+        close = I18n.t("nosia.chat_workspace.close", locale: locale)
+        assert_select "button#workspace-navigation-close[type=button][data-chat-dialog-initial-focus][data-action='workspace-navigation#close']", count: 1 do |buttons|
+          assert_equal close, buttons.first["aria-label"]
+          assert_equal close, buttons.first["title"]
+          assert_empty buttons.first.text.strip
+          assert_select "svg[aria-hidden=true]", count: 1
+        end
+        assert_select "[data-history-chat='#{@chat.id}']", count: 1 do
+          assert_select "a[href='#{chat_path(@chat)}'][aria-current=page]", count: 1
+          assert_select "p > span", count: 0
+          assert_select "p", text: @chat.account.name, count: 1
+          assert_select "time[datetime='#{@chat.updated_at.iso8601}']", text: I18n.l(@chat.updated_at, format: :short, locale: locale), count: 1
+          assert_select "form[action='#{chat_path(@chat)}'][method=post]", count: 1 do
+            assert_select "input[name=_method][value=delete]", count: 1
+            assert_select "button.n-workspace-danger.n-chat-history-delete", count: 1 do |buttons|
+              assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), buttons.first["aria-label"]
+              assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), buttons.first["title"]
+              assert_equal I18n.t("nosia.actions.confirm_delete", locale: locale), buttons.first["data-turbo-confirm"]
+              assert_empty buttons.first.text.strip
+              assert_select "svg[aria-hidden=true]", count: 1
+            end
+          end
+        end
+      end
+    end
+
     test "rail navigation label describes chat and non chat content in #{locale}" do
       get accounts_path, headers: { "Accept-Language" => locale.to_s }
       assert_response :success

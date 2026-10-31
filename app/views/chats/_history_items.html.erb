@@ -10,11 +10,14 @@
           <p class="n-workspace-help"><%= conversation.account.name %></p>
           <p class="n-workspace-help">
             <time datetime="<%= conversation.updated_at.iso8601 %>"><%= l(conversation.updated_at, format: :short) %></time>
-            <% if conversation == chat %><span><%= t("nosia.chat_workspace.current") %></span><% end %>
           </p>
         </div>
-        <%= button_to t("nosia.nav.delete_chat"), chat_path(conversation), method: :delete,
-          class: "n-workspace-button n-workspace-danger", data: { turbo_confirm: t("nosia.actions.confirm_delete") } %>
+        <%= button_to chat_path(conversation), method: :delete,
+          class: "n-workspace-button n-workspace-danger n-chat-history-delete",
+          aria: { label: t("nosia.nav.delete_chat") }, title: t("nosia.nav.delete_chat"),
+          data: { turbo_confirm: t("nosia.actions.confirm_delete") } do %>
+          <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "h-5 w-5" %>
+        <% end %>
       </li>
     <% end %>
   </ul>
