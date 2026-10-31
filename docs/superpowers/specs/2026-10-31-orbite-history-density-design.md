@@ -1,7 +1,7 @@
 # Orbite premium History density
 
-Status: FINAL DESIGN — user selected A with the refinements below; written-spec
-review and implementation planning are still required before application changes.
+Status: APPROVED — the user approved this written scope on 2026-10-31.
+Implementation planning is required before application changes.
 
 Date: 2026-10-31
 
@@ -119,9 +119,10 @@ reader/composer regression checks. Source and tests need fresh SPEC then QUALITY
 reviews, followed by refreshed D documentation, safe final gates, current-source
 security comparison and independent whole-feature review. No automatic integration.
 
-No application or test source has changed for this amendment. Obtain user review
-of this written spec, then invoke writing-plans before implementation. Preserve
-the five existing documentation drafts and original evidence throughout.
+No application or test source has changed for this amendment. The user reviewed
+and approved this written scope; writing-plans is now the next gate before
+implementation. Preserve the five existing documentation drafts and original
+evidence throughout.
 
 ## Visual exploration evidence and limitations
 
@@ -193,3 +194,6 @@ authorization for a new framework.
   nécessaire”. Rationale: keep account labels compact as well. This expressly
   supersedes the previous untruncated-account proposal, while preserving full
   underlying names, dates, accessible text and existing account access rules.
+- User: “Oui” to the written-scope review before implementation planning.
+  Rationale: approve the selected A layout and both truncation refinements;
+  retain test-first implementation and independent review gates.
