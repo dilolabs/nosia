@@ -223,8 +223,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   test "new chat without an account has one guidance surface and no fake composer" do
-    orbite_open_utilities
-    find("#dropdownUser").click
+    orbite_open_user_menu
     find("#dropdown a[href='#{logout_path}']").click
     assert_selector "form[action='#{login_path}']"
     fill_in "email", with: users(:picker_no_account).email
@@ -637,15 +636,14 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
       visit chat_path(@chat)
       [ false, true ].each do |dark|
         orbite_theme(dark)
-        orbite_open_utilities
-        find("#dropdownUser").click
-        assert_selector "#dropdown"
+        opener = orbite_open_user_menu
+        assert_selector "#dropdown:popover-open"
         [ profile_path, settings_path, logout_path ].each do |path|
           orbite_assert_reachable("#dropdown a[href='#{path}']")
         end
         orbite_record("bottom-utilities-#{width}-#{dark ? 'dark' : 'light'}", { dropdown: true }, screenshot: true)
-        find("#dropdownUser").click
-        assert_no_selector "#dropdown"
+        find(opener).click
+        assert_no_selector "#dropdown:popover-open"
         orbite_close_navigation
       end
     end
@@ -663,7 +661,8 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_selector "[data-history-chat]", visible: :all
     orbite_tab_to("#dropdownUser")
     page.driver.browser.action.send_keys(:enter).perform
-    assert_selector "#dropdown"
+    assert_selector "#dropdown:popover-open"
+    assert_selector "dialog:modal", count: 1
     orbite_assert_reachable("#dropdown a[href='#{profile_path}']")
     orbite_record("mobile-utilities-profile-dark-fr", { modal: true, dropdown: true }, screenshot: true)
     orbite_tab_to("#dropdown a[href='#{profile_path}']")

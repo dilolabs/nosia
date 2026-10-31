@@ -32,12 +32,39 @@ module OrbiteBrowserChecks
     def orbite_open_utilities
       return if page.has_selector?("#theme-toggle", wait: 0)
 
-      opener = [ "[data-orbite-composer-navigation]", "#workspace-mobile-trigger", "#workspace-utilities-trigger", "#workspace-history-trigger" ].filter_map do |selector|
+      selectors = if page.evaluate_script("innerWidth >= 768")
+        [ "#workspace-history-rail-trigger", "#workspace-history-trigger" ]
+      else
+        [ "[data-orbite-composer-navigation]", "#workspace-mobile-trigger", "#workspace-history-trigger" ]
+      end
+      opener = selectors.filter_map do |selector|
         first(selector, minimum: 0, wait: 0)
       end.first
       assert opener, "No visible navigation utility opener"
       opener.click
       assert_selector "#theme-toggle"
+    end
+
+    def orbite_user_menu_trigger
+      if page.evaluate_script("innerWidth >= 768")
+        "#workspace-utilities-trigger"
+      else
+        orbite_open_utilities
+        "#dropdownUser"
+      end
+    end
+
+    def orbite_open_user_menu(keyboard: false)
+      opener = orbite_user_menu_trigger
+      if keyboard
+        orbite_tab_to(opener)
+        page.driver.browser.action.send_keys(:enter).perform
+      else
+        find(opener).click
+      end
+      assert_selector "#dropdown:popover-open"
+      assert_selector "#{opener}[aria-expanded=true]"
+      opener
     end
 
     def orbite_close_navigation

@@ -7,6 +7,29 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_picker_user }
 
+  test "one user popover has distinct breakpoint triggers and no Flowbite owner" do
+    [ accounts_path, new_chat_path(account_id: @second.id), chat_path(@chat) ].each do |path|
+      get path
+      assert_response :success
+      assert_select "#orbite-shell[data-controller~=user-menu]", count: 1
+      assert_select "#workspace-utilities-trigger[aria-controls=dropdown][aria-expanded=false][data-action='user-menu#toggle']", count: 1
+      assert_select "#workspace-utilities-trigger[aria-controls=chat-history]", count: 0
+      assert_select "#dropdownUser[aria-controls=dropdown][aria-expanded=false]", count: 1
+      assert_select "#dropdown[popover=auto][data-user-menu-target=menu]", count: 1
+      assert_select "#workspace-user-menu-home > #dropdown", count: 1
+      assert_select "[data-dropdown-toggle=dropdown], #dropdown[role=menu], #dropdown[role=menuitem]", count: 0
+      [ profile_path, settings_path ].each { |destination| assert_select "#dropdown a[href='#{destination}']", count: 1 }
+      assert_select "#dropdown a[href='#{logout_path}'][data-turbo-method=delete]", count: 1
+      assert_select "#language_preference_locale, #theme-toggle", count: 2
+    end
+
+    delete logout_path
+    get root_path
+    assert_response :success
+    assert_select "#dropdown, #dropdownUser, #workspace-utilities-trigger, [data-controller~=user-menu]", count: 0
+    assert_select "#language_preference_locale, #theme-toggle", count: 2
+  end
+
   %i[en fr].each do |locale|
     test "lean History retains localized names and native delete in #{locale}" do
       get chat_path(@chat), headers: { "Accept-Language" => locale.to_s }

@@ -69,8 +69,10 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
       assert_no_selector "[data-application-header], .n-nav-bottom", visible: :all
       orbite_open_utilities
       header_settle
-      sample = page.evaluate_script(<<~JS)
-        ({ controls: ['#language_preference_locale', '#theme-toggle', '#dropdownUser'].map(selector =>
+      controls = [ "#language_preference_locale", "#theme-toggle" ]
+      controls << "#dropdownUser" if width < 768
+      sample = page.evaluate_script(<<~JS, controls)
+        ({ controls: arguments[0].map(selector =>
           ({ selector, geometry: document.querySelector(selector).getBoundingClientRect().toJSON() })) })
       JS
       header_record("orbite-targets-#{width}x#{height}", sample, screenshot: true)
@@ -80,6 +82,13 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
         orbite_assert_reachable(control.fetch("selector"))
       end
       orbite_close_navigation
+      if width >= 768
+        header_tab_to("#workspace-utilities-trigger")
+        rail = header_hit("#workspace-utilities-trigger")
+        assert_operator rail.fetch("geometry").fetch("width"), :>=, 44
+        assert_operator rail.fetch("geometry").fetch("height"), :>=, 44
+        header_record("orbite-rail-user-target-#{width}x#{height}", rail, screenshot: true)
+      end
     end
     assert_no_enqueued_jobs only: ChatResponseJob
   end
@@ -130,12 +139,16 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           assert_selector "html[lang='#{locale}']"
           header_theme(dark)
           orbite_open_utilities
-          [ "#chat-history .n-orbite-panel-links a[href='#{root_path}']", "#language_preference_locale", "#theme-toggle", "#dropdownUser" ].each do |selector|
+          [ "#chat-history .n-orbite-panel-links a[href='#{root_path}']", "#language_preference_locale", "#theme-toggle" ].each do |selector|
             header_tab_to(selector)
           end
+          orbite_close_navigation if width >= 768 && page.has_selector?("#chat-history:modal", wait: 0)
+          header_tab_to(orbite_user_menu_trigger)
           page.driver.browser.action.send_keys(:enter).perform
-          assert_selector "#dropdown:not(.hidden)"
-          header_tab_to("#dropdown a[href='#{profile_path}']")
+          assert_selector "#dropdown:popover-open"
+          header_tab_to("#dropdown a[href='#{settings_path}']")
+          orbite_tab_to("#dropdown a[href='#{profile_path}']", reverse: true)
+          header_hit("#dropdown a[href='#{profile_path}']")
           header_record("native-dropdown", {
             menu: find("#dropdown").text,
             controls: page.evaluate_script(<<~JS)
@@ -151,6 +164,98 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
           assert_selector "main h1", text: I18n.t("nosia.profile.title", locale: locale)
           header_record("native-profile", { heading: find("main h1").text }, screenshot: true)
         end
+      end
+    end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "user popover labels strokes focus and long localized actions remain readable" do
+    %w[en fr].product([ [ 375, 812 ], [ 768, 1024 ], [ 1400, 1000 ], [ 812, 375 ] ], [ false, true ]).each do |locale, (width, height), dark|
+      header_viewport(width, height)
+      orbite_select_language(locale.upcase)
+      visit accounts_path
+      assert_selector "html[lang=#{locale}]"
+      header_theme(dark)
+      opener = orbite_open_user_menu(keyboard: true)
+      actions = [ profile_path, settings_path, logout_path ].map { |path| "#dropdown a[href='#{path}']" }
+      header_tab_to(actions.second)
+      actions.each_with_index do |selector, index|
+        orbite_tab_to(selector, reverse: index.zero?)
+        header_contrast("#{selector} span")
+        header_icon_stroke("#{selector} svg")
+        header_contrast("#{selector} svg", minimum: 3, property: "color")
+        header_contrast(selector, minimum: 3, property: "outlineColor")
+        hit = header_hit(selector)
+        assert_operator hit.fetch("geometry").fetch("height"), :>=, 44
+        assert_operator hit.fetch("geometry").fetch("width"), :>=, 44
+      end
+      # Geometry-only adversarial fixture, using each original translated label.
+      page.execute_script(<<~JS)
+        document.querySelectorAll('#dropdown a span').forEach(span => {
+          span.dataset.refinementLongLabel = 'geometry-only'
+          span.textContent = Array(5).fill(span.textContent).join(' ')
+        })
+      JS
+      header_settle
+      sample = page.evaluate_script(<<~JS)
+        (() => {
+          const menu = document.querySelector('#dropdown'), root = document.querySelector('[data-application-scroll]')
+          return {clientWidth: menu.clientWidth, scrollWidth: menu.scrollWidth, clientHeight: menu.clientHeight, scrollHeight: menu.scrollHeight,
+            rootWidth: root.clientWidth, rootScrollWidth: root.scrollWidth,
+            textFits: [...menu.querySelectorAll('a')].every(link => {
+              const box = link.getBoundingClientRect(), range = document.createRange()
+              range.selectNodeContents(link.querySelector('span'))
+              return [...range.getClientRects()].every(line => line.left >= box.left - 1 && line.right <= box.right + 1 && line.top >= box.top - 1 && line.bottom <= box.bottom + 1)
+            })}
+        })()
+      JS
+      assert_operator sample.fetch("clientWidth"), :>=, sample.fetch("scrollWidth"), sample.to_json
+      assert_operator sample.fetch("rootWidth"), :>=, sample.fetch("rootScrollWidth"), sample.to_json
+      assert sample.fetch("textFits"), sample.to_json
+      actions.each_with_index do |selector, index|
+        orbite_tab_to(selector, reverse: index.zero?)
+        hit = header_hit(selector)
+        assert_operator hit.fetch("geometry").fetch("height"), :>=, 44
+        assert_operator hit.fetch("geometry").fetch("width"), :>=, 44
+        assert_selector "#dropdown:popover-open"
+      end
+      own_scroll = page.evaluate_script("document.querySelector('#dropdown').scrollTop")
+      if sample.fetch("scrollHeight") > sample.fetch("clientHeight")
+        assert_operator own_scroll, :>, 0, sample.to_json
+      end
+      header_record("user-popover-long-labels-#{locale}-#{width}x#{height}-#{dark ? 'dark' : 'light'}", sample.merge(ownScrollTop: own_scroll), screenshot: true)
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_no_selector "#dropdown:popover-open"
+      assert_selector "#{opener}[aria-expanded=false]:focus"
+      orbite_assert_reachable(opener)
+      orbite_close_navigation
+      if height == 375
+        # The five-times labels fit at 375px high. A real shorter viewport,
+        # not a menu style override, exercises the bounded native scrollport.
+        header_viewport(width, 250)
+        opener = orbite_open_user_menu(keyboard: true)
+        orbite_tab_to(actions.second)
+        actions.each_with_index do |selector, index|
+          orbite_tab_to(selector, reverse: index.zero?)
+          hit = header_hit(selector)
+          assert_operator hit.fetch("geometry").fetch("height"), :>=, 44
+          assert_operator hit.fetch("geometry").fetch("width"), :>=, 44
+          assert_selector "#dropdown:popover-open"
+        end
+        scroll = page.evaluate_script(<<~JS)
+          (() => {
+            const menu = document.querySelector('#dropdown')
+            return {scrollTop: menu.scrollTop, clientHeight: menu.clientHeight, scrollHeight: menu.scrollHeight,
+              geometry: menu.getBoundingClientRect().toJSON(), opener: document.querySelector('#workspace-utilities-trigger').getBoundingClientRect().toJSON()}
+          })()
+        JS
+        assert_operator scroll.fetch("scrollHeight"), :>, scroll.fetch("clientHeight"), scroll.to_json
+        assert_operator scroll.fetch("scrollTop"), :>, 0, scroll.to_json
+        header_record("user-popover-own-scroll-#{locale}-#{width}x250-#{dark ? 'dark' : 'light'}", scroll, screenshot: true)
+        page.driver.browser.action.send_keys(:escape).perform
+        assert_no_selector "#dropdown:popover-open"
+        assert_selector "#{opener}[aria-expanded=false]:focus"
+        orbite_assert_reachable(opener)
       end
     end
     assert_no_enqueued_jobs only: ChatResponseJob
@@ -1118,8 +1223,7 @@ class CompactAccountHeadersSystemTest < ApplicationSystemTestCase
         assert_selector ".n-workspace-header details[data-header-details]:not([open])", count: 1
       end
 
-      orbite_open_utilities
-      find("#dropdownUser").click
+      orbite_open_user_menu
       find("#dropdown a[href='#{logout_path}']").click
       assert_selector "form[action='#{login_path}']"
     end

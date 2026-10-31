@@ -1,10 +1,11 @@
 <%# locals: (page:) %>
 <div id="orbite-shell" class="n-orbite-shell" role="region" tabindex="-1"
      <%= tag.attributes(aria: { label: content_for(:title).presence || "Nosia" }) %>
-     data-controller="chat-dialog workspace-navigation"
+      data-controller="chat-dialog workspace-navigation user-menu"
+      data-user-menu-chat-dialog-outlet="#orbite-shell"
      data-workspace-navigation-chat-dialog-outlet="#orbite-shell"
      data-workspace-navigation-history-value="<%= chat_workspace_page? %>"
-     data-action="turbo:before-visit@document->chat-dialog#beforeVisit turbo:before-cache@document->workspace-navigation#beforeCache turbo:before-cache@document->chat-dialog#beforeCache turbo:before-render@document->chat-dialog#beforeRender turbo:render@document->chat-dialog#afterRender turbo:render@document->workspace-navigation#layout turbo:before-morph-attribute@document->workspace-navigation#preserve">
+      data-action="turbo:before-visit@document->user-menu#beforeVisit turbo:before-visit@document->chat-dialog#beforeVisit turbo:before-cache@document->user-menu#beforeCache turbo:before-cache@document->workspace-navigation#beforeCache turbo:before-cache@document->chat-dialog#beforeCache turbo:before-render@document->user-menu#beforeCache turbo:before-render@document->chat-dialog#beforeRender turbo:render@document->chat-dialog#afterRender turbo:render@document->workspace-navigation#layout turbo:before-morph-attribute@document->workspace-navigation#preserve resize@window->user-menu#layout scroll->user-menu#scrolled:capture">
   <nav class="n-orbite-rail" aria-label="<%= t('nosia.orbite.navigation') %>">
     <%= link_to root_path, class: "n-orbite-logo", aria: { label: t("nosia.nav.home_page") } do %>
       <%= image_tag "nosia-logo.png", alt: "", aria: { hidden: true } %>
@@ -15,14 +16,14 @@
       <%= inline_svg "svg/menu.svg", aria_hidden: true, class: "h-5 w-5" %>
       <span class="sr-only"><%= t(chat_workspace_page? ? "nosia.orbite.expand_history" : "nosia.orbite.navigation") %></span>
     </button>
-    <button id="workspace-utilities-trigger" type="button" class="n-orbite-control n-orbite-utilities-trigger" aria-controls="chat-history" aria-haspopup="dialog" data-action="workspace-navigation#utilities">
+    <button id="workspace-utilities-trigger" type="button" class="n-orbite-control n-orbite-utilities-trigger" aria-controls="dropdown" aria-expanded="false" data-user-menu-target="trigger" data-action="user-menu#toggle">
       <%= inline_svg "svg/user-circle.svg", aria_hidden: true, class: "h-5 w-5" %>
-      <span class="sr-only"><%= t("nosia.orbite.utilities") %></span>
+      <span class="sr-only"><%= t("nosia.nav.open_user_menu") %></span>
     </button>
   </nav>
   <dialog id="chat-history" class="n-orbite-navigation" aria-labelledby="chat-history-title"
           data-workspace-navigation-target="panel" <%= 'data-history-empty' if content_for?(:orbite_history_empty) %>
-          data-action="close->chat-dialog#closed close->workspace-navigation#closed">
+          data-action="close->user-menu#panelClosed close->chat-dialog#closed close->workspace-navigation#closed">
     <h2 id="chat-history-title" class="sr-only"><%= t("nosia.orbite.navigation") %></h2>
     <button id="workspace-navigation-close" type="button" class="n-orbite-control n-orbite-navigation-close"
             aria-label="<%= t('nosia.chat_workspace.close') %>" title="<%= t('nosia.chat_workspace.close') %>"
@@ -44,6 +45,7 @@
       <%= render "application/orbite_utilities" %>
     </div>
   </dialog>
+  <div id="workspace-user-menu-home" data-user-menu-target="home"><%= render "application/orbite_user_menu" %></div>
   <%= tag.main id: chat_workspace_page? ? "application-page" : "application-scroll",
         class: "n-application-page n-orbite-main #{'n-chat-main' if chat_workspace_page?}",
         data: { application_scroll: chat_workspace_page? ? nil : true } do %>

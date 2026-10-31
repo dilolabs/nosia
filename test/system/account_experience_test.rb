@@ -253,8 +253,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: [ AddDocumentJob, ChatResponseJob ]
     save_account_evidence("source-validation-error")
 
-    orbite_open_utilities
-    find("#dropdownUser").click
+    orbite_open_user_menu
     click_on "Sign out"
     fill_in "email", with: @member.email
     fill_in "password", with: AccountExperienceFixtures::PASSWORD

@@ -58,17 +58,6 @@ export default class extends Controller {
     this.reflect()
   }
 
-  utilities(event) {
-    event.preventDefault()
-    this.caching = false
-    if (this.mode === "inline") {
-      this.expanded = true
-      this.panelTarget.open = true
-    } else this.chatDialogOutlet.openDialog(this.panelTarget, event.currentTarget)
-    this.reflect()
-    this.chatDialogOutlet.focus(this.panelTarget.querySelector("#dropdownUser"))
-  }
-
   close(event) {
     event.preventDefault()
     this.chatDialogOutlet.closeDialog(this.panelTarget, this.fallback())

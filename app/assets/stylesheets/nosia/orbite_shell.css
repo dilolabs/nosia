@@ -127,6 +127,33 @@
 .n-orbite-shell:focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
 .n-orbite-shell .n-orbite-mobile-only { display: none; }
 
+#workspace-user-menu-home { display: contents; }
+.n-orbite-shell .n-orbite-user-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(20rem, calc(100vw - 1rem));
+  min-width: 0;
+  max-height: calc(100dvh - 1rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+  border: 1px solid var(--orbite-control);
+  border-radius: .75rem;
+  background: var(--orbite-paper);
+  color: var(--orbite-text);
+  box-shadow: 0 4px 22px rgb(0 0 0 / .12);
+}
+.n-orbite-shell .n-orbite-user-menu:not(:popover-open) { display: none; }
+.n-orbite-shell .n-orbite-user-menu .n-dropdown-list { color: inherit; }
+.n-orbite-shell .n-orbite-user-menu .n-dropdown-item {
+  min-height: 44px;
+  min-width: 44px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 @media (max-width: 767px) {
   .n-orbite-shell { grid-template-columns: minmax(0, 1fr); padding: .5rem; gap: 0; }
   .n-orbite-rail { display: none; }
