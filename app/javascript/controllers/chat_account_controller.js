@@ -13,7 +13,7 @@ export default class extends Controller {
     this.boundRefreshVisit = this.refreshVisit.bind(this)
     this.boundPrepareRefresh = this.prepareRefresh.bind(this)
     this.boundRestoreRefresh = this.restoreRefresh.bind(this)
-    this.boundCancelRefresh = this.cancelRefresh.bind(this)
+    this.boundInvalidateRefreshDraft = this.invalidateRefreshDraft.bind(this)
   }
 
   connect() {
@@ -21,7 +21,7 @@ export default class extends Controller {
     document.addEventListener("turbo:before-visit", this.boundRefreshVisit)
     document.addEventListener("turbo:before-render", this.boundPrepareRefresh)
     this.element.addEventListener("lexxy:initialize", this.boundRestoreRefresh)
-    this.element.addEventListener("lexxy:change", this.boundCancelRefresh)
+    this.element.addEventListener("lexxy:change", this.boundInvalidateRefreshDraft)
     this.sourceObserver = new MutationObserver(() => {
       if ([...this.sources.keys()].some(source => !this.element.contains(source))) this.syncControls()
     })
@@ -34,7 +34,7 @@ export default class extends Controller {
     document.removeEventListener("turbo:before-visit", this.boundRefreshVisit)
     document.removeEventListener("turbo:before-render", this.boundPrepareRefresh)
     this.element.removeEventListener("lexxy:initialize", this.boundRestoreRefresh)
-    this.element.removeEventListener("lexxy:change", this.boundCancelRefresh)
+    this.element.removeEventListener("lexxy:change", this.boundInvalidateRefreshDraft)
     this.cancelRefresh()
     this.sourceObserver.disconnect()
     this.stopSwitching()
@@ -198,9 +198,15 @@ export default class extends Controller {
     draft.editor.value = draft.html
   }
 
+  invalidateRefreshDraft() {
+    // Before capture, edits belong to the pending visit. After capture, they
+    // invalidate its stale payload without inventing a new visit intent.
+    this.refreshDraft = null
+  }
+
   cancelRefresh() {
     this.refreshURL = null
-    this.refreshDraft = null
+    this.invalidateRefreshDraft()
   }
 
   change() {

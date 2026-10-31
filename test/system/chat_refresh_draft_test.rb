@@ -69,6 +69,83 @@ class ChatRefreshDraftSystemTest < ApplicationSystemTestCase
     end
   end
 
+  test "native typing during a same chat refresh request preserves the latest serialized draft" do
+    content = find("lexxy-editor .lexxy-editor__content")
+    content.send_keys("Draft before request")
+    record_draft("typing-request-before")
+    # Controlled network-latency fixture, not a held renderer or a measurement
+    # of a physical network. The actual GET and native input remain unmodified.
+    page.driver.browser.execute_cdp("Network.enable")
+    network_enabled = true
+    page.driver.browser.execute_cdp("Network.emulateNetworkConditions",
+      offline: false, latency: 2000, downloadThroughput: -1, uploadThroughput: -1)
+    page.execute_script(<<~JS)
+      const root = document.querySelector('.n-chat-workspace--saved')
+      const editor = root.querySelector('lexxy-editor'), form = editor.form
+      window.typingRefreshEvents = []
+      for (const type of ['turbo:before-visit', 'beforeinput', 'input', 'lexxy:change',
+        'turbo:before-cache', 'turbo:before-render', 'turbo:render', 'lexxy:initialize']) {
+        document.addEventListener(type, event => {
+          const current = document.querySelector('lexxy-editor')
+          window.typingRefreshEvents.push({ event: type, time: performance.now(), trusted: event.isTrusted,
+            value: current?.value, submitted: current?.form && new FormData(current.form).get(current.getAttribute('name')),
+            sameEditor: current === editor, sameForm: current?.form === form,
+            sameRoot: document.querySelector('.n-chat-workspace--saved') === root,
+            preview: document.documentElement.hasAttribute('data-turbo-preview'), method: event.detail?.renderMethod })
+        }, { passive: true })
+      }
+      Turbo.cache.clear()
+      document.documentElement.removeAttribute('data-typing-refreshed')
+      document.addEventListener('turbo:render', event => {
+        document.documentElement.dataset.typingRefreshed = event.detail.renderMethod
+      }, { once: true })
+      Turbo.visit(location.href, { action: 'replace' })
+    JS
+    content.send_keys(" while loading")
+    expected = "<p>Draft before request while loading</p>"
+    interval = page.evaluate_script("window.typingRefreshEvents")
+    in_flight = draft_sample
+    orbite_record("typing-request-in-flight", { latencyMs: 2000, trace: interval, native: in_flight }, screenshot: true)
+    visit_event = interval.find { |event| event.fetch("event") == "turbo:before-visit" }
+    change = interval.find { |event| event.fetch("event") == "lexxy:change" && event.fetch("value") == expected }
+    refute_nil visit_event, interval.to_json
+    refute_nil change, interval.to_json
+    assert_operator visit_event.fetch("time"), :<, change.fetch("time"), interval.to_json
+    assert interval.any? { |event| event.fetch("event") == "beforeinput" && event.fetch("trusted") && event.fetch("time") > visit_event.fetch("time") && event.fetch("time") <= change.fetch("time") }, interval.to_json
+    refute interval.any? { |event| %w[turbo:before-cache turbo:before-render].include?(event.fetch("event")) }, interval.to_json
+    assert_equal expected, in_flight.fetch("value")
+    assert_equal expected, in_flight.fetch("submitted")
+    refute in_flight.fetch("disabled")
+    refute in_flight.fetch("inert")
+
+    assert_selector "html[data-typing-refreshed=morph]"
+    assert_selector "lexxy-editor[connected]"
+    orbite_settle
+    after = record_draft("typing-request-after")
+    trace = page.evaluate_script("window.typingRefreshEvents")
+    orbite_record("typing-request-lifecycle", { latencyMs: 2000, trace: trace, native: after })
+    cache = trace.find { |event| event.fetch("event") == "turbo:before-cache" }
+    render = trace.find { |event| event.fetch("event") == "turbo:before-render" }
+    initialized = trace.find { |event| event.fetch("event") == "lexxy:initialize" }
+    [ cache, render, initialized ].each { |event| refute_nil event, trace.to_json }
+    assert_operator change.fetch("time"), :<, cache.fetch("time"), trace.to_json
+    assert_operator cache.fetch("time"), :<=, render.fetch("time"), trace.to_json
+    assert_operator render.fetch("time"), :<, initialized.fetch("time"), trace.to_json
+    assert_equal "morph", render.fetch("method")
+    assert_equal expected, render.fetch("value")
+    assert trace.all? { |event| event.fetch("sameEditor") && event.fetch("sameForm") && event.fetch("sameRoot") && !event.fetch("preview") }, trace.to_json
+    assert_equal expected, after.fetch("value"), after.to_json
+    assert_equal expected, after.fetch("submitted"), after.to_json
+    assert_no_enqueued_jobs only: [ ChatResponseJob, AddDocumentJob, CrawlWebsiteUrlJob ]
+  ensure
+    if network_enabled
+      page.driver.browser.execute_cdp("Network.emulateNetworkConditions",
+        offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1)
+      page.driver.browser.execute_cdp("Network.disable")
+      orbite_record("typing-network-cleanup", { controlledLatencyMs: 2000, resetLatencyMs: 0, networkDisabled: true })
+    end
+  end
+
   test "remote generation morph retains native text without bypassing locks or the Stop owner" do
     find("lexxy-editor .lexxy-editor__content").send_keys("Keep the remote draft")
     before = record_draft("idle-before-remote-generation")
@@ -158,7 +235,7 @@ class ChatRefreshDraftSystemTest < ApplicationSystemTestCase
         return original(input, options)
       }
     JS
-    Tempfile.create([ "refresh-source-", ".pdf" ], ENV.fetch("EVIDENCE")) do |file|
+    Tempfile.create([ "refresh-source-", ".pdf" ], ENV.fetch("EVIDENCE", Dir.tmpdir)) do |file|
       file.write("%PDF-1.4\n%%EOF")
       file.flush
       attach_file(file.path) { click_button "Attach PDF", enable_aria_label: true }
