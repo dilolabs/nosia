@@ -1,9 +1,12 @@
 require "application_system_test_case"
+require "turbo/broadcastable/test_helper"
 require_relative "../support/chat_workspace_fixtures"
 require_relative "../support/orbite_browser_checks"
 
 class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   include ChatWorkspaceFixtures
+  include ActionView::RecordIdentifier
+  include Turbo::Broadcastable::TestHelper
   include OrbiteBrowserChecks
 
   setup do
@@ -83,14 +86,16 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
               const text = getComputedStyle(body.querySelector('.ai-response-content'))
               const editor = document.querySelector('.lexxy-editor__content')
               const measure = document.createElement('canvas').getContext('2d'); measure.font = text.fontSize + ' ' + text.fontFamily
-              const selectors = ['.n-composer-send', '.n-composer-control[aria-label]', '.n-composer-formatting > summary']
+              const controls = [...document.querySelectorAll('.n-composer-send, .n-composer-control')].filter(element => element.checkVisibility())
               return { assistant: { border: style.borderTopWidth, background: style.backgroundColor, padding: style.paddingLeft },
                 typography: { size: parseFloat(text.fontSize), line: parseFloat(text.lineHeight), font: text.fontFamily, zero: measure.measureText('0').width },
                 prose: box('.n-chat-transcript .n-chat-reading-column'), editor: { client: editor.clientHeight, height: editor.scrollHeight },
                 reading: box('[data-application-scroll]'), dock: box('.n-chat-dock'),
                 overflow: { document: document.documentElement.scrollWidth - innerWidth, main: document.querySelector('main').scrollWidth - document.querySelector('main').clientWidth },
-                controls: selectors.flatMap(selector => [...document.querySelectorAll(selector)]).filter(element => element.checkVisibility())
-                  .map(element => ({ name: element.getAttribute('aria-label') || element.textContent, box: element.getBoundingClientRect().toJSON() })) }
+                uniqueControlCount: new Set(controls).size,
+                controls: controls.map(element => ({ name: element.getAttribute('aria-label') || element.textContent.trim(),
+                  text: element.textContent.trim(), ariaLabel: element.getAttribute('aria-label'), className: element.className,
+                  box: element.getBoundingClientRect().toJSON() })) }
             })()
           JS
           orbite_record("visual-materials-#{language}-#{width}-#{dark}", sample, screenshot: true)
@@ -108,6 +113,12 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
           assert_equal({ "document" => 0, "main" => 0 }, sample.fetch("overflow"))
           assert_operator sample.fetch("reading").fetch("bottom"), :<=, sample.fetch("dock").fetch("top") + 1
           assert_operator sample.fetch("reading").fetch("height"), :>, 0
+          assert_equal sample.fetch("controls").size, sample.fetch("uniqueControlCount"), sample.to_json
+          tools = sample.fetch("controls").select { |control| control.fetch("className").split.include?("n-composer-tools-trigger") }
+          assert_equal 1, tools.size, sample.to_json
+          assert_nil tools.first.fetch("ariaLabel"), tools.to_json
+          assert_equal tools.first.fetch("text"), tools.first.fetch("name")
+          refute_empty tools.first.fetch("name")
           sample.fetch("controls").each do |control|
             assert_operator control.fetch("box").fetch("width"), :>=, 44, control.to_json
             assert_operator control.fetch("box").fetch("height"), :>=, 44, control.to_json
@@ -158,6 +169,56 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
         end
       end
     end
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "mobile navigation returns focus to its current streamed composer opener" do
+    orbite_viewport(375, 812)
+    @chat.start_generation!
+    visit chat_path(@chat)
+    assert_button "Stop generating", enable_aria_label: true
+    trigger = "[data-orbite-composer-navigation]"
+    page.execute_script("window.oldOrbiteTrigger = document.querySelector(arguments[0]); window.streamedOrbitePanel = document.querySelector('#chat-history')", trigger)
+    find(trigger).click
+    assert_selector "#chat-history:modal"
+    @chat.stop_generation!
+    Current.reset
+    replacement = ApplicationController.render(
+      inline: '<%= turbo_stream.replace target, partial: "messages/form", locals: { chat: chat } %>',
+      locals: { target: "#{dom_id(@chat)}_message_form", chat: @chat })
+    page.execute_script("Turbo.renderStreamMessage(arguments[0])", replacement)
+    assert_selector "button[aria-label=Send]:not([disabled])", visible: :all
+    assert_no_selector ".n-composer-stop", visible: :all
+    refute page.evaluate_script("window.oldOrbiteTrigger.isConnected")
+    assert_selector "#chat-history:modal"
+    assert page.evaluate_script("window.streamedOrbitePanel === document.querySelector('#chat-history')")
+    orbite_record("streamed-opener-modal", { oldConnected: false, samePanel: true, modal: true }, screenshot: true)
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_selector "#{trigger}:focus"
+    assert_no_selector "#chat-history:modal"
+    refute page.evaluate_script("!!document.activeElement.closest('[inert]')")
+    sample = orbite_assert_reachable(trigger)
+    orbite_record("streamed-current-opener-focus", sample.merge(oldConnected: page.evaluate_script("window.oldOrbiteTrigger.isConnected"), currentFocused: page.evaluate_script("document.activeElement === document.querySelector(arguments[0])", trigger)), screenshot: true)
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "same page refresh retains collapsed wide history without duplicate interactive ids" do
+    orbite_viewport(1400, 1000)
+    visit chat_path(@chat)
+    find("#workspace-history-rail-trigger").click
+    assert_no_selector "#chat-history[open]", visible: :all
+    find("lexxy-editor .lexxy-editor__content").send_keys("Refresh draft")
+    orbite_refresh
+    assert_selector "lexxy-editor[connected]"
+    orbite_settle
+    assert_selector "lexxy-editor .lexxy-editor__content", text: "Refresh draft", exact_text: true
+    assert_selector "#workspace-history-rail-trigger[aria-expanded=false]"
+    assert_no_selector "#chat-history[open]", visible: :all
+    ids = page.evaluate_script("[...document.querySelectorAll('[id]')].map(element => element.id)")
+    assert_equal ids.uniq, ids
+    orbite_record("same-page-collapsed-refresh", { rendered: page.evaluate_script("document.documentElement.dataset.orbiteRefreshed"), draft: find("lexxy-editor .lexxy-editor__content").text, ids: ids, collapsed: true }, screenshot: true)
+    find("#workspace-history-rail-trigger").click
+    assert_selector "#chat-history[data-inline=true][open]"
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 

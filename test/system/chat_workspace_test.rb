@@ -307,6 +307,53 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
+  test "history width reflow preserves a paused paragraph without advertising new content" do
+    visit_reader(1400, 1000)
+    pause_reader
+    anchor = reader_anchor
+    page.execute_script(<<~JS, anchor.fetch("index"))
+      window.historyWidthEditor = document.querySelector('lexxy-editor')
+      window.historyWidthRoot = document.querySelector('.n-chat-workspace')
+      window.historyWidthSurface = #{reader_surface}
+      window.historyWidthParagraph = document.querySelectorAll('.n-chat-transcript .ai-response-content p')[arguments[0]]
+    JS
+    baseline_width = page.evaluate_script("#{reader_surface}.getBoundingClientRect().width")
+    orbite_record("history-width-before", { width: baseline_width, anchor: anchor, gap: reader_gap }, screenshot: true)
+    [ false, true ].each do |open|
+      find("#workspace-history-rail-trigger").click
+      assert_selector "#workspace-history-rail-trigger[aria-expanded=#{open}]"
+      settle_reader_animations
+      assert_reader_following false
+      assert_reader_anchor anchor
+      assert_no_button "Latest message"
+      assert page.evaluate_script("window.historyWidthEditor === document.querySelector('lexxy-editor')")
+      sample = page.evaluate_script(<<~JS, anchor.fetch("index"))
+        ({ width: #{reader_surface}.getBoundingClientRect().width,
+          sameRoot: window.historyWidthRoot === document.querySelector('.n-chat-workspace'),
+          sameSurface: window.historyWidthSurface === #{reader_surface},
+          sameParagraph: window.historyWidthParagraph === document.querySelectorAll('.n-chat-transcript .ai-response-content p')[arguments[0]] })
+      JS
+      assert sample.fetch("sameRoot"), sample.to_json
+      assert sample.fetch("sameSurface"), sample.to_json
+      assert sample.fetch("sameParagraph"), sample.to_json
+      if open
+        assert_in_delta baseline_width, sample.fetch("width"), 1, sample.to_json
+      else
+        assert_operator sample.fetch("width"), :>, baseline_width, sample.to_json
+      end
+      orbite_record("history-width-#{open ? 'reopened' : 'collapsed'}", sample.merge(anchor: reader_anchor, gap: reader_gap, latest: false), screenshot: true)
+    end
+    stream_answer(reader_answer(100))
+    assert_button "Latest message"
+    assert_reader_anchor anchor
+    orbite_record("history-width-real-growth", { anchor: reader_anchor, gap: reader_gap, latest: true })
+    click_button "Latest message"
+    assert_reader_following true
+    assert_operator reader_gap, :<=, 80
+    orbite_record("history-width-resumed", { gap: reader_gap, following: true }, screenshot: true)
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   [ [ 1400, 1000 ], [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
     test "reader follows only by intent while streaming at #{width}x#{height}" do
       visit_reader(width, height)
