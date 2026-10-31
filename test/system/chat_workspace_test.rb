@@ -1833,6 +1833,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       chat_keyboard_focus ".n-chat-toolbar a[href='#{user_root_path}']", reverse: true
       assert_selector "section#chat-usage-details > h2#chat-usage-summary"
       assert_no_selector "#chat-usage-details summary", visible: :all
+      chat_contrast "#chat-usage-summary"
       chat_contrast "[data-chat-total-input]"
       chat_contrast "[data-chat-total-output]"
       chat_contrast ".n-chat-user-body p"
