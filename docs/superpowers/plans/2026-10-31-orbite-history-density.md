@@ -17,7 +17,7 @@
 - Execution mode is already chosen: **fresh implementer per task, then independent fresh SPEC → fresh QUALITY**. Do not ask again. The parent self-reviews this plan; no plan-review dispatch. No new worktree, unrelated refactor, cleanup, integration, push, PR, or automatic documentation commit.
 - Preserve the actual latest five D drafts byte-for-byte throughout Task 1: `docs/README.md`, `docs/chat-composer.md`, `docs/chat-workspace.md`, `docs/compact-headers.md`, and untracked `docs/orbite-workspace.md`. Snapshot hashes/bytes before work. Their earlier D owner `ses_e6dfac0a3ffeAiSVdeOqukY067` returned READY_FOR_REVIEW, **not a documentation commit**.
 - All production JavaScript, reader/dock algorithms and markup, helper/backend/locale/schema/fixture/dependency/authorization/accounting/source/Formatting/Stop behavior remain unchanged. Inline panel stays **240px**. `chat_workspace_title` already bounds display previews to 120 characters; do not change it or promise the entire first message in History.
-- Ordinary link activation provides keyboard/touch access to the existing wrapping saved-chat `h1` and account header. Native `title` attributes supplement that recovery; no custom tooltip, disclosure control, focus owner, or JavaScript.
+- Ordinary link activation provides keyboard/touch access to the original question in the wrapping transcript and the full account in the paragraph under Usage. The saved toolbar `h1` and account preview remain clipped under their existing compact-header contracts; full source values remain in their DOM. Native `title` attributes supplement recovery; no custom tooltip, disclosure control, focus owner, or JavaScript.
 - Do not shrink the existing 14px link/body typography, 12px metadata, or 44px targets to manufacture density. Dates must remain complete and may wrap; never ellipsize dates or impose a clipping height.
 - Unexpected nonzero/F/E/S means **BLOCKED**, with original raw logs and true exits. The only deliberate exceptions are separately recorded meaningful design RED, and the expected Brakeman scanner exit **3** followed by parsed comparison exit **0**. A boot error is not RED. A baseline characterization PASS is not RED. No retry hunt, weakening an oracle, or silently expanding ownership.
 
@@ -178,6 +178,97 @@ The utility is evidence plumbing, not authorization to edit its inputs. Parent-o
 ## Task 1: Implement the coherent editorial History amendment
 
 **Owner:** One fresh bounded implementer; exactly the eight runtime/test paths above. External scripts/audit/logs are uniquely named under E. No D draft edits. No production mutation until actual-source audit, baseline characterization, and meaningful request/native RED have completed.
+
+### Execution clarification for the stopped first candidate
+
+The first implementer correctly stopped before the whole native gate: the plan
+had incorrectly described clipped toolbar previews as wrapping. Actual
+`application_shell.css:45–46` and the unchanged compact-header regression require
+those previews to stay clipped. This is a plan/test-target error, not an observed
+product regression. Do not change header CSS, header markup, compact-header tests,
+or any of the four already-tested History production paths to resolve it.
+
+The parent authorizes only a corrected full-value recovery assertion in the NEW
+native file: after genuine Enter navigation, read the complete original question
+from `.n-chat-transcript .n-chat-user-body` and the full account from
+`#chat-usage-details > p`. Keep original `h1`/toolbar-account full DOM text checks
+and their existing compact presentation. Retain all list clipping/contrast/native
+focus/date/deletion/privacy/reader oracles. First collect a passive original
+geometry/text trace at one real 375px spaced-label case; if these existing reading
+surfaces do not actually wrap and contain their complete text, return BLOCKED
+rather than changing production or weakening containment.
+
+Original prefix: `/tmp/opencode/chat-workspace-recovery-Pbwj0x/orbite-history-density-task1.s4CHKX`.
+Original stopped freeze and all logs/comparisons remain immutable. The parent
+preserved all eight source files plus the two pre-clarification docs in
+`orbite-history-parent-clarification-77gp48k_.originals/`; its `.json` receipt binds
+the exact original new-test SHA256 `40aa18273ef92391ba6af8a32bbb74e70f47fd409121159cac089258a65738f1`.
+
+The clarification changes only two parent-owned Markdown files and the new
+native test's recovery block/helper. Use a NEW continuation prefix/checkpoint and
+external state utility, never rewrite the old receipts/scripts. Before modifying
+the test, verify every stopped input still matches the original tested freeze
+except the two explicitly committed clarification docs. The new checkpoint must
+inherit the old protected/nonowned/draft maps, changing only the two approved doc
+entries, documentation HEAD and its corresponding index identities. Preserve the
+original checkpoint's expected five-draft-only status for post-eight-path-commit
+verification. Do not re-run the original “runtime equals f487607” checkpoint on an
+already-modified candidate or pretend the original tests ran at the new docs HEAD.
+
+The entire new test file can no longer remain byte-identical once its erroneous
+recovery block is corrected. This narrow exception does NOT relax the permanent
+density characterization. Keep its setup, fixture construction, expected
+semantics, viewport/opener logic, test body and sampler byte-identical. Create a
+NEW exclusive proof from the preserved original and corrected current file using:
+
+```python
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+root = Path('/home/cbldev/gitd/dilolabs/nosia/.worktrees/chat-workspace-ui')
+e = Path('/tmp/opencode/chat-workspace-recovery-Pbwj0x')
+name = 'test/system/orbite_history_density_test.rb'
+original = e / 'orbite-history-parent-clarification-77gp48k_.originals' / name
+old = original.read_text()
+new = (root / name).read_text()
+assert hashlib.sha256(original.read_bytes()).hexdigest() == '40aa18273ef92391ba6af8a32bbb74e70f47fd409121159cac089258a65738f1'
+
+def units(text):
+    def span(first, following):
+        start = text.index(first)
+        return text[start:text.index(following, start)]
+    return {
+        'prelude_setup_teardown': text[:text.index('  test "density characterization')],
+        'characterization_test': span('  test "density characterization', '  test "native design'),
+        'seed': span('    def density_seed', '    def density_expected'),
+        'expected_semantics': span('    def density_expected', '    def density_open'),
+        'viewport_opener': span('    def density_open', '    def density_characterization'),
+        'characterization_sampler': span('    def density_characterization', '    def density_rows'),
+    }
+
+before, after = units(old), units(new)
+assert before == after, 'Permanent density characterization changed'
+proof = {'scope': 'Recovery-test correction only; permanent real density units unchanged',
+         'originalFile': str(original), 'originalSHA256': hashlib.sha256(original.read_bytes()).hexdigest(),
+         'currentSHA256': hashlib.sha256((root / name).read_bytes()).hexdigest(),
+         'unitSHA256': {key: hashlib.sha256(value.encode()).hexdigest() for key, value in before.items()}}
+with Path(sys.argv[1]).open('x') as stream:
+    json.dump(proof, stream, indent=2)
+print('PASS six permanent density units byte-identical; full recovery test changed separately')
+```
+
+This proof replaces ONLY the continuation comparison's whole-file equality check;
+the initial original comparison remains valid for its original unchanged file.
+Run a NEW after-characterization and compare it with the same original baseline,
+retaining identical fourteen-row semantics, original path/hash/line provenance,
+zero scroll origin, same panel/content dimensions within1px and strict improvement
+in all eight contexts. New candidate freezes bind the corrected test and current
+documentation HEAD. Re-audit actual changed test source, run all focused requests,
+native cases, complete six-file native group, localization and four-file lint on
+the new freeze, then exact eight-path commit/blob proof and fresh SPEC→QUALITY.
+No old focused results substitute for these new final gates.
 
 - [ ] **Step 1: Establish the static safety/source/draft checkpoint.**
 
@@ -369,22 +460,25 @@ class OrbiteHistoryDensitySystemTest < ApplicationSystemTestCase
       assert_current_path chat_path(long_id)
       assert_selector ".n-chat-header h1", text: preview, exact_text: true
       assert_selector ".n-chat-header [data-chat-account-label]", text: long_account, exact_text: true
-      header = page.evaluate_script(<<~JS)
-        [...document.querySelectorAll('.n-chat-header h1, .n-chat-header [data-chat-account-label]')].map(node => {
+      assert_selector ".n-chat-transcript .n-chat-user-body", text: long_title, exact_text: true
+      assert_selector "#chat-usage-details > p", text: long_account, exact_text: true
+      recovery = page.evaluate_script(<<~JS)
+        ['.n-chat-transcript .n-chat-user-body', '#chat-usage-details > p'].map(selector => {
+          const node = document.querySelector(selector)
           const style = getComputedStyle(node), box = node.getBoundingClientRect(), range = document.createRange()
           range.selectNodeContents(node)
           return { text: node.textContent.trim(), whiteSpace: style.whiteSpace, overflow: style.overflowX,
             textOverflow: style.textOverflow, fits: [...range.getClientRects()].every(r => r.left >= box.left - 1 && r.right <= box.right + 1) }
         })
       JS
-      assert_equal [ preview, long_account ], header.map { |item| item.fetch("text") }
-      header.each do |item|
+      assert_equal [ long_title, long_account ], recovery.map { |item| item.fetch("text") }
+      recovery.each do |item|
         refute_equal "nowrap", item.fetch("whiteSpace")
         refute_equal "hidden", item.fetch("overflow")
         refute_equal "ellipsis", item.fetch("textOverflow")
         assert item.fetch("fits"), item.to_json
       end
-      orbite_record("history-native-open-#{locale}-#{dark}-#{width}-#{kind}", header, screenshot: true)
+      orbite_record("history-native-open-#{locale}-#{dark}-#{width}-#{kind}", recovery, screenshot: true)
       assert_equal 0, page.evaluate_script("document.scrollingElement.scrollTop")
       page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "prefers-reduced-motion", value: "reduce" } ])
       assert page.evaluate_script("[...document.querySelectorAll('#chat-history a, #chat-history button')].every(node => getComputedStyle(node).transitionDuration.split(',').every(value => parseFloat(value) === 0))")
@@ -520,7 +614,7 @@ end
 
 Static audit requirements **before any build/browser/request boot**:
 
-1. Re-read the entire actual new file after patching, not just this proposed block. Verify actual callbacks/defaults in `db/schema.rb`, Chat/Message and installed RubyLLM macros, plus `/home/cbldev/.local/share/mise/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/activerecord-8.0.5.1/lib/active_record/{relation,insert_all}.rb` (`relation.rb:800` delegates `insert_all!`). Actual IDs are bigint fixture hashes; role is **20**; use existing `ruby_llm_model_id`. Do not substitute `Chat.create!`, `RubyLLM.chat`, `.ask`, `.complete`, provider refresh or message callbacks. `insert_all!` is callback-free and the source strings contain no URLs/sources/attachments. Existing membership/account/user/model rows come from ChatWorkspaceFixtures. The actual saved-header recovery targets are `.n-chat-header h1` and its nested `[data-chat-account-label]`, not a direct child account paragraph.
+1. Re-read the entire actual new file after patching, not just this proposed block. Verify actual callbacks/defaults in `db/schema.rb`, Chat/Message and installed RubyLLM macros, plus `/home/cbldev/.local/share/mise/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/activerecord-8.0.5.1/lib/active_record/{relation,insert_all}.rb` (`relation.rb:800` delegates `insert_all!`). Actual IDs are bigint fixture hashes; role is **20**; use existing `ruby_llm_model_id`. Do not substitute `Chat.create!`, `RubyLLM.chat`, `.ask`, `.complete`, provider refresh or message callbacks. `insert_all!` is callback-free and the source strings contain no URLs/sources/attachments. Existing membership/account/user/model rows come from ChatWorkspaceFixtures. The full-value reading surfaces are `.n-chat-transcript .n-chat-user-body` and `#chat-usage-details > p`; the toolbar previews intentionally remain clipped.
 2. Audit inherited setup/teardown, fixture creation, test adapter selection/restore, ActiveJob railtie/helper, SolidQueue enqueue-only implementation, Cable local adapter, local login/GET/preferences/assets. Confirm no job execution/drain/perform flags. The twelve extra roots and messages are transactionally test-owned; no schema/setup/reset command is needed. `User#recent_conversations` has no limit and orders updated_at/id descending. Fixed timestamps and deterministic IDs make all fourteen rows identical across baseline/candidate runs.
 3. Record actual source hashes and local/queued-only call paths in a new `${H}.actual-source-audit.md`. The original D audit is supporting history, **not** a sandbox or a substitute for this new-source review. An unsafe/unverified path is BLOCKED before boot.
 4. Verify only the new test changed since checkpoint with `ownership`; source/drafts/protected inputs remain unchanged. Keep all shared helpers untouched.
@@ -865,7 +959,7 @@ git diff --check
 
 Expected: all0/nonzero real counts, zero F/E/S. Whole **six** native files, not a reader/compact subset. Native deletion cancel/confirm, root/member/nonmember/child isolation and source protections still run unchanged. Existing labels such as `click_link "First account question"` must work through full DOM text/native title; do not silently edit those callers to rescue a failed selection. This task does not repeat unrelated seven-workspace/final48 gates; Task 2 does.
 
-Read actual geometry/contrast/native records and open original screenshots: baseline/candidate inline/modal; long spaced/unspaced account/title at narrow/wide; FR dark; short landscape; focused link/trash/Close; actual opened wrapping header. Verify actual 4.5:1 text, 3:1 icon/focus, 2px focus, five-point hits, positive widths, actual long overflow versus fitting short labels, complete dates, all44px, active padding, no horizontal/root scroll. Record exactly which originals were opened, hashes and observations; do not claim native tooltip UI, physical touch, screen-reader or native zoom testing. Sources/Formatting/Stop/reader80px/paused1px/own-success follow are established by unchanged-source checks and whole regressions, not the new list sampler alone.
+Read actual geometry/contrast/native records and open original screenshots: baseline/candidate inline/modal; long spaced/unspaced account/title at narrow/wide; FR dark; short landscape; focused link/trash/Close; actual opened full question and Usage account. Verify actual 4.5:1 text, 3:1 icon/focus, 2px focus, five-point hits, positive widths, actual long overflow versus fitting short labels, complete dates, all44px, active padding, no horizontal/root scroll. Record exactly which originals were opened, hashes and observations; do not claim native tooltip UI, physical touch, screen-reader or native zoom testing. Sources/Formatting/Stop/reader80px/paused1px/own-success follow are established by unchanged-source checks and whole regressions, not the new list sampler alone.
 
 - [ ] **Step 9: Freeze tested patch/blob identity, commit exactly eight paths, then independent SPEC → QUALITY.**
 
@@ -904,8 +998,9 @@ History heading and introductory help are removed; the hidden Navigation heading
 localized History section label, empty guidance, mobile links, and Close remain.
 Titles and account names are one-line previews with CSS ellipsis only on overflow.
 Their complete existing display strings remain in the link DOM and native `title`
-attributes; activating the ordinary conversation link exposes the same wrapping
-title and full account header for keyboard/touch users. The display-title helper's
+attributes; activating the ordinary conversation link exposes the original
+question in the wrapping transcript and full account under Usage. Toolbar previews
+remain compact. The display-title helper's
 existing 120-character bound is unchanged. Dates remain semantic and complete,
 sharing metadata space when possible or wrapping below the account without
 ellipsis. Inline width remains 240px, with padded active links and separate
@@ -931,8 +1026,8 @@ The panel keeps its visually hidden localized Navigation heading and History
 section label, without a duplicate logo, visible History heading, or introductory
 help. Title and account previews occupy one line with CSS ellipsis on overflow;
 full existing display values remain in DOM/native `title` attributes. Open the
-ordinary conversation link to read the same wrapping title and full account
-header without relying on pointer hover. The existing 120-character display-title
+ordinary conversation link to read the original question and full Usage account
+without relying on pointer hover. Existing toolbar previews remain compact. The 120-character display-title
 bound is unchanged; dates stay complete and may wrap onto a metadata line of
 their own. The 240px inline panel, padded active link, separate at-least-44px
 Cross/Trash targets, native focus/dismissal, and confirmed deletion are retained.
@@ -970,7 +1065,7 @@ Earlier selected results remain dated historical evidence.
 ```markdown
 The [History density amendment](superpowers/specs/2026-10-31-orbite-history-density-design.md)
 also replaces wrapping History title/account labels with single-line CSS previews,
-retaining full existing DOM/native-title values and ordinary wrapping-header access.
+retaining full existing DOM/native-title values and ordinary transcript/Usage access.
 Dates, native controls, and the retained reader safeguards are not superseded.
 ```
 
@@ -1181,7 +1276,7 @@ New `${HD}.report.md` and `${HD}.manifest.json` must contain:
 
 - Approved design/spec and actual History commit; independent History SPEC→QUALITY outcomes; pending D/whole-feature reviews. Current precommit/frozen source identity and exact selected48 files, unchanged protected238, JS/reader/backend/source/fixture/native-owner boundaries, final source/test/config/doc hashes.
 - Actual four group summaries/seeds/counts/assertions/F/E/S, build/lint actual Ruby selection/seven syntax/protection/link checks and true exits. Original f487607640/154993/33Ruby/security results explicitly historical. Old D artifact integrity checked relative E; no old receipt overwritten.
-- Actual permanent characterization baseline/candidate comparison for all8 contexts, complete fourteen-row semantics and panel/content dimensions; actual strictly greater counts both modes. Link source/full120 preview/account native attributes, one-line spans, genuine overflow only for long labels, complete safe dates, separate44px actions, minimum8font-em content width/current padded aria, native Tab/Shift/Enter/Escape/five-point scrollport hits/outline2px, text4.5/icon-focus3 contrast, no root/horizontal scroll, wrapping-header recovery. Record mockups separately as non-application evidence.
+- Actual permanent characterization baseline/candidate comparison for all8 contexts, complete fourteen-row semantics and panel/content dimensions; actual strictly greater counts both modes. Link source/full120 preview/account native attributes, one-line spans, genuine overflow only for long labels, complete safe dates, separate44px actions, minimum8font-em content width/current padded aria, native Tab/Shift/Enter/Escape/five-point scrollport hits/outline2px, text4.5/icon-focus3 contrast, no root/horizontal scroll, full question/Usage account recovery. Record mockups separately as non-application evidence.
 - Final whole-reader/composer/private/upload/Stop/freshness/accounting/draft coverage and retained80px/1px boundaries, reduced motion, single modal/focus owner, exact opener recovery/user popover/preferences. The old limit on same-frame Turbo focus remains narrow, not permission for a new failure.
 - Actual current report/hash/source/version/config/default79 checks, baseline provenance/hash and true scanner3/comparison0; exact two warnings and no security-clean/certification claim. MCP JSON debt stays visible, with actual warnings classified, not suppressed.
 - Original unknown/lost artifacts and D's two external parser failures remain preserved. NOT RUN: unrestricted unsafe suite, live providers/MCP/crawl/index/embeddings/workers, native browser zoom, screen reader, physical OS/mobile keyboard/native hover-tooltip UI. No user env/DEV-process/DB-lifecycle/dependency change, no automatic integration.
@@ -1265,7 +1360,7 @@ footer = (
     + '; '.join(density_words) + '. These are real application measurements,\n'
     'not mockup counts. Complete sample semantics and panel/content dimensions\n'
     'were compared. Full DOM/native-title values, one-line previews, intact dates,\n'
-    'ordinary wrapping-header recovery and retained native protections were checked.\n\n'
+    'ordinary transcript/Usage recovery and retained native protections were checked.\n\n'
     f'The build, RuboCop on **{len(lint_files)}** actual changed Ruby files, seven\n'
     'JavaScript syntax checks, protected-source checks, and local Markdown links\n'
     'exited **0**. The NEW current default Brakeman8.0.4 scan exited **3** with\n'
@@ -1321,7 +1416,7 @@ Return **READY_FOR_REVIEW, UNSTAGED** with actual prefix/receipts/report/manifes
 ## Coverage and handoff checklist
 
 - [ ] EditorialA/no visible History `h3`/help; hidden Navigation/dialog/History section names, mobile links, empty state and independent Close retained (Task1 request/native RED→GREEN, full regression).
-- [ ] Title/account at most one visual line, fitting short labels not forced to truncate, real long spaced/unspaced overflow, complete DOM/native title, existing120 helper unchanged and wrapping-header native Enter recovery (Task1 full new matrix).
+- [ ] Title/account at most one visual line, fitting short labels not forced to truncate, real long spaced/unspaced overflow, complete DOM/native title, existing120 helper unchanged and full-question/Usage-account native Enter recovery (Task1 full new matrix).
 - [ ] Dates intact/time/ISO/localization, flexible metadata, no ellipsis/fixed clipping height; grid/min0/nonshrinking44px action, panel240/type sizes/padding/current aria, all native hit/focus/contrast/no-overlap/width guards retained (production scoped block + migrated/new native cases).
 - [ ] Real before/after standalone unchanged characterization and external strict comparison, identical14 persisted roots/sample ordering/panels/viewports/ENFR/themes; no mockup thresholds (Task1 Steps2–7).
 - [ ] Request parsed escaping/full120 and privacy/root/member/nonmember/child/deletion unchanged; only one actual History title assertion migration in controller test, eight coupled native cases/sampler, no other-test/helper/fixture edits (exact8path freeze/commit).

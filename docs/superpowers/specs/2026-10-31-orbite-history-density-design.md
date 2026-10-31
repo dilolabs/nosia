@@ -41,9 +41,10 @@ and nonshrinking 44px action column prevent overlap.
 
 Keep the complete existing display-title string in the link's DOM and expose it
 through the native `title` attribute for pointer hover. Keyboard and touch users
-can activate the ordinary link to open the conversation, where the existing
-wrapping `h1` displays that same title without this History-only clipping. Native
-hover text is supplementary, not the only way to recover the display title.
+can activate the ordinary link and read the original first question in the
+existing wrapping transcript. The saved `h1` also keeps the complete bounded
+display title in its DOM, but remains visually compact as before. Native hover
+text is supplementary, not the only way to recover the underlying question.
 Do not add a custom tooltip, disclosure button, focus owner or new JavaScript.
 
 “Complete display title” means the current `chat_workspace_title` result. That
@@ -57,8 +58,9 @@ Place the account and localized timestamp below the title, on a shared metadata
 line where space permits. Account names also occupy at most one visual line,
 using CSS ellipsis only when too long. Keep the complete account name in the DOM
 and on its native `title` attribute. Activating the conversation link also makes
-the existing full account name available in that conversation's wrapping header;
-do not rely on pointer hover alone or introduce a custom tooltip.
+the existing full account name available in the wrapping paragraph under Usage.
+The separate toolbar account preview remains compact as before. Do not rely on
+pointer hover alone or introduce a custom tooltip.
 
 Reserve space for the localized date rather than clipping it to fit the account.
 At narrow widths, allow the metadata layout to place the date on its own line.
@@ -114,6 +116,9 @@ each title/account label, ellipsis styling confined to those labels, complete
 display-title/account DOM/name and hover values, intact date text, 44px controls,
 independent deletion/confirmation, current-link padding, no horizontal overflow
 and trusted Tab/Shift+Tab/Enter/Escape behavior.
+After native link activation, verify the complete original question in the
+wrapping user message and the full account under Usage; preserve the toolbar's
+existing clipped previews rather than changing header behavior.
 Keep reduced-motion, modal ownership, opener focus recovery and protected
 reader/composer regression checks. Source and tests need fresh SPEC then QUALITY
 reviews, followed by refreshed D documentation, safe final gates, current-source
@@ -123,6 +128,18 @@ No application or test source has changed for this amendment. The user reviewed
 and approved this written scope; writing-plans is now the next gate before
 implementation. Preserve the five existing documentation drafts and original
 evidence throughout.
+
+### Execution clarification: existing reading surfaces, not a header redesign
+
+The original wording incorrectly described the saved toolbar `h1` and account
+preview as wrapping. Actual `application_shell.css:45–46` intentionally clips
+both; existing compact-header regressions require that behavior. The full account
+already wraps at `#chat-usage-details > p`, and the original question already
+wraps in `.n-chat-transcript .n-chat-user-body`. Correct the recovery tests and
+documentation to those existing reading surfaces. This factual clarification
+does not authorize changing header CSS/markup/tests, any user-selected History
+behavior, the 120-character display-title bound, or a new full-value control.
+The user-facing scope remains History-only.
 
 ## Visual exploration evidence and limitations
 
