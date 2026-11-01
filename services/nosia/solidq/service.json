@@ -9,8 +9,14 @@
   "dockerfile": "Dockerfile",
   "exposeViaProxy": false,
   "dependsOn": [
-    "postgres-db",
-    "web"
+    {
+      "name": "postgres-db",
+      "condition": "service_healthy"
+    },
+    {
+      "name": "web",
+      "condition": "service_healthy"
+    }
   ],
   "env": {
     "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY": "${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}",
@@ -36,12 +42,12 @@
   "restart": "on-failure:5",
   "models": [
     {
-      "name": "llm",
-      "model": "${LLM_MODEL}"
-    },
-    {
       "name": "embedding",
       "model": "${EMBEDDING_MODEL}"
+    },
+    {
+      "name": "llm",
+      "model": "${LLM_MODEL}"
     }
   ],
   "volumes": [

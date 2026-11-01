@@ -18,8 +18,14 @@
   "image": "dilolabs/nosia:latest",
   "exposeViaProxy": false,
   "dependsOn": [
-    "db-migrate",
-    "postgres-db"
+    {
+      "name": "db-migrate",
+      "condition": "service_completed_successfully"
+    },
+    {
+      "name": "postgres-db",
+      "condition": "service_healthy"
+    }
   ],
   "env": {
     "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY": "${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}",
@@ -45,12 +51,12 @@
   "restart": "on-failure:5",
   "models": [
     {
-      "name": "llm",
-      "model": "${LLM_MODEL}"
-    },
-    {
       "name": "embedding",
       "model": "${EMBEDDING_MODEL}"
+    },
+    {
+      "name": "llm",
+      "model": "${LLM_MODEL}"
     }
   ],
   "volumes": [

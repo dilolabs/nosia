@@ -60,7 +60,7 @@ services:
       - "0.0.0.0:443:443/tcp"
     depends_on:
       web:
-        condition: service_healthy
+        condition: service_started
 
   solidq:
     build:
@@ -96,8 +96,8 @@ services:
       web:
         condition: service_healthy
     models:
-      - "llm"
       - "embedding"
+      - "llm"
 
   web:
     image: "dilolabs/nosia:latest"
@@ -136,8 +136,8 @@ services:
       timeout: "5s"
       retries: 30
     models:
-      - "llm"
       - "embedding"
+      - "llm"
 
 models:
   embedding:

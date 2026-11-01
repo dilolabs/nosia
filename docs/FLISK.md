@@ -44,8 +44,8 @@ starting the other: both publish 80, 443 and 127.0.0.1:5432.
 Edit a `service.json`, then regenerate and commit the Compose file:
 
 ```sh
-npx @flisk-sh/flisk-export@0.8.0 compose . --force
+npx @flisk-sh/flisk-export@0.9.0 compose . --force
 ```
 
-CI runs the same command with `--check` and fails when the committed file is out of date.
+CI runs the same command with `--check`, and also re-imports `docker-compose.yml` and fails if the `service.json` files or the generated file would change, so a Compose edit nobody re-imported is caught.
 If `docker-compose.yml` changes, `flisk import .` re-reads it into the `service.json` files.

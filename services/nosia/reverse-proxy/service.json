@@ -8,7 +8,10 @@
   "image": "caddy:latest",
   "exposeViaProxy": false,
   "dependsOn": [
-    "web"
+    {
+      "name": "web",
+      "condition": "service_started"
+    }
   ],
   "env": {
     "NOSIA_URL": "${NOSIA_URL}"

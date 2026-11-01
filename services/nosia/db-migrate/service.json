@@ -9,7 +9,10 @@
   "dockerfile": "Dockerfile",
   "exposeViaProxy": false,
   "dependsOn": [
-    "postgres-db"
+    {
+      "name": "postgres-db",
+      "condition": "service_healthy"
+    }
   ],
   "env": {
     "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY": "${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}",
