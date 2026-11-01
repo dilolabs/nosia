@@ -47,5 +47,5 @@ Edit a `service.json`, then regenerate and commit the Compose file:
 npx @flisk-sh/flisk-export@0.9.0 compose . --force
 ```
 
-CI runs the same command with `--check`, and also re-imports `docker-compose.yml` and fails if the `service.json` files or the generated file would change, so a Compose edit nobody re-imported is caught.
+To check that the generated file is up to date, run the same command with `--check`; it exits non-zero when `service.json` and the generated file disagree. No CI job is included: if you want one, it is two commands (re-import `docker-compose.yml`, run the exporter, then `git diff --exit-code`), and we can add it if you ask for it.
 If `docker-compose.yml` changes, `flisk import .` re-reads it into the `service.json` files.
