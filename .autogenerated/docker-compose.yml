@@ -30,7 +30,7 @@ services:
   postgres-db:
     image: "pgvector/pgvector:pg16"
     init: true
-    restart: "on-failure"
+    restart: "on-failure:5"
     environment:
       POSTGRES_DB: "${POSTGRES_DB}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -67,7 +67,7 @@ services:
       context: "../services/nosia/solidq"
       dockerfile: "Dockerfile"
     init: true
-    restart: "on-failure"
+    restart: "on-failure:5"
     environment:
       ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: "${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}"
       ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: "${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}"
@@ -102,7 +102,7 @@ services:
   web:
     image: "dilolabs/nosia:latest"
     init: true
-    restart: "on-failure"
+    restart: "on-failure:5"
     environment:
       ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: "${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}"
       ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: "${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}"

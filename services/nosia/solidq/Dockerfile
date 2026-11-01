@@ -1,3 +1,3 @@
 # From the Compose `command` of this service (flisk import). Flisk sets no container command, so it lives here.
 FROM dilolabs/nosia:latest
-CMD ["sh","-c","bundle exec rake solid_queue:start"]
+CMD ["bundle","exec","rake","solid_queue:start"]
