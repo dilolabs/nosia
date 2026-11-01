@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "project": {
+    "name": "nosia",
+    "version": "1.0.0"
+  },
+  "phases": {
+    "pre_alpha": {
+      "name": "Pre-Alpha",
+      "description": "Flisk proxy and imported Compose services",
+      "enabledStacks": [
+        "proxy",
+        "nosia"
+      ]
+    },
+    "alpha": {
+      "name": "Alpha",
+      "description": "",
+      "enabledStacks": []
+    },
+    "beta": {
+      "name": "Beta",
+      "description": "",
+      "enabledStacks": []
+    },
+    "out_of_scope": {
+      "name": "Out of Scope",
+      "description": "",
+      "enabledStacks": []
+    }
+  },
+  "optional_infra": {
+    "monitoring": false,
+    "elk": false,
+    "debezium": false,
+    "golden_image": false,
+    "verdaccio": false
+  },
+  "discovery": {
+    "paths": [
+      "services/*/*"
+    ]
+  },
+  "overrides": {}
+}
