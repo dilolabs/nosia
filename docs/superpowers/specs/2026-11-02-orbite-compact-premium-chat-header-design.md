@@ -1,8 +1,7 @@
 # Orbite compact premium chat header
 
-Status: AWAITING WRITTEN SPEC REVIEW — the user approved the revised B mockup.
-This document is not implementation authorization. User review of this written
-scope, followed by an implementation plan, is required before premium code edits.
+Status: APPROVED — the user reviewed and approved this written scope on
+2026-11-02. An implementation plan is required before premium code edits.
 
 Date: 2026-11-02
 
@@ -46,6 +45,9 @@ History list itself.
   “Cette version B me convient”. Rationale: approve that visual direction,
   including visible per-kind lines, full account once in Usage and the single
   distribution bar. Written-spec review remains a separate gate.
+- User: “Oui” after being asked to review this committed specification at
+  `25432fc`. Rationale: approve the written scope and proceed to implementation
+  planning; this does not waive test-first execution or source preservation.
 
 ## Selected visual design
 
@@ -217,8 +219,8 @@ The approved visual reference is the external local companion screen
 synthetic examples, not stored accounting or native application evidence.
 The specification above, not a temporary companion's lifetime, defines scope.
 
-Only this design document is being committed. The previous implementation stays
-paused and uncommitted; no premium application/test edit or application gate has
-been performed. Obtain the user's review of this committed written scope, then
-invoke writing-plans. Do not resume implementation, stage existing code or
+The previous implementation stays paused and uncommitted; no premium
+application/test edit or application gate has been performed during design.
+The user has reviewed and approved this committed written scope; writing-plans
+is now active. Do not bypass the implementation plan, stage existing code or
 integrate/push/open a PR automatically.
