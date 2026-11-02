@@ -16,7 +16,7 @@
 - This existing worktree/branch is already selected. Execution mode remains **fresh implementer → independent SPEC → different independent QUALITY**; do not ask again or create another worktree. Parent self-reviews this plan, not a plan-review subagent.
 - Prior header implementer `ses_e643d1793ffeLG1fLot1UTUSFd` is PAUSED/no active application command. Do not resume it in parallel with the fresh premium implementer.
 - Paused evidence `P=/tmp/opencode/orbite-newrecovery-20261101-NLNQZUxq/header-controls-20261102-7a9c42/resume-question-1f6d93`: `pause-user-steering-index.json`, `tested-freeze.json`, original request **53/1066** and native **247/84447** success. Those ran HEAD034b256 plus the frozen working source, not this future UI. Full log/PNG acceptance, localization/lint and reviews were unfinished.
-- All1099 paused inputs and five D drafts were preserved during the two spec-only commits. The plan-only commit will be a child of7ff27c; bind its actual SHA at execution. Bridge the old source map plus the new spec/plan explicitly; never retrofit an old hardcoded-HEAD utility or relabel an old run.
+- All1099 paused inputs and five D drafts were preserved during the two spec-only commits. Original plan59e59d5 is a child of7ff27c; the following source-audit correction is a plan-only child of59e59d5. Bind actual current HEAD and that exact docs-only ancestry. Bridge the old source map plus the new spec/plan explicitly; never retrofit an old hardcoded-HEAD utility or relabel an old run.
 - Preserve the existing18 uncommitted code candidates. The coherent eventual code commit expands to **exact25 paths** below; no partial commit of the old18 and no documentation in that code commit.
 
 ## Execution safety
@@ -44,6 +44,37 @@ suite, DB setup/prepare/migrate/reset or DDL. The Cable transport table/index is
 already present and verified: **do not repeat DDL or historical prerequisites**.
 Do not rerun old diagnostics, scans or tests merely to reconstruct lost receipts.
 The static companion is a separate consented mockup, not application evidence.
+
+### Source-audit corrections before application execution
+
+The first premium checkpoint correctly stopped: the old generated CSS was
+195289bytes/SHA256`38ce4d11dbabdb2ab36fef6d495f3dae4fc90a16c6c3d0ea5005930de4720189`,
+while the current artifact was195300bytes/SHA256
+`83388fdc21e412248416b243229c710ec29d30db68d1f2dd59fb2ef3c923be8c`.
+All1099 paused source inputs and the other11504 runtime bindings remained exact.
+The artifact's writer/time were not established and no development process was
+inspected. Do not restore bytes or silently accept a mismatched old freeze.
+
+A single installed-native Tailwind compilation of the then-current unchanged
+application source to an **external** output produced exactly the current CSS;
+the repository artifact was never overwritten. Actual receipt:
+`/tmp/opencode/orbite-newrecovery-20261101-NLNQZUxq/premium-parent-cssprobe-20261102-9cd72b/source-only-css-comparison.json`.
+This proves current-source reproducibility at that source, not the old artifact's
+provenance. After this plan-only correction, require a new source-specific bridge
+at the actual new HEAD before accepting the checkpoint. It again writes only an
+exclusive external CSS output and must compare equal to the untouched repository
+asset, with all11504 other runtime bindings and all current source bytes exact.
+If it differs, stop; no automatic asset replacement, rebaseline or retry.
+
+Also, `test/integration/localized_broadcasts_test.rb` explicitly performs Turbo
+render jobs. Its full-file addition to this task was overbroad and conflicts
+with the unchanged no-job-performance rule. **Do not run or filter that file.**
+Withdraw it from this task's final request selection before any test has run;
+retain it unchanged. The new premium request tests below instead capture actual
+localized synchronous totals and verify no foreign-chat delivery, while the
+complete existing rendering/footer/access files remain selected. This is a
+safety correction, not selection of a green subset after a test failure. The
+final request group now contains14 files. No job-performance exception is granted.
 
 ## Exact ownership
 
@@ -112,8 +143,8 @@ Five D drafts remain unchanged/unstaged throughout the code task:
 ## Task 0 — Bridge the paused source and audit the new entrypoints
 
 - [ ] Reserve a unique directory under `E`, set it as `EVIDENCE`, and write new external scripts with patch/exclusive output names. No old report/index/utility is overwritten.
-- [ ] Verify actual branch/index, the spec/spec-approval/plan-only ancestry above034b256 and all1099 paused input hashes/modes. Include the two new documents in a fresh checkpoint; include the two new test files once created. Reject unexpected tracked/untracked inputs, symlinks/path escapes and any `.env` component.
-- [ ] Snapshot the25 candidates and five drafts before edits. Check the actual11505 runtime bindings and101 installed-source bindings from `P/tested-freeze.json` and prior checkpoint; reuse their unchanged audit, not prerequisite commands. Only generated `app/assets/builds/tailwind.css` may differ after the authorized build, and must enter the final runtime freeze.
+- [ ] Verify actual branch/index, the spec/spec-approval/plan/plan-correction-only ancestry above034b256 and all1099 paused input hashes/modes. Include the two new documents in a fresh checkpoint; include the two new test files once created. Reject unexpected tracked/untracked inputs, symlinks/path escapes and any `.env` component.
+- [ ] Snapshot the25 candidates and five drafts before edits. Check the actual11505 runtime bindings and101 installed-source bindings from `P/tested-freeze.json` and prior checkpoint;11504 remain strict old bindings, while only the generated CSS uses the parent-approved current-source bridge described above. Reuse unchanged audits, not prerequisite commands. Only generated `app/assets/builds/tailwind.css` may differ after the later authorized production build and must enter the final runtime freeze.
 - [ ] Read the exact selected tests/supports, helper/recorder, changed GET/render/broadcast callers and new test listings before boot. Local TokenUsage creation uses the existing test adapter/Cable, not live providers or performed jobs. Audit cached counters and the unchanged energy/fallback computation. Record this bounded delta in a fresh audit; stop on an unsafe caller.
 - [ ] Record preserved original artifacts by their actual paths/hashes, especially the pause index, source/runtime maps, question-link amendment and raw failures. An artifact hash check is static preservation, not a replay or acceptance.
 
@@ -151,6 +182,13 @@ CANDIDATES = (F / 'candidates.txt').read_text().splitlines()
 assert len(CANDIDATES) == len(set(CANDIDATES)) == 25
 pause = json.loads((P / 'pause-user-steering-index.json').read_text())
 old_runtime = json.loads((P / 'tested-freeze.json').read_text())['runtime']
+BRIDGE = Path('/tmp/opencode/orbite-newrecovery-20261101-NLNQZUxq/premium-parent-cssbridge-20261102-a6101e/css-bridge.json')
+bridge = json.loads(BRIDGE.read_text())
+generated = str(R / 'app/assets/builds/tailwind.css')
+assert bridge['verified_equal'] and not bridge['repository_output_modified']
+assert bridge['runtime_except_generated_unchanged'] == 11504
+runtime_reference = dict(old_runtime)
+runtime_reference[generated] = old_runtime[generated] | bridge['compiled']
 
 def git(*args):
     return subprocess.check_output(['git', *args], cwd=R).decode()
@@ -190,7 +228,9 @@ def current():
     return {'head': git('rev-parse', 'HEAD').strip(),
             'inputs': {name: binding(R / name) for name in sorted(names)},
             'runtime': {name: runtime_binding(name) for name in old_runtime},
-            'candidates': {name: binding(R / name) for name in CANDIDATES if (R / name).exists()}}
+            'candidates': {name: binding(R / name) for name in CANDIDATES if (R / name).exists()},
+            'runtimeBasis': {'old_freeze': str(P / 'tested-freeze.json'), 'css_bridge': str(BRIDGE),
+                             'css_bridge_sha256': hashlib.sha256(BRIDGE.read_bytes()).hexdigest()}}
 
 def method(data, name):
     pattern = rb'^    def ' + re.escape(name.encode()) + rb'(?:\([^\n]*\))?\n.*?^    end$'
@@ -248,7 +288,8 @@ if mode == 'checkpoint':
     assert set(now['inputs']) == set(pause['inputs']) | {SPEC, PLAN}
     for name, item in pause['inputs'].items():
         assert now['inputs'][name] == item, name
-    assert now['runtime'] == old_runtime
+    assert bridge['head'] == now['head'] and bridge['inputs'] == now['inputs']
+    assert now['runtime'] == runtime_reference
     for name in CANDIDATES + DOCS:
         if (R / name).exists():
             destination = F / 'before' / name
@@ -354,10 +395,14 @@ class PremiumChatHeaderTest < ActionDispatch::IntegrationTest
 
     test "#{locale} actual totals replacement updates counts and distribution together" do
       Current.reset
-      streams = capture_turbo_stream_broadcasts([ @chat, :token_totals, locale ]) do
-        TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :agent_skill,
-          model_id: "picker-test-model", input_tokens: 2, output_tokens: 3)
+      streams = nil
+      foreign = capture_turbo_stream_broadcasts([ chats(:picker_foreign_chat), :token_totals, locale ]) do
+        streams = capture_turbo_stream_broadcasts([ @chat, :token_totals, locale ]) do
+          TokenUsage.create!(account: @second, chat_id: @chat.id, kind: :agent_skill,
+            model_id: "picker-test-model", input_tokens: 2, output_tokens: 3)
+        end
       end
+      assert_empty foreign
       replacement = streams.find { |stream| stream["target"] == dom_id(@chat, :token_totals) }
       assert replacement
       assert_equal "replace", replacement["action"]
@@ -1001,7 +1046,7 @@ PY
 - [ ] Run exactly these sequential complete final groups with the mandatory preamble/cwd/timeout0. Read each complete raw summary before the next:
 
 ```bash
-nav_record premium-final-requests rails_test test test/integration/premium_chat_header_test.rb test/integration/orbite_shell_test.rb test/integration/compact_headers_test.rb test/controllers/chat_workspace_test.rb test/controllers/dashboards_controller_test.rb test/controllers/token_usage_workspace_shell_test.rb test/controllers/settings_workspace_test.rb test/controllers/sources_workspace_shell_test.rb test/integration/chat_message_rendering_test.rb test/integration/token_footer_test.rb test/integration/localized_broadcasts_test.rb test/controllers/chat_account_access_test.rb test/models/chat_test.rb test/internationalization/catalogs_test.rb test/internationalization/view_copy_test.rb || exit $?
+nav_record premium-final-requests rails_test test test/integration/premium_chat_header_test.rb test/integration/orbite_shell_test.rb test/integration/compact_headers_test.rb test/controllers/chat_workspace_test.rb test/controllers/dashboards_controller_test.rb test/controllers/token_usage_workspace_shell_test.rb test/controllers/settings_workspace_test.rb test/controllers/sources_workspace_shell_test.rb test/integration/chat_message_rendering_test.rb test/integration/token_footer_test.rb test/controllers/chat_account_access_test.rb test/models/chat_test.rb test/internationalization/catalogs_test.rb test/internationalization/view_copy_test.rb || exit $?
 nav_record premium-final-native browser_test test/system/premium_chat_header_test.rb test/system/orbite_history_density_test.rb test/system/orbite_workspace_test.rb test/system/orbite_navigation_refinements_test.rb test/system/chat_workspace_test.rb test/system/compact_headers_test.rb test/system/chat_refresh_draft_test.rb || exit $?
 nav_record premium-final-localization browser_test test/system/localization_test.rb || exit $?
 nav_record premium-final-lint test_command bundle exec rubocop test/integration/premium_chat_header_test.rb test/integration/compact_headers_test.rb test/integration/chat_message_rendering_test.rb test/integration/token_footer_test.rb test/integration/orbite_shell_test.rb test/controllers/chat_workspace_test.rb test/controllers/dashboards_controller_test.rb test/controllers/settings_workspace_test.rb test/controllers/sources_workspace_shell_test.rb test/controllers/token_usage_workspace_shell_test.rb test/support/orbite_browser_checks.rb test/system/premium_chat_header_test.rb test/system/compact_headers_test.rb test/system/chat_workspace_test.rb test/system/orbite_workspace_test.rb test/system/orbite_history_density_test.rb || exit $?
@@ -1156,5 +1201,8 @@ from historical640-test provenance and this new compactness comparison.
 - Meaningful RED before code; current before/after evidence, frozen complete gates, tested25 blobs/modes: Tasks1,4.
 - Independent SPEC→differentQUALITY and honest docs/security/integration limits: Task5.
 
-This plan authors instructions only. No premium production/test implementation,
-baseline browser run, RED/build or final gate was performed by the plan author.
+This plan authors implementation instructions, not premium application changes.
+No premium production/test implementation, baseline browser run, design RED or
+application-test gate was performed by the plan author. The separate current-source
+CSS proof is diagnostic compilation to an external artifact, not application or
+test acceptance, old-provenance recovery or a repository asset replacement.
