@@ -16,9 +16,28 @@
 - Remain in this existing worktree. Execution remains implementer → fresh independent SPEC → different fresh independent QUALITY. Parent self-reviews this plan; no plan-review agent is needed.
 - The old implementer `ses_e63d1e045ffe1sCgDEpqjSvOdV` is paused, no command active. Its old conditional code-commit permission was withdrawn. Do not resume its old-contract commands or run overlapping source/runtime work.
 - Static pre-plan receipt: `/tmp/opencode/orbite-newrecovery-20261101-NLNQZUxq/new-chat-plan-20261102-wijrCi1h/baseline.json`, SHA256 `45c7d66161e24ce444d43ecffb74719041f50067305857643c7fc50c24347a4c`. Paired `relocation-plan-baseline.NXzJPqI6` exit0 verifies all1106 source inputs, all11505 runtime entries,27 candidates and five drafts at HEAD552b0e4. It is not an application result.
-- This plan and the spec approval metadata are the only permitted parent documentation changes. The implementation starts at their actual docs-only child of552b0e4; record that full SHA as `implementationParent`. The eventual coherent code commit must have exactly that parent. Any intervening source/commit change requires an explicit bridge, not a hardcoded old-HEAD bypass.
+- This plan and the spec approval metadata were committed alone as `733a5c0dc6559fae57f5d90e02433603cc2af7ae`, parent552b0e4. The modal-sampler correction below is a subsequent plan-only child of733a5c0. Implementation starts at that actual corrected plan HEAD; record its full SHA as `implementationParent`. The eventual coherent code commit must have exactly that parent. Any intervening source/commit change requires an explicit bridge, not a hardcoded old-HEAD bypass.
 - Four punctuation changes already exist but their offline audit/build/final gates have not run. Preserve and audit them against `/tmp/opencode/orbite-newrecovery-20261101-NLNQZUxq/premium-punctuation-final-20261102-UpLJUzwk/before/`; do not reapply them or run the old HEAD-specific guard unchanged.
 - Preserve the verified reader correction,44-space formatting bridge, no-Delete History, inset reveal, rail return, removed header Home/History and all earlier pending work. The failed146/14329/3F request run remains failed history.
+
+### Static caller-audit correction before implementation
+
+Task0 at733a5c0 stopped before application execution:
+`/tmp/opencode/orbite-newrecovery-20261101-NLNQZUxq/task0-static-20261102-MushSf4m/task0-static-checkpoint.HxLwHUvw.raw.log`,
+true exit1. The original plan incorrectly called `chat_contrast` on the new
+History link in modal contexts. The unchanged helper explicitly rejects modal
+elements at `test/support/chat_workspace_browser_checks.rb:100`; the new test
+would fail for that helper-domain conflict, not missing relocation behavior.
+This is a static plan failure, not native RED or an application defect.
+
+Replace those two planned calls with the dedicated `premium_history_contrast`
+below. It follows the existing compact-header/density opaque-interior sampler:
+stop ancestor composition at a modal's opaque surface, reject unmeasured paint,
+and never infer backdrop contrast. Retain text4.5/outline3, native focus,2px
+outline, hit testing and viewport-fit assertions. No shared helper/guard changes
+or new repository path. Preserve the failed evidence and its exact1107 sources/
+11505 runtime proof; bridge only this plan's correction in a new checkpoint.
+Do not rerun its completed initial boundary/old failure for replacement receipts.
 
 ## Execution safety
 
@@ -178,8 +197,8 @@ test "History top row keeps the moved action accessible without disturbing the d
     assert_selector width >= 1280 ? "#chat-history[data-inline=true][open]" : "#chat-history:modal"
     assert_selector "#workspace-navigation-close:focus" if width < 1280
     orbite_tab_to(link, reverse: true)
-    chat_contrast link
-    chat_contrast link, minimum: 3, outline: true
+    premium_history_contrast link
+    premium_history_contrast link, minimum: 3, outline: true
     sample = premium_history_actions
     assert_in_delta sample.fetch("link").fetch("top"), sample.fetch("close").fetch("top"), 1, sample.to_json
     assert_operator sample.fetch("link").fetch("right"), :<=, sample.fetch("close").fetch("left"), sample.to_json
@@ -260,6 +279,63 @@ def premium_history_actions
         pageWidth: document.scrollingElement.scrollWidth, viewportWidth: innerWidth }
     })()
   JS
+end
+```
+
+- [ ] Add this dedicated private contrast helper to the same file. Existing shared helpers remain byte-identical:
+
+```ruby
+def premium_history_contrast(selector, minimum: 4.5, outline: false)
+  element = find(selector)
+  page.evaluate_async_script(<<~JS, element)
+    const element = arguments[0], done = arguments[arguments.length - 1]
+    Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {}))).then(done)
+  JS
+  sample = page.evaluate_script(<<~JS, element, outline)
+    (() => {
+      const element = arguments[0], outline = arguments[1]
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
+      const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })
+      const rgba = color => {
+        if (!CSS.supports('color', color)) throw new Error(`Unparsed History color: ${color}`)
+        context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1)
+        return [...context.getImageData(0, 0, 1, 1).data].map(channel => channel / 255)
+      }
+      const over = (fg, bg) => [...fg.slice(0, 3).map((channel, i) => channel * fg[3] + bg[i] * (1 - fg[3])), 1]
+      const modal = element.closest('dialog:modal'), chain = []
+      for (let node = element; node; node = node.parentElement) { chain.unshift(node); if (node === modal) break }
+      if (modal && rgba(getComputedStyle(modal).backgroundColor)[3] !== 1) throw new Error('History modal interior must be opaque')
+      const backgrounds = chain.map(node => {
+        const style = getComputedStyle(node)
+        if (style.backgroundImage !== 'none' || Number(style.opacity) !== 1 || style.filter !== 'none' || style.backdropFilter !== 'none' || style.mixBlendMode !== 'normal')
+          throw new Error(`Unmeasured History paint effect on ${node.tagName}`)
+        return style.backgroundColor
+      })
+      if (!backgrounds.some(color => rgba(color)[3] === 1)) throw new Error('No measured opaque History backing surface')
+      const background = backgrounds.reduce((bg, color) => over(rgba(color), bg), [1, 1, 1, 1])
+      const style = getComputedStyle(element), color = outline ? style.outlineColor : style.color
+      const foreground = over(rgba(color), background)
+      const luminance = color => color.slice(0, 3).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
+        .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0)
+      const a = luminance(foreground), b = luminance(background), rect = element.getBoundingClientRect()
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+      const outset = outline ? Math.max(0, parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)) : 0
+      return { color, foreground, background, backgrounds, modalInterior: !!modal, geometry: rect.toJSON(),
+        ratio: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), hit: !!hit && (hit === element || element.contains(hit)),
+        outlineWidth: parseFloat(style.outlineWidth), outlineStyle: style.outlineStyle,
+        indicatorFits: rect.left - outset >= 0 && rect.right + outset <= innerWidth && rect.top - outset >= 0 && rect.bottom + outset <= innerHeight,
+        limitation: 'Opaque interior only; native backdrop contrast is not inferred' }
+    })()
+  JS
+  orbite_record("history-action-contrast", { selector: selector, minimum: minimum, outline: outline, measurement: sample })
+  assert sample.fetch("hit"), sample.to_json
+  assert_operator sample.fetch("ratio"), :>=, minimum, sample.to_json
+  if outline
+    assert_selector "#{selector}:focus-visible"
+    assert_operator sample.fetch("outlineWidth"), :>=, 2, sample.to_json
+    refute_equal "none", sample.fetch("outlineStyle"), sample.to_json
+    assert sample.fetch("indicatorFits"), sample.to_json
+  end
 end
 ```
 
