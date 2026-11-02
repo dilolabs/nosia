@@ -1,9 +1,10 @@
 # Orbite New Chat Action in History
 
-Status: PLACEMENT APPROVED — AWAITING WRITTEN SPEC REVIEW.
-The user requested the move and selected the shared-row placement. No relocation
-code or test change is authorized until review of this written amendment and an
-implementation plan. Date: 2026-11-02.
+Status: APPROVED — WRITTEN SPEC REVIEW COMPLETE.
+The user reviewed committed specification
+`552b0e4dcced24eeb567e56e8234326971f3fc75` and answered **“Validée”** on
+2026-11-02. Placement and written scope are approved; execution follows the
+bounded implementation plan, test-first gates and existing safety restrictions.
 
 ## Goal
 
@@ -140,5 +141,6 @@ whole-feature review remain separate pending work.
 ## Review gate
 
 Parent self-review checks complete scope, one-row placement, unchanged action
-semantics and explicit strict-test migration constraints. User review of this
-committed written amendment is still required before writing-plans or code.
+semantics and explicit strict-test migration constraints. User review of the
+committed written amendment is complete: **“Validée”**, 2026-11-02. This approval
+does not waive test migration, independent reviews or execution safety gates.
