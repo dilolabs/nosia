@@ -12,11 +12,12 @@ en:
       close: Close
       new_chat: New chat
       usage_details: Usage details
+      token_distribution: Token distribution for this conversation
       response_details: Response details
       latest: Latest message
       transcript: Conversation messages
       reply: Reply to this conversation
-      estimates: Environmental impact estimates
+      estimates: "Environmental impact estimates:"
       completed: Response complete.
       stopped: Generation stopped.
       setup_account: Set up an account

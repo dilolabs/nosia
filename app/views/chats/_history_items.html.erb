@@ -1,23 +1,19 @@
 <%# locals: (chat:, conversations:, titles:) %>
-<p class="n-workspace-help"><%= t("nosia.chat_workspace.history_help") %></p>
 <% if conversations.any? %>
   <ul class="n-chat-history-list !list-none">
     <% conversations.each do |conversation| %>
       <li class="n-chat-history-row" data-history-chat="<%= conversation.id %>">
         <div>
-          <%= link_to chat_workspace_title(conversation, titles: titles), chat_path(conversation),
-            class: "n-workspace-link", aria: { current: conversation == chat ? "page" : nil } %>
-          <p class="n-workspace-help"><%= conversation.account.name %></p>
-          <p class="n-workspace-help">
-            <time datetime="<%= conversation.updated_at.iso8601 %>"><%= l(conversation.updated_at, format: :short) %></time>
-          </p>
+          <% title = chat_workspace_title(conversation, titles: titles) %>
+          <%= link_to chat_path(conversation), class: "n-workspace-link", title: title,
+            aria: { current: conversation == chat ? "page" : nil } do %>
+            <span class="n-chat-history-title"><%= title %></span>
+            <span class="n-chat-history-meta n-workspace-help">
+              <span class="n-chat-history-account" title="<%= conversation.account.name %>"><%= conversation.account.name %></span>
+              <time datetime="<%= conversation.updated_at.iso8601 %>"><%= l(conversation.updated_at, format: :short) %></time>
+            </span>
+          <% end %>
         </div>
-        <%= button_to chat_path(conversation), method: :delete,
-          class: "n-workspace-button n-workspace-danger n-chat-history-delete",
-          aria: { label: t("nosia.nav.delete_chat") }, title: t("nosia.nav.delete_chat"),
-          data: { turbo_confirm: t("nosia.actions.confirm_delete") } do %>
-          <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "h-5 w-5" %>
-        <% end %>
       </li>
     <% end %>
   </ul>

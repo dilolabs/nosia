@@ -31,7 +31,48 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
   end
 
   %i[en fr].each do |locale|
-    test "lean History retains localized names and native delete in #{locale}" do
+    test "chat headers omit Home and History controls in #{locale}" do
+      [ new_chat_path(account_id: @second.id), chat_path(@chat) ].each do |path|
+        get path, headers: { "Accept-Language" => locale.to_s }
+        assert_response :success
+        assert_select ".n-chat-header #workspace-history-trigger, .n-chat-header [aria-controls=chat-history]", count: 0
+        assert_select ".n-chat-header a[href='#{user_root_path}']", count: 0
+        assert_select "#workspace-history-rail-trigger", count: 1
+        assert_select "[data-orbite-composer-navigation]", count: 1
+        assert_select "#workspace-mobile-trigger", count: 0
+      end
+    end
+
+    test "new chat without an account retains global mobile navigation in #{locale}" do
+      @user.account_users.destroy_all
+      get new_chat_path, headers: { "Accept-Language" => locale.to_s }
+
+      assert_response :success
+      assert_select "#chat-history > .n-orbite-navigation-actions > a", count: 0
+      assert_select "#chat-history > .n-orbite-navigation-actions > #workspace-navigation-close[data-chat-dialog-initial-focus]", count: 1
+      assert_select ".n-chat-header", count: 1
+      assert_select ".n-chat-header a, .n-chat-header button, .n-chat-toolbar, .n-chat-header .n-workspace-actions", count: 0
+      assert_select "[data-orbite-composer-navigation], .n-chat-composer", count: 0
+      assert_select "#workspace-mobile-trigger[aria-controls=chat-history]", count: 1
+      assert_select "#workspace-history-rail-trigger", count: 1
+      assert_select "[data-chat-no-account][role=status]", count: 1
+      assert_select ".n-chat-start a[href='#{accounts_path}']", count: 1
+      assert_select "#chat-history [data-history-empty]", text: I18n.t("nosia.chat_workspace.no_history", locale: locale), count: 1
+      assert_select ".n-chat-start h1", text: I18n.t("nosia.chat_workspace.new_title", locale: locale), count: 1
+    end
+
+    test "history rows omit delete controls in #{locale}" do
+      get chat_path(@chat), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "#chat-history [data-history-chat]", minimum: 1 do |rows|
+        rows.each do |row|
+          assert_select row, "form, button, [data-turbo-method=delete], [data-method=delete], [data-turbo-confirm]", count: 0
+          assert_select row, "div > a[href]", count: 1
+        end
+      end
+    end
+
+    test "lean History retains localized names without delete controls in #{locale}" do
       get chat_path(@chat), headers: { "Accept-Language" => locale.to_s }
       assert_response :success
       assert_select "dialog#chat-history[aria-labelledby=chat-history-title]", count: 1 do
@@ -46,21 +87,61 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
         end
         assert_select "[data-history-chat='#{@chat.id}']", count: 1 do
           assert_select "a[href='#{chat_path(@chat)}'][aria-current=page]", count: 1
-          assert_select "p > span", count: 0
-          assert_select "p", text: @chat.account.name, count: 1
+          assert_select "a > .n-chat-history-title", text: "What are the key findings in this report?", count: 1
+          assert_select "a > .n-chat-history-meta.n-workspace-help > .n-chat-history-account", text: @chat.account.name, count: 1
+          assert_select "div > p", count: 0
           assert_select "time[datetime='#{@chat.updated_at.iso8601}']", text: I18n.l(@chat.updated_at, format: :short, locale: locale), count: 1
-          assert_select "form[action='#{chat_path(@chat)}'][method=post]", count: 1 do
-            assert_select "input[name=_method][value=delete]", count: 1
-            assert_select "button.n-workspace-danger.n-chat-history-delete", count: 1 do |buttons|
-              assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), buttons.first["aria-label"]
-              assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), buttons.first["title"]
-              assert_equal I18n.t("nosia.actions.confirm_delete", locale: locale), buttons.first["data-turbo-confirm"]
-              assert_empty buttons.first.text.strip
-              assert_select "svg[aria-hidden=true]", count: 1
-            end
-          end
+          assert_select "form, button, [data-turbo-method=delete], [data-method=delete], [data-turbo-confirm]", count: 0
         end
       end
+    end
+
+    test "density chrome preserves independent localized navigation and empty guidance in #{locale}" do
+      get chat_path(@chat), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "dialog#chat-history[aria-labelledby=chat-history-title]", count: 1 do
+        assert_select "h2#chat-history-title.sr-only", text: I18n.t("nosia.orbite.navigation", locale: locale), count: 1
+        assert_select "section[data-orbite-history]", count: 1 do |sections|
+          assert_equal I18n.t("nosia.chat_workspace.history_title", locale: locale), sections.first["aria-label"]
+          assert_select "h3, .n-orbite-history-heading, p.n-workspace-help:not([data-history-empty])", count: 0
+        end
+        assert_select "button#workspace-navigation-close[data-action='workspace-navigation#close']", count: 1
+        assert_select ".n-orbite-panel-links a", minimum: 1
+      end
+
+      @user.account_users.destroy_all
+      get new_chat_path, headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "#chat-history [data-history-empty]", text: I18n.t("nosia.chat_workspace.no_history", locale: locale), count: 1
+      assert_select "#chat-history [data-history-chat]", count: 0
+    end
+
+    test "density labels retain escaped complete previews and accounts in #{locale}" do
+      question = workspace(:messages, :workspace_question)
+      question.update_columns(content: "A" * 240)
+      account = %q{Research "quoted" & <img src=x onerror="alert(1)"> <script>bad()</script>}
+      @second.update_columns(name: account)
+      preview = "A" * 119 + "…"
+
+      get chat_path(@chat), headers: { "Accept-Language" => locale.to_s }
+      assert_response :success
+      assert_select "[data-history-chat='#{@chat.id}']", count: 1 do
+        assert_select "a > .n-chat-history-title, a > .n-chat-history-meta > .n-chat-history-account", count: 2
+        assert_select "a > .n-chat-history-title", text: preview, count: 1 do |titles|
+          assert_equal 120, titles.first.text.length
+          assert_equal preview, titles.first.parent["title"]
+          assert_includes titles.first.parent.text, account
+        end
+        assert_select "a > .n-chat-history-meta > .n-chat-history-account", text: account, count: 1 do |accounts|
+          assert_equal account, accounts.first["title"]
+          assert_includes accounts.first.parent.parent.text, preview
+        end
+        assert_select "img, script, [onerror]", count: 0
+        assert_select "time[datetime='#{@chat.updated_at.iso8601}']", text: I18n.l(@chat.updated_at, format: :short, locale: locale), count: 1
+        assert_select "form, button, [data-turbo-method=delete], [data-method=delete], [data-turbo-confirm]", count: 0
+      end
+      assert_select ".n-chat-header h1", text: preview, count: 1
+      assert_equal "A" * 240, question.reload.content
     end
 
     test "rail navigation label describes chat and non chat content in #{locale}" do
@@ -124,15 +205,12 @@ class OrbiteShellTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{login_path}']", count: 1
   end
 
-  test "history keeps personal roots current item and existing delete confirmation" do
+  test "history keeps personal roots and current item without delete controls" do
     get chat_path(@chat)
     assert_response :success
     assert_select "[data-history-chat='#{@chat.id}']", count: 1 do
       assert_select "a[href='#{chat_path(@chat)}'][aria-current=page]", count: 1
-      assert_select "form[action='#{chat_path(@chat)}'] [name=_method][value=delete]", count: 1
-      assert_select "[data-turbo-confirm]", count: 1 do |controls|
-        assert_equal I18n.t("nosia.actions.confirm_delete"), controls.first["data-turbo-confirm"]
-      end
+      assert_select "form, button, [data-turbo-method=delete], [data-method=delete], [data-turbo-confirm]", count: 0
     end
     [ workspace(:chats, :workspace_peer_chat), workspace(:chats, :workspace_child_chat), chats(:picker_foreign_chat) ].each do |excluded|
       assert_select "[data-history-chat='#{excluded.id}']", count: 0

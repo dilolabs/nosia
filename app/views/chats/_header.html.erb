@@ -1,28 +1,13 @@
 <header class="n-chat-header">
-  <div class="n-chat-toolbar">
-    <% if chat.persisted? %>
+  <% if chat.persisted? %>
+    <div class="n-chat-toolbar">
       <div class="n-chat-heading min-w-0">
         <h1 class="n-chat-title"><%= chat_workspace_title(chat, titles: titles) %></h1>
-        <p class="n-workspace-help n-chat-account-preview" data-chat-account-label><%= chat.account.name %></p>
       </div>
-    <% else %>
-      <%= link_to t("nosia.nav.home"), user_root_path, class: "n-workspace-link" %>
-    <% end %>
-    <div class="n-workspace-actions">
-      <% if chat.persisted? %>
-        <%= link_to t("nosia.nav.home"), user_root_path, class: "n-workspace-link" %>
-      <% end %>
-      <button id="workspace-history-trigger" type="button" class="n-workspace-button" aria-controls="chat-history" aria-expanded="false"
-              data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle"><%= t("nosia.chat_workspace.history") %></button>
-      <% if chat.persisted? %>
-        <%= link_to t("nosia.chat_workspace.new_chat"), new_chat_path, class: "n-workspace-button" %>
-      <% end %>
     </div>
-  </div>
-  <% if chat.persisted? %>
     <section id="chat-usage-details" class="n-chat-usage" aria-labelledby="chat-usage-summary">
       <h2 id="chat-usage-summary" class="n-chat-usage-title"><%= t("nosia.chat_workspace.usage_details") %></h2>
-      <p class="n-workspace-help"><%= chat.account.name %></p>
+      <p class="n-workspace-help n-chat-usage-account" data-chat-account-label><%= chat.account.name %></p>
       <%= render "chats/token_totals", chat: chat %>
     </section>
   <% end %>

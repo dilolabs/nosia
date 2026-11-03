@@ -2,6 +2,8 @@ require "test_helper"
 
 class ComposerPartialsRenderTest < ActionDispatch::IntegrationTest
   def setup
+    @original_queue_adapter = ActiveJob::Base.queue_adapter
+    ActiveJob::Base.queue_adapter = :test
     @user = User.create!(email: "pr@example.com", password: "testpassword123")
     @account = Account.create!(name: "PR Account", owner: @user)
     @account.account_users.grant_to(@user)
@@ -11,6 +13,7 @@ class ComposerPartialsRenderTest < ActionDispatch::IntegrationTest
 
   def teardown
     ActsAsTenant.current_tenant = nil
+    ActiveJob::Base.queue_adapter = @original_queue_adapter
   end
 
   test "new_chat renders chats/_form with lexxy editor and hidden id seeds" do

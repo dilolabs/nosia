@@ -32,17 +32,20 @@ module OrbiteBrowserChecks
     def orbite_open_utilities
       return if page.has_selector?("#theme-toggle", wait: 0)
 
-      selectors = if page.evaluate_script("innerWidth >= 768")
-        [ "#workspace-history-rail-trigger", "#workspace-history-trigger" ]
-      else
-        [ "[data-orbite-composer-navigation]", "#workspace-mobile-trigger", "#workspace-history-trigger" ]
-      end
-      opener = selectors.filter_map do |selector|
-        first(selector, minimum: 0, wait: 0)
-      end.first
+      opener = first(orbite_navigation_trigger, minimum: 0, wait: 0)
       assert opener, "No visible navigation utility opener"
       opener.click
       assert_selector "#theme-toggle"
+    end
+
+    def orbite_navigation_trigger
+      if page.evaluate_script("innerWidth >= 768")
+        "#workspace-history-rail-trigger"
+      elsif page.has_selector?("[data-orbite-composer-navigation]", wait: 0)
+        "[data-orbite-composer-navigation]"
+      else
+        "#workspace-mobile-trigger"
+      end
     end
 
     def orbite_user_menu_trigger
@@ -123,6 +126,19 @@ module OrbiteBrowserChecks
       assert_operator sample.fetch("bottom"), :<=, sample.fetch("viewport").last, sample.to_json
       assert sample.fetch("hits").all?, sample.to_json
       sample
+    end
+
+    def orbite_read_start
+      reader = find("[data-application-scroll]")
+      origin = Selenium::WebDriver::WheelActions::ScrollOrigin.element(reader.native)
+      distance = page.evaluate_script("document.querySelector('[data-application-scroll]').scrollHeight").ceil
+      page.driver.browser.action.scroll_from(origin, 0, -distance).perform
+      Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+        page.evaluate_script("document.querySelector('[data-application-scroll]').scrollTop === 0")
+      end
+      orbite_settle
+      assert_equal 0, page.evaluate_script("document.querySelector('[data-application-scroll]').scrollTop")
+      assert_equal 0, page.evaluate_script("document.scrollingElement.scrollTop")
     end
 
     def orbite_tab_to(selector, reverse: false)

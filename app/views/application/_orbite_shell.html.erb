@@ -25,18 +25,25 @@
           data-workspace-navigation-target="panel" <%= 'data-history-empty' if content_for?(:orbite_history_empty) %>
           data-action="close->user-menu#panelClosed close->chat-dialog#closed close->workspace-navigation#closed">
     <h2 id="chat-history-title" class="sr-only"><%= t("nosia.orbite.navigation") %></h2>
-    <button id="workspace-navigation-close" type="button" class="n-orbite-control n-orbite-navigation-close"
-            aria-label="<%= t('nosia.chat_workspace.close') %>" title="<%= t('nosia.chat_workspace.close') %>"
-            data-chat-dialog-initial-focus data-action="workspace-navigation#close">
-      <%= inline_svg "svg/close.svg", aria_hidden: true, class: "h-5 w-5" %>
-    </button>
+    <div class="n-orbite-navigation-actions">
+      <% if chat_workspace_page? && @chat.persisted? %>
+        <%= link_to new_chat_path, class: "n-workspace-button n-workspace-primary" do %>
+          <%= inline_svg "svg/chat-plus-in.svg", aria_hidden: true, class: "h-5 w-5" %>
+          <%= t("nosia.chat_workspace.new_chat") %>
+        <% end %>
+      <% end %>
+      <button id="workspace-navigation-close" type="button" class="n-orbite-control n-orbite-navigation-close"
+              aria-label="<%= t('nosia.chat_workspace.close') %>" title="<%= t('nosia.chat_workspace.close') %>"
+              data-chat-dialog-initial-focus data-action="workspace-navigation#close">
+        <%= inline_svg "svg/close.svg", aria_hidden: true, class: "h-5 w-5" %>
+      </button>
+    </div>
     <div class="n-orbite-panel-content">
       <nav class="n-orbite-panel-links" aria-label="<%= t('nosia.orbite.navigation') %>">
         <%= render "application/orbite_links" %>
       </nav>
       <% if content_for?(:orbite_history) %>
         <section data-orbite-history aria-label="<%= t('nosia.chat_workspace.history_title') %>">
-          <h3 class="n-orbite-history-heading"><%= t("nosia.chat_workspace.history_title") %></h3>
           <%= content_for(:orbite_history) %>
         </section>
       <% end %>
@@ -59,7 +66,7 @@
         <% end %>
       <% end %>
     </div>
-    <% unless chat_workspace_page? %>
+    <% unless chat_workspace_page? && @chat.account %>
       <button id="workspace-mobile-trigger" type="button" class="n-orbite-control n-orbite-mobile-only" aria-controls="chat-history" aria-haspopup="dialog" data-workspace-navigation-target="trigger" data-action="workspace-navigation#toggle"><%= t("nosia.orbite.navigation") %></button>
     <% end %>
     <%= page %>

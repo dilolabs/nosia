@@ -1,5 +1,24 @@
 # Compact application headers
 
+**Historical presentation boundary:** the signed-in global bar, outer chat
+scroller, in-flow chat-page composer, and mobile pill described below are
+**superseded by [Orbite](orbite-workspace.md)**. The approved
+[2026-10-31 refinements](superpowers/specs/2026-10-31-orbite-navigation-refinements-design.md)
+also supersede header Details, collapsed Usage, and Usage-summary activation
+described below: useful ordinary context and complete Usage now appear beneath
+`h1` inside the reading surface. Sources, Reasoning, response details, and native
+Formatting still use independent disclosures. Visible account scope/role,
+native-input and paused-reader protections, and scoped limits still apply.
+The approved 2026-11-02 [compact-premium Usage](superpowers/specs/2026-11-02-orbite-compact-premium-chat-header-design.md)
+and [New chat relocation](superpowers/specs/2026-11-02-orbite-new-chat-history-action-design.md)
+further replace the Usage table with a visible labelled list and one passive
+composition bar, and place saved-only New chat left of Close at the top of History.
+Home, History, and New chat controls are absent from the chat header; History-item
+Delete controls are removed without removing backend routes or authorization.
+Earlier geometry, counts, and security results are historical, not fresh proof
+of the amended UI. The following sections retain that earlier presentation
+record rather than defining current header behavior.
+
 The global Nosia bar and page headers scroll with the content on **all pages**,
 at every viewport size. Neither header is fixed or sticky, and neither reserves
 permanent space above the content. The global bar is approximately 48 CSS pixels

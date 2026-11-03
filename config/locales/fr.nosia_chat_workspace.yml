@@ -10,13 +10,14 @@ fr:
       no_history: Aucune conversation pour le moment.
       current: Conversation en cours
       close: Fermer
-      new_chat: Nouvelle conversation
+      new_chat: Nouveau chat
       usage_details: Détails de l’utilisation
+      token_distribution: Répartition des jetons de cette conversation
       response_details: Détails de la réponse
       latest: Dernier message
       transcript: Messages de la conversation
       reply: Répondre à cette conversation
-      estimates: Estimations de l’impact environnemental
+      estimates: "Estimations de l’impact environnemental:"
       completed: Réponse terminée.
       stopped: Génération arrêtée.
       setup_account: Configurer un compte

@@ -146,19 +146,14 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
     assert_select fragment, "dd[data-chat-total-input]", text: "125"
     assert_select fragment, ".n-chat-values dt", text: "Output"
     assert_select fragment, "dd[data-chat-total-output]", text: "24"
-    assert_select fragment, ".n-chat-table-scroll > table.n-chat-usage-table" do
-      assert_select "caption", text: I18n.t("nosia.usage.per_kind")
-      assert_select "thead th[scope=col]", count: 3
-      @chat.token_totals_by_kind.each do |kind, sums|
-        assert_select "tbody tr[data-usage-kind='#{kind}']" do
-          assert_select "th[scope=row]", text: I18n.t("nosia.usage.kinds.#{kind}")
-          assert_select "td" do |cells|
-            assert_equal sums.map { |sum| ApplicationController.helpers.number_with_delimiter(sum) }, cells.map(&:text)
-          end
-        end
+    assert_select fragment, ".n-chat-token-kind-heading", text: I18n.t("nosia.usage.per_kind")
+    assert_select fragment, "table", count: 0
+    @chat.token_totals_by_kind.each do |kind, sums|
+      assert_select fragment, "li[data-usage-kind='#{kind}']", count: 1 do
+        assert_select ".n-chat-token-kind-name", text: I18n.t("nosia.usage.kinds.#{kind}")
+        assert_select "[data-usage-input]", text: ApplicationController.helpers.number_with_delimiter(sums[0])
+        assert_select "[data-usage-output]", text: ApplicationController.helpers.number_with_delimiter(sums[1])
       end
-      assert_select "tr[data-usage-kind=completion]", text: /completion\s+120\s+24/
-      assert_select "tr[data-usage-kind=embedding]", text: /embedding\s+5\s+0/
     end
     assert_select fragment, "p.n-workspace-help", text: /Environmental impact estimates.*#{Regexp.escape(number_with_precision(usages.sum(&:energy_kwh), precision: 6))} kWh.*#{Regexp.escape(number_with_precision(usages.sum(&:co2e_g), precision: 2))} gCO₂e/m
     assert usages.any?(&:used_fallback?), "The fixture usages must exercise the existing fallback estimate"
@@ -338,7 +333,7 @@ class ChatMessageRenderingTest < ActionDispatch::IntegrationTest
       assert_select current, "#chat-usage-details > ##{dom_id(@chat, :token_totals)}", count: 1
       assert_select current, "#chat-usage-details [data-chat-total-input]", text: "127"
       assert_select current, "#chat-usage-details [data-chat-total-output]", text: "27"
-      assert_select current, "#chat-usage-details caption", text: I18n.t("nosia.usage.per_kind", locale: locale)
+      assert_select current, "#chat-usage-details .n-chat-token-kind-heading", text: I18n.t("nosia.usage.per_kind", locale: locale)
     end
 
     test "#{locale} phase rendering uses known phases with a restrained fallback" do

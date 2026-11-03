@@ -142,7 +142,8 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
     get new_chat_path
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_select "dialog#chat-history:not([open])", count: 1
-    assert_select "#workspace-history-trigger", text: "History", count: 1
+    assert_select ".n-chat-header #workspace-history-trigger, .n-chat-header [aria-controls=chat-history]", count: 0
+    assert_select "#workspace-history-rail-trigger[aria-controls=chat-history], [data-orbite-composer-navigation][aria-controls=chat-history]", count: 2
 
     delete logout_path
     get root_path

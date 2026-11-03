@@ -437,10 +437,10 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     page.send_keys([ :shift, :tab ])
     assert page.evaluate_script("document.activeElement.id === 'mcp-tab-overview'")
 
-    page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-detail-desktop.png"))
+    page.save_screenshot(File.join(@mcp_evidence, "mcp-detail-desktop.png"))
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
     assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1")
-    page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-detail-mobile.png"))
+    page.save_screenshot(File.join(@mcp_evidence, "mcp-detail-mobile.png"))
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
@@ -539,7 +539,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
                     });
               })()
             JS
-            page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}.png"))
+            page.save_screenshot(File.join(@mcp_evidence, "mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}.png"))
             page.execute_script("const surface = document.querySelector('[data-application-scroll]'); surface.scrollTop = surface.scrollHeight")
             assert page.evaluate_script(<<~JS), "The complete Save control must remain reachable after scrolling"
               (() => {
@@ -549,7 +549,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
                   [rect.top + 2, rect.bottom - 2].every(y => document.elementFromPoint((rect.left + rect.right) / 2, y) === button);
               })()
             JS
-            page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}-bottom.png"))
+            page.save_screenshot(File.join(@mcp_evidence, "mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}-bottom.png"))
           end
         end
       end

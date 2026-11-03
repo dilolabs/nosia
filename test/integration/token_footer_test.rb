@@ -101,8 +101,9 @@ class TokenFooterTest < ActionDispatch::IntegrationTest
     assert_token_values fragment, input: "112", output: "40"
     assert_select fragment, "dd[data-chat-total-input]", text: "112"
     assert_select fragment, "dd[data-chat-total-output]", text: "40"
-    assert_select fragment, ".n-chat-usage-table caption", text: I18n.t("nosia.usage.per_kind")
-    assert_select fragment, ".n-chat-usage-table thead th[scope=col]", count: 3
+    assert_select fragment, ".n-chat-token-kind-heading", text: I18n.t("nosia.usage.per_kind")
+    assert_select fragment, "ul.n-chat-token-kinds", count: 1
+    assert_select fragment, "table", count: 0
     assert_usage_row fragment, kind: :completion, input: "100", output: "40"
     assert_usage_row fragment, kind: :embedding, input: "12", output: "0"
     assert_includes html, "kWh"
@@ -123,7 +124,7 @@ class TokenFooterTest < ActionDispatch::IntegrationTest
     fragment = Nokogiri::HTML.fragment(html)
 
     assert_token_values fragment, input: /1[ \u00a0\u202f]235/, output: "2", locale: :fr
-    assert_select fragment, ".n-chat-usage-table caption", text: "Par type"
+    assert_select fragment, ".n-chat-token-kind-heading", text: "Par type"
     assert_usage_row fragment, kind: :completion, input: /1[ \u00a0\u202f]234/, output: "2", locale: :fr
     assert_usage_row fragment, kind: :agent_skill, input: "1", output: "0", locale: :fr
     assert_select fragment, "p.n-workspace-help", text: /0,\d{6} kWh.*\d+,\d{2} gCO₂e/m
@@ -153,11 +154,12 @@ class TokenFooterTest < ActionDispatch::IntegrationTest
     end
 
     def assert_usage_row(fragment, kind:, input:, output:, locale: :en)
-      assert_select fragment, ".n-chat-usage-table tbody tr[data-usage-kind='#{kind}']", count: 1 do
-        assert_select "th[scope=row]", text: I18n.t("nosia.usage.kinds.#{kind}", locale: locale)
-        assert_select "td", count: 2
-        assert_select "td:nth-of-type(1)", text: input
-        assert_select "td:nth-of-type(2)", text: output
+      assert_select fragment, "li[data-usage-kind='#{kind}']", count: 1 do
+        assert_select ".n-chat-token-kind-name", text: I18n.t("nosia.usage.kinds.#{kind}", locale: locale)
+        assert_select "dt", text: I18n.t("nosia.usage.input", locale: locale)
+        assert_select "dt", text: I18n.t("nosia.usage.output", locale: locale)
+        assert_select "[data-usage-input]", text: input
+        assert_select "[data-usage-output]", text: output
       end
     end
 

@@ -80,14 +80,19 @@ export default class extends Controller {
     this.resize?.disconnect()
   }
 
+  get geometryChanged() {
+    const surface = this.surface
+    return this.position?.surface !== surface || this.position.height !== surface.scrollHeight ||
+      this.position.clientHeight !== surface.clientHeight || this.position.clientWidth !== surface.clientWidth
+  }
+
   scrolled(event) {
     const surface = this.surface
     if (event.target !== surface) return
 
     // Observed DOM/layout changes and our own writes record their resulting
     // position. A different position in that same geometry belongs to the reader.
-    if (this.position?.surface !== surface || this.position.height !== surface.scrollHeight ||
-        this.position.clientHeight !== surface.clientHeight || this.position.clientWidth !== surface.clientWidth) {
+    if (this.geometryChanged) {
       this.rememberPosition()
       this.schedule()
       return
@@ -147,7 +152,7 @@ export default class extends Controller {
   }
 
   capture(event) {
-    if (!this.state.paused || (event && this.frame)) return
+    if (!this.state.paused || (event && (this.frame || this.geometryChanged))) return
 
     const top = this.surface.getBoundingClientRect().top
     const message = [...this.viewport.querySelectorAll(".message-container[id]")].find(element => element.getBoundingClientRect().bottom > top)

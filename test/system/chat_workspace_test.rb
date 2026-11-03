@@ -32,7 +32,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     page.execute_script("window.savedChatEditor = document.querySelector('lexxy-editor')")
     counts = [ Chat.count, Message.count ]
 
-    click_button "History"
+    find(orbite_navigation_trigger).click
 
     assert_native_dialog "chat-history"
     12.times { page.driver.browser.action.send_keys(:tab).perform }
@@ -42,7 +42,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     page.driver.browser.action.send_keys(:escape).perform
 
     assert_no_selector "#chat-history[open]", visible: :all
-    assert_selector "#workspace-history-trigger:focus"
+    assert_selector "#{orbite_navigation_trigger}:focus"
     assert page.evaluate_script("window.savedChatEditor === document.querySelector('lexxy-editor')")
     assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep this unsent draft"
     assert_equal counts, [ Chat.count, Message.count ]
@@ -102,11 +102,11 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "History navigates and deletes an authorized conversation" do
+  test "History navigates without delete controls" do
     set_reader_viewport(1024, 1000)
     first_chat = workspace(:chats, :workspace_first_chat)
     visit chat_url(@chat)
-    click_button "History"
+    find(orbite_navigation_trigger).click
     assert_native_dialog "chat-history"
 
     within "[data-history-chat='#{first_chat.id}']" do
@@ -114,23 +114,16 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     end
     assert_current_path chat_path(first_chat)
 
-    click_button "History"
+    find(orbite_navigation_trigger).click
     assert_native_dialog "chat-history"
-    dismiss_confirm I18n.t("nosia.actions.confirm_delete") do
-      within "[data-history-chat='#{first_chat.id}']" do
-        click_button I18n.t("nosia.nav.delete_chat"), enable_aria_label: true
-      end
+    within "#chat-history" do
+      assert_selector "[data-history-chat='#{first_chat.id}'] > div > a[aria-current=page]"
+      assert_no_selector "[data-history-chat] form, [data-history-chat] button, [data-history-chat] [data-turbo-method=delete], [data-history-chat] [data-method=delete], [data-history-chat] [data-turbo-confirm]", visible: :all
     end
     assert Chat.exists?(first_chat.id)
     assert_native_dialog "chat-history"
-    accept_confirm I18n.t("nosia.actions.confirm_delete") do
-      within "[data-history-chat='#{first_chat.id}']" do
-        click_button I18n.t("nosia.nav.delete_chat"), enable_aria_label: true
-      end
-    end
-
-    assert_current_path user_root_path
-    assert_not Chat.exists?(first_chat.id)
+    assert_current_path chat_path(first_chat)
+    assert_no_enqueued_jobs only: ChatResponseJob
   end
 
   test "Tools empty state links to its saved account and its named icon closes" do
@@ -153,7 +146,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
   test "a second requested dialog replaces the first without stealing its focus" do
     set_reader_viewport(1024, 1000)
     visit chat_url(@chat)
-    click_button "History"
+    find(orbite_navigation_trigger).click
     assert_native_dialog "chat-history"
 
     # Background controls are natively inert; dispatch a second request directly.
@@ -166,21 +159,21 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     page.driver.browser.action.send_keys(:tab).perform
     assert_dialog_focus "mcp-selector-modal"
 
-    page.execute_script("document.querySelector('#workspace-history-trigger').click()")
+    page.execute_script("document.querySelector(arguments[0]).click()", orbite_navigation_trigger)
 
     assert_native_dialog "chat-history"
     assert_selector "dialog[open]", count: 1
     assert_no_selector "#mcp-selector-modal[open]", visible: :all
     assert_dialog_focus "chat-history"
     within("#chat-history") { find("#workspace-navigation-close").click }
-    assert_selector "#workspace-history-trigger:focus"
+    assert_selector "#{orbite_navigation_trigger}:focus"
   end
 
   test "History is closed before Turbo caches navigation and remains closed on Back" do
     set_reader_viewport(1024, 1000)
     first_chat = workspace(:chats, :workspace_first_chat)
     visit chat_url(@chat)
-    click_button "History"
+    find(orbite_navigation_trigger).click
     assert_native_dialog "chat-history"
     page.execute_script(<<~JS)
       document.addEventListener('turbo:before-cache', () => {
@@ -196,10 +189,10 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_current_path chat_path(@chat)
     assert_selector "lexxy-editor[connected]"
     assert_no_selector "dialog[open]", visible: :all
-    click_button "History"
+    find(orbite_navigation_trigger).click
     assert_native_dialog "chat-history"
     page.driver.browser.action.send_keys(:escape).perform
-    assert_selector "#workspace-history-trigger:focus"
+    assert_selector "#{orbite_navigation_trigger}:focus"
   end
 
   test "dialogs preserve draft account tool choices and pending source coordination" do
@@ -222,10 +215,10 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       JS
       assert_selector "button[aria-label=Send][disabled]"
       counts = [ Chat.count, Message.count, Website.count, Document.count ]
-      click_button "History"
+      find(orbite_navigation_trigger).click
       assert_native_dialog "chat-history"
       within("#chat-history") { find("#workspace-navigation-close").click }
-      assert_selector "#workspace-history-trigger:focus"
+      assert_selector "#{orbite_navigation_trigger}:focus"
       if page.has_selector?(".n-composer-tools-trigger")
         find(".n-composer-tools-trigger").click
         assert_native_dialog "mcp-selector-modal"
@@ -649,6 +642,50 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     end
   end
 
+  test "cache cleanup preserves a paused paragraph through refresh geometry" do
+    @second.update_columns(name: "CompteDeRecherche" * 12)
+    visit_reader(1400, 1000)
+    assert_selector "#chat-history[data-inline=true][open]"
+    pause_reader
+    anchor = reader_anchor
+    page.execute_script(<<~JS)
+      window.readerCacheGeometry = {}
+      const sample = () => {
+        const root = document.querySelector('.n-chat-workspace--saved')
+        const surface = document.querySelector('[data-application-scroll]')
+        const panel = document.getElementById('chat-history')
+        const anchor = root.chatReaderState.anchor
+        return { width: surface.clientWidth, height: surface.clientHeight, top: surface.scrollTop,
+          headerHeight: root.querySelector('.n-chat-header').getBoundingClientRect().height,
+          panelOpen: panel.open, inline: panel.dataset.inline,
+          anchor: anchor && { id: anchor.id, block: anchor.block, offset: anchor.offset } }
+      }
+      document.addEventListener('turbo:before-cache', () => {
+        window.readerCacheGeometry.beforeCache = sample()
+      }, { once: true, capture: true })
+      document.addEventListener('turbo:before-render', () => {
+        window.readerCacheGeometry.beforeRender = sample()
+      }, { once: true, capture: true })
+    JS
+
+    refresh_workspace
+    evidence = page.evaluate_script("window.readerCacheGeometry")
+    chat_measurement("kind" => "reader-cache-cleanup-geometry", "measurement" => evidence)
+    before = evidence.fetch("beforeCache")
+    rendering = evidence.fetch("beforeRender")
+    assert before.fetch("panelOpen"), evidence.to_json
+    assert_equal "true", before.fetch("inline")
+    refute rendering.fetch("panelOpen"), evidence.to_json
+    assert_equal "true", rendering.fetch("inline")
+    assert_operator rendering.fetch("width"), :>, before.fetch("width"), evidence.to_json
+    assert_equal before.fetch("top"), rendering.fetch("top"), evidence.to_json
+    assert_equal before.fetch("anchor"), rendering.fetch("anchor"), evidence.to_json
+    assert_reader_following false
+    assert_reader_anchor anchor
+    assert_selector "#chat-history[data-inline=true][open]"
+    assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
   test "paused paragraph survives compact header height changes and viewport reflow" do
     @second.update_columns(name: "CompteDeRecherche" * 12)
     visit_reader(1400, 1000)
@@ -676,7 +713,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert replacement, "Expected the actual localized accounting replacement"
     assert_equal "replace", replacement["action"]
     stream_html(replacement.to_html)
-    assert_selector "section#chat-usage-details tr[data-usage-kind=agent_skill]", visible: :all
+    assert_selector "section#chat-usage-details li[data-usage-kind=agent_skill]", visible: :all
     settle_workspace_layout
     after_height = page.evaluate_script("document.querySelector('.n-chat-header').getBoundingClientRect().height")
     assert_operator after_height, :>, before_height
@@ -1364,7 +1401,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     answer = workspace(:messages, :workspace_answer)
     visit chat_url(@chat)
     find("##{dom_id(answer, :response_summary)}").click
-    click_button "History"
+    find(orbite_navigation_trigger).click
     assert_native_dialog "chat-history"
     page.execute_script(<<~JS)
       window.orbiteRefreshTrace = []
@@ -1384,10 +1421,10 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     deliver_answer_update(answer, :en)
     assert_dialog_focus "chat-history"
     within("#chat-history") { find("#workspace-navigation-close").click }
-    assert_selector "#workspace-history-trigger:focus"
+    assert_selector "#{orbite_navigation_trigger}:focus"
 
     first_chat = workspace(:chats, :workspace_first_chat)
-    click_button "History"
+    find(orbite_navigation_trigger).click
     within("[data-history-chat='#{first_chat.id}']") { click_link "First account question" }
     assert_current_path chat_path(first_chat)
     assert_selector "section#chat-usage-details ##{dom_id(first_chat, :token_totals)}", count: 1, visible: :all
@@ -1423,12 +1460,12 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     page.execute_script("document.getElementById(arguments[0]).focus()", dom_id(answer, :response_summary))
     stream_html(%(<turbo-stream action="remove" target="#{dom_id(answer, :messages)}"></turbo-stream>))
     assert_no_selector "##{dom_id(answer, :messages)}", visible: :all
-    find("#workspace-history-trigger").click
+    find(orbite_navigation_trigger).click
     assert_native_dialog "chat-history"
     stream_html(%(<turbo-stream action="update" target="chat-account-help"><template>Unrelated update</template></turbo-stream>))
     assert_dialog_focus "chat-history"
     within("#chat-history") { find("#workspace-navigation-close").click }
-    assert_selector "#workspace-history-trigger:focus"
+    assert_selector "#{orbite_navigation_trigger}:focus"
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
@@ -1440,9 +1477,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       answer = workspace(:messages, :workspace_answer)
       visit chat_url(@chat)
       find("##{dom_id(answer, :response_summary)}").click
-      page.execute_script(<<~JS, dom_id(answer, :response_summary), dom_id(answer, :messages), destination, asynchronous)
+      page.execute_script(<<~JS, dom_id(answer, :response_summary), dom_id(answer, :messages), destination, asynchronous, orbite_navigation_trigger)
         const summary = document.getElementById(arguments[0]), target = arguments[1]
-        const destination = arguments[2], asynchronous = arguments[3]
+        const destination = arguments[2], asynchronous = arguments[3], navigationTrigger = arguments[4]
         const root = document.querySelector('.n-chat-workspace--saved')
         summary.focus()
         window.focusRaceTimeline = []
@@ -1474,7 +1511,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
             if (destination.startsWith('early')) {
               record('keep-earlier-intent')
             } else if (destination === 'modal') {
-              root.querySelector('#workspace-history-trigger').click()
+              document.querySelector(navigationTrigger).click()
               window.intentionalFocus = document.activeElement
             } else {
               window.intentionalFocus = destination === 'outside' ? document.getElementById('workspace-utilities-trigger') : root.querySelector('button[aria-label=Send]')
@@ -1761,9 +1798,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
               assert_selector "#chat-history[data-inline=true][open]"
               assert_selector "#workspace-history-rail-trigger[aria-expanded=true]:focus"
             else
-              chat_keyboard_focus "#workspace-history-trigger", reverse: true
-              chat_reachable "#workspace-history-trigger"
-              chat_contrast "#workspace-history-trigger", minimum: 3, outline: true
+              chat_keyboard_focus orbite_navigation_trigger, reverse: true
+              chat_reachable orbite_navigation_trigger
+              chat_contrast orbite_navigation_trigger, minimum: 3, outline: true
               chat_screenshot "#{state}-header" if width <= 639 || height <= 700
               page.driver.browser.action.send_keys(:enter).perform
               assert_native_dialog "chat-history"
@@ -1772,7 +1809,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
               assert_equal I18n.t("nosia.chat_workspace.close", locale: locale), close["aria-label"]
               close.click
               assert_no_selector "#chat-history[open]", visible: :all
-              assert_selector "#workspace-history-trigger:focus"
+              assert_selector "#{orbite_navigation_trigger}:focus"
             end
             chat_keyboard_focus ".n-composer-send"
             chat_reachable ".n-composer-send"
@@ -1830,7 +1867,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       chat_contrast ".n-chat-source p.font-medium"
       chat_contrast "##{dom_id(answer, :response_details)} .n-workspace-help:not([data-estimate-note])"
       chat_contrast "##{dom_id(answer, :response_details)} .n-chat-values > div:first-child dd"
-      chat_keyboard_focus ".n-chat-toolbar a[href='#{user_root_path}']", reverse: true
+      orbite_read_start
       assert_selector "section#chat-usage-details > h2#chat-usage-summary"
       assert_no_selector "#chat-usage-details summary", visible: :all
       chat_contrast "#chat-usage-summary"
@@ -1843,7 +1880,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       chat_screenshot "details-#{dark ? 'dark' : 'light'}-375x812"
 
       chat_viewport(812, 375)
-      chat_keyboard_focus "#workspace-history-trigger", reverse: true
+      chat_keyboard_focus orbite_navigation_trigger, reverse: true
       page.driver.browser.action.send_keys(:enter).perform
       assert_native_dialog "chat-history"
       chat_dialog_sample "chat-history"

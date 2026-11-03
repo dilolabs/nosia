@@ -68,6 +68,18 @@ export default class extends Controller {
 
     if (this.mode === "inline") this.expanded = false
     this.reflect()
+    this.revealFocusedRailTrigger()
+  }
+
+  revealFocusedRailTrigger() {
+    const trigger = this.triggerTargets.find(element => element === document.activeElement)
+    const rail = trigger?.closest(".n-orbite-rail")
+    if (!rail) return
+
+    const button = trigger.getBoundingClientRect(), box = rail.getBoundingClientRect()
+    const top = box.top + rail.clientTop, bottom = top + rail.clientHeight
+    if (button.top < top) rail.scrollTop += button.top - top
+    else if (button.bottom > bottom) rail.scrollTop += button.bottom - bottom
   }
 
   fallback() {

@@ -2,37 +2,49 @@
 <%
   totals = chat.token_totals_by_kind
   usages = chat.token_usages.to_a
+  input_tokens = chat.input_tokens_count
+  output_tokens = chat.output_tokens_count
+  total_tokens = input_tokens + output_tokens
 %>
-<%= tag.div id: dom_id(chat, :token_totals) do %>
-  <dl class="n-chat-values">
-    <div><dt><%= t("nosia.usage.input") %></dt> <dd data-chat-total-input><%= number_with_delimiter(chat.input_tokens_count) %></dd></div>
-    <div><dt><%= t("nosia.usage.output") %></dt> <dd data-chat-total-output><%= number_with_delimiter(chat.output_tokens_count) %></dd></div>
-  </dl>
-  <div class="n-chat-table-scroll">
-    <table class="n-chat-usage-table">
-      <caption><%= t("nosia.usage.per_kind") %></caption>
-      <thead>
-        <tr>
-          <th scope="col"><%= t("nosia.usage.per_kind") %></th>
-          <th scope="col"><%= t("nosia.usage.input") %></th>
-          <th scope="col"><%= t("nosia.usage.output") %></th>
-        </tr>
-      </thead>
-      <tbody>
+<%= tag.div id: dom_id(chat, :token_totals), class: "n-chat-token-layout" do %>
+  <div class="n-chat-token-breakdown">
+    <div class="n-chat-token-summary">
+      <dl class="n-chat-values">
+        <div><dt><span class="n-chat-token-key" aria-hidden="true"></span><%= t("nosia.usage.input") %></dt> <dd data-chat-total-input><%= number_with_delimiter(input_tokens) %></dd></div>
+        <div><dt><span class="n-chat-token-key n-chat-token-key--output" aria-hidden="true"></span><%= t("nosia.usage.output") %></dt> <dd data-chat-total-output><%= number_with_delimiter(output_tokens) %></dd></div>
+      </dl>
+      <p class="n-workspace-help n-chat-token-total"><%= t("nosia.usage.total") %> <strong data-chat-total-tokens><%= number_with_delimiter(total_tokens) %></strong> <%= t("nosia.usage.token_unit", count: total_tokens) %></p>
+    </div>
+    <%= tag.div class: "n-chat-token-bar", aria: { hidden: true }, data: { chat_token_bar: true, empty: total_tokens.zero? } do %>
+      <% if input_tokens.positive? %>
+        <%= tag.span class: "n-chat-token-segment n-chat-token-segment--input", style: "flex-grow: #{input_tokens}", data: { chat_token_part: "input" } %>
+      <% end %>
+      <% if output_tokens.positive? %>
+        <%= tag.span class: "n-chat-token-segment n-chat-token-segment--output", style: "flex-grow: #{output_tokens}", data: { chat_token_part: "output" } %>
+      <% end %>
+    <% end %>
+    <p class="n-workspace-help n-chat-token-caption"><%= t(total_tokens.zero? ? "nosia.usage.none" : "nosia.chat_workspace.token_distribution") %></p>
+    <% if totals.any? %>
+      <p class="n-workspace-help n-chat-token-kind-heading"><%= t("nosia.usage.per_kind") %></p>
+      <ul class="n-chat-token-kinds" aria-label="<%= t("nosia.usage.per_kind") %>">
         <% totals.each do |kind, sums| %>
-          <tr data-usage-kind="<%= kind %>">
-            <th scope="row"><%= t("nosia.usage.kinds.#{kind}") %></th>
-            <td><%= number_with_delimiter(sums[0]) %></td>
-            <td><%= number_with_delimiter(sums[1]) %></td>
-          </tr>
+          <li data-usage-kind="<%= kind %>">
+            <span class="n-chat-token-kind-name"><%= t("nosia.usage.kinds.#{kind}") %></span>
+            <dl class="n-chat-token-kind-values">
+              <div><dt><%= t("nosia.usage.input") %></dt> <dd data-usage-input><%= number_with_delimiter(sums[0]) %></dd></div>
+              <div><dt><%= t("nosia.usage.output") %></dt> <dd data-usage-output><%= number_with_delimiter(sums[1]) %></dd></div>
+            </dl>
+          </li>
         <% end %>
-      </tbody>
-    </table>
+      </ul>
+    <% end %>
   </div>
-  <p class="n-workspace-help">
-    <%= t("nosia.chat_workspace.estimates") %>:
-    <%= number_with_precision(usages.sum(&:energy_kwh), precision: 6) %> kWh ·
-    <%= number_with_precision(usages.sum(&:co2e_g), precision: 2) %> gCO₂e
-  </p>
-  <p class="n-workspace-help" data-estimate-note><%= t(usages.any?(&:used_fallback?) ? "nosia.usage.total_fallback_tooltip" : "nosia.usage.total_tooltip") %></p>
+  <div class="n-chat-token-impact">
+    <p class="n-workspace-help" data-chat-impact-estimates>
+      <%= t("nosia.chat_workspace.estimates") %>
+      <%= number_with_precision(usages.sum(&:energy_kwh), precision: 6) %> kWh ·
+      <%= number_with_precision(usages.sum(&:co2e_g), precision: 2) %> gCO₂e
+    </p>
+    <p class="n-workspace-help" data-estimate-note><%= t(usages.any?(&:used_fallback?) ? "nosia.usage.total_fallback_tooltip" : "nosia.usage.total_tooltip") %></p>
+  </div>
 <% end %>

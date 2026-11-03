@@ -231,23 +231,78 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     click_on "Sign in"
     assert_selector "[data-dashboard]"
 
-    [ [ 375, 812 ], [ 812, 375 ] ].each do |width, height|
+    %w[en fr].product([ [ 375, 812 ], [ 812, 375 ] ]).each do |locale, (width, height)|
       orbite_viewport(width, height)
+      orbite_select_language(locale.upcase)
       visit new_chat_path
       [ false, true ].each do |dark|
         orbite_theme(dark)
         assert_selector ".n-orbite-reading [data-chat-no-account]", count: 1
         assert_no_selector ".n-chat-dock, lexxy-editor, [data-orbite-composer-navigation]", visible: :all
+        assert_no_selector ".n-chat-header a, .n-chat-header button, .n-chat-header .n-chat-toolbar", visible: :all
+        assert_selector "#workspace-mobile-trigger", count: 1, visible: :all
         orbite_assert_reachable("[data-chat-no-account]")
         orbite_assert_reachable(".n-chat-start a[href='#{accounts_path}']")
-        orbite_record("no-account-#{dark ? 'dark' : 'light'}-#{width}x#{height}", { guidance: true, composer: false }, screenshot: true)
-        find("#workspace-history-trigger").click
+        orbite_record("no-account-#{locale}-#{dark ? 'dark' : 'light'}-#{width}x#{height}", { guidance: true, composer: false }, screenshot: true)
+        opener = orbite_navigation_trigger
+        target = orbite_tab_to(opener)
+        %w[width height].each { |dimension| assert_operator target.fetch(dimension), :>=, 44 }
+        page.driver.browser.action.send_keys(:enter).perform
+        assert_selector "#chat-history:modal"
+        orbite_tab_to("#workspace-navigation-close")
+        page.driver.browser.action.send_keys(:enter).perform
+        assert_no_selector "#chat-history:modal"
+        assert_selector "#{opener}:focus"
+        page.driver.browser.action.send_keys(:enter).perform
         assert_selector "#chat-history:modal"
         page.driver.browser.action.send_keys(:escape).perform
-        assert_selector "#workspace-history-trigger:focus"
+        assert_selector "#{opener}:focus"
+        orbite_assert_reachable(opener)
       end
     end
     assert_no_enqueued_jobs only: ChatResponseJob
+  end
+
+  test "mobile accounted chat headers omit navigation while the real composer opener retains draft and focus" do
+    %w[en fr].product(%w[new saved], [ false, true ]).each do |locale, entry, dark|
+      orbite_viewport(375, 812)
+      orbite_select_language(locale.upcase)
+      visit(entry == "new" ? new_chat_path(account_id: @second.id) : chat_path(@chat))
+      assert_selector "lexxy-editor[connected]"
+      orbite_theme(dark)
+      assert_no_selector ".n-chat-header a[href='#{user_root_path}'], .n-chat-header [aria-controls=chat-history], #workspace-mobile-trigger", visible: :all
+      assert_selector "main h1", count: 1
+      assert_no_selector ".n-chat-header a, .n-chat-header button, .n-chat-header .n-workspace-actions", visible: :all
+      assert_selector "#chat-history > .n-orbite-navigation-actions > a[href='#{new_chat_path}']", count: entry == "saved" ? 1 : 0, visible: :all
+      find("lexxy-editor .lexxy-editor__content").send_keys("Keep this header navigation draft")
+      page.execute_script("window.headerNavigationEditor = document.querySelector('lexxy-editor')")
+      page.execute_script("document.querySelector('[data-application-scroll]').scrollTop = 0")
+      orbite_settle
+      orbite_record("header-controls-#{entry}-#{locale}-#{dark ? 'dark' : 'light'}", page.evaluate_script(<<~JS), screenshot: true)
+        ({header: document.querySelector('.n-chat-header').getBoundingClientRect().toJSON(),
+          heading: document.querySelector('main h1').textContent.trim(),
+          actions: [...document.querySelectorAll('.n-chat-header a, .n-chat-header button')].map(node => node.textContent.trim()),
+          usage: !!document.querySelector('#chat-usage-details'), rootTop: document.scrollingElement.scrollTop})
+      JS
+      opener = orbite_navigation_trigger
+      assert_equal "[data-orbite-composer-navigation]", opener
+      target = orbite_tab_to(opener, reverse: true)
+      %w[width height].each { |dimension| assert_operator target.fetch(dimension), :>=, 44 }
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "#chat-history:modal"
+      orbite_tab_to("#workspace-navigation-close")
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_no_selector "#chat-history:modal"
+      assert_selector "#{opener}:focus"
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "#chat-history:modal"
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_selector "#{opener}:focus"
+      orbite_assert_reachable(opener)
+      assert page.evaluate_script("window.headerNavigationEditor === document.querySelector('lexxy-editor')")
+      assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep this header navigation draft", exact_text: true
+      assert_no_enqueued_jobs only: ChatResponseJob
+    end
   end
 
   test "downward navigation reflow keeps a paused saved paragraph and visible focus" do
@@ -266,7 +321,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     orbite_settle_reader
     assert_selector ".n-chat-workspace[data-reader-following=false]"
     before = orbite_paragraph_anchor
-    assert_operator page.evaluate_script("document.querySelector('#workspace-history-trigger').getBoundingClientRect().bottom"), :<, 0
+    assert_operator page.evaluate_script("document.querySelector('.n-chat-header h1').getBoundingClientRect().bottom"), :<, 0
     assert_selector "#workspace-history-rail-trigger:focus"
     page.driver.browser.action.send_keys(:enter).perform
     assert_selector "#chat-history:modal"
@@ -343,7 +398,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_selector "#chat-history[open]", visible: :all
     assert_no_selector "#chat-history:modal"
     assert_selector "#workspace-history-rail-trigger[aria-expanded=false]"
-    assert_selector "#workspace-history-trigger[aria-expanded=false]", visible: :all
+    assert_selector "[data-orbite-composer-navigation][aria-expanded=false]", visible: :all
     ids = page.evaluate_script("[...document.querySelectorAll('[id]')].map(node => node.id)")
     assert_equal ids.uniq, ids
     assert_no_enqueued_jobs only: ChatResponseJob
@@ -353,7 +408,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     test "recovered History #{action} resumes closed state at #{width}px" do
       orbite_viewport(width, height)
       visit chat_path(@chat)
-      opener = width >= 768 ? "#workspace-history-rail-trigger" : "#workspace-history-trigger"
+      opener = orbite_navigation_trigger
       find(opener).click
       assert_selector "#chat-history:modal"
       orbite_refresh
@@ -381,11 +436,11 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "lexxy-editor[connected]"
     assert_selector "#message_content-content:focus"
     assert_no_selector "#chat-history [autofocus]", visible: :all
-    find("#workspace-history-trigger").click
+    find(orbite_navigation_trigger).click
     assert_selector "#chat-history:modal"
     assert_selector "#chat-history [data-action='workspace-navigation#close']:focus"
     page.driver.browser.action.send_keys(:escape).perform
-    assert_selector "#workspace-history-trigger:focus"
+    assert_selector "#{orbite_navigation_trigger}:focus"
     assert_no_selector "#chat-history [autofocus]", visible: :all
     assert_no_enqueued_jobs only: ChatResponseJob
   end
@@ -393,15 +448,16 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   test "shared History refresh restores its current focus and replaced opener but caches closed" do
     orbite_viewport(1024, 1000)
     visit chat_path(@chat)
-    find("#workspace-history-trigger").click
+    find(orbite_navigation_trigger).click
     orbite_tab_to("#language_preference_locale")
-    page.execute_script(<<~JS)
-      window.orbiteOriginalOpener = document.querySelector('#workspace-history-trigger')
+    page.execute_script(<<~JS, orbite_navigation_trigger)
+      const openerSelector = arguments[0]
+      window.orbiteOriginalOpener = document.querySelector(openerSelector)
       document.addEventListener('turbo:before-cache', () => {
         window.orbiteCachedModalIds = [...document.querySelectorAll('dialog[open]')].map(node => node.id)
       }, { once: true })
       document.addEventListener('turbo:before-render', () => {
-        const trigger = document.querySelector('#workspace-history-trigger')
+        const trigger = document.querySelector(openerSelector)
         trigger.replaceWith(trigger.cloneNode(true))
       }, { once: true })
     JS
@@ -410,10 +466,10 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     refute page.evaluate_script("window.orbiteOriginalOpener.isConnected")
     assert_selector "#chat-history:modal"
     assert_selector "#language_preference_locale:focus"
-    assert_selector "#workspace-history-trigger[aria-expanded=true]", visible: :all
+    assert_selector "#{orbite_navigation_trigger}[aria-expanded=true]", visible: :all
     page.driver.browser.action.send_keys(:escape).perform
     assert_no_selector "#chat-history:modal"
-    assert_selector "#workspace-history-trigger:focus"
+    assert_selector "#{orbite_navigation_trigger}:focus"
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
@@ -421,7 +477,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     orbite_viewport(1024, 1000)
     %w[outside tools].each do |destination|
       visit chat_path(@chat)
-      find("#workspace-history-trigger").click
+      find(orbite_navigation_trigger).click
       assert_selector "#chat-history:modal"
       # Deliberate focus/modal intent at the real lifecycle boundary, not native
       # Tab evidence or a replacement rendering/delivery gate.
@@ -451,7 +507,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   test "shared History recovery is consumed before standalone cache cleanup" do
     orbite_viewport(1024, 1000)
     visit chat_path(@chat)
-    find("#workspace-history-trigger").click
+    find(orbite_navigation_trigger).click
     orbite_refresh
     assert_selector "#chat-history:modal"
     page.execute_script(<<~JS)
@@ -466,13 +522,13 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
   test "explicitly closed shared History stays closed on refresh and another conversation" do
     orbite_viewport(1024, 1000)
     visit chat_path(@chat)
-    find("#workspace-history-trigger").click
+    find(orbite_navigation_trigger).click
     assert_selector "#chat-history:modal"
     find("#chat-history [data-action='workspace-navigation#close']").click
     assert_no_selector "#chat-history:modal"
     orbite_refresh
     assert_no_selector "#chat-history[open]", visible: :all
-    find("#workspace-history-trigger").click
+    find(orbite_navigation_trigger).click
     first_chat = workspace(:chats, :workspace_first_chat)
     within("[data-history-chat='#{first_chat.id}']") { click_link "First account question" }
     assert_current_path chat_path(first_chat)
@@ -561,21 +617,23 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
         minimum = [ geometry.fetch("row").fetch("width"), geometry.fetch("fontSize") * 8 ].min
         assert_operator geometry.fetch("body").fetch("width"), :>=, minimum, geometry.to_json
         assert_operator geometry.fetch("link").fetch("width"), :>=, minimum, geometry.to_json
-        assert geometry.fetch("textFits"), geometry.to_json
-        assert geometry.fetch("separateAction"), geometry.to_json
-        %w[link form button].each do |part|
-          bounds = geometry.fetch(part)
-          assert_operator bounds.fetch("left"), :>=, geometry.fetch("row").fetch("left"), geometry.to_json
-          assert_operator bounds.fetch("right"), :<=, geometry.fetch("row").fetch("right"), geometry.to_json
-        end
-        assert_operator geometry.fetch("button").fetch("width"), :>=, 44, geometry.to_json
-        assert_operator geometry.fetch("button").fetch("height"), :>=, 44, geometry.to_json
-        assert_selector "#{row} > div > a", text: title, exact_text: true
-        assert_selector "#{row} > div > p", text: conversation.account.name, exact_text: true
+        assert geometry.fetch("labelsFit"), geometry.to_json
+        assert geometry.fetch("dateFits"), geometry.to_json
+        assert_in_delta geometry.fetch("row").fetch("width"), geometry.fetch("link").fetch("width"), 1, geometry.to_json
+        assert_operator geometry.fetch("link").fetch("left"), :>=, geometry.fetch("row").fetch("left"), geometry.to_json
+        assert_operator geometry.fetch("link").fetch("right"), :<=, geometry.fetch("row").fetch("right"), geometry.to_json
+        assert_operator geometry.fetch("link").fetch("width"), :>=, 44, geometry.to_json
+        assert_operator geometry.fetch("link").fetch("height"), :>=, 44, geometry.to_json
+        assert_selector "#{row} > div > a > .n-chat-history-title", text: title, exact_text: true
+        assert_selector "#{row} > div > a .n-chat-history-account", text: conversation.account.name, exact_text: true
+        assert_equal title, geometry.fetch("titleText")
+        assert_equal conversation.account.name, geometry.fetch("accountText")
+        assert_equal title, geometry.fetch("nativeTitle")
+        assert_equal conversation.account.name, geometry.fetch("nativeAccount")
         assert_selector "#{row} time[datetime='#{conversation.updated_at.iso8601}']",
           text: I18n.l(conversation.updated_at, format: :short, locale: locale), exact_text: true
         assert_selector "#{row} > div > a[aria-current=page]", count: entry == "saved" && conversation == @chat ? 1 : 0
-        assert_no_selector "#{row} > div > p > span", visible: :all
+        assert_no_selector "#{row} > div > p", visible: :all
         if entry == "saved" && conversation == @chat
           %w[paddingInlineStart paddingInlineEnd textInset].each do |inset|
             assert_operator geometry.fetch(inset), :>=, 8, geometry.to_json
@@ -584,17 +642,11 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
             assert_operator geometry.fetch(inset), :>, 0, geometry.to_json
           end
         end
-        assert_selector "#{row} form[action='#{chat_path(conversation)}'][method=post] input[name=_method][value=delete]", visible: :all
-        button = find("#{row} button")
-        assert_empty button.text
-        assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), button["aria-label"]
-        assert_equal I18n.t("nosia.nav.delete_chat", locale: locale), button["title"]
-        assert_selector "#{row} button svg[aria-hidden=true]", count: 1
-        assert_equal I18n.t("nosia.actions.confirm_delete", locale: locale), button["data-turbo-confirm"]
+        assert_no_selector "#{row} form, #{row} button, #{row} [data-turbo-method=delete], #{row} [data-method=delete], #{row} [data-turbo-confirm]", visible: :all
       end
-      controls = conversations.keys.flat_map do |conversation|
+      controls = conversations.keys.map do |conversation|
         row = "#chat-history [data-history-chat='#{conversation.id}']"
-        [ "#{row} > div > a", "#{row} button" ]
+        "#{row} > div > a"
       end
       controls.each { |selector| orbite_history_tab_to(selector) }
       controls.reverse_each { |selector| orbite_history_tab_to(selector, reverse: true) }
@@ -607,7 +659,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     orbite_viewport(375, 812)
     visit new_chat_path(account_id: @second.id)
     assert_selector "#chat-history:not([open])", visible: :all
-    find("#workspace-history-trigger").click
+    find(orbite_navigation_trigger).click
     assert_selector "#chat-history:modal"
     page.execute_script("window.orbitePanel = document.querySelector('#chat-history')")
     orbite_tab_to("#language_preference_locale")
@@ -682,19 +734,25 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
           return { panel: rect(panel), clientWidth: content.clientWidth, scrollWidth: content.scrollWidth,
             rows: [...panel.querySelectorAll('[data-history-chat]')].map(row => {
               const body = row.querySelector(':scope > div'), link = body.querySelector('a')
-              const form = row.querySelector('form'), button = form.querySelector('button'), b = rect(body), f = rect(form)
-              const textFits = [...body.querySelectorAll('a, p')].every(node => {
-                const range = document.createRange(); range.selectNodeContents(node)
-                return [...range.getClientRects()].every(line => line.left >= b.left - 1 && line.right <= b.right + 1)
+              const b = rect(body)
+              const title = link.querySelector('.n-chat-history-title'), account = link.querySelector('.n-chat-history-account'), time = link.querySelector('time')
+              const l = rect(link), t = rect(time), style = getComputedStyle(link)
+              const inside = (a, box) => a.left >= box.left - 1 && a.right <= box.right + 1 && a.top >= box.top - 1 && a.bottom <= box.bottom + 1
+              const labelsFit = [title, account].every(node => {
+                const box = rect(node), css = getComputedStyle(node)
+                return box.width > 0 && box.height > 0 && inside(box, l) && css.whiteSpace === 'nowrap' &&
+                  css.overflowX === 'hidden' && css.textOverflow === 'ellipsis' && box.height <= parseFloat(css.lineHeight) + 1
               })
-              const style = getComputedStyle(link), range = document.createRange(); range.selectNodeContents(link)
-              const firstLine = range.getClientRects()[0]
-              return { id: row.dataset.historyChat, row: rect(row), body: b, link: rect(link), form: f, button: rect(button),
+              const range = document.createRange(); range.selectNodeContents(time)
+              const dateFits = t.width > 0 && t.height > 0 && inside(t, l) && getComputedStyle(time).textOverflow !== 'ellipsis' &&
+                range.getClientRects().length > 0 && [...range.getClientRects()].every(glyph => inside(glyph, t) && inside(glyph, l))
+              return { id: row.dataset.historyChat, row: rect(row), body: b, link: rect(link),
                 paddingInlineStart: parseFloat(style.paddingInlineStart), paddingInlineEnd: parseFloat(style.paddingInlineEnd),
                 paddingBlockStart: parseFloat(style.paddingBlockStart), paddingBlockEnd: parseFloat(style.paddingBlockEnd),
-                textInset: firstLine.left - link.getBoundingClientRect().left,
-                fontSize: parseFloat(getComputedStyle(link).fontSize), textFits,
-                separateAction: f.top >= b.bottom || b.top >= f.bottom || f.left >= b.right || b.left >= f.right }
+                textInset: rect(title).left - l.left,
+                fontSize: parseFloat(style.fontSize), labelsFit, dateFits,
+                titleText: title.textContent, accountText: account.textContent,
+                nativeTitle: link.getAttribute('title'), nativeAccount: account.getAttribute('title') }
             }) }
         })()
       JS

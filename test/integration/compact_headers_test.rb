@@ -73,23 +73,26 @@ class CompactHeadersTest < ActionDispatch::IntegrationTest
         assert_select "##{dom_id(@chat, :token_totals)}", count: 1
         assert_select "[data-chat-total-input]", text: "125"
         assert_select "[data-chat-total-output]", text: "24"
-        assert_select "caption", text: I18n.t("nosia.usage.per_kind", locale: locale)
-        assert_select "thead th[scope=col]", count: 3
-        assert_select "tbody th[scope=row]", minimum: 1
+        assert_select ".n-chat-token-kind-heading", text: I18n.t("nosia.usage.per_kind", locale: locale)
+        assert_select "ul.n-chat-token-kinds > li[data-usage-kind]", minimum: 1
+        assert_select "table, caption, thead, tbody", count: 0
         assert_select "[data-estimate-note]", count: 1
       end
       assert_select ".n-chat-toolbar #chat-usage-details, .n-chat-dock #chat-usage-details", count: 0
     end
   end
 
-  test "saved chat toolbar keeps its heading account actions and existing usage target" do
+  test "saved chat toolbar keeps its heading account and existing usage target" do
     get chat_path(@chat)
 
     assert_response :success
     assert_select ".n-chat-toolbar h1.n-chat-title", count: 1
-    assert_select ".n-chat-toolbar [data-chat-account-label]", text: @second.name, count: 1
-    assert_select ".n-chat-toolbar #workspace-history-trigger", text: I18n.t("nosia.chat_workspace.history"), count: 1
-    assert_select ".n-chat-toolbar a[href='#{new_chat_path}']", text: I18n.t("nosia.chat_workspace.new_chat"), count: 1
+    assert_select ".n-chat-toolbar [data-chat-account-label]", count: 0
+    assert_select ".n-chat-header [data-chat-account-label]", text: @second.name, count: 1
+    assert_select ".n-chat-header #workspace-history-trigger, .n-chat-header [aria-controls=chat-history], .n-chat-header a[href='#{user_root_path}']", count: 0
+    assert_select "#workspace-history-rail-trigger, [data-orbite-composer-navigation]", count: 2
+    assert_select ".n-chat-header a[href='#{new_chat_path}'], .n-chat-header .n-workspace-actions", count: 0
+    assert_select "#chat-history > .n-orbite-navigation-actions > a[href='#{new_chat_path}']", text: I18n.t("nosia.chat_workspace.new_chat"), count: 1
     assert_select ".n-chat-header > section#chat-usage-details", count: 1 do
       assert_select "##{dom_id(@chat, :token_totals)}", count: 1
     end

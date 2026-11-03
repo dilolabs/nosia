@@ -58,7 +58,7 @@
       <% else %>
         <%= form.button type: :submit, class: "n-composer-send", aria: { label: t("nosia.chat.send") }, title: t("nosia.chat.send"),
               data: { chat_account_target: "send" } do %>
-          <svg class="n-composer-icon" width="16" height="16" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m-6 6 6-6 6 6"/></svg>
+          <%= inline_svg "svg/paper-plan.svg", width: 16, height: 16, class: "text-white dark:text-black" %>
         <% end %>
       <% end %>
     </div>

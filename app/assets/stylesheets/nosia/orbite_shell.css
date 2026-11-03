@@ -110,10 +110,11 @@
   border-radius: 0;
   background: transparent;
 }
-.n-orbite-shell .n-orbite-navigation[data-inline=true] .n-chat-history-row { display: grid; grid-template-columns: minmax(0, 1fr); }
 .n-orbite-shell:has(> .n-orbite-navigation[data-inline=true][open]) > main { grid-column: 3; }
 .n-orbite-navigation-close { align-self: flex-end; flex: none; }
-.n-orbite-history-heading { font-size: .875rem; font-weight: 600; }
+.n-orbite-navigation-actions { display: flex; flex: none; align-items: flex-start; gap: .5rem; min-width: 0; }
+.n-orbite-shell .n-orbite-navigation-actions > .n-workspace-button { flex: 0 1 auto; max-inline-size: calc(100% - 3.25rem); white-space: normal; overflow-wrap: anywhere; }
+.n-orbite-navigation-actions > .n-orbite-navigation-close { align-self: flex-start; margin-inline-start: auto; flex: 0 0 2.75rem; }
 .n-orbite-panel-content { min-height: 0; min-width: 0; overflow: auto; flex: 1; padding-block: .5rem; }
 .n-orbite-panel-links { display: grid; margin-bottom: 1rem; }
 .n-orbite-shell .n-orbite-panel-links .n-orbite-link { justify-content: flex-start; }
@@ -124,6 +125,7 @@
 .n-orbite-utilities select { min-height: 2.75rem; min-width: 2.75rem; border-radius: .375rem; }
 .n-orbite-utilities select { font-size: .75rem; padding-block: .25rem; }
 .n-orbite-shell :is(a, button, select, summary):focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
+.n-orbite-shell .n-orbite-navigation-actions > .n-workspace-primary:focus-visible { outline-color: var(--orbite-on-accent); }
 .n-orbite-shell:focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
 .n-orbite-shell .n-orbite-mobile-only { display: none; }
 

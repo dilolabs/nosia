@@ -13,7 +13,7 @@
     <div><dt><%= t("nosia.usage.output") %></dt> <dd><%= number_with_delimiter(total_out) %></dd></div>
   </dl>
   <p class="n-workspace-help">
-    <%= t("nosia.chat_workspace.estimates") %>:
+    <%= t("nosia.chat_workspace.estimates") %>
     <%= number_with_precision(energy[:kwh], precision: 6) %> kWh ·
     <%= number_with_precision(GreenIt.co2e_g(kwh: energy[:kwh]), precision: 2) %> gCO₂e
   </p>

@@ -13,6 +13,7 @@ class ChatWorkspaceTest < ActionDispatch::IntegrationTest
     assert_workspace_shell
     assert_select "#new-chat-workspace.n-chat-workspace--new", count: 1
     assert_select ".n-chat-start h1", text: "What would you like to explore?"
+    assert_select ".n-chat-header .n-chat-toolbar, .n-chat-header .n-workspace-actions", count: 0
   end
 
   test "saved chat has a focused shell with initially closed history" do
@@ -65,7 +66,7 @@ class ChatWorkspaceTest < ActionDispatch::IntegrationTest
       assert_select "b", count: 0
     end
     assert_select "##{dom_id(question, :messages)}", text: "A" * 240
-    assert_select "[data-history-chat='#{@chat.id}'] a[aria-current=page]", text: "#{'A' * 119}…", count: 1
+    assert_select "[data-history-chat='#{@chat.id}'] a[aria-current=page] > .n-chat-history-title", text: "#{'A' * 119}…", count: 1
     assert_equal content, question.reload.content
   end
 
@@ -106,7 +107,8 @@ class ChatWorkspaceTest < ActionDispatch::IntegrationTest
     assert_select "a[href='#{accounts_path}']", text: "Configurer un compte", count: 1
     assert_select ".n-chat-composer", count: 0
     assert_select "#chat-history[data-history-empty]", count: 1
-    assert_select "#workspace-history-trigger", text: "Historique", count: 1
+    assert_select ".n-chat-header a, .n-chat-header button, [data-orbite-composer-navigation]", count: 0
+    assert_select "#workspace-mobile-trigger[aria-controls=chat-history]", text: I18n.t("nosia.orbite.navigation", locale: :fr), count: 1
   end
 
   private
@@ -114,7 +116,9 @@ class ChatWorkspaceTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select ".n-chat-workspace h1", count: 1
       assert_select "main.n-chat-main", count: 1
-      assert_select "#workspace-history-trigger", text: "History", count: 1
+      assert_select ".n-chat-header #workspace-history-trigger, .n-chat-header [aria-controls=chat-history], .n-chat-header a[href='#{user_root_path}']", count: 0
+      assert_select "#workspace-history-rail-trigger[aria-controls=chat-history], [data-orbite-composer-navigation][aria-controls=chat-history]", count: 2
+      assert_select "#workspace-mobile-trigger", count: 0
       assert_select "dialog#chat-history:not([open])", count: 1
       assert_select "#accordion-right-actions, #drawer-right", count: 0
       assert_select ".n-chat-composer", count: 1
