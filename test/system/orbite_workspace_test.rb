@@ -473,19 +473,19 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "shared History refresh does not steal deliberate outside focus or replace newer Tools" do
+  test "shared History refresh does not steal deliberate outside or Tools focus" do
     orbite_viewport(1024, 1000)
     %w[outside tools].each do |destination|
       visit chat_path(@chat)
       find(orbite_navigation_trigger).click
       assert_selector "#chat-history:modal"
-      # Deliberate focus/modal intent at the real lifecycle boundary, not native
+      # Deliberate focus intent at the real lifecycle boundary, not native
       # Tab evidence or a replacement rendering/delivery gate.
       page.execute_script(<<~JS, destination)
         const destination = arguments[0]
         document.addEventListener('turbo:before-render', () => {
           if (destination === 'outside') document.querySelector('#workspace-utilities-trigger').focus({ preventScroll: true })
-          else document.querySelector('.n-composer-tools-trigger').click()
+          else document.querySelector('.n-composer-tools-trigger').focus({ preventScroll: true })
         }, { once: true })
       JS
       orbite_refresh
@@ -494,10 +494,7 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
         assert_no_selector "dialog:modal"
         assert_selector "#workspace-utilities-trigger:focus"
       else
-        assert_selector "#mcp-selector-modal:modal"
-        assert_selector "dialog:modal", count: 1
-        assert page.evaluate_script("document.querySelector('#mcp-selector-modal').contains(document.activeElement)")
-        find("#mcp-selector-modal button[aria-label=Close]").click
+        assert_no_selector "dialog:modal"
         assert_selector ".n-composer-tools-trigger:focus"
       end
     end

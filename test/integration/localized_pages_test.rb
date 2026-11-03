@@ -886,7 +886,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
     assert_equal message, response.body
   end
 
-  test "French MCP selector formats latency without changing its stored integer" do
+  test "French MCP selector uses the shared translated checkbox dropdown" do
     sign_in_picker_user
     server = mcp_servers(:picker_second_tool)
     server.update_columns(latency_ms: 1234)
@@ -895,10 +895,10 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal 1234, server.reload.latency_ms
-    assert_select "#mcp-selector-modal .n-tag-ready", count: 1 do |badges|
-      assert_match(/1[ \u00a0\u202f]234[ \u00a0\u202f]ms/, badges.first.text)
-      refute_match(/1234\s*ms/, badges.first.text)
-    end
+    assert_select "details[data-composer-tools] summary", text: /Outils\s+0/
+    assert_select ".n-composer-tools-heading", text: I18n.t("nosia.chat.connected_tools", locale: :fr)
+    assert_select "label.n-composer-tool-option", text: "Second tool"
+    assert_select ".n-composer-tools-panel .n-tag-ready", count: 0
   end
 
   test "French MCP chat notices and actions are translated" do
@@ -918,12 +918,12 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
 
     post chat_mcp_sessions_url(chat), params: { mcp_server_id: server.id }, headers: headers, as: :turbo_stream
     assert_response :success
-    assert_select "button", text: "Retirer"
+    assert_select "template label.n-composer-tool-option input[checked]"
     session = chat.chat_mcp_sessions.find_by!(mcp_server: server)
 
     delete chat_mcp_session_url(chat, session), headers: headers, as: :turbo_stream
     assert_response :success
-    assert_select "button", text: "Ajouter"
+    assert_select "template label.n-composer-tool-option input:not([checked])"
   end
 
   test "French thinking phases ignore English overrides and fall back for unknown phases" do

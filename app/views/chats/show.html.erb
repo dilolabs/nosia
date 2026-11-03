@@ -24,5 +24,4 @@
   <%= turbo_stream_from @chat, :messages, I18n.locale %>
   <%= turbo_stream_from @chat, :token_totals, I18n.locale %>
   <%= render "chats/history", chat: @chat, conversations: @history, titles: @history_titles %>
-  <%= render "chats/mcp_selector", chat: @chat %>
 </div>

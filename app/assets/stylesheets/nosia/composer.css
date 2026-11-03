@@ -119,7 +119,7 @@
 .n-chat-composer .n-composer-send:hover:not(:disabled) { filter: brightness(0.95); }
 .n-chat-composer .n-composer-stop { background: var(--composer-danger); }
 .n-chat-composer button:disabled, .n-chat-composer select:disabled { cursor: not-allowed; opacity: 0.5; }
-.n-chat-composer :is(button, summary, select):focus-visible { outline: 2px solid var(--composer-accent); outline-offset: 3px; }
+.n-chat-composer :is(button, summary, select, input[type="checkbox"]):focus-visible { outline: 2px solid var(--composer-accent); outline-offset: 3px; }
 .n-chat-composer .n-composer-count { border-radius: 0.25rem; padding: 0 0.3rem; background: var(--composer-hover); color: var(--composer-text); }
 /* The action row bounds the menu; composer-chrome aligns it above its trigger. */
 .n-chat-composer .n-composer-tools { position: static; min-width: 0; }
