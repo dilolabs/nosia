@@ -49,7 +49,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "saved Tools is a native modal during generation without losing Stop" do
+  test "saved Tools uses the checkbox dropdown during generation without losing Stop" do
     set_reader_viewport(1024, 1000)
     @chat.start_generation!
     visit chat_url(@chat)
@@ -57,15 +57,18 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
     find(".n-composer-tools-trigger").click
 
-    assert_native_dialog "mcp-selector-modal"
+    assert_selector "[data-composer-tools][open]"
     assert_no_selector "#chat-history[open]", visible: :all
-    within "#mcp-selector-modal" do
+    within ".n-composer-tools-panel" do
       assert_text "Second tool"
       assert_no_text "First tool"
-      click_button "Close", exact: true
+      check "Second tool"
     end
+    assert_selector "#mcp-selected-count", text: "1"
+    assert_button "Stop generating", enable_aria_label: true
+    page.driver.browser.action.send_keys(:escape).perform
 
-    assert_no_selector "#mcp-selector-modal[open]", visible: :all
+    assert_no_selector "[data-composer-tools][open]", visible: :all
     assert_selector ".n-composer-tools-trigger:focus"
     click_button "Stop generating", enable_aria_label: true
     assert_button "Send", disabled: false, enable_aria_label: true
@@ -73,14 +76,14 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "Tools returns focus to the current trigger after its composer frame is replaced" do
+  test "Tools remains usable after its composer frame is replaced" do
     @chat.start_generation!
     visit chat_url(@chat)
     assert_button "Stop generating", enable_aria_label: true
     counts = [ Chat.count, Message.count ]
     page.execute_script("window.originalToolsTrigger = document.querySelector('.n-composer-tools-trigger')")
     find(".n-composer-tools-trigger").click
-    assert_native_dialog "mcp-selector-modal"
+    assert_selector "[data-composer-tools][open]"
 
     @chat.stop_generation!
     Current.reset
@@ -92,11 +95,10 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
     assert_selector "turbo-frame##{dom_id(@chat)}_message_form button[aria-label=Send]:not([disabled])"
     assert_not page.evaluate_script("window.originalToolsTrigger.isConnected")
-    assert_native_dialog "mcp-selector-modal"
-    assert_dialog_focus "mcp-selector-modal"
-    within("#mcp-selector-modal") { click_button "Close", exact: true }
-
-    assert_no_selector "#mcp-selector-modal[open]", visible: :all
+    assert_no_selector "[data-composer-tools][open]", visible: :all
+    find(".n-composer-tools-trigger").send_keys(:enter)
+    assert_selector "[data-composer-tools][open]"
+    page.driver.browser.action.send_keys(:escape).perform
     assert_selector "turbo-frame##{dom_id(@chat)}_message_form .n-composer-tools-trigger:focus"
     assert_equal counts, [ Chat.count, Message.count ]
     assert_no_enqueued_jobs only: ChatResponseJob
@@ -126,44 +128,35 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "Tools empty state links to its saved account and its named icon closes" do
+  test "Tools empty state links to its saved account and Escape closes it" do
     @second.mcp_servers.update_all(enabled: false)
     visit chat_url(@chat)
     find(".n-composer-tools-trigger").click
 
-    assert_native_dialog "mcp-selector-modal"
-    within "#mcp-selector-modal" do
+    assert_selector "[data-composer-tools][open]"
+    within ".n-composer-tools-panel" do
       assert_selector "a[href='#{account_mcp_servers_path(@second)}']"
       assert_no_text "First tool"
-      find("button[aria-label=Close]").click
     end
+    page.driver.browser.action.send_keys(:escape).perform
 
-    assert_no_selector "#mcp-selector-modal[open]", visible: :all
+    assert_no_selector "[data-composer-tools][open]", visible: :all
     assert_selector ".n-composer-tools-trigger:focus"
     assert_no_enqueued_jobs only: ChatResponseJob
   end
 
-  test "a second requested dialog replaces the first without stealing its focus" do
+  test "History closes the Tools dropdown and contains focus until dismissed" do
     set_reader_viewport(1024, 1000)
     visit chat_url(@chat)
+    find(".n-composer-tools-trigger").click
+    assert_selector "[data-composer-tools][open]"
     find(orbite_navigation_trigger).click
+
     assert_native_dialog "chat-history"
-
-    # Background controls are natively inert; dispatch a second request directly.
-    page.execute_script("document.querySelector('.n-composer-tools-trigger').click()")
-
-    assert_native_dialog "mcp-selector-modal"
     assert_selector "dialog[open]", count: 1
-    assert_no_selector "#chat-history[open]", visible: :all
-    assert_dialog_focus "mcp-selector-modal"
+    assert_no_selector "[data-composer-tools][open]", visible: :all
+    assert_dialog_focus "chat-history"
     page.driver.browser.action.send_keys(:tab).perform
-    assert_dialog_focus "mcp-selector-modal"
-
-    page.execute_script("document.querySelector(arguments[0]).click()", orbite_navigation_trigger)
-
-    assert_native_dialog "chat-history"
-    assert_selector "dialog[open]", count: 1
-    assert_no_selector "#mcp-selector-modal[open]", visible: :all
     assert_dialog_focus "chat-history"
     within("#chat-history") { find("#workspace-navigation-close").click }
     assert_selector "#{orbite_navigation_trigger}:focus"
@@ -221,8 +214,9 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       assert_selector "#{orbite_navigation_trigger}:focus"
       if page.has_selector?(".n-composer-tools-trigger")
         find(".n-composer-tools-trigger").click
-        assert_native_dialog "mcp-selector-modal"
-        within("#mcp-selector-modal") { click_button "Close", exact: true }
+        assert_selector "[data-composer-tools][open]"
+        assert_checked_field "Second tool"
+        page.driver.browser.action.send_keys(:escape).perform
         assert_selector ".n-composer-tools-trigger:focus"
       end
 
@@ -835,7 +829,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
     pause_reader
     anchor = reader_anchor
     page.execute_script(<<~JS)
-      const form = document.querySelector('#mcp-selector-modal form')
+      const form = document.querySelector('form[id^=chat_mcp_form_]')
       form.dispatchEvent(new CustomEvent('turbo:submit-start', { bubbles: true }))
       form.dispatchEvent(new CustomEvent('turbo:submit-end', { bubbles: true, detail: { success: true } }))
     JS
@@ -1889,22 +1883,21 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
       within("#chat-history") { find("#workspace-navigation-close").click }
       chat_keyboard_focus ".n-composer-tools-trigger"
       page.driver.browser.action.send_keys(:enter).perform
-      assert_native_dialog "mcp-selector-modal"
-      chat_dialog_sample "mcp-selector-modal"
-      chat_reachable "#mcp-selector-modal button[aria-label=Close]"
+      assert_selector "[data-composer-tools][open]"
+      chat_reachable ".n-composer-tools-panel input"
       chat_screenshot "tools-#{dark ? 'dark' : 'light'}-812x375"
       counts = [ Chat.count, Message.count ]
-      within("#mcp-selector-modal") do
-        click_button "Add", exact: true
-        assert_button "Remove", exact: true
+      within(".n-composer-tools-panel") do
+        check "Second tool"
+        assert_selector "input:checked:not(:disabled)"
         assert_equal [ mcp_servers(:picker_second_tool).id ], @chat.chat_mcp_sessions.pluck(:mcp_server_id)
-        click_button "Remove", exact: true
-        assert_button "Add", exact: true
+        uncheck "Second tool"
+        assert_selector "input:not(:checked):not(:disabled)"
         assert_empty @chat.chat_mcp_sessions.reload
       end
       assert_equal counts, [ Chat.count, Message.count ]
       assert_no_enqueued_jobs only: ChatResponseJob
-      within("#mcp-selector-modal") { find("button[aria-label=Close]").click }
+      page.driver.browser.action.send_keys(:escape).perform
       find("##{dom_id(answer, :reasoning_summary)}").click
       chat_reachable "##{dom_id(answer, :reasoning_summary)}"
       chat_screenshot "reasoning-#{dark ? 'dark' : 'light'}-812x375"
@@ -1982,7 +1975,7 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
 
   %i[en fr].each do |locale|
     [ false, true ].each do |dark|
-      test "native Tools close glyph has independent contrast in #{locale} #{dark ? 'dark' : 'light'}" do
+      test "Tools dropdown has visible keyboard focus in #{locale} #{dark ? 'dark' : 'light'}" do
         set_workspace_language(locale)
         [ [ 812, 375 ], [ 375, 812 ] ].each do |width, height|
           chat_viewport(width, height)
@@ -1991,14 +1984,16 @@ class ChatWorkspaceSystemTest < ApplicationSystemTestCase
           chat_theme(dark)
           chat_keyboard_focus ".n-composer-tools-trigger"
           page.driver.browser.action.send_keys(:enter).perform
-          assert_native_dialog "mcp-selector-modal"
-          selector = "#mcp-selector-modal button[aria-label='#{I18n.t('nosia.chat_workspace.close', locale: locale)}']"
-          assert_selector "#{selector}:focus"
+          assert_selector "[data-composer-tools][open]"
+          assert_selector ".n-composer-tools-panel"
+          page.driver.browser.action.send_keys(:tab).perform
+          selector = ".n-composer-tools-panel input"
+          assert_selector "#{selector}:focus-visible"
           chat_reachable selector, scroll: false
-          screenshot = chat_screenshot "close-glyph-#{locale}-#{dark ? 'dark' : 'light'}-#{width}x#{height}"
-          chat_native_close_contrast selector, screenshot: screenshot
-          page.driver.browser.action.send_keys(:enter).perform
-          assert_no_selector "#mcp-selector-modal[open]", visible: :all
+          chat_contrast selector, minimum: 3, outline: true
+          chat_screenshot "tools-checkbox-#{locale}-#{dark ? 'dark' : 'light'}-#{width}x#{height}"
+          page.driver.browser.action.send_keys(:escape).perform
+          assert_no_selector "[data-composer-tools][open]", visible: :all
           assert_selector ".n-composer-tools-trigger:focus"
           assert_no_enqueued_jobs only: ChatResponseJob
         end

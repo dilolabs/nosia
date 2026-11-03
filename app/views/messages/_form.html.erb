@@ -9,6 +9,11 @@
     <%= render "chats/composer", form: form, chat: chat, field: :content,
       skills: skills, generating: generating, stop_form_id: stop_form_id, navigation: true %>
   <% end %>
+  <%# Separate forms keep tool changes out of the unsent message form. %>
+  <% sessions = chat.chat_mcp_sessions.index_by(&:mcp_server_id) %>
+  <% ready_chat_mcp_servers(chat.account).each do |server| %>
+    <%= render "chats/mcp_form", chat: chat, server: server, session: sessions[server.id] %>
+  <% end %>
   <% if generating %>
     <%= form_with url: stop_chat_path(chat), method: :post, id: stop_form_id,
       html: { hidden: true }, data: { turbo_frame: "_top" } do %>
