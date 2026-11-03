@@ -28,10 +28,14 @@ class ApiTokensWorkspaceTest < ActionDispatch::IntegrationTest
     get api_tokens_path
     assert_select "#api_token_account_id option[value=?]", @foreign.id, count: 0
     assert_select ".n-workspace-header a[href=?]", new_chat_path
+    assert_select "#chat-history .n-orbite-panel-links a[href=?]", new_chat_path, count: 1
+    assert_select ".n-orbite-rail a[href=?]", new_chat_path, count: 1
     get account_api_tokens_path(@second)
     assert_select "select[name='api_token[account_id]']", count: 0
     assert_select "input[type=hidden][name='api_token[account_id]'][value=?]", @second.id
     assert_select ".n-workspace-header a[href=?]", new_chat_path(account_id: @second.id)
+    assert_select "#chat-history .n-orbite-panel-links a[href=?]", new_chat_path(account_id: @second.id), count: 1
+    assert_select ".n-orbite-rail a[href=?]", new_chat_path(account_id: @second.id), count: 1
     assert_equal @first, @user.reload.first_account
   end
 
@@ -120,6 +124,9 @@ class ApiTokensWorkspaceTest < ActionDispatch::IntegrationTest
     assert_difference("ApiToken.count", -1) { delete account_api_token_path(@second, @other_token) }
     assert_redirected_to account_api_tokens_path(@second)
     assert_equal I18n.t("nosia.settings_tools.token_removed"), flash[:notice]
+    follow_redirect!
+    assert_select "[data-settings-tool] .n-settings-tool-message[role=status]", text: I18n.t("nosia.settings_tools.token_removed"), count: 1
+    assert_select "#toast-success, #toast-danger", count: 0
     assert_nil ApiToken.authenticate_token("overview-member-secret")
     assert @user.api_tokens.exists?(@own_token.id)
   end
