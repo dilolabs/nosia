@@ -1,0 +1,17 @@
+<%# locals: (chat:, titles:) %>
+<dialog id="chat-delete-dialog" class="n-chat-dialog n-chat-delete-dialog"
+        aria-labelledby="chat-delete-title" aria-describedby="chat-delete-description"
+        data-action="close->chat-dialog#closed">
+  <div class="n-chat-delete-symbol" aria-hidden="true">
+    <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "h-6 w-6" %>
+  </div>
+  <h2 id="chat-delete-title"><%= t("nosia.chat_workspace.delete_title") %></h2>
+  <p class="n-chat-delete-name"><%= chat_workspace_title(chat, titles: titles) %></p>
+  <p id="chat-delete-description"><%= t("nosia.chat_workspace.delete_description") %></p>
+  <div class="n-chat-delete-actions">
+    <button type="button" class="n-workspace-button" data-chat-dialog-initial-focus data-action="chat-dialog#close"><%= t("nosia.chat_workspace.cancel") %></button>
+    <%= button_to t("nosia.nav.delete_chat"), chat_path(chat), method: :delete,
+          class: "n-workspace-button n-chat-delete-confirm",
+          data: { turbo_submits_with: t("nosia.chat_workspace.deleting") } %>
+  </div>
+</dialog>

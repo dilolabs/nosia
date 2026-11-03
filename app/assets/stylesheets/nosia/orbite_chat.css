@@ -84,6 +84,21 @@
 .n-orbite-shell .n-chat-header .n-chat-heading { flex: 1 1 0; min-width: 0; }
 .n-orbite-shell .n-chat-header .n-workspace-actions { flex: 0 1 auto; max-inline-size: 65%; }
 .n-orbite-shell .n-chat-header .n-workspace-button { min-width: 44px; min-height: 44px; max-inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }
+.n-orbite-shell .n-chat-workspace--saved { --chat-delete-danger: #991b1b; --chat-delete-surface: #fef2f2; --chat-delete-on-danger: #fff; }
+.dark .n-orbite-shell .n-chat-workspace--saved { --chat-delete-danger: #fecaca; --chat-delete-surface: #451a1a; --chat-delete-on-danger: #450a0a; }
+.n-orbite-shell .n-chat-header .n-chat-delete-trigger { flex: 0 0 44px; color: var(--orbite-muted); transition: color .15s ease, background-color .15s ease; }
+.n-orbite-shell .n-chat-header .n-chat-delete-trigger:is(:hover, :focus-visible) { color: var(--chat-delete-danger); background: var(--chat-delete-surface); outline-color: var(--chat-delete-danger); }
+.n-orbite-shell .n-chat-delete-dialog { width: min(28rem, calc(100vw - 2rem)); margin: auto; padding: 1.5rem; border: 1px solid var(--orbite-line); border-radius: 1rem; background: var(--orbite-paper); color: var(--orbite-text); box-shadow: 0 24px 64px rgb(0 0 0 / .2); }
+.n-orbite-shell .n-chat-delete-symbol { display: flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; margin-block-end: 1rem; border-radius: .875rem; color: var(--chat-delete-danger); background: var(--chat-delete-surface); }
+.n-orbite-shell .n-chat-delete-dialog h2 { font-size: 1.25rem; line-height: 1.4; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.n-orbite-shell .n-chat-delete-name { margin-block: .75rem; padding: .625rem .75rem; border-radius: .5rem; background: var(--orbite-bubble); font-size: .875rem; font-weight: 500; overflow-wrap: anywhere; }
+.n-orbite-shell #chat-delete-description { color: var(--orbite-muted); font-size: .875rem; line-height: 1.65; }
+.n-orbite-shell .n-chat-delete-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .625rem; margin-block-start: 1.5rem; }
+.n-orbite-shell .n-chat-delete-actions .n-workspace-button { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.n-orbite-shell .n-chat-delete-actions > form { min-width: 0; max-width: 100%; }
+.n-orbite-shell .n-chat-delete-confirm { border-color: var(--chat-delete-danger); background: var(--chat-delete-danger); color: var(--chat-delete-on-danger); }
+.n-orbite-shell .n-chat-delete-confirm:hover { background: var(--chat-delete-danger); text-decoration: underline; text-underline-offset: 3px; }
+.n-orbite-shell .n-chat-delete-confirm:focus-visible { outline-color: var(--chat-delete-on-danger); }
 .n-orbite-shell .n-chat-usage { --chat-token-output: #6c8364; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: baseline; gap: .5rem 1rem; margin-block-start: 0; padding: .625rem .875rem .75rem; background: var(--orbite-bubble); border-radius: .625rem; }
 .dark .n-orbite-shell .n-chat-usage { --chat-token-output: #91ab82; }
 .n-orbite-shell .n-chat-usage-account { text-align: end; font-size: .75rem; overflow-wrap: anywhere; white-space: normal; }

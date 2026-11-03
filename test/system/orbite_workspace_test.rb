@@ -272,7 +272,8 @@ class OrbiteWorkspaceSystemTest < ApplicationSystemTestCase
       orbite_theme(dark)
       assert_no_selector ".n-chat-header a[href='#{user_root_path}'], .n-chat-header [aria-controls=chat-history], #workspace-mobile-trigger", visible: :all
       assert_selector "main h1", count: 1
-      assert_no_selector ".n-chat-header a, .n-chat-header button, .n-chat-header .n-workspace-actions", visible: :all
+      assert_no_selector ".n-chat-header a, .n-chat-header button:not(#chat-delete-trigger), .n-chat-header .n-workspace-actions", visible: :all
+      assert_selector ".n-chat-header #chat-delete-trigger", count: entry == "saved" ? 1 : 0, visible: :all
       assert_selector "#chat-history > .n-orbite-navigation-actions > a[href='#{new_chat_path}']", count: entry == "saved" ? 1 : 0, visible: :all
       find("lexxy-editor .lexxy-editor__content").send_keys("Keep this header navigation draft")
       page.execute_script("window.headerNavigationEditor = document.querySelector('lexxy-editor')")
