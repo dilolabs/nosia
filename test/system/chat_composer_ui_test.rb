@@ -243,7 +243,7 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
       mcp_servers(:picker_second_tool).update!(name: "Zebra research sources #{'long-unbroken-reference-' * 24}")
 
       [ false, true ].each do |dark|
-        [ user_root_url(account_id: @first.id), new_chat_url(account_id: @second.id) ].each do |url|
+        [ user_root_url(account_id: @first.id), new_chat_url(account_id: @second.id), chat_url(chats(:picker_second_chat)) ].each do |url|
           visit url
           assert_selector "lexxy-editor[connected]"
           page.current_window.resize_to(width, 844)
@@ -271,6 +271,9 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
           page.driver.browser.action.send_keys(:space).perform
           assert_selector ".n-composer-tools-panel input:checked:focus-visible"
           assert_selector "#mcp-selected-count", text: "1"
+          assert_selector ".n-composer-tools-panel input:not(:disabled):focus-visible"
+          page.driver.browser.action.send_keys(:space).perform
+          assert_selector "#mcp-selected-count", text: "0"
           find("[data-composer-tools] summary").send_keys(:enter)
           assert_no_selector ".n-composer-tools-panel"
         end
@@ -403,10 +406,84 @@ class ChatComposerUiSystemTest < ApplicationSystemTestCase
     assert_selector "form[data-generation-busy=false]"
     assert_selector "[data-chat-account-readonly]", text: "Account: #{@first.name}"
     find(".n-composer-tools-trigger").click
-    assert_selector "dialog#mcp-selector-modal[open]", text: "First tool"
+    assert_selector "[data-composer-tools][open]", text: "First tool"
+    assert_checked_field "First tool"
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
     page.current_window.resize_to(1400, 1400)
+  end
+
+  test "saved tool checkboxes persist immediately without replacing the draft or closing the dropdown" do
+    chat = chats(:picker_second_chat)
+    tool = mcp_servers(:picker_second_tool)
+    chat.chat_mcp_sessions.create!(mcp_server: tool)
+
+    [ false, true ].each do |dark|
+      visit chat_url(chat)
+      assert_selector "lexxy-editor[connected]"
+      resize_composer_viewport(375)
+      set_theme(dark)
+      find("lexxy-editor .lexxy-editor__content").send_keys("Keep my unsent reply")
+      page.execute_script("window.savedToolEditor = document.querySelector('lexxy-editor')")
+      counts = [ Chat.count, Message.count ]
+      assert_selector "[data-composer-tools] summary"
+      find("[data-composer-tools] summary").send_keys(:enter)
+      assert_selector "[data-composer-tools][open]"
+      assert_selector ".n-composer-tools-panel"
+      assert_tools_panel_attachment
+      assert_checked_field "Second tool"
+      assert_no_text "First tool"
+      page.driver.browser.action.send_keys(:tab).perform
+      assert_selector ".n-composer-tools-panel input:focus-visible"
+
+      page.driver.browser.action.send_keys(:space).perform
+      assert_selector "#mcp-selected-count", text: "0", exact_text: true
+      assert_selector ".n-composer-tools-panel input:not(:checked):not(:disabled):focus-visible"
+      assert_empty chat.chat_mcp_sessions.reload
+
+      page.driver.browser.action.send_keys(:space).perform
+      assert_selector "#mcp-selected-count", text: "1", exact_text: true
+      assert_selector ".n-composer-tools-panel input:checked:not(:disabled):focus-visible"
+      assert_equal [ tool.id ], chat.chat_mcp_sessions.reload.pluck(:mcp_server_id)
+      assert_selector "[data-composer-tools][open]"
+      assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep my unsent reply"
+      assert page.evaluate_script("window.savedToolEditor === document.querySelector('lexxy-editor')")
+      assert_equal counts, [ Chat.count, Message.count ]
+      assert_no_enqueued_jobs only: ChatResponseJob
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_no_selector "[data-composer-tools][open]"
+      assert_selector "[data-composer-tools] summary:focus"
+
+      visit chat_url(chat)
+      find("[data-composer-tools] summary").click
+      assert_checked_field "Second tool"
+    end
+  ensure
+    restore_composer_viewport
+  end
+
+  test "a rejected saved tool change restores the checkbox and keeps its confirmed count" do
+    chat = chats(:picker_second_chat)
+    visit chat_url(chat)
+    assert_selector "lexxy-editor[connected]"
+    page.execute_script(<<~JS)
+      const original = window.fetch.bind(window)
+      window.fetch = (url, options) => {
+        if (url.toString().includes('/mcp_sessions')) {
+          return Promise.resolve(new Response('', { status: 422, headers: { 'Content-Type': 'text/vnd.turbo-stream.html' } }))
+        }
+        return original(url, options)
+      }
+    JS
+    assert_selector "[data-composer-tools] summary"
+    find("[data-composer-tools] summary").click
+    check "Second tool"
+
+    assert_selector ".n-composer-tools-panel input:not(:checked):not(:disabled)"
+    assert_selector "#mcp-selected-count", text: "0", exact_text: true
+    assert_empty chat.chat_mcp_sessions.reload
+    assert_selector "[data-composer-tools][open]"
+    assert_no_enqueued_jobs only: ChatResponseJob
   end
 
   test "skill selection retains priority over sending and pasted URLs keep chat context" do

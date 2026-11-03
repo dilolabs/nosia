@@ -1,0 +1,7 @@
+<%# locals: (chat:, server:, session:) %>
+<label id="<%= dom_id(server, :chat_mcp_option) %>" class="n-composer-tool-option">
+  <%= check_box_tag "mcp_server_ids[]", server.id, session.present?,
+    id: dom_id(server, :chat_mcp_checkbox), form: (dom_id(server, :chat_mcp_form) if chat.persisted?),
+    data: { action: chat.persisted? ? "change->mcp-selection#save" : "change->mcp-selection#updateCount" } %>
+  <span title="<%= server.name %>"><%= server.name %></span>
+</label>

@@ -1,0 +1,4 @@
+<%# locals: (chat:, server:, session:) %>
+<%= form_with url: session ? chat_mcp_session_path(chat, session) : chat_mcp_sessions_path(chat, mcp_server_id: server.id),
+  method: session ? :delete : :post, id: dom_id(server, :chat_mcp_form), html: { hidden: true } do %>
+<% end %>

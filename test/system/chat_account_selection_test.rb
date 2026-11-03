@@ -699,8 +699,8 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_queued_sources_blocked("https://generating-source.example/reference")
 
     assert_selector "[data-controller~='chat-account']:not([inert])"
-    find(".n-composer-tools-trigger[aria-controls='mcp-selector-modal']").click
-    assert_selector "dialog#mcp-selector-modal[open]"
+    find("[data-composer-tools] summary").click
+    assert_selector "[data-composer-tools][open]"
     chat.update!(generating: false)
     visit chat_url(chat)
     assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
@@ -719,8 +719,8 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal before, draft_html
     assert_selector "lexxy-editor[disabled][inert]"
     assert_selector "[data-controller~='chat-account']:not([inert])"
-    find(".n-composer-tools-trigger[aria-controls='mcp-selector-modal']").click
-    assert_selector "dialog#mcp-selector-modal[open]"
+    find("[data-composer-tools] summary").click
+    assert_selector "[data-composer-tools][open]"
   end
 
   test "submission prevents real toolbar formatting and restores it when submission ends" do

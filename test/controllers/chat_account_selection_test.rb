@@ -66,9 +66,9 @@ class ChatAccountSelectionTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-chat-account-readonly]", text: /Research team/
     assert_select "select[name='chat[account_id]']", count: 0
-    assert_select "#mcp-selector-modal", text: /Second tool/
-    assert_select "#mcp-selector-modal", text: /First tool/, count: 0
-    assert_select "button.n-composer-tools-trigger", text: /Tools\s+1/
+    assert_select ".n-composer-tools-panel", text: /Second tool/
+    assert_select ".n-composer-tools-panel", text: /First tool/, count: 0
+    assert_select "summary.n-composer-tools-trigger", text: /Tools\s+1/
     assert_select "[data-controller~=chat-reconnect][data-controller~=chat-account][data-chat-account-account-id-value='#{@second.id}']"
     assert_select "[data-controller~=composer-sources][data-composer-sources-account-id-value='#{@second.id}'][data-composer-sources-chat-id-value='#{chat.id}']"
     assert_select "form[data-chat-account-target=form][data-generation-busy=false][data-action='submit->chat-account#guard']"
