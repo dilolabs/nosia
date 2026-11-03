@@ -22,3 +22,7 @@ en:
       stopped: Generation stopped.
       setup_account: Set up an account
       retry: Retry
+      delete_title: Delete this conversation?
+      delete_description: This conversation and all its messages will be permanently deleted. This action cannot be undone.
+      cancel: Cancel
+      deleting: Deleting…

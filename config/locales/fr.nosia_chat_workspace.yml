@@ -22,3 +22,7 @@ fr:
       stopped: Génération arrêtée.
       setup_account: Configurer un compte
       retry: Réessayer
+      delete_title: Supprimer cette conversation ?
+      delete_description: Cette conversation et tous ses messages seront définitivement supprimés. Cette action est irréversible.
+      cancel: Annuler
+      deleting: Suppression…

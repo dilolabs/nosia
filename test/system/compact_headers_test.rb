@@ -309,7 +309,8 @@ class CompactHeadersSystemTest < ApplicationSystemTestCase
     assert_operator geometry.fetch("usageTop"), :>=, geometry.fetch("toolbarBottom"), geometry.to_json
     assert_operator geometry.fetch("surfaceBottom"), :<=, geometry.fetch("dockTop") + 1, geometry.to_json
     assert_operator geometry.fetch("usageTop"), :>=, geometry.fetch("titleBottom"), geometry.to_json
-    assert_no_selector ".n-chat-header .n-workspace-actions, .n-chat-header a, .n-chat-header button", visible: :all
+    assert_no_selector ".n-chat-header .n-workspace-actions, .n-chat-header a, .n-chat-header button:not(#chat-delete-trigger)", visible: :all
+    assert_selector ".n-chat-header #chat-delete-trigger", count: 1
     assert_selector ".n-chat-toolbar h1.n-chat-title", count: 1
     assert geometry.fetch("sameEditor"), geometry.to_json
     assert_selector "lexxy-editor .lexxy-editor__content", text: "Keep this draft while reading usage"

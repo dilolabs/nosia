@@ -178,7 +178,8 @@ class PremiumChatHeaderSystemTest < ApplicationSystemTestCase
     premium_contexts do |locale, width, height, dark|
       link = "#chat-history > .n-orbite-navigation-actions > a[href='#{new_chat_path}']"
       assert_selector link, text: I18n.t("nosia.chat_workspace.new_chat", locale: locale), exact_text: true, count: 1, visible: :all
-      assert_no_selector ".n-chat-header a, .n-chat-header button, .n-chat-header .n-workspace-actions", visible: :all
+      assert_no_selector ".n-chat-header a, .n-chat-header button:not(#chat-delete-trigger), .n-chat-header .n-workspace-actions", visible: :all
+      assert_selector ".n-chat-header #chat-delete-trigger", count: 1
       find("lexxy-editor .lexxy-editor__content").send_keys("Keep this History action draft")
       page.execute_script("window.historyActionEditor = document.querySelector('lexxy-editor')")
       find("#workspace-navigation-close").click if page.has_selector?("#chat-history[open]", wait: 0)

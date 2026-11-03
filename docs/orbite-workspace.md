@@ -24,8 +24,9 @@ peers' or child chats. Each compact full-row link contains one-line escaped
 title/account previews and a real visible localized activity date, retaining recent
 ordering and localized empty guidance. Titles retain the 120-character bound and
 fallback; the full question remains in the transcript and the full account in Usage.
-History-item Delete controls are removed; backend deletion routes and authorization
-remain unchanged.
+History-item Delete controls remain absent. Saved conversations instead offer a
+Delete action in their own header, using the existing deletion route and
+authorization checks.
 The current link uses a padded highlight and `aria-current="page"`, without a
 visible Current conversation annotation. This is not renaming, search, folders,
 or pinning.
@@ -46,7 +47,7 @@ Tablet/mobile panels use native modal focus containment and an inert background.
 Close or Escape returns focus to the current opener, including a streamed
 replacement. Desktop inline History is **nonmodal**, with no modal focus trap or
 new Escape policy. The shared `chat-dialog` owner is the sole modal/focus owner
-for navigation and Tools. Breakpoint and
+for navigation, Tools, and conversation deletion. Breakpoint and
 Turbo-cache cleanup must not leave a hidden focused control or an inert page.
 
 The user action list is an ordinary list of links with native Escape and outside
@@ -89,6 +90,17 @@ Full names and notes may extend below the fold and are reached by ordinary reade
 scrolling; there is no simultaneous-all-values-on-screen promise or fixed/clipping
 height. Usage scrolls away with context. Sources, Reasoning, response details,
 and Formatting remain independent disclosures.
+
+Saved chats have a quiet **44×44px** trash-bin button beside the title. Its native,
+theme-aware confirmation dialog identifies the conversation and explains that
+the chat and its messages will be permanently deleted. **Cancel / Annuler** is
+focused initially; Cancel or Escape restores focus to the button without changing
+the composer draft. Only the confirmation form submits DELETE; Turbo disables its
+submit button and shows **Deleting… / Suppression…** while pending. Success returns
+to Home with a 303 redirect. Ownership and current account membership remain
+required. New chats do not offer deletion. See the
+[deletion design](superpowers/specs/2026-11-03-chat-deletion-design.md) and
+[implementation plan](superpowers/plans/2026-11-03-chat-deletion.md).
 
 The [reader contract](chat-workspace.md#reading-without-losing-your-place) is
 unchanged: following uses the **80px pre-growth** threshold, paused paragraphs
