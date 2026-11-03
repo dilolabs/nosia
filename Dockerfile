@@ -9,8 +9,10 @@ WORKDIR /rails
 
 # Install base packages
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl postgresql-client && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archive
+    apt-get install --no-install-recommends -y curl postgresql-client util-linux passwd tar && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives && \
+    groupadd --system --gid 1000 rails && \
+    useradd --system --uid 1000 --gid 1000 --create-home rails
 
 # Set production environment
 ENV RAILS_ENV="production" \
@@ -51,7 +53,7 @@ FROM base
 # Image metadata
 ARG OCI_DESCRIPTION
 LABEL org.opencontainers.image.description="${OCI_DESCRIPTION}"
-ARG OCI_SOURCE
+ARG OCI_SOURCE=https://github.com/dilolabs/nosia
 LABEL org.opencontainers.image.source="${OCI_SOURCE}"
 LABEL org.opencontainers.image.licenses="MIT"
 
@@ -64,6 +66,14 @@ ARG APP_VERSION
 ENV APP_VERSION=$APP_VERSION
 ARG GIT_REVISION
 ENV GIT_REVISION=$GIT_REVISION
+
+# Advertise only a versioned native contract. Source/schema are verified by the release tooling.
+ARG NATIVE_SCHEMA_VERSION
+LABEL org.opencontainers.image.revision="${GIT_REVISION}" \
+      io.nosia.native.protocol="1" \
+      io.nosia.native.schema="${NATIVE_SCHEMA_VERSION}"
+RUN chmod 755 bin/nosia-entrypoint bin/nosia-native-boot bin/nosia-native-capabilities
+ENTRYPOINT ["/rails/bin/nosia-entrypoint"]
 
 # Caddy forwards HTTP to Puma on the internal application port.
 EXPOSE 3000

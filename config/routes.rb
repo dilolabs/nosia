@@ -1,4 +1,8 @@
 Rails.application.routes.draw do
+  if ENV["NOSIA_NATIVE_LOCAL"] == "1"
+    get "/native/ready", to: "nosia/native_readinesses#show"
+  end
+
   # First run
   resource :first_run
 

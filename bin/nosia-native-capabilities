@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+require_relative "../lib/nosia/native_stack"
+root = File.expand_path("..", __dir__)
+revision = ENV.fetch("GIT_REVISION", "")
+puts JSON.generate(Nosia::NativeStack.capabilities(root: root, revision: revision))
