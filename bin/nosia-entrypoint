@@ -1,0 +1,47 @@
+#!/bin/sh
+set -eu
+# Standard deployments retain their original CMD and explicit commands unchanged.
+if [ "${NOSIA_NATIVE_LOCAL:-}" != "1" ]; then
+    exec "$@"
+fi
+if [ -n "${NOSIA_OPERATION_TOKEN:-}" ]; then
+    case "$NOSIA_OPERATION_TOKEN" in
+        ????????-????-????-????-????????????)
+            case "$NOSIA_OPERATION_TOKEN" in *[!0-9A-Fa-f-]*) exit 64 ;; esac ;;
+        *) exit 64 ;;
+    esac
+    hex=$(printf '%s' "$NOSIA_OPERATION_TOKEN" | tr -d '-')
+    [ "${#hex}" -eq 32 ] || exit 64
+    [ -d /nosia-control ] || exit 64
+    [ -w /nosia-control ] || exit 64
+    rm -f "/nosia-control/$NOSIA_OPERATION_TOKEN.complete"
+fi
+complete_operation() {
+    if [ -n "${NOSIA_OPERATION_TOKEN:-}" ]; then
+        printf 'complete\n' > "/nosia-control/$NOSIA_OPERATION_TOKEN.complete.partial"
+        mv -f "/nosia-control/$NOSIA_OPERATION_TOKEN.complete.partial" "/nosia-control/$NOSIA_OPERATION_TOKEN.complete"
+    fi
+}
+if [ "${1:-}" = "nosia-native-backup" ]; then
+    [ "$#" -eq 2 ]
+    case "$2" in
+        /backups/*.tar.partial)
+            name=${2#/backups/}
+            case "$name" in */*) exit 64 ;; esac
+            [ ! -L "$2" ]
+            tar -cf "$2" -C /rails/storage . ;;
+        *) exit 64 ;;
+    esac
+    complete_operation
+    exit 0
+fi
+mkdir -p /rails/storage /rails/tmp/pids
+chown rails:rails /rails/storage /rails/tmp /rails/tmp/pids
+rm -f /rails/tmp/pids/server.pid
+if [ -n "${NOSIA_OPERATION_TOKEN:-}" ]; then
+    runuser -u rails -- "$@"
+    complete_operation
+    exit 0
+fi
+# Unlike runuser, setpriv execs the supervisor, preserving PID 1 and its grace period.
+exec setpriv --reuid=rails --regid=rails --init-groups -- "$@"

@@ -1,0 +1,44 @@
+#!/usr/bin/env ruby
+# One VM owns the ext4 document volume. Web and worker share it inside that VM.
+# Each child has its own process group and receives TERM before a bounded KILL fallback.
+children = {}
+stopping = false
+%w[TERM INT].each { |signal| Signal.trap(signal) { stopping = true } }
+status = 0
+begin
+  [
+    [ "bundle", "exec", "puma", "-C", "config/puma.rb" ],
+    [ "bundle", "exec", "rake", "solid_queue:start" ]
+  ].each do |command|
+    pid = Process.spawn(*command, pgroup: true)
+    children[pid] = true
+  end
+
+  until stopping
+    children.keys.each do |pid|
+      result = Process.waitpid2(pid, Process::WNOHANG)
+      if result
+        children.delete(pid)
+        status = result.last.exitstatus.to_i
+        status = 1 if status.zero?
+        stopping = true # Losing either child must make the container unavailable.
+      end
+    end
+    sleep 0.1 unless stopping
+  end
+ensure
+  children.each_key { |pid| Process.kill("TERM", -pid) rescue Errno::ESRCH }
+  deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 25
+  until children.empty?
+    children.keys.each do |pid|
+      children.delete(pid) if Process.waitpid(pid, Process::WNOHANG)
+    rescue Errno::ECHILD
+      children.delete(pid)
+    end
+    if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+      children.each_key { |pid| Process.kill("KILL", -pid) rescue Errno::ESRCH }
+    end
+    sleep 0.1 unless children.empty?
+  end
+end
+exit status

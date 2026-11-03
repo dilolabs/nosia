@@ -1,0 +1,150 @@
+name: Publish official image
+
+on:
+  push:
+    tags: [ "v*" ]
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - .ruby-version
+      - Gemfile
+      - Gemfile.lock
+      - bin/nosia-*
+      - app/models/chunk.rb
+      - app/models/chunk/**
+      - db/**
+      - lib/nosia/native_stack.rb
+      - lib/tasks/nosia_native.rake
+      - config/initializers/nosia_native.rb
+      - config/database.yml
+      - config/environments/**
+      - config/puma.rb
+      - config/queue.yml
+      - config/routes.rb
+      - app/controllers/nosia/**
+      - test/lib/nosia/**
+      - test/controllers/nosia/**
+      - test/support/chat_account_fixtures.rb
+      - test/support/fixtures/chat_accounts/**
+      - .github/workflows/publish-image.yml
+
+permissions:
+  contents: read
+
+jobs:
+  native_contract:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: [ "5432:5432" ]
+        options: --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ruby/setup-ruby@v1.335.0
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - name: Test the opt-in contract without Rails
+        run: |
+          bundle exec ruby test/lib/nosia/native_stack_contract_test.rb
+          bundle exec ruby test/lib/nosia/native_entrypoint_test.rb
+      - name: Test readiness with the real database
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nosia_native_contract_test
+          PARALLEL_WORKERS: "1"
+          # Public, disposable fixture keys, never deployment credentials.
+          ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: "00000000000000000000000000000001"
+          ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: "00000000000000000000000000000002"
+          ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: "00000000000000000000000000000003"
+        run: |
+          bin/rails db:test:prepare
+          bin/rails test test/controllers/nosia/native_readinesses_controller_test.rb test/lib/nosia/native_index_tasks_test.rb
+
+  publish:
+    if: github.event_name == 'push' && github.repository == 'dilolabs/nosia'
+    needs: native_contract
+    runs-on: ubuntu-24.04
+    environment: dockerhub-release
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Read exact source and database schema
+        id: contract
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?', os.environ['RELEASE_TAG']):
+              raise SystemExit('A versioned release tag is required')
+          if not re.fullmatch(r'[0-9a-f]{40}', os.environ['SOURCE_REVISION']):
+              raise SystemExit('An exact source commit is required')
+          versions = [int(p.name[:14]) for p in pathlib.Path('db/migrate').glob('*.rb')
+                      if re.match(r'^[0-9]{14}_', p.name)]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('schema=' + str(max(versions)), file=output)
+          PY
+      - uses: docker/setup-qemu-action@v4.4.0
+      - uses: docker/setup-buildx-action@v4.4.1
+      - name: Build the ARM64 candidate before publication
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: nosia-native-smoke:test
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+            GIT_REVISION=${{ github.sha }}
+            NATIVE_SCHEMA_VERSION=${{ steps.contract.outputs.schema }}
+            OCI_SOURCE=https://github.com/dilolabs/nosia
+      - name: Check the packaged ARM64 contract
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+          SCHEMA_VERSION: ${{ steps.contract.outputs.schema }}
+        run: |
+          docker run --rm --platform linux/arm64 nosia-native-smoke:test ruby bin/nosia-native-capabilities > capabilities.json
+          docker run --rm --platform linux/arm64 --env NOSIA_NATIVE_LOCAL=1 \
+            nosia-native-smoke:test ruby -e 'abort "Native supervisor must be unprivileged PID 1" unless Process.pid == 1 && Process.uid == 1000'
+          install -d -m 700 "$RUNNER_TEMP/nosia-control"
+          native_token=00000000-0000-4000-8000-000000000001
+          docker run --rm --platform linux/arm64 \
+            --env NOSIA_NATIVE_LOCAL=1 --env "NOSIA_OPERATION_TOKEN=$native_token" \
+            --volume "$RUNNER_TEMP/nosia-control:/nosia-control" \
+            nosia-native-smoke:test ruby bin/nosia-native-capabilities > native-capabilities.json
+          test -s "$RUNNER_TEMP/nosia-control/$native_token.complete"
+          python3 - <<'PY'
+          import json, os
+          value = json.load(open('capabilities.json'))
+          expected = dict(protocolVersion=1, serverCommit=os.environ['SOURCE_REVISION'],
+                          databaseSchemaVersion=int(os.environ['SCHEMA_VERSION']))
+          if value != expected:
+              raise SystemExit('Packaged native capabilities do not match the release')
+          if json.load(open('native-capabilities.json')) != expected:
+              raise SystemExit('Native entrypoint contract does not match the standard entrypoint')
+          PY
+      - uses: docker/login-action@v4.7.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and publish AMD64 and ARM64
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # latest is deliberately promoted separately after macOS qualification.
+          tags: |
+            dilolabs/nosia:${{ github.ref_name }}
+            dilolabs/nosia:sha-${{ github.sha }}
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+            GIT_REVISION=${{ github.sha }}
+            NATIVE_SCHEMA_VERSION=${{ steps.contract.outputs.schema }}
+            OCI_SOURCE=https://github.com/dilolabs/nosia
