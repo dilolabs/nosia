@@ -1,8 +1,10 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require "turbo/broadcastable/test_helper"
 require_relative "../support/account_experience_fixtures"
 
 class SourcesWorkspaceTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include AccountExperienceFixtures
   include Turbo::Broadcastable::TestHelper
 
@@ -567,7 +569,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
     source = experience(:texts, :overview_second_text)
     source.update_columns(title: "SourceSansEspaces" * 20)
     %w[en fr].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
       visit account_sources_path(@second)
       [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ], [ 812, 375 ] ].each do |width, height|
@@ -591,7 +593,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
             [ "#source-q", "borderColor", 3 ], [ ".n-source-row-actions :focus", "outlineColor", 3 ]
           ])
           save_source_screenshot("focused-row-#{locale}-#{width}-#{height}-#{theme}") if width == 375
-          page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+          page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
           save_source_screenshot("list-#{locale}-#{width}-#{height}-#{theme}")
         end
       end
@@ -600,7 +602,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
 
   test "all typed new edit and detail pages fit mobile and desktop with native editors" do
     [ [ "en", "light" ], [ "fr", "dark" ] ].each do |locale, theme|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
       [ [ 375, 812 ], [ 1440, 1000 ] ].each do |width, height|
         resize_sources(width, height)
@@ -630,7 +632,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
                 [ ".n-source-form :focus", "outlineColor", 3 ]
               ])
             end
-            page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             save_source_screenshot("#{type}-#{action}-#{locale}-#{width}-#{theme}")
           end
         end
@@ -701,7 +703,8 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
       fill_in "email", with: user.email
       fill_in "password", with: AccountExperienceFixtures::PASSWORD
       click_on "Sign in"
-      select locale.upcase, from: "language_preference_locale"
+      assert_selector "[data-dashboard]"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']"
     end
 
@@ -726,8 +729,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
     end
 
     def set_sources_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.evaluate_async_script(<<~JS)
         const done = arguments[arguments.length - 1];
@@ -744,6 +746,7 @@ class SourcesWorkspaceTest < ApplicationSystemTestCase
 
     def assert_source_layout
       assert_selector "[data-source-workspace] .n-workspace-header h1", count: 1
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       assert_no_text(/translation missing|missing translation/i)
       assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1"), "Source workspace overflows horizontally"
     end

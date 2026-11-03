@@ -54,16 +54,21 @@ class TokenUsageWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_select "details", minimum: 1
   end
 
-  test "composer keeps legacy drawers while converted tools keep dedicated shells" do
+  test "API tokens and Sources share navigation while chat publishes native History" do
     get new_chat_path
     assert_response :success
-    assert_select "#accordion-right-actions, #drawer-right", count: 2
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select "dialog#chat-history:not([open])", count: 1
+    assert_select ".n-chat-header #workspace-history-trigger, .n-chat-header [aria-controls=chat-history]", count: 0
+    assert_select "#workspace-history-rail-trigger[aria-controls=chat-history], [data-orbite-composer-navigation][aria-controls=chat-history]", count: 2
 
     get api_tokens_path
     assert_response :success
     assert_select "[data-settings-tool][data-settings-screen=tokens]", count: 1
     assert_select "#accordion-right-actions, #drawer-right", count: 0
     assert_select "[data-settings-tool] .n-workspace-header a[href=?]", new_chat_path
+    assert_select ".n-orbite-rail a[href='#{new_chat_path}']", count: 1
+    assert_select "#chat-history [data-history-chat]", count: 0
 
     get sources_path
     assert_select "[data-source-workspace]"

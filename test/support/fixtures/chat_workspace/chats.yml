@@ -1,0 +1,21 @@
+picker_second_chat:
+  account: picker_second
+  user: picker_owner
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:picker_model) %>
+picker_foreign_chat:
+  account: picker_foreign
+  user: picker_outsider
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:picker_model) %>
+workspace_first_chat:
+  account: picker_first
+  user: picker_owner
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:picker_model) %>
+workspace_peer_chat:
+  account: picker_second
+  user: picker_outsider
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:picker_model) %>
+workspace_child_chat:
+  account: picker_second
+  user: picker_owner
+  chat: picker_second_chat
+  ruby_llm_model_id: <%= ActiveRecord::FixtureSet.identify(:picker_model) %>

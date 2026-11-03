@@ -40,12 +40,15 @@ class SourcesWorkspaceShellTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "shell is localized and drawer suppression does not affect chat pages" do
+  test "French Sources shell and on demand chat History remain localized" do
     get sources_path, headers: { "Accept-Language" => "fr" }
     assert_select "[data-workspace-scope]", text: "Compte par défaut : #{@first.name}"
     refute_match(/translation missing|missing translation/i, response.body)
     get new_chat_path
     assert_response :success
-    assert_select "#accordion-right-actions, #drawer-right", count: 2
+    assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select "dialog#chat-history:not([open])", count: 1
+    assert_select ".n-chat-header #workspace-history-trigger, .n-chat-header [aria-controls=chat-history]", count: 0
+    assert_select "#workspace-history-rail-trigger[aria-controls=chat-history], [data-orbite-composer-navigation][aria-controls=chat-history]", count: 2
   end
 end

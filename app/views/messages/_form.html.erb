@@ -1,12 +1,13 @@
 <%= turbo_frame_tag "#{dom_id(chat)}_message_form" do %>
-  <% generating = chat.generating? %>
+  <%# A worker may predate a remote Stop. Read fresh presentation state without reloading its chat. %>
+  <% generating, stopped_at = Chat.uncached { Chat.where(id: chat.id, account_id: chat.account_id).pick(:generating, :stopped_at) } %>
   <% skills = JSON.parse(agent_skill_autocomplete_data(chat.account)) %>
   <% stop_form_id = dom_id(chat, :composer_stop) if generating %>
   <%= form_with model: Message.new, url: [chat, chat.messages.new], class: "w-full",
-        data: { chat_account_target: "form", generation_busy: generating,
+        data: { chat_account_target: "form", generation_busy: generating, generation_stopped: stopped_at.present?, chat_followup: true,
           action: "submit->chat-account#guard" } do |form| %>
     <%= render "chats/composer", form: form, chat: chat, field: :content,
-      skills: skills, generating: generating, stop_form_id: stop_form_id %>
+      skills: skills, generating: generating, stop_form_id: stop_form_id, navigation: true %>
   <% end %>
   <% if generating %>
     <%= form_with url: stop_chat_path(chat), method: :post, id: stop_form_id,

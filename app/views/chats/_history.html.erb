@@ -1,0 +1,5 @@
+<%# locals: (chat:, conversations:, titles:) %>
+<% content_for :orbite_history do %>
+  <%= render "chats/history_items", chat: chat, conversations: conversations, titles: titles %>
+<% end %>
+<% content_for :orbite_history_empty, "true" if conversations.empty? %>

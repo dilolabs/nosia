@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/account_experience_fixtures"
 
 class SourcesWorkspaceUploadTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include AccountExperienceFixtures
 
   setup do
@@ -9,7 +11,8 @@ class SourcesWorkspaceUploadTest < ApplicationSystemTestCase
     fill_in "email", with: @user.email
     fill_in "password", with: AccountExperienceFixtures::PASSWORD
     click_on "Sign in"
-    select "EN", from: "language_preference_locale"
+    assert_selector "#orbite-shell"
+    orbite_select_language("EN")
     visit account_sources_path(@second)
     assert_selector "[data-source-upload]"
   end

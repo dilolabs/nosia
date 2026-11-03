@@ -1,0 +1,17 @@
+<div id="dropdown" popover="auto" class="n-orbite-user-menu" data-user-menu-target="menu"
+     data-action="beforetoggle->user-menu#beforeToggle toggle->user-menu#toggled">
+  <ul aria-labelledby="workspace-utilities-trigger" class="n-dropdown-list">
+    <li><%= link_to profile_path, class: "group n-dropdown-item n-main-hover n-main-focus" do %>
+      <%= inline_svg "svg/identification.svg", aria_hidden: true, class: "w-6 h-6" %>
+      <span><%= t("nosia.nav.user_info") %></span>
+    <% end %></li>
+    <li><%= link_to settings_path, class: "group n-dropdown-item n-main-hover n-main-focus" do %>
+      <%= inline_svg "svg/cog.svg", aria_hidden: true, class: "w-6 h-6" %>
+      <span><%= t("nosia.nav.settings") %></span>
+    <% end %></li>
+    <li><%= link_to logout_path, data: { turbo_method: :delete }, title: t("nosia.nav.sign_out"), class: "group n-dropdown-item n-main-hover n-main-focus" do %>
+      <%= inline_svg "svg/power.svg", aria_hidden: true, class: "w-6 h-6" %>
+      <span><%= t("nosia.nav.sign_out") %></span>
+    <% end %></li>
+  </ul>
+</div>

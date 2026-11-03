@@ -1,6 +1,6 @@
 <section class="n-workspace n-settings-workspace" data-settings-workspace>
   <%= render "workspaces/header", title: t("nosia.nav.settings"),
-      description: t("nosia.settings.description"), show_new_chat: true,
+      show_new_chat: true,
       trail: [ { label: t("nosia.nav.home"), path: user_root_path }, { label: t("nosia.nav.settings"), path: nil } ] %>
   <ul class="n-settings-grid !list-none" role="list">
     <%= render "card", path: agent_skills_path, title: t("nosia.skills.title"), description: t("nosia.settings.skills_description"), icon: "svg/code-bracket.svg" %>

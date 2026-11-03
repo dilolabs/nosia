@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/dashboard_fixtures"
 
 class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include DashboardFixtures
 
   setup do
@@ -69,7 +71,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
 
     assert_no_enqueued_jobs do
       %w[en fr].each do |locale|
-        select locale.upcase, from: "language_preference_locale"
+        orbite_select_language(locale.upcase)
         assert_selector "html[lang='#{locale}']", visible: :all
         { global: token_usage_path, account: account_token_usage_path(@second) }.each do |scope, path|
           [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ], [ 812, 375 ] ].each do |width, height|
@@ -92,7 +94,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
 
               # Turbo may restore native details state; close it only to establish the keyboard scenario.
               page.execute_script("document.querySelectorAll('[data-usage-workspace] details').forEach(e=>e.open=false)")
-              page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+              page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
               name = "#{scope}-#{locale}-#{width}-#{height}-#{theme}"
               save_usage_screenshot("#{name}-overview")
               focus_usage_by_tab("[data-usage-daily] summary")
@@ -155,7 +157,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
           else
             assert_no_selector "[data-usage-day]", visible: :all
           end
-          page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+          page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
           save_usage_screenshot("375-#{state}-#{theme}")
         end
       end
@@ -174,7 +176,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
         assert_selector "[data-usage-no-memberships] a[href='#{accounts_path}']", text: "Accounts"
         focus_usage_by_tab("[data-usage-no-memberships] a")
         assert_usage_focus_visible
-        page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+        page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
         save_usage_screenshot("375-no-memberships-#{theme}")
       end
     end
@@ -203,8 +205,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
     end
 
     def set_usage_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script(<<~JS)
         const done=arguments[0];
@@ -214,6 +215,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
 
     def assert_usage_layout(width)
       assert_selector "h1", count: 1
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       assert_no_text(/translation missing|missing translation/i)
       assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1"), "Main overflows horizontally"
       assert page.evaluate_script("document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1"), "Document overflows horizontally"
@@ -290,7 +292,7 @@ class TokenUsageWorkspaceSystemTest < ApplicationSystemTestCase
           const selectors=['h1','h2','h3','.n-workspace-help','.n-workspace-scope','.n-usage-number','.n-workspace-link','.n-usage-row span','.n-usage-disclosure summary','.n-usage-disclosure th','.n-usage-disclosure td','.n-usage-methodology-content p','.n-usage-methodology-content strong','.n-usage-methodology-content em','.n-usage-methodology-content code'];
           const rows=selectors.flatMap(selector=>{const elements=Array.from(root.querySelectorAll(selector)).filter(visible);if(!elements.length)throw new Error(`No visible contrast sample: ${selector}`);return elements.map(e=>measure(e,'color',4.5));});
           rows.push(measure(root.querySelector('.n-usage-chart'),'color',3));
-          root.querySelectorAll('summary').forEach(e=>rows.push(measure(e,'borderTopColor',3)));
+          root.querySelectorAll('.n-usage-disclosure summary').forEach(e=>rows.push(measure(e,'borderTopColor',3)));
           if(!root.contains(document.activeElement))throw new Error('Missing focused workspace action');
           rows.push(measure(document.activeElement,'outlineColor',3,true));
           return rows;

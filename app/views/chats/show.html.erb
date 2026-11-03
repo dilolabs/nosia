@@ -1,48 +1,28 @@
-<div class="h-[calc(100vh-10.5rem)] lg:h-full flex flex-col justify-between"
-     data-controller="chat-reconnect chat-account"
+<% content_for :title, chat_workspace_title(@chat, titles: @history_titles) %>
+<div id="chat-workspace-<%= @chat.id %>" class="n-chat-workspace n-chat-workspace--saved"
+     data-controller="chat-reconnect chat-account scroll chat-disclosures chat-feedback"
      data-chat-reconnect-generating-value="<%= @chat.generating? %>"
      data-chat-account-account-id-value="<%= @chat.account_id %>"
      data-chat-account-confirm-message-value="<%= t('nosia.chat.change_account') %>"
-     data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture">
-  <section data-controller="scroll" class="w-full overflow-y-auto">
-    <div data-action="new-message-event-dispatcher:new_message@window->scroll#scrollToBottom" id="<%= dom_id(@chat) %>_messages" class="flex flex-col max-w-4xl mx-auto">
-      <%= tag.div id: dom_id(@chat, :messages), data: { controller: "message-ordering" } do %>
-        <%= render "chats/token_totals", chat: @chat %>
-        <% @chat.messages.for_user.where.not(id: nil).order(:created_at).each do |message| %>
-          <%= render message, message: %>
-        <% end %>
-
-        <%# Reconstruct in-progress generation from the reliable `generating` DB flag
-            so a mid-stream page refresh isn't lost. ruby_llm persists the assistant
-            message blank (content: "") until the stream ends, so it's excluded from
-            `for_user` and never re-rendered — leaving streamed deltas (target
-            dom_id(message, :content)) and the final broadcast_updated (target
-            dom_id(message, :messages)) aiming at DOM nodes that don't exist. %>
-        <% if @chat.generating? %>
-          <% in_progress = @chat.messages.assistant.where(content: [ nil, "" ]).where.missing(:ruby_llm_tool_calls).order(:created_at).last %>
-          <% if in_progress %>
-            <%# Streaming already started: render the bubble (shows the Generating
-                placeholder) so live broadcasts have targets. broadcast_created
-                already fired for this message, so no standalone animation here. %>
-            <%= render "messages/message", message: in_progress, chat: @chat %>
-          <% else %>
-            <%# Still in the retrieval phases (no assistant bubble yet): the standalone
-                animation receives phase updates and broadcast_created removes it.
-                Its root carries id="thinking_animation" (see messages/_thinking). %>
-            <%= render "messages/thinking" %>
-          <% end %>
-        <% end %>
-      <% end %>
-      <%= turbo_stream_from @chat, :messages, I18n.locale %>
-      <%= turbo_stream_from @chat, :token_totals, I18n.locale %>
+     data-chat-feedback-completed-value="<%= t('nosia.chat_workspace.completed') %>"
+     data-chat-feedback-stopped-value="<%= t('nosia.chat_workspace.stopped') %>"
+     data-chat-generation-stopped="<%= @chat.generation_stopped? %>"
+     data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture turbo:before-stream-render@document->scroll#beforeStream turbo:before-render@document->scroll#capture turbo:render@document->scroll#afterRender lexxy:initialize->scroll#afterRender animationend->scroll#afterRender turbo:submit-start->scroll#submissionStarted toggle->chat-disclosures#remember:capture turbo:before-visit@document->chat-disclosures#beforeVisit turbo:before-cache@document->chat-disclosures#beforeCache:capture turbo:before-morph-attribute@document->chat-disclosures#preserveAttribute turbo:before-stream-render@document->chat-disclosures#captureFocus turbo:before-render@document->chat-disclosures#captureFocus turbo:render@document->chat-disclosures#restore">
+  <div id="application-scroll" class="n-orbite-reading" data-application-scroll data-scroll-target="surface">
+    <%= render "chats/header", chat: @chat, titles: @history_titles %>
+    <p id="chat-feedback-status-<%= @chat.id %>" class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-chat-feedback-target="status" data-turbo-permanent></p>
+    <div class="n-chat-follow">
+      <button type="button" class="n-workspace-button" hidden data-scroll-target="latest" data-action="scroll#latest"><%= t("nosia.chat_workspace.latest") %></button>
     </div>
+    <section class="n-chat-transcript" aria-label="<%= t("nosia.chat_workspace.transcript") %>" data-scroll-target="viewport">
+      <%= render "chats/transcript", chat: @chat %>
+    </section>
+  </div>
+  <section class="n-chat-dock n-chat-reading-column" aria-label="<%= t("nosia.chat_workspace.reply") %>">
+    <%= render partial: "messages/form", locals: { chat: @chat } %>
   </section>
-  <section class="w-full max-w-4xl mx-auto">
-    <div class="mx-auto pointer-events-auto">
-      <%= render partial: "messages/form", locals: { chat: @chat } %>
-    </div>
-  </section>
-
-  <%# MCP Selector Modal %>
+  <%= turbo_stream_from @chat, :messages, I18n.locale %>
+  <%= turbo_stream_from @chat, :token_totals, I18n.locale %>
+  <%= render "chats/history", chat: @chat, conversations: @history, titles: @history_titles %>
   <%= render "chats/mcp_selector", chat: @chat %>
 </div>

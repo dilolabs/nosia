@@ -30,6 +30,8 @@ Result pages opt out of Turbo snapshots and bind a clearing handler to `turbo:be
 
 Global **New chat** opens the generic existing composer. In account context it opens that composer with the account preselected. Neither changes the default account nor creates a chat merely by navigating.
 
+The Orbite desktop rail and mobile Navigation panel preserve that same account context. Each Settings tool owns its breadcrumb and inline feedback; the shared shell omits the legacy navbar and global toasts on these pages to avoid duplicate navigation and messages.
+
 Breadcrumbs, one page title, localized feedback and normal-flow actions replace unrelated drawers only on these eight page variants: prompt list/read/editor, account prompt read/editor, members, global tokens and account tokens. All text links remain transparent on hover, with underlines and native keyboard focus preserved. Buttons retain hover feedback.
 
 Forms use native required/email validation. Server rejection returns HTTP 422 with retained input, a focused linked summary and inline errors, including repeated errors after Turbo morphing. Save, add, generate, remove and revoke have distinct busy labels and duplicate-submission guards.

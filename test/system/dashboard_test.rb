@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/dashboard_fixtures"
 
 class DashboardSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include DashboardFixtures
 
   setup do
@@ -87,7 +89,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
 
   test "French long labels fit responsive layouts in both themes with visible keyboard actions" do
     @first.update_columns(name: "CompteDeRecherche" * 12)
-    select "FR", from: "language_preference_locale"
+    orbite_select_language("FR")
     assert_selector "html[lang='fr']"
     surfaces = []
 
@@ -105,7 +107,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
           verify_dashboard_contrast
         end
         surfaces << page.evaluate_script("getComputedStyle(document.querySelector('.n-dashboard-panel')).backgroundColor")
-        page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+        page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
         save_dashboard_screenshot("#{width}-#{height}-#{theme}")
         if width == 375
           page.execute_script("document.querySelector('.n-dashboard-upload').scrollIntoView({block:'center',behavior:'instant'})")
@@ -142,7 +144,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
       end
       assert_selector ".n-dashboard-shortcut:focus"
       verify_dashboard_contrast
-      page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+      page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
       save_dashboard_screenshot("375-no-account-#{theme}")
     end
   end
@@ -158,8 +160,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
     end
 
     def set_dashboard_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script(<<~JS)
         const done=arguments[0];
@@ -197,6 +198,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
     end
 
     def verify_dashboard_contrast
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       rows = page.evaluate_script(<<~JS)
         (()=>{
           const canvas=document.createElement('canvas');canvas.width=canvas.height=1;

@@ -1,0 +1,13 @@
+workspace_completion:
+  account: picker_second
+  chat: picker_second_chat
+  kind: completion
+  model_id: picker-test-model
+  input_tokens: 120
+  output_tokens: 24
+workspace_embedding:
+  account: picker_second
+  chat: picker_second_chat
+  kind: embedding
+  input_tokens: 5
+  output_tokens: 0

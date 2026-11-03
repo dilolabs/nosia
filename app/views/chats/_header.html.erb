@@ -1,0 +1,14 @@
+<header class="n-chat-header">
+  <% if chat.persisted? %>
+    <div class="n-chat-toolbar">
+      <div class="n-chat-heading min-w-0">
+        <h1 class="n-chat-title"><%= chat_workspace_title(chat, titles: titles) %></h1>
+      </div>
+    </div>
+    <section id="chat-usage-details" class="n-chat-usage" aria-labelledby="chat-usage-summary">
+      <h2 id="chat-usage-summary" class="n-chat-usage-title"><%= t("nosia.chat_workspace.usage_details") %></h2>
+      <p class="n-workspace-help n-chat-usage-account" data-chat-account-label><%= chat.account.name %></p>
+      <%= render "chats/token_totals", chat: chat %>
+    </section>
+  <% end %>
+</header>

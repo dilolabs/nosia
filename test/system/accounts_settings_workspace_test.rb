@@ -1,8 +1,10 @@
 require "tmpdir"
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/account_experience_fixtures"
 
 class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include AccountExperienceFixtures
 
   DESKTOP_INPUT_ARGUMENT = "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4".freeze
@@ -91,7 +93,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
     @second.update_columns(name: "CompteDeRecherche" * 12, uid: "identifiant-sans-espace-" * 7)
     states = []
     %w[en fr].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang='#{locale}']", visible: :all
       [ [ :directory, accounts_path ], [ :account, account_path(@second) ], [ :settings, settings_path ] ].each do |name, path|
         [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ], [ 812, 375 ] ].each do |width, height|
@@ -100,6 +102,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             visit path
             set_workspace_theme(theme)
             assert_selector "main h1", count: 1
+            assert_no_selector "[data-header-details], .n-header-details", visible: :all
             assert_selector "main .n-workspace-header nav", count: 1
             assert_no_text(/translation missing|missing translation/i)
             assert_workspace_layout
@@ -112,7 +115,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             end
             if name == :account
               assert_selector "h1", text: @second.name
-              assert_selector ".n-workspace-header .n-workspace-help", text: @second.uid
+              assert_selector ".n-workspace-header [data-workspace-scope]", text: @second.uid
             end
             root = name == :settings ? "[data-settings-workspace]" : ".n-accounts > .n-workspace-header"
             selectors = all("#{root} a").map { |link| "#{root} a[href='#{URI(link[:href]).request_uri}']" }
@@ -134,7 +137,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
             else
               measure_workspace_contrast(root)
             end
-            page.execute_script("document.querySelector('main').scrollTo({top:0,behavior:'instant'})")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             image = "#{name}-#{locale}-#{width}-#{height}-#{theme}.png"
             page.save_screenshot(File.join(@evidence_dir, image)) if [ 375, 1440 ].include?(width)
             states << { page: name, locale: locale, viewport: [ width, height ], theme: theme }
@@ -185,8 +188,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
     end
 
     def set_workspace_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       assert_equal theme == "dark", page.evaluate_script("document.documentElement.classList.contains('dark')")
       page.driver.browser.execute_async_script("const done=arguments[0]; Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))).then(()=>done());")
     end
@@ -242,7 +244,7 @@ class AccountsSettingsWorkspaceSystemTest < ApplicationSystemTestCase
       card = first("[data-settings-card]")
       page.execute_script("arguments[0].scrollIntoView({block:'center'})", card)
       wait_for_keyboard_scroll
-      find("#theme-toggle").hover
+      find("main h1").hover
       wait_for_keyboard_scroll
       before_hover = settings_card_sample(card)
       refute before_hover.fetch("hovered"), before_hover.to_json

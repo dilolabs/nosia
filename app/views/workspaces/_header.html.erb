@@ -1,27 +1,31 @@
 <%# locals: (title:, description: nil, scope_label: nil, trail: [], back_path: nil, show_new_chat: false, actions: nil, breadcrumb_label: nil) %>
 <% content_for :title, title %>
 <header class="n-workspace-header">
-  <% if trail.any? %>
-    <nav aria-label="<%= breadcrumb_label || t('nosia.workspace.breadcrumb') %>" class="n-workspace-help">
-      <ol class="n-workspace-trail !list-none">
-        <% trail.each_with_index do |item, index| %>
-          <% if index.positive? %><li aria-hidden="true">/</li><% end %>
-          <%= tag.li aria: { current: item[:path] ? nil : "page" } do %>
-            <% if item[:path] %>
-              <%= link_to item.fetch(:label), item.fetch(:path), class: "n-workspace-link" %>
-            <% else %>
-              <%= item.fetch(:label) %>
-            <% end %>
-          <% end %>
-        <% end %>
-      </ol>
-    </nav>
-  <% end %>
   <div class="n-workspace-heading-row">
-    <div class="min-w-0">
+    <div class="n-workspace-heading min-w-0">
       <h1 class="n-workspace-title"><%= title %></h1>
-      <% if description %><p class="n-workspace-help"><%= description %></p><% end %>
-      <% if scope_label %><p class="n-workspace-scope" data-workspace-scope><%= scope_label %></p><% end %>
+      <% if scope_label || description.present? || trail.any? %>
+        <div class="n-workspace-context">
+          <% if scope_label %><p class="n-workspace-scope" data-workspace-scope><%= scope_label %></p><% end %>
+          <% if description.present? %><p class="n-workspace-help"><%= description %></p><% end %>
+          <% if trail.any? %>
+            <nav aria-label="<%= breadcrumb_label || t('nosia.workspace.breadcrumb') %>" class="n-workspace-help">
+              <ol class="n-workspace-trail !list-none">
+                <% trail.each_with_index do |item, index| %>
+                  <% if index.positive? %><li aria-hidden="true">/</li><% end %>
+                  <%= tag.li aria: { current: item[:path] ? nil : "page" } do %>
+                    <% if item[:path] %>
+                      <%= link_to item.fetch(:label), item.fetch(:path), class: "n-workspace-link" %>
+                    <% else %>
+                      <%= item.fetch(:label) %>
+                    <% end %>
+                  <% end %>
+                <% end %>
+              </ol>
+            </nav>
+          <% end %>
+        </div>
+      <% end %>
     </div>
     <div class="n-workspace-actions">
       <% if back_path %><%= link_to t("nosia.actions.back"), back_path, class: "n-workspace-link", data: { workspace_back: true } %><% end %>

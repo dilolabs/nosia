@@ -1,0 +1,119 @@
+.n-orbite-shell { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.n-orbite-shell .n-chat-main { display: flex; flex-direction: column; overflow: hidden; padding: 0; min-height: 0; }
+.n-orbite-shell .n-chat-main > .n-orbite-page-trail:empty { display: none; }
+.n-orbite-shell .n-chat-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; flex: 1; gap: 0; height: auto; min-height: 0; overflow: hidden; }
+.n-orbite-shell .n-chat-workspace > turbo-cable-stream-source { display: none; }
+.n-orbite-shell .n-orbite-reading { min-height: 0; min-width: 0; overflow-y: auto; overflow-anchor: none; scrollbar-gutter: stable; scroll-padding-block: .75rem; }
+.n-orbite-shell .n-chat-workspace--saved > .n-orbite-reading { position: relative; }
+.n-orbite-shell .n-chat-transcript { flex: none; overflow: visible; padding: 1rem; }
+.n-orbite-shell .n-chat-header { padding: .75rem 1rem 0; }
+.n-orbite-shell .n-chat-usage { min-width: 0; max-width: 100%; margin-block-start: .75rem; }
+.n-orbite-shell .n-chat-usage-title { font-size: .875rem; line-height: 1.5; font-weight: 600; color: var(--orbite-text); }
+.n-orbite-shell .n-chat-usage > .n-workspace-help { overflow-wrap: anywhere; white-space: normal; }
+.n-orbite-shell .n-chat-reading-column { max-width: 74ch; }
+.n-orbite-shell .n-chat-start { min-height: 0; padding: 1.5rem 1rem; }
+.n-orbite-shell .n-chat-dock { width: 100%; max-width: 76ch; padding: .75rem 1rem .5rem; margin-inline: auto; min-width: 0; }
+.n-orbite-shell .n-chat-dock .lexxy-editor__content { min-block-size: 3rem; max-block-size: min(20dvh, 10rem); overflow-y: auto; }
+.n-orbite-shell .n-chat-dock .n-composer-errors { max-block-size: 4rem; overflow-y: auto; }
+.n-orbite-shell .n-chat-dock .n-composer-meta { padding-block: .25rem 0; }
+.n-orbite-shell .n-chat-dock .n-composer-notice { margin-block: .375rem 0; }
+.n-orbite-shell .n-chat-workspace--new { overflow: hidden; scrollbar-gutter: auto; }
+.n-orbite-shell .n-chat-composer .n-orbite-mobile-only { display: none; }
+
+.n-orbite-shell .n-chat-workspace { color: var(--orbite-text); }
+.n-orbite-shell .n-chat-workspace :is(.n-workspace-help, .n-chat-account-preview) { color: var(--orbite-muted); }
+.n-orbite-shell .n-chat-workspace .n-chat-assistant-body:not([data-chat-error=true]) { border: 0; border-radius: 0; background: transparent; padding: .25rem 0 .75rem; }
+.n-orbite-shell .n-chat-workspace .n-chat-user-body { border: 0; background: var(--orbite-bubble); color: var(--orbite-text); border-radius: 1.125rem 1.125rem .375rem 1.125rem; max-width: 88%; padding: .875rem 1rem; }
+.n-orbite-shell .n-chat-workspace :is(.ai-response-content, .n-chat-user-body) { font-size: 1rem; line-height: 1.7; }
+.n-orbite-shell .n-chat-workspace :is(.n-chat-assistant-name, .n-chat-details > summary) { color: var(--orbite-accent); }
+.n-orbite-shell .n-chat-workspace .n-chat-message { margin-bottom: 1.75rem; }
+.n-orbite-shell .n-chat-workspace .n-chat-source { background: var(--orbite-paper); color: var(--orbite-text); border-color: var(--orbite-control); }
+.n-orbite-shell .n-chat-composer {
+  --composer-paper: var(--orbite-paper);
+  --composer-text: var(--orbite-text);
+  --composer-muted: var(--orbite-muted);
+  --composer-border: var(--orbite-control);
+  --composer-hover: var(--orbite-bubble);
+  --composer-accent: var(--orbite-accent);
+  --composer-on-accent: var(--orbite-on-accent);
+}
+.n-orbite-shell .n-chat-composer .n-composer-surface { border-radius: 1.25rem; box-shadow: 0 3px 14px rgb(0 0 0 / .06); }
+.n-orbite-shell .n-chat-composer :is(.n-composer-control, .n-composer-send) { min-height: 44px; min-width: 44px; }
+.n-orbite-shell .n-chat-composer .n-composer-send { width: 44px; height: 44px; }
+.n-orbite-shell .n-chat-composer .n-composer-account select { min-height: 44px; }
+.n-orbite-shell .n-chat-composer .n-composer-account { min-width: 0; }
+.n-orbite-shell .n-chat-composer .n-composer-actions { gap: .25rem; }
+.n-orbite-shell .n-chat-workspace .n-chat-follow { width: fit-content; margin-inline: auto; }
+.n-orbite-shell .n-chat-workspace .n-chat-follow button { box-shadow: 0 2px 8px rgb(0 0 0 / .1); background: var(--orbite-paper); color: var(--orbite-text); }
+.n-orbite-shell .n-chat-history-list { margin-top: 0; }
+.n-orbite-shell .n-chat-history-row { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; border-color: var(--orbite-line); padding-block: 3px; gap: 4px; }
+.n-orbite-shell .n-chat-history-row > div { min-width: 0; }
+.n-orbite-shell .n-chat-history-row .n-workspace-link { display: block; min-width: 0; min-height: 44px; padding: 8px; color: var(--orbite-text); text-decoration: none; scroll-margin-block: .5rem; }
+.n-orbite-shell .n-chat-history-row .n-workspace-link:hover { background: var(--orbite-bubble); border-radius: .375rem; }
+.n-orbite-shell .n-chat-history-row [aria-current=page] { background: var(--orbite-bubble); border-radius: .375rem; box-shadow: inset 2px 0 var(--orbite-accent); }
+.n-orbite-shell .n-chat-history-row :is(.n-chat-history-title, .n-chat-history-account) { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.n-orbite-shell .n-chat-history-row .n-chat-history-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .375rem; min-width: 0; margin-top: 3px; color: var(--orbite-muted); font-size: .75rem; line-height: 1.625; font-weight: 400; }
+.n-orbite-shell .n-chat-history-row .n-chat-history-account { flex: 1 1 4rem; }
+.n-orbite-shell .n-chat-history-row time { display: block; flex: 0 0 auto; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.n-orbite-shell .n-chat-workspace :is(button, summary, a) { scroll-margin-block: .75rem; }
+.n-orbite-shell .n-chat-workspace :is(button, summary, a):focus-visible { outline: 2px solid var(--orbite-accent); outline-offset: -2px; }
+
+@media (min-width: 640px) {
+  .n-orbite-shell .n-chat-dock .n-composer-account { flex: 0 1 20rem; max-inline-size: min(20rem, 100%); }
+}
+
+@media (max-width: 767px), (max-height: 700px) {
+  .n-orbite-shell .n-chat-main { padding: 0; }
+  .n-orbite-shell .n-chat-dock { padding: .5rem .625rem; }
+  .n-orbite-shell .n-chat-transcript { padding: .75rem; }
+}
+
+@media (max-width: 767px) {
+  .n-orbite-shell .n-chat-composer .n-orbite-mobile-only { display: inline-flex; }
+}
+
+@media (max-height: 700px) {
+  .n-orbite-shell .n-chat-start { padding-block: .5rem; }
+  .n-orbite-shell .n-chat-dock { padding-block: .25rem; }
+  .n-orbite-shell .n-orbite-reading { scroll-padding-block: 0; }
+  .n-orbite-shell .n-orbite-reading :is(button, summary, a) { scroll-margin-block: 0; }
+}
+
+/* Compact saved-chat context; accounting remains server-rendered and visible. */
+.n-orbite-shell .n-chat-header .n-chat-toolbar { align-items: center; flex-wrap: nowrap; gap: .75rem; margin-block-end: .625rem; }
+.n-orbite-shell .n-chat-header .n-chat-heading { flex: 1 1 0; min-width: 0; }
+.n-orbite-shell .n-chat-header .n-workspace-actions { flex: 0 1 auto; max-inline-size: 65%; }
+.n-orbite-shell .n-chat-header .n-workspace-button { min-width: 44px; min-height: 44px; max-inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }
+.n-orbite-shell .n-chat-usage { --chat-token-output: #6c8364; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: baseline; gap: .5rem 1rem; margin-block-start: 0; padding: .625rem .875rem .75rem; background: var(--orbite-bubble); border-radius: .625rem; }
+.dark .n-orbite-shell .n-chat-usage { --chat-token-output: #91ab82; }
+.n-orbite-shell .n-chat-usage-account { text-align: end; font-size: .75rem; overflow-wrap: anywhere; white-space: normal; }
+.n-orbite-shell .n-chat-token-layout { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: start; gap: 1.5rem; min-width: 0; }
+.n-orbite-shell .n-chat-token-summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; }
+.n-orbite-shell .n-chat-token-summary .n-chat-values { gap: .375rem 1.25rem; margin: 0; }
+.n-orbite-shell .n-chat-token-summary .n-chat-values > div { display: flex; align-items: baseline; gap: .375rem; }
+.n-orbite-shell .n-chat-token-summary dt { display: inline-flex; align-items: center; gap: .375rem; color: var(--orbite-muted); }
+.n-orbite-shell .n-chat-token-summary dd { font-size: 1rem; }
+.n-orbite-shell .n-chat-token-total { font-size: .75rem; margin: 0; font-variant-numeric: tabular-nums; }
+.n-orbite-shell .n-chat-token-total strong { color: var(--orbite-text); font-weight: 600; }
+.n-orbite-shell .n-chat-token-key { display: inline-block; width: .5rem; height: .5rem; border-radius: 2px; background: var(--orbite-accent); }
+.n-orbite-shell .n-chat-token-key--output { background: var(--chat-token-output); outline: 1px dashed var(--orbite-text); outline-offset: -1px; }
+.n-orbite-shell .n-chat-token-bar { display: flex; gap: 3px; height: .5rem; margin-block: .5rem .25rem; border-radius: .5rem; overflow: hidden; }
+.n-orbite-shell .n-chat-token-bar[data-empty=true] { background: var(--orbite-line); }
+.n-orbite-shell .n-chat-token-segment { position: relative; display: block; flex-basis: 0; min-width: 0; height: 100%; background: var(--orbite-accent); }
+.n-orbite-shell .n-chat-token-segment--output { background: var(--chat-token-output); }
+.n-orbite-shell .n-chat-token-segment--output::after { content: ""; position: absolute; inset-inline: 1px; top: 50%; border-top: 1px dashed var(--orbite-bubble); }
+.n-orbite-shell .n-chat-token-caption, .n-orbite-shell .n-chat-token-kind-heading { font-size: .75rem; line-height: 1.5; margin: 0 0 .375rem; }
+.n-orbite-shell .n-chat-token-kinds { display: flex; flex-direction: column; gap: .25rem; list-style: none; padding: 0; margin: 0; min-width: 0; }
+.n-orbite-shell .n-chat-token-kinds > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; min-width: 0; font-size: .875rem; overflow-wrap: anywhere; }
+.n-orbite-shell .n-chat-token-kind-name { color: var(--orbite-text); }
+.n-orbite-shell .n-chat-token-kind-values { display: flex; flex-wrap: wrap; gap: .25rem .75rem; margin: 0; }
+.n-orbite-shell .n-chat-token-kind-values > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem; }
+.n-orbite-shell .n-chat-token-kind-values dt { color: var(--orbite-muted); font-size: .75rem; }
+.n-orbite-shell .n-chat-token-kind-values dd { color: var(--orbite-text); font-variant-numeric: tabular-nums; }
+.n-orbite-shell .n-chat-token-impact .n-workspace-help { font-size: .75rem; line-height: 1.65; margin: 0; }
+.n-orbite-shell .n-chat-token-impact [data-estimate-note] { margin-block-start: .375rem; }
+@media (max-width: 767px) {
+  .n-orbite-shell .n-chat-usage { grid-template-columns: minmax(0, 1fr); gap: .25rem; padding: .625rem .75rem .75rem; }
+  .n-orbite-shell .n-chat-usage-account { text-align: start; }
+  .n-orbite-shell .n-chat-token-layout { grid-template-columns: minmax(0, 1fr); gap: .75rem; margin-block-start: .375rem; }
+}

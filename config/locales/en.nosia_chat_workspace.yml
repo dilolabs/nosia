@@ -1,0 +1,24 @@
+en:
+  nosia:
+    chat_workspace:
+      new_eyebrow: New conversation
+      new_title: What would you like to explore?
+      new_help: Ask a question, attach a PDF, or use your account’s sources.
+      history: History
+      history_title: Conversation history
+      history_help: Your conversations in accounts you can access.
+      no_history: No conversations yet.
+      current: Current conversation
+      close: Close
+      new_chat: New chat
+      usage_details: Usage details
+      token_distribution: Token distribution for this conversation
+      response_details: Response details
+      latest: Latest message
+      transcript: Conversation messages
+      reply: Reply to this conversation
+      estimates: "Environmental impact estimates:"
+      completed: Response complete.
+      stopped: Generation stopped.
+      setup_account: Set up an account
+      retry: Retry

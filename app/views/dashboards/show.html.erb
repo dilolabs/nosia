@@ -1,9 +1,7 @@
 <% content_for :title, t("nosia.dashboard.title") %>
 <div class="n-dashboard" data-dashboard>
-  <header class="n-dashboard-heading">
-    <p class="n-dashboard-help"><%= t("nosia.dashboard.title") %></p>
+  <header class="n-dashboard-heading n-workspace-heading-row">
     <h1><%= t("nosia.dashboard.welcome") %></h1>
-    <p class="n-dashboard-help"><%= t("nosia.dashboard.introduction") %></p>
   </header>
   <div class="n-dashboard-top">
     <%= render "composer", chat: @chat %>

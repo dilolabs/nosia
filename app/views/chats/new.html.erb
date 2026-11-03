@@ -1,12 +1,24 @@
 <% content_for :title, t("nosia.chat.new") %>
-<div class="h-[calc(100vh-10.5rem)] lg:h-full flex flex-col justify-end"
+<div id="new-chat-workspace" class="n-chat-workspace n-chat-workspace--new"
      data-controller="chat-account"
      data-chat-account-account-id-value="<%= @chat.account_id %>"
      data-chat-account-confirm-message-value="<%= t('nosia.chat.change_account') %>"
      data-action="composer-sources:state->chat-account#sourceState dropzone:state->chat-account#sourceState turbo:submit-start->chat-account#submitStarted turbo:submit-end->chat-account#submitEnded turbo:before-cache@document->chat-account#beforeCache:capture">
-  <section class="w-full max-w-4xl mx-auto">
-    <div class="mx-auto pointer-events-auto">
-      <%= render "form", chat: @chat %>
-    </div>
-  </section>
+  <div id="application-scroll" class="n-orbite-reading" data-application-scroll>
+    <%= render "chats/header", chat: @chat, titles: @history_titles %>
+    <section class="n-chat-start n-chat-reading-column">
+      <h1 class="n-chat-title"><%= t("nosia.chat_workspace.new_title") %></h1>
+      <p class="n-workspace-help"><%= t("nosia.chat_workspace.new_help") %></p>
+      <% unless @chat.account %>
+        <%= render "chats/no_account" %>
+        <%= link_to t("nosia.chat_workspace.setup_account"), accounts_path, class: "n-workspace-link" %>
+      <% end %>
+    </section>
+  </div>
+  <% if @chat.account %>
+    <section class="n-chat-dock n-chat-reading-column" aria-label="<%= t("nosia.chat_workspace.reply") %>">
+      <%= render "form", chat: @chat, navigation: true %>
+    </section>
+  <% end %>
+  <%= render "chats/history", chat: @chat, conversations: @history, titles: @history_titles %>
 </div>

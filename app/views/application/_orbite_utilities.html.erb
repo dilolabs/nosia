@@ -1,0 +1,14 @@
+<%= render "language_preference" %>
+<button id="theme-toggle" type="button" class="n-nav-link n-main-hover">
+  <span class="sr-only"><%= t("nosia.nav.toggle_dark_mode") %></span>
+  <%= inline_svg "svg/moon.svg", id: "theme-toggle-dark-icon", aria_hidden: true, class: "hidden h-6 w-6" %>
+  <%= inline_svg "svg/sun.svg", id: "theme-toggle-light-icon", aria_hidden: true, class: "hidden h-6 w-6" %>
+</button>
+<% if Current.user %>
+  <button id="dropdownUser" type="button" aria-controls="dropdown" aria-expanded="false"
+          data-user-menu-target="trigger" data-action="user-menu#toggle"
+          class="n-nav-link n-main-hover n-orbite-mobile-only flex shrink-0 rounded-full">
+    <span class="sr-only"><%= t("nosia.nav.open_user_menu") %></span>
+    <%= inline_svg "svg/user-circle.svg", aria_hidden: true, class: "w-6 h-6" %>
+  </button>
+<% end %>

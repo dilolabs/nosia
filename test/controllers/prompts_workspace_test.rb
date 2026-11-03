@@ -109,10 +109,12 @@ class PromptsWorkspaceTest < ActionDispatch::IntegrationTest
   test "global and account New chat keep their distinct context and legacy destroy remains" do
     get edit_system_prompt_path(@shared)
     assert_select ".n-workspace-header a[href=?]", new_chat_path
-    assert_select ".lg\\:hidden a[href=?]", new_chat_path
+    assert_select "#chat-history .n-orbite-panel-links a[href=?]", new_chat_path, count: 1
+    assert_select ".n-orbite-rail a[href=?]", new_chat_path, count: 1
     get edit_account_system_prompt_path(@second)
     assert_select ".n-workspace-header a[href=?]", new_chat_path(account_id: @second.id)
-    assert_select ".lg\\:hidden a[href=?]", new_chat_path(account_id: @second.id)
+    assert_select "#chat-history .n-orbite-panel-links a[href=?]", new_chat_path(account_id: @second.id), count: 1
+    assert_select ".n-orbite-rail a[href=?]", new_chat_path(account_id: @second.id), count: 1
     assert_select "[data-settings-tool] form input[name=_method][value=delete]", count: 0
     assert_difference("Prompt.count", -1) { delete system_prompt_path(@personal) }
     assert_redirected_to system_prompts_path

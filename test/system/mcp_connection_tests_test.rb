@@ -1,7 +1,9 @@
 require "application_system_test_case"
 require_relative "../support/chat_account_fixtures"
+require_relative "../support/orbite_browser_checks"
 
 class McpConnectionTestsSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include ChatAccountFixtures
 
   setup do
@@ -48,7 +50,7 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
 
   test "results fit small and large screens in both themes and languages" do
     [ "en", "fr" ].each do |locale|
-      select(locale.upcase, from: "language_preference_locale")
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang=#{locale}]"
 
       [ 375, 768, 1400 ].each do |width|
@@ -67,7 +69,7 @@ class McpConnectionTestsSystemTest < ApplicationSystemTestCase
           end
 
           [ false, true ].each do |dark|
-            page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
+            orbite_theme(dark)
             assert_test_button_contrast
             assert page.evaluate_script(<<~JS), "The result panel must fit the viewport at #{width}px"
               (() => {

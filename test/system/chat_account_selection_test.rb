@@ -357,7 +357,13 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
       document.querySelector("#mcp-server-hidden-fields").append(hiddenTool)
     JS
 
-    click_link "New chat"
+    if page.has_selector?(".n-orbite-rail a[href='#{new_chat_path}']", wait: 0)
+      find(".n-orbite-rail a[href='#{new_chat_path}']").click
+    else
+      find("#workspace-mobile-trigger").click
+      assert_selector "#chat-history:modal"
+      find("#chat-history .n-orbite-panel-links a[href='#{new_chat_path}']").click
+    end
     assert_current_path new_chat_path
     page.go_back
 
@@ -693,8 +699,8 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_queued_sources_blocked("https://generating-source.example/reference")
 
     assert_selector "[data-controller~='chat-account']:not([inert])"
-    find("button[data-modal-open-target-value='mcp-selector-modal']").click
-    assert_selector "#mcp-selector-modal:not(.hidden)"
+    find(".n-composer-tools-trigger[aria-controls='mcp-selector-modal']").click
+    assert_selector "dialog#mcp-selector-modal[open]"
     chat.update!(generating: false)
     visit chat_url(chat)
     assert_selector "[data-controller~='chat-account']:not([inert]) lexxy-editor:not([disabled])"
@@ -713,8 +719,8 @@ class ChatAccountSelectionSystemTest < ApplicationSystemTestCase
     assert_equal before, draft_html
     assert_selector "lexxy-editor[disabled][inert]"
     assert_selector "[data-controller~='chat-account']:not([inert])"
-    find("button[data-modal-open-target-value='mcp-selector-modal']").click
-    assert_selector "#mcp-selector-modal:not(.hidden)"
+    find(".n-composer-tools-trigger[aria-controls='mcp-selector-modal']").click
+    assert_selector "dialog#mcp-selector-modal[open]"
   end
 
   test "submission prevents real toolbar formatting and restores it when submission ends" do

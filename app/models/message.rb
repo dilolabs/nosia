@@ -118,7 +118,8 @@ class Message < ApplicationRecord
   def broadcast_updated
     return unless assistant?
 
-    broadcast_localized_to :update, chat, :messages, target: dom_id(self, :messages), locals: { message: self, scroll_to: true }
+    broadcast_localized_to :update, chat, :messages, target: dom_id(self, :messages),
+      partial: "messages/body", locals: { message: self, scroll_to: true }
   end
 
   def content_without_context

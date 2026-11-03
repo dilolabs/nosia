@@ -1,5 +1,5 @@
 <div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="servers" data-controller="mcp-busy" data-action="turbo:submit-start->mcp-busy#start turbo:submit-end->mcp-busy#finish">
-  <%= render "mcp_workspace/header", title: t("nosia.mcp.title"), description: t("nosia.mcp_workspace.description"), actions: capture {
+  <%= render "mcp_workspace/header", title: t("nosia.mcp.title"), actions: capture {
     concat link_to(t("nosia.mcp_workspace.custom_add"), mcp_new_path, class: "n-workspace-button")
     concat link_to(t("nosia.mcp_workspace.browse_catalog"), mcp_catalog_list_path, class: "n-workspace-button n-workspace-primary")
   } %>

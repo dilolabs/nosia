@@ -91,11 +91,12 @@ module McpBrowserChecks
   def mcp_assert_focus(direction: nil, index: nil)
     sample = page.evaluate_script(<<~JS)
       (()=>{const active=document.activeElement,e=active.matches('input[type=checkbox]')?active.closest('label'):active;
-        const r=e.getBoundingClientRect(),s=getComputedStyle(e),main=document.querySelector('main'),m=main.getBoundingClientRect(),ms=getComputedStyle(main);
+        const r=e.getBoundingClientRect(),s=getComputedStyle(e),main=document.querySelector('main'),m=main.getBoundingClientRect();
+        const surface=document.querySelector('[data-application-scroll]'),ss=getComputedStyle(surface);
         const points=[[r.x+r.width/2,r.top+1],[r.x+r.width/2,r.bottom-1],[r.left+1,r.y+r.height/2],[r.right-1,r.y+r.height/2]];
         return {tag:active.tagName,id:active.id,role:active.getAttribute('role'),text:e.textContent.trim(),width:r.width,height:r.height,outline:parseFloat(s.outlineWidth),
           bounds:[r.x,r.y,r.width,r.height],mainBounds:[m.x,m.y,m.width,m.height],hitPoints:points.map(([x,y])=>({x,y,hit:document.elementFromPoint(x,y)?.outerHTML.slice(0,200)})),
-          nativeScroll:{top:main.scrollTop,paddingStart:ms.scrollPaddingBlockStart,paddingEnd:ms.scrollPaddingBlockEnd,overflow:ms.overflowY},
+          applicationScroll:{id:surface.id,top:surface.scrollTop,paddingStart:ss.scrollPaddingBlockStart,paddingEnd:ss.scrollPaddingBlockEnd,overflow:ss.overflowY},
           visible:r.top>=Math.max(0,m.top)&&r.bottom<=Math.min(innerHeight,m.bottom)&&points.every(([x,y])=>{const hit=document.elementFromPoint(x,y);return !!hit&&(hit===e||e.contains(hit));})};})()
     JS
     mcp_record_check("focus", { direction: direction, index: index, sample: sample })
@@ -256,7 +257,8 @@ module McpBrowserChecks
     target = first("[data-mcp-workspace] .n-workspace-primary")
     page.execute_script("arguments[0].scrollIntoView({block:'center',behavior:'instant'})", target)
     mcp_wait
-    find("#theme-toggle").hover
+    # Clear hover without scrolling the non-sticky global header into view.
+    page.driver.browser.action.move_to_location(0, 0).perform
     before = mcp_hover_sample(target)
     refute before.fetch("hovered")
     assert_equal before.fetch("expected"), before.fetch("background")

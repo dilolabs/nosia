@@ -1,6 +1,6 @@
 <section class="n-accounts" data-account-overview="<%= @account.id %>">
   <%= render "workspaces/header", title: @account.name,
-      description: "#{@account.uid} · #{account_role_label(@account)}",
+      scope_label: "#{@account.uid} · #{account_role_label(@account)}",
       trail: account_workspace_trail(account: @account),
       breadcrumb_label: t("nosia.account_experience.breadcrumb"),
       actions: capture {

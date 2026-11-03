@@ -27,6 +27,8 @@ class AgentSkillsWorkspaceShellTest < ActionDispatch::IntegrationTest
     get api_tokens_path
     assert_select "[data-settings-tool][data-settings-screen=tokens]", count: 1
     assert_select "#accordion-right-actions, #drawer-right", count: 0
+    assert_select ".n-orbite-rail a[href='#{new_chat_path}']", count: 1
+    assert_select "#chat-history [data-history-chat]", count: 0
     get account_path(@second)
     assert_select "a[href='#{account_agent_skills_path(@second)}']"
     assert_equal @first, @user.reload.first_account

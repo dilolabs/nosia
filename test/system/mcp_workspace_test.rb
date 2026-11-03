@@ -1,9 +1,11 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/mcp_workspace_fixtures"
 require_relative "../support/mcp_browser_checks"
 
 # Exercises account-scoped MCP management with local integrations only.
 class McpWorkspaceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include McpWorkspaceFixtures
   include McpBrowserChecks
 
@@ -30,7 +32,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     states = []
     puts "MCP matrix evidence: #{@mcp_evidence}"
     [ "en", "fr" ].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang=#{locale}]"
       screens.each do |screen, path|
         [ [ 375, 812 ], [ 768, 1024 ], [ 1440, 1000 ], [ 812, 375 ] ].each do |width, height|
@@ -40,6 +42,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
             mcp_theme(theme)
             assert_selector "[data-mcp-workspace] h1", count: 1
             assert_selector "[data-mcp-workspace] > header.n-workspace-header", count: 1
+            assert_no_selector "[data-header-details], .n-header-details", visible: :all
             assert_selector "[data-mcp-workspace] > header nav", count: 1
             assert_no_selector "[data-mcp-workspace] [data-controller~='drawer']", visible: :all
             assert_no_selector "#drawer-right", visible: :all
@@ -51,7 +54,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
             mcp_keyboard_walk
             mcp_contrast("keyboard")
             mcp_hover
-            page.execute_script("document.querySelector('main').scrollTop = 0")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             mcp_wait
             if [ 375, 1440 ].include?(width)
               page.save_screenshot(File.join(@mcp_evidence, "#{screen}-#{locale}-#{width}-#{height}-#{theme}.png"))
@@ -434,10 +437,10 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     page.send_keys([ :shift, :tab ])
     assert page.evaluate_script("document.activeElement.id === 'mcp-tab-overview'")
 
-    page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-detail-desktop.png"))
+    page.save_screenshot(File.join(@mcp_evidence, "mcp-detail-desktop.png"))
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
     assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1")
-    page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-detail-mobile.png"))
+    page.save_screenshot(File.join(@mcp_evidence, "mcp-detail-mobile.png"))
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
@@ -506,7 +509,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
 
   test "local edit keeps credential controls active and forms fit phone and desktop" do
     [ "en", "fr" ].each do |locale|
-      select locale.upcase, from: "language_preference_locale"
+      orbite_select_language(locale.upcase)
       assert_selector "html[lang=#{locale}]"
       [ 375, 1400 ].each do |width|
         page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 844, deviceScaleFactor: 1, mobile: false)
@@ -523,7 +526,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
 
           [ false, true ].each do |dark|
             page.execute_script("document.documentElement.classList.toggle('dark', arguments[0])", dark)
-            page.execute_script("document.querySelector('main').scrollTop = 0")
+            page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
             assert page.evaluate_script(<<~JS), "Form controls and help rail must fit at #{width}px in #{locale}"
               (() => {
                 const main = document.querySelector('main');
@@ -536,8 +539,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
                     });
               })()
             JS
-            page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}.png"))
-            page.execute_script("const main = document.querySelector('main'); main.scrollTop = main.scrollHeight")
+            page.save_screenshot(File.join(@mcp_evidence, "mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}.png"))
+            page.execute_script("const surface = document.querySelector('[data-application-scroll]'); surface.scrollTop = surface.scrollHeight")
             assert page.evaluate_script(<<~JS), "The complete Save control must remain reachable after scrolling"
               (() => {
                 const button = document.querySelector('[data-mcp-form] input[type=submit]');
@@ -546,7 +549,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
                   [rect.top + 2, rect.bottom - 2].every(y => document.elementFromPoint((rect.left + rect.right) / 2, y) === button);
               })()
             JS
-            page.save_screenshot(Rails.root.join("tmp/screenshots/mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}-bottom.png"))
+            page.save_screenshot(File.join(@mcp_evidence, "mcp-form-#{path.include?('edit') ? 'edit' : 'new'}-#{locale}-#{width}-#{dark ? 'dark' : 'light'}-bottom.png"))
           end
         end
       end
@@ -586,7 +589,9 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     before = Chat.count
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 375, height: 812, deviceScaleFactor: 1, mobile: false)
     visit account_mcp_servers_path(@second)
-    target = ".lg\\:hidden a.n-nav-bottom[aria-label='#{I18n.t('nosia.nav.new_chat')}']"
+    find("#workspace-mobile-trigger").click
+    assert_selector "#chat-history:modal"
+    target = "#chat-history .n-orbite-panel-links a[aria-label='#{I18n.t('nosia.nav.new_chat')}']"
     assert_selector target, count: 1
     120.times do
       page.send_keys(:tab)
@@ -603,4 +608,10 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
+
+  private
+    def mcp_theme(theme)
+      orbite_theme(theme == "dark")
+      page.driver.browser.execute_async_script("const done=arguments[0];Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))).then(()=>done());")
+    end
 end

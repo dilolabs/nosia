@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require_relative "../support/orbite_browser_checks"
 require_relative "../support/account_experience_fixtures"
 
 class AccountExperienceSystemTest < ApplicationSystemTestCase
+  include OrbiteBrowserChecks
   include AccountExperienceFixtures
 
   setup do
@@ -199,7 +201,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
   test "long French account content remains accessible in distinct light and dark surfaces" do
     @second.update_columns(name: "Un compte de recherche avec un nom très long " * 4, uid: "unbroken-identifiant-" * 8)
     visit account_path(@second)
-    select "FR", from: "language_preference_locale"
+    orbite_select_language("FR")
     assert_selector "html[lang='fr']"
     assert_selector "h2", text: "Vos conversations récentes"
     resize_account_viewport(375, 812)
@@ -214,7 +216,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
       surfaces << page.evaluate_script("getComputedStyle(document.querySelector('.n-account-panel')).backgroundColor")
       verify_account_keyboard_actions
       record_account_contrast("375-#{theme}")
-      page.execute_script("document.querySelector('main').scrollTop = 0")
+      page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
       save_account_evidence("375-#{theme}")
       page.execute_script("document.querySelector('.n-account-columns').scrollIntoView({block: 'start'})")
       save_account_evidence("375-#{theme}-content")
@@ -229,7 +231,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     resize_account_viewport(1440, 1000)
     verify_account_keyboard_actions
     record_account_contrast("1440-light")
-    page.execute_script("document.querySelector('main').scrollTop = 0")
+    page.execute_script("document.querySelector('[data-application-scroll]').scrollTo({top:0,behavior:'instant'})")
     save_account_evidence("1440-light")
     page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "prefers-reduced-motion", value: "reduce" } ])
     assert page.evaluate_script("matchMedia('(prefers-reduced-motion: reduce)').matches")
@@ -251,7 +253,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     assert_no_enqueued_jobs only: [ AddDocumentJob, ChatResponseJob ]
     save_account_evidence("source-validation-error")
 
-    find("#dropdownUser").click
+    orbite_open_user_menu
     click_on "Sign out"
     fill_in "email", with: @member.email
     fill_in "password", with: AccountExperienceFixtures::PASSWORD
@@ -358,10 +360,9 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     end
 
     def set_account_theme(theme)
-      dark = page.evaluate_script("document.documentElement.classList.contains('dark')")
-      find("#theme-toggle").click if dark != (theme == "dark")
+      orbite_theme(theme == "dark")
       if page.evaluate_script("localStorage.getItem('color-theme')").nil?
-        2.times { find("#theme-toggle").click }
+        orbite_with_utilities { 2.times { find("#theme-toggle").click } }
       end
       assert_equal theme, page.evaluate_script("localStorage.getItem('color-theme')")
     end
@@ -414,6 +415,7 @@ class AccountExperienceSystemTest < ApplicationSystemTestCase
     end
 
     def record_account_contrast(name)
+      assert_no_selector "[data-header-details], .n-header-details", visible: :all
       tab_to_account_action(URI(find(".n-workspace-header .n-workspace-primary", match: :first)[:href]).request_uri)
       rows = page.evaluate_script(<<~JS)
         (() => {

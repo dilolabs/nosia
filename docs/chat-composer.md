@@ -15,13 +15,19 @@ New chats (dashboard and `/chats/new`) and saved conversations share one compose
 
 `app/assets/stylesheets/nosia/composer.css` scopes neutral/green light/dark tokens and controls under `.n-chat-composer`; this is not a global rebrand. Its import in `app/assets/tailwind/application.css` is deliberately **unlayered**: layered utilities cannot override the engine's unlayered editor chrome through specificity alone.
 
-Below 640px the account context wraps above the remaining actions. Tools opens 8px above its trigger, left-aligned unless clamping to the composer action row/viewport gutters is necessary. Presentation coordinates refresh on opening, formatting changes, and window resize; long tool labels wrap inside a scrollable panel. Composer disclosure summaries override the global open-details margin so their triggers stay stationary. Preserve visible keyboard focus, theme contrast, readable help, 40px Send/Stop targets, long-label bounds, and reduced-motion rules when changing this component.
+Below 640px the account context wraps above the remaining actions. Tools opens 8px above its trigger, left-aligned unless clamping to the composer action row/viewport gutters is necessary. Presentation coordinates refresh on opening, formatting changes, and window resize; long tool labels wrap inside a scrollable panel. Composer disclosure summaries override the global open-details margin so their triggers stay stationary. Preserve visible keyboard focus, theme contrast, readable help, at least 44px Send/Stop targets under Orbite (legacy 40px outside Orbite), long-label bounds, and reduced-motion rules when changing this component.
 
 Regression-test synchronization matters: native `details` toggle events are queued, so wait for Formatting to open before simulating submission. After Stop, wait for enabled Send, no Stop, and `generation-busy=false` before inspecting Tools. For background unlocks, assert enabled DOM attributes rather than rejecting the word `disabled` (which also matches legitimate `aria-disabled=false`). These are presentation-test adjustments, not changes to the approved account/source behavior.
 
 ## Verification commands
 
-Use an isolated test database and run database/browser processes sequentially. The following dummy key is for tests only; do not start AI, MCP, crawl, or indexing workers. Tailwind uses the Ruby-native build, without installing Node or changing package/driver configuration.
+The historical commands below used an isolated test database and sequential database/browser processes. The dummy key is for tests only; do not start AI, MCP, crawl, or indexing workers. Tailwind uses the Ruby-native build, without installing Node or changing package/driver configuration.
+
+**Historical commands, not current execution instructions. Do not run the unrestricted suite shown here.**
+The broader **Task D** of the
+[navigation-refinement plan](superpowers/plans/2026-10-31-orbite-navigation-refinements.md)
+has later approved [2026-11-02 amendments](orbite-workspace.md#verification-boundaries).
+This documentation reconciliation authorizes no test, build, lint, or scanner reruns.
 
 ```sh
 AI_API_KEY=nosia-test-key PARALLEL_WORKERS=1 RAILS_ENV=test bin/rails tailwindcss:build
@@ -53,7 +59,7 @@ bin/brakeman --no-pager
 bundle exec brakeman --no-pager
 ```
 
-Pass browser files directly to `test`; `test:system TEST=...` does not reliably select these files in this environment. Compare Brakeman warning **fingerprints** against the feature base (`d1c1206`), not merely warning totals; do not upgrade or suppress warnings to pass a presentation change.
+Historical runner note: browser files were passed directly to `test`; `test:system TEST=...` did not reliably select them in this environment. The `d1c1206` Brakeman fingerprint comparison below is historical, not proof for current source; do not upgrade or suppress warnings to pass a presentation change.
 
 ## Verified results — 2026-10-19
 
@@ -67,3 +73,37 @@ Pass browser files directly to `test`; `test:system TEST=...` does not reliably 
 Scripted geometry, contrast, keyboard, and screenshot checks are not a complete human accessibility audit. The native table-context strip can extend beyond its content box at 375px; the command smoke does not establish viewport bounds for every native floating widget. No native OS-clipboard or live-provider behavior is claimed. Temporary verification scripts, logs, and screenshots belong outside tracked files.
 
 See the approved [design](superpowers/specs/2026-10-19-chat-composer-ui-design.md), historical [implementation plan](superpowers/plans/2026-10-19-chat-composer-ui.md), and [account-selection documentation](chat-account-selection.md) for the preserved behavioral contracts.
+
+## Dedicated chat-page shell
+
+New and saved chat pages use the [Orbite workspace](orbite-workspace.md), with a
+native composer in a reserved bottom sibling of the reading surface—not an
+overlay. Bounded editor scrolling remains local. The mobile navigation launcher
+is outside generation-inert editing tools, so navigation remains available while
+generating or when chat context has scrolled away. Dashboard composition remains
+in flow. Signed-in Orbite CSS tokens are scoped under `.n-orbite-shell`; public
+theme-preference behavior is unchanged.
+
+The approved [navigation refinements](superpowers/specs/2026-10-31-orbite-navigation-refinements-design.md)
+keep useful context and complete live Usage visible below the heading inside the
+reading surface, above the reserved dock. Header Details/Usage accordions are
+removed; Sources, Reasoning, Response details, and native Formatting remain
+independent disclosures. The direct user popover is nonmodal and outside editor
+ownership; it opens above the invoking rail/mobile user button, without an
+intermediate History step on the rail.
+
+Later approved amendments make Usage a compact labelled list with one passive
+input/output composition bar and move saved-only **New chat / Nouveau chat** to
+History's top row, left of unchanged Close. Home, History, and New chat controls
+are absent from the chat header. See the [current presentation and limits](orbite-workspace.md#conversation-and-composer);
+these changes do not add composer or generation behavior.
+
+The shared native `chat-dialog` owner coordinates Tools and navigation focus.
+Existing Add/Remove server operations, uploads, submission and separate Stop
+form ownership, and explicit background-renderable locals remain unchanged.
+`messages_form` retains its uncached account-scoped authoritative busy/stopped
+read. Redesigned Orbite Send/Stop targets are at least **44px**; earlier 40px
+measurements above are historical. The bounded
+[one-shot same-page native text handoff](orbite-workspace.md#same-page-native-draft-handoff)
+does not replace source, account-navigation, or Stop safeguards. The workspace
+guide records verification limits; dated results above remain historical.

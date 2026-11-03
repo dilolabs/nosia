@@ -1,0 +1,108 @@
+import { Controller } from "@hotwired/stimulus"
+
+export default class extends Controller {
+  static targets = ["panel", "trigger"]
+  static values = { history: Boolean }
+  static outlets = ["chat-dialog"]
+
+  connect() {
+    this.caching = false
+    this.expanded = this.element.dataset.orbiteHistoryExpanded !== "false"
+    this.wide = matchMedia("(min-width: 1280px)")
+    this.mobile = matchMedia("(max-width: 767px)")
+    this.changed = () => this.layout()
+    this.wide.addEventListener("change", this.changed)
+    this.mobile.addEventListener("change", this.changed)
+    this.layout()
+  }
+
+  disconnect() {
+    this.wide.removeEventListener("change", this.changed)
+    this.mobile.removeEventListener("change", this.changed)
+  }
+
+  get desiredMode() {
+    return this.historyValue && this.wide.matches ? "inline" : this.mobile.matches ? "mobile" : "modal"
+  }
+
+  layout() {
+    if (!this.wide || !this.mobile || !this.hasChatDialogOutlet || !this.hasPanelTarget) return
+
+    const mode = this.desiredMode
+    if (mode !== this.mode) {
+      this.chatDialogOutlet.reconfigure(this.panelTarget, () => {
+        this.panelTarget.dataset.inline = String(mode === "inline")
+        this.panelTarget.open = mode === "inline" && this.expanded
+      }, this.fallback())
+      this.mode = mode
+    } else if (mode === "inline" && !this.panelTarget.matches(":modal")) this.panelTarget.open = this.expanded
+    this.reflect()
+    this.caching = false
+  }
+
+  chatDialogOutletConnected() {
+    this.layout()
+  }
+
+  triggerTargetConnected() {
+    if (this.mode) this.reflect()
+  }
+
+  toggle(event) {
+    event.preventDefault()
+    this.caching = false
+    if (this.mode === "inline") {
+      this.expanded = !this.panelTarget.open
+      this.chatDialogOutlet.reconfigure(this.panelTarget, () => { this.panelTarget.open = this.expanded }, this.fallback())
+    } else this.chatDialogOutlet.openDialog(this.panelTarget, event.currentTarget)
+    this.reflect()
+  }
+
+  close(event) {
+    event.preventDefault()
+    this.chatDialogOutlet.closeDialog(this.panelTarget, this.fallback())
+  }
+
+  closed() {
+    if (this.caching || this.panelTarget.open) return
+
+    if (this.mode === "inline") this.expanded = false
+    this.reflect()
+    this.revealFocusedRailTrigger()
+  }
+
+  revealFocusedRailTrigger() {
+    const trigger = this.triggerTargets.find(element => element === document.activeElement)
+    const rail = trigger?.closest(".n-orbite-rail")
+    if (!rail) return
+
+    const button = trigger.getBoundingClientRect(), box = rail.getBoundingClientRect()
+    const top = box.top + rail.clientTop, bottom = top + rail.clientHeight
+    if (button.top < top) rail.scrollTop += button.top - top
+    else if (button.bottom > bottom) rail.scrollTop += button.bottom - bottom
+  }
+
+  fallback() {
+    const candidates = [...this.triggerTargets, this.element.querySelector("#workspace-utilities-trigger"), this.element]
+    return candidates.find(element => this.chatDialogOutlet.focusable(element))
+  }
+
+  reflect() {
+    this.element.dataset.orbiteNavigationMode = this.mode
+    this.element.dataset.orbiteHistoryExpanded = String(this.expanded)
+    this.triggerTargets.forEach(button => {
+      button.setAttribute("aria-expanded", String(this.panelTarget.open))
+      if (this.mode === "inline") button.removeAttribute("aria-haspopup")
+      else button.setAttribute("aria-haspopup", "dialog")
+    })
+  }
+
+  preserve(event) {
+    if (event.target === this.panelTarget && ["open", "data-inline"].includes(event.detail.attributeName)) event.preventDefault()
+  }
+
+  beforeCache() {
+    this.caching = true
+    this.element.dataset.orbiteHistoryExpanded = String(this.expanded)
+  }
+}
