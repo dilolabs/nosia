@@ -41,9 +41,17 @@ class Website::CrawlableTest < ActiveSupport::TestCase
   test "crawl_url! still crawls public hosts" do
     stub_url_resolver([ "93.184.216.34" ])
     stub_connection(status: 200, body: "<h1>Title</h1>")
+    vector = Array.new(Chunk.columns_hash.fetch("embedding").limit, 0.1)
+    result = Struct.new(:vectors, :tokens).new(vector, RubyLLM::Tokens.new(input: 0))
+    original_embed = RubyLLM.method(:embed)
+    RubyLLM.define_singleton_method(:embed) { |*args, **kwargs| result }
 
     @website.crawl_url!
 
     assert @website.reload.indexed?
+    assert_equal 1, @website.chunks.count
+    assert_equal vector, @website.chunks.first.embedding
+  ensure
+    RubyLLM.define_singleton_method(:embed, original_embed) if original_embed
   end
 end

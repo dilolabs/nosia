@@ -827,8 +827,8 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       get chat_url(chat), headers: { "Accept-Language" => "fr" }
 
       assert_response :success
-      assert_select "summary span", text: count == 1 ? "1 source" : "2 sources"
-      assert_select "summary span", text: "Afficher le raisonnement"
+      assert_select "summary##{dom_id(message, :sources_summary)}", text: count == 1 ? "1 source" : "2 sources"
+      assert_select "summary##{dom_id(message, :reasoning_summary)}", text: "Afficher le raisonnement"
       assert_includes response.body, "Original English answer"
       assert_includes response.body, "Original English reasoning"
       assert_select "[data-created-at=?]", message.created_at.iso8601
@@ -942,8 +942,8 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       end
       fragment = Nokogiri::HTML.fragment(html)
 
-      assert_select fragment, ".thinking-phase-text", text: /#{title}/
-      assert_select fragment, ".thinking-subtext", text: subtitle
+      assert_select fragment, ".n-chat-phase-title", text: title
+      assert_select fragment, ".n-chat-phase .n-workspace-help", text: subtitle
       refute_includes html, "English worker status"
     end
   end

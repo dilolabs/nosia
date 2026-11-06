@@ -4,6 +4,12 @@
       <div class="n-chat-heading min-w-0">
         <h1 class="n-chat-title"><%= chat_workspace_title(chat, titles: titles) %></h1>
       </div>
+      <button id="chat-delete-trigger" type="button" class="n-orbite-control n-chat-delete-trigger"
+              aria-label="<%= t('nosia.nav.delete_chat') %>" title="<%= t('nosia.nav.delete_chat') %>"
+              aria-controls="chat-delete-dialog" aria-haspopup="dialog"
+              data-action="chat-dialog#open" data-chat-dialog-id-param="chat-delete-dialog">
+        <%= inline_svg "svg/trash-bin.svg", aria_hidden: true, class: "h-5 w-5" %>
+      </button>
     </div>
     <section id="chat-usage-details" class="n-chat-usage" aria-labelledby="chat-usage-summary">
       <h2 id="chat-usage-summary" class="n-chat-usage-title"><%= t("nosia.chat_workspace.usage_details") %></h2>

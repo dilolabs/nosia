@@ -3,10 +3,10 @@ source "https://rubygems.org"
 # Nosia dependency
 gem "dotenv", groups: [ :development, :test ] # A Ruby gem to load environment variables from `.env` [https://github.com/bkeepers/dotenv]
 
-# Use main development branch of Rails
-gem "rails", "~> 8.0.0"
+# Use the latest patched Rails 8.1 release.
+gem "rails", "~> 8.1.0", ">= 8.1.4.1"
 gem "rails-i18n", "~> 8.0"
-# Rails 8.0 passes options removed in JSON 3.0.
+# RubyLLM requires JSON 2.x.
 gem "json", "< 3"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"

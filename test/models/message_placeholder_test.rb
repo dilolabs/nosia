@@ -29,6 +29,7 @@ class MessagePlaceholderTest < ActiveSupport::TestCase
 
     html = append.inner_html
     assert_includes html, "Generating", "blank bubble should show the Generating placeholder"
-    assert_includes html, "animate-spin", "placeholder should include the spinner"
+    assert_equal 1, append.css("template .n-chat-phase[data-phase=generating] .n-chat-phase-indicator[aria-hidden=true]").size,
+      "placeholder should include the generation phase indicator"
   end
 end
