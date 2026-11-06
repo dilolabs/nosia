@@ -55,8 +55,13 @@ class HeaderNavigationTest < ActionDispatch::IntegrationTest
       assert_select "dialog#dialog", count: 0
       assert_select "el-command-palette", count: 0
 
-      assert_select "body > nav", count: 1 do
-        assert_select "a[href='#{root_path}'] img", count: 1
+      shell = signed_in ? "#orbite-shell" : "#application-scroll"
+      navigation = signed_in ? "nav.n-orbite-rail" : "nav[data-application-header]"
+
+      assert_select shell, count: 1 do
+        assert_select navigation, count: 1 do
+          assert_select "a[href='#{root_path}'] img", count: 1
+        end
         assert_select "form[action='#{language_preference_path}'] select#language_preference_locale", count: 1
         assert_select "#theme-toggle", count: 1
         assert_select "#dropdownUser", count: signed_in ? 1 : 0

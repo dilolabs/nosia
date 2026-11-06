@@ -34,7 +34,7 @@ Nosia is a self-hosted Retrieval Augmented Generation (RAG) platform built on Ra
 
 ### Technology Stack
 
-- **Backend**: Ruby on Rails 8.0
+- **Backend**: Ruby on Rails 8.1
 - **Database**: PostgreSQL 16 with pgvector extension
 - **Vector Search**: pgvector with cosine similarity
 - **Background Jobs**: Solid Queue (database-backed)

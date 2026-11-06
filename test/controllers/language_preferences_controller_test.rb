@@ -75,8 +75,10 @@ class LanguagePreferencesControllerTest < ActionDispatch::IntegrationTest
     end
     assert_select "form form", count: 0
     assert_select "body.h-dvh.flex.flex-col"
-    assert_select "nav.min-h-16.shrink-0.flex-wrap.gap-2"
-    assert_select "body > div.min-h-0.flex-1"
+    assert_select "#application-scroll[data-application-scroll]" do
+      assert_select "nav[data-application-header].flex-wrap"
+      assert_select "main.n-application-page"
+    end
   end
 
   test "selector preserves the current query and account context" do

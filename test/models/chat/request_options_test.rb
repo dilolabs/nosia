@@ -26,14 +26,20 @@ class Chat::RequestOptionsTest < ActiveSupport::TestCase
       [ "Note: the following attachments could not be retrieved and were excluded: Missing PDF.", { append: true } ] ], calls[:instructions]
   end
 
-  test "completion replaces augmented instructions and keeps environment option defaults" do
-    chunk = Struct.new(:id, :title, :context, :source).new(1, "Title", "Context", "Source")
-    calls = capture_completion(chunks: [ chunk ])
-    @chat.complete_with_nosia("question") { |_| }
+  [ false, true ].each do |augmented_context|
+    test "completion replaces instructions with augmented context #{augmented_context} and keeps environment option defaults" do
+      previous = ENV["AUGMENTED_CONTEXT"]
+      ENV["AUGMENTED_CONTEXT"] = augmented_context.to_s
+      chunk = Struct.new(:id, :title, :context, :augmented_context, :source).new(1, "Title", "Context", "Augmented context", "Source")
+      calls = capture_completion(chunks: [ chunk ])
+      @chat.complete_with_nosia("question") { |_| }
 
-    assert_equal [ { max_tokens: ENV["LLM_MAX_TOKENS"].to_i, top_p: ENV["LLM_TOP_P"].to_f, top_k: ENV["LLM_TOP_K"].to_f } ], calls[:options]
-    documents = [ { doc_id: 1, title: "Title", text: "Context", source: "Source" } ]
-    assert_equal [ [ "Baseline #{documents.to_json}", {} ] ], calls[:instructions]
+      assert_equal [ { max_tokens: ENV["LLM_MAX_TOKENS"].to_i, top_p: ENV["LLM_TOP_P"].to_f, top_k: ENV["LLM_TOP_K"].to_f } ], calls[:options]
+      documents = [ { doc_id: 1, title: "Title", text: augmented_context ? "Augmented context" : "Context", source: "Source" } ]
+      assert_equal [ [ "Baseline #{documents.to_json}", {} ] ], calls[:instructions]
+    ensure
+      ENV["AUGMENTED_CONTEXT"] = previous
+    end
   end
 
   test "completion uses the real 2.0 model switch for an unregistered OpenAI-compatible model" do

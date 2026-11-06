@@ -274,11 +274,11 @@ class LocalizedBroadcastsTest < ActiveSupport::TestCase
       streams = capture_languages([ chat, :token_totals ]) { usage.save! }
     end
 
-    { en: "Tokens", fr: "Jetons" }.each do |locale, label|
+    { en: "tokens", fr: "jetons" }.each do |locale, label|
       assert_equal 1, streams[locale].size
       assert_equal "replace", streams[locale].first["action"]
       assert_equal dom_id(chat, :token_totals), streams[locale].first["target"]
-      assert_includes streams[locale].first.text, label
+      assert_includes streams[locale].first.at_css(".n-chat-token-total").text, label
     end
     assert_includes streams[:en].first.text, "1,234"
     assert_match(/1[\s\u00a0\u202f]234/, streams[:fr].first.text)
