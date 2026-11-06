@@ -74,6 +74,7 @@ Production deployment strategies, best practices, and operational guidance.
 
 ### Development
 - [Architecture](ARCHITECTURE.md) - Understand the codebase structure
+- [Rails 8.1 upgrade](upgrades/rails-8-1.md) - Framework defaults, deployment scope, and verification.
 - [Account experience](account-experience.md) — overview hub, scoped tools, private history/tokens, and owner-only administration.
 - [Accounts navigation and Settings](accounts-settings-navigation.md) — workspace breadcrumbs/actions and the four-card Settings hub.
 - [MCP workspace](mcp-workspace.md) — account context, catalog, safe configuration, connection feedback and capability browsing.
@@ -113,7 +114,7 @@ Documents are split into chunks, embedded using specialized models, and stored i
 
 ## Technology Stack
 
-- **Backend:** Ruby on Rails 8.0
+- **Backend:** Ruby on Rails 8.1
 - **Database:** PostgreSQL 16 with pgvector extension
 - **Vector Search:** pgvector with cosine similarity
 - **Background Jobs:** Solid Queue (database-backed)
