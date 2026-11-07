@@ -1,0 +1,46 @@
+{
+  "$schema": "https://flisk.sh/schema.service.json",
+  "schemaVersion": 1,
+  "appName": "reverse-proxy",
+  "appType": "bring-your-own",
+  "stack": "nosia",
+  "port": 4001,
+  "image": "caddy:latest",
+  "exposeViaProxy": false,
+  "dependsOn": [
+    {
+      "name": "web",
+      "condition": "service_started"
+    }
+  ],
+  "env": {
+    "NOSIA_URL": "${NOSIA_URL}"
+  },
+  "restart": "unless-stopped",
+  "extraPorts": [
+    {
+      "port": 80,
+      "bind": "0.0.0.0"
+    },
+    {
+      "port": 443,
+      "bind": "0.0.0.0"
+    }
+  ],
+  "volumes": [
+    {
+      "source": "../../../Caddyfile",
+      "target": "/etc/caddy/Caddyfile"
+    },
+    {
+      "source": "caddy-config",
+      "target": "/config",
+      "name": "nosia_caddy-config"
+    },
+    {
+      "source": "caddy-data",
+      "target": "/data",
+      "name": "nosia_caddy-data"
+    }
+  ]
+}

@@ -139,6 +139,8 @@ docker compose up
 docker compose up -d
 ```
 
+Already using [Flisk](https://flisk.sh)? Each container also has a `service.json` under `services/nosia/`, so `flisk up nosia` starts the same stack with the same volumes: see [docs/FLISK.md](docs/FLISK.md) (optional; `docker compose` stays the main way).
+
 #### Accessing Nosia
 
 Once started, access Nosia at:
