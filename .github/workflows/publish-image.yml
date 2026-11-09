@@ -129,7 +129,7 @@ jobs:
           if json.load(open('native-capabilities.json')) != expected:
               raise SystemExit('Native entrypoint contract does not match the standard entrypoint')
           PY
-      - uses: docker/login-action@v4.7.0
+      - uses: docker/login-action@v4.8.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
