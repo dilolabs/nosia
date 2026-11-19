@@ -16,7 +16,7 @@ class McpServersController < ApplicationController
 
   # @return [void] Renders the authorized server and its capabilities
   def show
-    @capabilities = @mcp_server.capability_snapshot
+    @capabilities = @mcp_server.capability_snapshot(discover: flash[:mcp_configuration_saved] != @mcp_server.id)
     @tools = @capabilities.fetch(:tools).items
     @prompts = @capabilities.fetch(:prompts).items
     @resources = @capabilities.fetch(:resources).items
@@ -32,7 +32,7 @@ class McpServersController < ApplicationController
     @mcp_server = @account.mcp_servers.build(transport_type: mcp_server_params[:transport_type])
 
     if @mcp_server.save_workspace(mcp_server_params, values: configuration_values, removals: configuration_removals)
-      redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.created")
+      redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.created"), flash: { mcp_configuration_saved: @mcp_server.id }
     else
       render :new, status: :unprocessable_entity
     end
@@ -45,7 +45,7 @@ class McpServersController < ApplicationController
   # @return [void] Updates an account server or returns input/validation errors
   def update
     if @mcp_server.save_workspace(mcp_server_params, values: configuration_values, removals: configuration_removals)
-      redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.updated")
+      redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.updated"), flash: { mcp_configuration_saved: @mcp_server.id }
     else
       render :edit, status: :unprocessable_entity
     end

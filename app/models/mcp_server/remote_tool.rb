@@ -1,13 +1,16 @@
 # A native tool registered by value, retaining its client until the turn ends.
 class McpServer::RemoteTool < RubyLLM::Tool
-  delegate :name, :server_name, :description, :parameters_schema, to: :@tool
+  delegate :server_name, :description, :parameters_schema, to: :@tool
+  attr_reader :name
 
   # @param tool [RubyLLM::MCP::Tool] The advertised native tool
   # @param client [McpServer::Client] The connection that advertised it
-  def initialize(tool, client)
+  # @param name [String] The sanitized provider-facing name
+  def initialize(tool, client, name:)
     super()
     @tool = tool
     @client = client
+    @name = name
   end
 
   # @param arguments [Hash] Parameters passed by the model

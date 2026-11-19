@@ -1,4 +1,5 @@
 require "application_system_test_case"
+require_relative "../support/native_mcp_wire"
 require_relative "../support/orbite_browser_checks"
 require_relative "../support/mcp_workspace_fixtures"
 require_relative "../support/mcp_browser_checks"
@@ -238,6 +239,26 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     end
     assert_equal before, [ Chat.count, Prompt.count ]
     assert_equal @first, @user.reload.first_account
+  end
+
+  test "saving a ready connector does not probe on the browser redirect" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, status: "ready")
+    path = account_mcp_server_path(@second, @second_server)
+    wire = NativeMcpWire.new
+
+    wire.install(self) do
+      visit edit_account_mcp_server_path(@second, @second_server)
+      fill_in "mcp_server_name", with: "Ready edited"
+      click_button "Save"
+      assert_current_path path
+      assert_selector "[data-mcp-screen=detail] h1", text: "Ready edited"
+      assert_empty wire.methods_requested, "Following the Save redirect must not discover capabilities"
+      assert_selector "[data-tab-key=tools]", text: /—/
+
+      visit path
+      assert_selector "[data-mcp-capability=tools] h3", text: "lookup", visible: :all
+      assert_equal %w[server/discover tools/list prompts/list resources/list], wire.methods_requested
+    end
   end
 
   test "catalog server errors retain public fields while snapshot and history clear secrets" do

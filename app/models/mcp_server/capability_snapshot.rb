@@ -5,9 +5,11 @@ module McpServer::CapabilitySnapshot
   # Holds a loading state (:not_loaded, :loaded, :unavailable) and listed items.
   Result = Data.define(:state, :items)
 
-  # Missing engine metadata does not block remote or not-ready outcomes.
+  # @param discover [Boolean] Skip discovery when rendering a Save confirmation
   # @return [Hash<Symbol, Result>] Request-local discovery; never executes content
-  def capability_snapshot
+  def capability_snapshot(discover: true)
+    return %i[tools prompts resources].index_with { Result.new(:not_loaded, []) } unless discover
+
     signature = [ ready_for_tools?, status, transport_type, metadata&.[]("engine"), endpoint, connection_config, auth_config ]
     if @capability_snapshot_signature != signature
       @capability_snapshot_signature = signature

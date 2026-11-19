@@ -17,6 +17,8 @@ class NativeMcpWire
 
   attr_reader :requests
   attr_accessor :tool_result, :legacy, :stream, :fail_method, :tools, :prompts, :resources, :ping
+  attr_accessor :unavailable_method, :timeout_method, :fail_reinitialize
+  attr_accessor :resume_tool_error
 
   def initialize
     @requests = []
@@ -45,6 +47,8 @@ class NativeMcpWire
     rpc = env.body ? JSON.parse(env.body) : {}
     requests << { verb: env.method, scheme: env.url.scheme, path: env.url.path, headers: env.request_headers.dup, rpc:, scope: McpOutbound.current! }
     return [ 204, {}, "" ] if legacy && env.method == :delete && env.request_headers["Mcp-Session-Id"] == LEGACY_SESSION
+    return resumed_tool_error if resume_tool_error && env.method == :get && env.request_headers["Last-Event-ID"] == "fixture-event"
+
     raise Minitest::Assertion, "Unexpected MCP HTTP method #{env.method}" unless env.method == :post
 
     if rpc["id"] == "fixture-peer-ping" && !rpc.key?("method")
@@ -53,7 +57,20 @@ class NativeMcpWire
     end
 
     method = rpc.fetch("method")
-    if method == fail_method
+    raise Faraday::TimeoutError, PRIVATE_MARKER if method == timeout_method
+    return [ 503, { "Content-Type" => "text/plain" }, PRIVATE_MARKER ] if method == unavailable_method
+
+    if method == "tools/call" && fail_reinitialize
+      @session_expired = true
+      return [ 404, {}, "" ]
+    end
+
+    if method == "tools/call" && resume_tool_error
+      @resumed_id = rpc.fetch("id")
+      return [ 200, { "Content-Type" => "text/event-stream" }, "id: fixture-event\r\nretry: 0\r\n\r\n" ]
+    end
+
+    if method == fail_method || (method == "initialize" && @session_expired)
       outcome = rpc_error(-32_603, PRIVATE_MARKER)
     else
       outcome = rpc_outcome(method)
@@ -73,6 +90,11 @@ class NativeMcpWire
   end
 
   private
+    def resumed_tool_error
+      outcome = { "jsonrpc" => "2.0", "id" => @resumed_id }.merge(rpc_error(-32_603, PRIVATE_MARKER))
+      [ 200, { "Content-Type" => "text/event-stream" }, event_frame(JSON.generate(outcome)) ]
+    end
+
     def event_frame(body)
       "event: message\r\ndata: #{body}\r\n\r\n"
     end
@@ -106,14 +128,18 @@ class NativeMcpWire
 
       def call(env)
         super
+        scope = McpOutbound.current!
+        attempt = scope.capture(env)
         status, headers, body = @wire.reply(env)
-        if env.request.stream_response? && !body.empty?
-          body.bytes.each_slice(11).with_index do |bytes, index|
-            env.request.on_data.call(bytes.pack("C*"), index * 11 + bytes.size)
+        if env.stream_response?
+          save_response(env, status, nil, headers, nil, finished: false)
+          env.stream_response do |&on_data|
+            body.bytes.each_slice(11) { |bytes| on_data.call(bytes.pack("C*")) }
           end
           body = ""
         end
         save_response(env, status, body, headers)
+        scope.observe(attempt, env.response)
         @app.call(env)
       end
     end

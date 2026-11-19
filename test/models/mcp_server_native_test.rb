@@ -114,6 +114,62 @@ class McpServerNativeTest < ActiveSupport::TestCase
     assert_equal %w[server/discover tools/list server/discover tools/list tools/call server/discover tools/list], @wire.methods_requested
   end
 
+  test "chat uses safe provider names for dotted and long MCP names without changing the wire names" do
+    long_stem = "a" * 72
+    names = [ "search.issues", "search-issues", "search_issues", "#{long_stem}-first", "#{long_stem}-second" ]
+    @wire.tools = names.map { |name| NativeMcpWire::TOOL.merge("name" => name) }
+    peer = @server.dup
+    peer.name = "Second connector at the same endpoint"
+    peer.save!
+    chat = chats(:picker_second_chat)
+    chat.add_mcp_server(@server)
+    chat.add_mcp_server(peer)
+    chat.with_model(chat.model_id, provider: :openai, assume_model_exists: true)
+
+    @wire.install(self) do
+      chat.with_mcp_tools do
+        registrations = chat.to_llm.tools
+        assert_equal names.size * 2, registrations.size
+        registrations.each do |key, tool|
+          assert_match(/\A[A-Za-z0-9_-]{1,64}\z/, key.to_s)
+          assert_includes names, tool.server_name
+        end
+        [ @server, peer ].each do |server|
+          prefix = "mcp_#{server.id}_"
+          assert_equal names.size, registrations.keys.count { |key| key.to_s.start_with?(prefix) }
+          assert_equal "search_issues", registrations.fetch(:"#{prefix}search_issues").server_name
+          tool = registrations.values.find { |entry| entry.name.start_with?(prefix) && entry.server_name == "search.issues" }
+          assert_equal "found", tool.call(query: "opaque")
+          assert_equal "search.issues", @wire.last_tool_call.fetch("name")
+        end
+      end
+
+      assert_equal({ success: true, result: "found" }, @server.execute_tool("#{long_stem}-first"))
+      assert_equal "#{long_stem}-first", @wire.last_tool_call.fetch("name")
+    end
+  end
+
+  test "a safe raw name matching a synthesized name keeps its spelling regardless of catalog order" do
+    raw_name = "search.issues"
+    definition = NativeMcpWire::TOOL.merge("name" => raw_name)
+    @wire.tools = [ definition ]
+    prefix = "mcp_#{@server.id}_"
+    @wire.install(self) do
+      original = provider_tool_names(@server).fetch(raw_name)
+      assert_match(/\A[A-Za-z0-9_-]{1,64}\z/, original)
+      raw_safe_name = original.delete_prefix(prefix)
+      @wire.tools << NativeMcpWire::TOOL.merge("name" => raw_safe_name)
+
+      colliding = provider_tool_names(@server)
+      assert_equal original, colliding.fetch(raw_safe_name)
+      refute_equal original, colliding.fetch(raw_name)
+      assert_match(/\A[A-Za-z0-9_-]{1,64}\z/, colliding.fetch(raw_name))
+
+      @wire.tools.reverse!
+      assert_equal colliding, provider_tool_names(@server)
+    end
+  end
+
   test "static public HTTP uses its explicit URL override and custom headers without global config changes" do
     adapter = RubyLLM.config.faraday_adapter
     @server.update!(url: "http://#{NativeMcpWire::HOST}/override", headers: { "X-Custom" => "kept" })
@@ -241,11 +297,44 @@ class McpServerNativeTest < ActiveSupport::TestCase
 
   test "a transport error is sanitized and closes an established session" do
     @wire.legacy = true
-    @wire.fail_method = "tools/call"
+    @wire.unavailable_method = "tools/call"
     @wire.install(self) do
       assert_equal({ error: "Could not connect to the MCP server" }, @server.execute_tool("lookup"))
     end
     assert_equal [ "tools/call", :delete ], @wire.methods_requested.last(2)
+  end
+
+  test "a timed out tool request reports a connection failure" do
+    @wire.timeout_method = "tools/call"
+    @wire.install(self) do
+      assert_equal({ error: "Could not connect to the MCP server" }, @server.execute_tool("lookup"))
+    end
+    assert_equal "tools/call", @wire.methods_requested.last
+  end
+
+  test "a JSON-RPC listing error is not reported as a tool rejection" do
+    @wire.fail_method = "tools/list"
+    @wire.install(self) do
+      assert_equal({ error: "Could not connect to the MCP server" }, @server.execute_tool("lookup"))
+    end
+    assert_equal %w[server/discover tools/list], @wire.methods_requested
+  end
+
+  test "a JSON-RPC reinitialization error after a session expires is not itself a tool rejection" do
+    @wire.legacy = @wire.fail_reinitialize = true
+    @wire.install(self) do
+      assert_equal({ error: "Could not connect to the MCP server" }, @server.execute_tool("lookup"))
+    end
+    assert_equal [ "tools/call", "initialize", :delete ], @wire.methods_requested.last(3)
+  end
+
+  test "a JSON-RPC tool rejection on a resumed legacy stream keeps the nested error" do
+    @wire.legacy = @wire.resume_tool_error = true
+    @wire.install(self) do
+      assert_equal({ success: true, result: { error: "Tool execution error: The MCP server rejected the tool call" } },
+        @server.execute_tool("lookup"))
+    end
+    assert_equal [ "tools/call", :get, :delete ], @wire.methods_requested.last(3)
   end
 
   test "a new turn binds prefixed tools in its account and closes after the last use even on failure" do
@@ -307,4 +396,9 @@ class McpServerNativeTest < ActiveSupport::TestCase
     assert_equal [ "tools/list", :delete ], @wire.methods_requested.last(2)
     refute_includes @wire.methods_requested, "tools/call"
   end
+
+  private
+    def provider_tool_names(server)
+      server.with_client { |client| client.tools.to_h { |tool| [ tool.server_name, tool.name ] } }
+    end
 end

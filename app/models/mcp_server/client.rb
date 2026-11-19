@@ -7,10 +7,10 @@ class McpServer::Client
   # @param server [McpServer] An eligible remote connector
   # @raise [Error] Invalid connector settings
   def initialize(server)
-    @scope = McpOutbound::Scope.new(https_only: false)
+    @scope = RequestScope.new(https_only: false)
     @lock = Mutex.new
-    prefix = "mcp_#{server.id}"
-    options = { name: prefix, prefix:, input_requests: false }
+    @prefix = "mcp_#{server.id}"
+    options = { name: @prefix, prefix: @prefix, input_requests: false }
     @native = within do
       if server.transport_type == "stdio"
         RubyLLM.mcp(**options, command: stdio_argv(server), env: server.env || {})
@@ -46,8 +46,10 @@ class McpServer::Client
   # @return [Array<McpServer::RemoteTool>] Tools visible to the model
   def tools
     within do
-      @native.tools.filter_map do |tool|
-        McpServer::RemoteTool.new(tool, self) if tool.visibility.include?(:model)
+      native_tools = model_tools
+      names = McpServer::ToolNames.new(@prefix, native_tools.map(&:server_name))
+      native_tools.map do |tool|
+        McpServer::RemoteTool.new(tool, self, name: names.fetch(tool.server_name))
       end
     end
   end
@@ -67,10 +69,12 @@ class McpServer::Client
   # @param arguments [Hash] JSON arguments from a workspace execution
   # @return [String, Array, Hash, Symbol] Renderable result or :missing_tool
   def call(name, arguments)
-    if tools.any? { |tool| tool.server_name == name }
-      within { output(@native.call(name, **arguments)) }
-    else
-      :missing_tool
+    within do
+      if model_tools.any? { |tool| tool.server_name == name }
+        @scope.while_calling_tool { call_listed_tool(name, arguments) }
+      else
+        :missing_tool
+      end
     end
   end
 
@@ -94,7 +98,7 @@ class McpServer::Client
   def tool_error(text)
     safe_text = (@headers || {}).values.grep(String).flat_map { |value| [ value, value.delete_prefix("Bearer ") ] }
       .reject(&:blank?).uniq.sort_by { |value| -value.length }.reduce(text.to_s) { |message, value| message.gsub(value, "[FILTERED]") }
-    { error: "Tool execution error: #{safe_text}" }
+    execution_error(safe_text)
   end
 
   # Closes the native session within its scope, without masking earlier errors.
@@ -111,6 +115,22 @@ class McpServer::Client
   end
 
   private
+    def model_tools
+      @native.tools.select { |tool| tool.visibility.include?(:model) }
+    end
+
+    def call_listed_tool(name, arguments)
+      output(@native.call(name, **arguments))
+    rescue RubyLLM::MCP::Error => error
+      raise unless @scope.tool_protocol_error?(error)
+
+      execution_error(I18n.t("nosia.mcp_workspace.tool_call_rejected"))
+    end
+
+    def execution_error(reason)
+      { error: "Tool execution error: #{reason}" }
+    end
+
     def result_text(result)
       return JSON.generate(result.structured) if result.to_h.key?("structuredContent")
 

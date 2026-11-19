@@ -48,5 +48,6 @@ fr:
       legacy_sse_migration: Passez à Streamable HTTP et saisissez la nouvelle adresse fournie par votre serveur MCP. Les connexions SSE historiques ne sont plus prises en charge.
       legacy_sse_unavailable: SSE historique indisponible
       remote_failure: Impossible de se connecter au serveur MCP
+      tool_call_rejected: Le serveur MCP a refusé l’appel de l’outil
       credential_conflict: Choisissez un remplacement ou une suppression, pas les deux.
       optional: Facultatif

@@ -48,5 +48,6 @@ en:
       legacy_sse_migration: Switch to Streamable HTTP and enter the new endpoint provided by your MCP server. Legacy SSE connections are no longer supported.
       legacy_sse_unavailable: Legacy SSE unavailable
       remote_failure: Could not connect to the MCP server
+      tool_call_rejected: The MCP server rejected the tool call
       credential_conflict: Choose either a replacement or removal, not both.
       optional: Optional

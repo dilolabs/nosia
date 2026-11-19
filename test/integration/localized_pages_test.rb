@@ -416,7 +416,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       wire.fail_method = "tools/call"
       post execute_tool_mcp_server_url(server), params: { tool_name: "runtime_tool", arguments: {} }, headers: headers, as: :json
       assert_response :success
-      assert_equal({ "error" => "Impossible de se connecter au serveur MCP" }, response.parsed_body)
+      assert_equal({ "success" => true, "result" => { "error" => "Tool execution error: Le serveur MCP a refusé l’appel de l’outil" } }, response.parsed_body)
       refute_includes response.body, NativeMcpWire::PRIVATE_MARKER
     end
   end

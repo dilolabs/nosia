@@ -165,6 +165,33 @@ class McpServersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  [ false, true ].each do |stream|
+    test "execute_tool keeps a sanitized nested error for HTTP 200 JSON-RPC errors#{' in SSE' if stream}" do
+      with_remote_tool_server({}) do |server, wire|
+        wire.fail_method = "tools/call"
+        wire.stream = stream
+        post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
+
+        assert_response :success
+        assert_equal({ "success" => true, "result" => { "error" => "Tool execution error: The MCP server rejected the tool call" } }, response.parsed_body)
+        refute_includes response.body, NativeMcpWire::PRIVATE_MARKER
+        assert_equal %w[server/discover tools/list tools/call], wire.methods_requested
+      end
+    end
+  end
+
+  test "execute_tool redacts configured secrets from native isError tool results" do
+    result = { "isError" => true, "content" => [ { "type" => "text", "text" => "Rejected #{NativeMcpWire::PRIVATE_MARKER}" } ] }
+    with_remote_tool_server(result) do |server, _wire|
+      server.update!(token: NativeMcpWire::PRIVATE_MARKER)
+      post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
+
+      assert_response :success
+      assert_equal({ "success" => true, "result" => { "error" => "Tool execution error: Rejected [FILTERED]" } }, response.parsed_body)
+      refute_includes response.body, NativeMcpWire::PRIVATE_MARKER
+    end
+  end
+
   test "execute_tool uses structured JSON when no attachments accompany it" do
     with_remote_tool_server({ "content" => [ { "type" => "text", "text" => "less authoritative" } ], "structuredContent" => { "count" => 3 } }) do |server, _wire|
       post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
