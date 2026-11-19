@@ -304,6 +304,52 @@ class McpServerNativeTest < ActiveSupport::TestCase
     assert_equal [ "tools/call", :delete ], @wire.methods_requested.last(2)
   end
 
+  test "a native stdio JSON-RPC tool error keeps the sanitized nested envelope" do
+    previous_logger = RubyLLM.config.logger
+    output = StringIO.new
+    RubyLLM.config.logger = Logger.new(output, level: Logger::DEBUG)
+    with_stdio_peer("tool_error") do |trace|
+      assert_equal({ success: true, result: { error: "Tool execution error: The MCP server rejected the tool call" } },
+        @server.execute_tool("lookup"))
+      assert_equal %w[server/discover tools/list tools/call], File.readlines(trace, chomp: true)
+      refute_includes output.string, NativeMcpWire::PRIVATE_MARKER
+    end
+  ensure
+    RubyLLM.config.logger = previous_logger
+  end
+
+  %w[disconnect timeout discovery_error].each do |mode|
+    test "native stdio #{mode} is a connection failure, not a tool rejection" do
+      previous_timeout = RubyLLM.config.request_timeout
+      RubyLLM.config.request_timeout = 0.5
+      with_stdio_peer(mode) do |trace|
+        assert_equal({ error: "Could not connect to the MCP server" }, @server.execute_tool("lookup"))
+        expected = mode == "discovery_error" ? %w[server/discover] : %w[server/discover tools/list tools/call]
+        assert_equal expected, File.readlines(trace, chomp: true)
+      end
+    ensure
+      RubyLLM.config.request_timeout = previous_timeout
+    end
+  end
+
+  test "native stdio JSON-RPC reinitialization errors after a peer exits remain connection failures" do
+    with_stdio_peer("reinitialize_error") do |trace|
+      popen = Open3.method(:popen2)
+      children = []
+      with_singleton_replacement(Open3, :popen2, ->(*args, **options) {
+        popen.call(*args, **options).tap { |_, _, child| children << child }
+      }) do
+        @server.with_client do |client|
+          assert_equal [ "lookup" ], client.tools.map(&:server_name)
+          assert children.fetch(0).join(5), "The legacy peer must exit before its next tool call"
+          error = assert_raises(McpServer::Client::Error) { client.call("lookup", {}) }
+          assert_equal "Could not connect to the MCP server", error.message
+        end
+      end
+      assert_equal %w[server/discover initialize notifications/initialized tools/list initialize], File.readlines(trace, chomp: true)
+    end
+  end
+
   test "a timed out tool request reports a connection failure" do
     @wire.timeout_method = "tools/call"
     @wire.install(self) do
@@ -398,6 +444,18 @@ class McpServerNativeTest < ActiveSupport::TestCase
   end
 
   private
+    def with_stdio_peer(mode)
+      previous = ENV["MCP_STDIO_ENABLED"]
+      ENV["MCP_STDIO_ENABLED"] = "true"
+      Tempfile.create("mcp-stdio-requests") do |trace|
+        @server.update!(transport_type: "stdio", connection_config: { command: RbConfig.ruby,
+          args: [ Rails.root.join("test/support/native_mcp_stdio_peer.rb").to_s, mode, trace.path ] })
+        yield trace.path
+      end
+    ensure
+      ENV["MCP_STDIO_ENABLED"] = previous
+    end
+
     def provider_tool_names(server)
       server.with_client { |client| client.tools.to_h { |tool| [ tool.server_name, tool.name ] } }
     end

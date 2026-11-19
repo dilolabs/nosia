@@ -13,7 +13,10 @@ class McpServer::Client
     options = { name: @prefix, prefix: @prefix, input_requests: false }
     @native = within do
       if server.transport_type == "stdio"
-        RubyLLM.mcp(**options, command: stdio_argv(server), env: server.env || {})
+        argv = stdio_argv(server)
+        env = server.env || {}
+        scope = @scope
+        RubyLLM.mcp(**options, transport: -> { Stdio.new(argv, env:, scope:) })
       else
         url = McpOutbound.endpoint!(server.effective_endpoint, https_only: false)
         context = RubyLLM.context do |config|

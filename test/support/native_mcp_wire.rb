@@ -17,7 +17,7 @@ class NativeMcpWire
 
   attr_reader :requests
   attr_accessor :tool_result, :legacy, :stream, :fail_method, :tools, :prompts, :resources, :ping
-  attr_accessor :unavailable_method, :timeout_method, :fail_reinitialize
+  attr_accessor :unavailable_method, :timeout_method, :fail_reinitialize, :failure_status
   attr_accessor :resume_tool_error
 
   def initialize
@@ -86,7 +86,7 @@ class NativeMcpWire
         body = event_frame(JSON.generate(jsonrpc: "2.0", method: "ping", id: "fixture-peer-ping")) + body
       end
     end
-    [ 200, headers, body ]
+    [ method == fail_method && failure_status ? failure_status : 200, headers, body ]
   end
 
   private

@@ -165,10 +165,11 @@ class McpServersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  [ false, true ].each do |stream|
-    test "execute_tool keeps a sanitized nested error for HTTP 200 JSON-RPC errors#{' in SSE' if stream}" do
+  [ 200, 201 ].product([ false, true ]).each do |status, stream|
+    test "execute_tool keeps a sanitized nested error for HTTP #{status} JSON-RPC errors#{' in SSE' if stream}" do
       with_remote_tool_server({}) do |server, wire|
         wire.fail_method = "tools/call"
+        wire.failure_status = status
         wire.stream = stream
         post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
 

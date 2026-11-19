@@ -8,6 +8,7 @@ class McpServer::Client::RequestScope < McpOutbound::Scope
   ensure
     @calling_tool = false
     @tool_request = false
+    @stdio_tool_request = false
     @tool_http_status = nil
   end
 
@@ -38,9 +39,15 @@ class McpServer::Client::RequestScope < McpOutbound::Scope
     nil
   end
 
+  # @param method [String] The method about to be sent by the native stdio transport
+  def capture_stdio_request(method)
+    @stdio_tool_request = method == "tools/call" if @calling_tool
+  end
+
   # @param error [RubyLLM::MCP::Error] The error raised by the native call
   # @return [Boolean] Whether the peer sent a JSON-RPC error for tools/call
   def tool_protocol_error?(error)
-    @tool_http_status == 200 && error.response.nil? && error.code.is_a?(Integer)
+    (@stdio_tool_request || (200..299).cover?(@tool_http_status)) &&
+      error.instance_of?(RubyLLM::MCP::Error) && error.response.nil? && error.code.is_a?(Integer)
   end
 end
