@@ -1,16 +1,20 @@
-<% connection_failure_alert = flash[:alert] == t("nosia.mcp.connection_failed") %>
+<% oauth_state = mcp_oauth_state(@mcp_server) if @mcp_server.oauth? %>
+<% content_for :head, tag.meta(name: "turbo-cache-control", content: "no-cache") if oauth_state %>
+<% connection_failure_alert = !oauth_state && flash[:alert] == t("nosia.mcp.connection_failed") %>
 <div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="detail" data-controller="mcp-server mcp-busy" data-action="turbo:submit-start->mcp-busy#start turbo:submit-end->mcp-busy#finish hashchange@window->mcp-server#restore popstate@window->mcp-server#restore turbo:render@document->mcp-server#connect">
-  <%= render "mcp_workspace/header", title: @mcp_server.name, current: @mcp_server.name, actions: render("connection_controls", server: @mcp_server) %>
+  <%= render "mcp_workspace/header", title: @mcp_server.name, current: @mcp_server.name, actions: render("connection_controls", server: @mcp_server, oauth_state: oauth_state) %>
   <%= render "mcp_workspace/feedback", suppress_alert: connection_failure_alert %>
 
   <div class="n-workspace-actions">
-    <%= render "status", server: @mcp_server %>
+    <%= render "status", server: @mcp_server, oauth_state: oauth_state %>
     <p class="n-workspace-help"><%= t(@mcp_server.enabled? ? "nosia.mcp_workspace.enabled" : "nosia.mcp_workspace.disabled") %></p>
   </div>
 
-  <% if flash[:connection_test].present? %>
+  <% if @oauth_test_reason %>
+    <%= render "connection_test_result", server: @mcp_server, success: @oauth_test_reason == "success", oauth_reason: @oauth_test_reason %>
+  <% elsif !oauth_state && flash[:connection_test].present? %>
     <%= render "connection_test_result", server: @mcp_server, success: flash[:connection_test] == "success" %>
-  <% elsif connection_failure_alert || (@mcp_server.last_error.present? && flash[:alert].blank?) %>
+  <% elsif !oauth_state && (connection_failure_alert || (@mcp_server.last_error.present? && flash[:alert].blank?)) %>
     <%= render "connection_test_result", server: @mcp_server, success: false %>
   <% end %>
 
@@ -38,16 +42,18 @@
           <% end %>
         </dl>
       </section>
-      <section class="n-workspace-panel">
-        <h3 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.connection") %></h3>
-        <p class="n-workspace-help"><%= t("nosia.mcp_workspace.historical") %></p>
-        <% if @mcp_server.last_connected_at %>
-          <p class="n-workspace-help"><%= t("nosia.mcp.last_connected") %>: <%= l(@mcp_server.last_connected_at, format: :short) %></p>
-        <% end %>
-        <% if @mcp_server.latency_ms %>
-          <p class="n-workspace-help"><%= t("nosia.mcp_workspace.latest_latency", latency: t("nosia.mcp.latency", milliseconds: number_with_delimiter(@mcp_server.latency_ms))) %></p>
-        <% end %>
-      </section>
+      <% unless oauth_state %>
+        <section class="n-workspace-panel">
+          <h3 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.connection") %></h3>
+          <p class="n-workspace-help"><%= t("nosia.mcp_workspace.historical") %></p>
+          <% if @mcp_server.last_connected_at %>
+            <p class="n-workspace-help"><%= t("nosia.mcp.last_connected") %>: <%= l(@mcp_server.last_connected_at, format: :short) %></p>
+          <% end %>
+          <% if @mcp_server.latency_ms %>
+            <p class="n-workspace-help"><%= t("nosia.mcp_workspace.latest_latency", latency: t("nosia.mcp.latency", milliseconds: number_with_delimiter(@mcp_server.latency_ms))) %></p>
+          <% end %>
+        </section>
+      <% end %>
     </div>
     <% if @mcp_server.notes.present? %>
       <section class="n-workspace-panel">

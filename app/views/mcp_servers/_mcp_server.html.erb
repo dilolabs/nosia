@@ -1,18 +1,21 @@
 <%# locals: (server:) %>
+<% oauth_state = mcp_oauth_state(server) if server.oauth? %>
 <li class="n-mcp-row" id="<%= dom_id(server) %>" data-mcp-row data-mcp-busy-group>
   <div class="min-w-0">
     <h2 class="n-workspace-section-title"><%= link_to server.name, mcp_record_path(server), class: "n-workspace-link" %></h2>
     <p class="n-workspace-help"><%= t("nosia.mcp.transport.#{server.transport_type}_short") %> · <%= mcp_endpoint_label(server) %></p>
     <p class="n-workspace-help"><%= t(server.enabled? ? "nosia.mcp_workspace.enabled" : "nosia.mcp_workspace.disabled") %></p>
     <% if server.tags.present? %><p class="n-workspace-help"><%= server.tags %></p><% end %>
-    <% if server.latency_ms %><p class="n-workspace-help"><%= t("nosia.mcp_workspace.latest_latency", latency: t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms))) %></p><% end %>
+    <% if !server.oauth? && server.latency_ms %><p class="n-workspace-help"><%= t("nosia.mcp_workspace.latest_latency", latency: t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms))) %></p><% end %>
   </div>
-  <%= render "status", server: server %>
+  <%= render "status", server: server, oauth_state: oauth_state %>
   <div class="n-workspace-actions">
     <%= link_to t("nosia.mcp_workspace.open"), mcp_record_path(server), class: "n-workspace-link" %>
     <%= link_to t("nosia.actions.edit"), mcp_edit_path(server), class: "n-workspace-link" %>
     <% if server.legacy_sse? %>
       <p class="n-workspace-help"><%= t("nosia.mcp_workspace.legacy_sse_migration") %></p>
+    <% elsif server.oauth? %>
+      <%= render "oauth_controls", server: server, state: oauth_state %>
     <% elsif server.transport_type == "stdio" && !McpServer.stdio_enabled? %>
       <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
     <% elsif server.status_ready? %>

@@ -73,7 +73,19 @@ class McpServer::Client
     end
   end
 
-  def authorize(params) = within(operation: :callback) { @native.authorize(params) }
+  # @param params [Hash<String, String>] Scalar callback fields from the bound browser
+  # @return [RubyLLM::MCP] The native client after storing the authorization
+  # @raise [McpAuthorization::Unavailable] Sanitized callback failure
+  def authorize(params)
+    within(operation: :callback) do
+      @native.authorize(params)
+    rescue RubyLLM::MCP::Error => error
+      if params[:error] == "access_denied" || params["error"] == "access_denied"
+        raise McpAuthorization::ConsentRefused if error.respond_to?(:error_code) && error.error_code == "access_denied"
+      end
+      raise
+    end
+  end
 
   def deauthorize = within(operation: :retire) { @native.deauthorize }
 

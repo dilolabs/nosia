@@ -20,6 +20,15 @@ class McpAuthorization < ApplicationRecord
     end
   end
 
+  # No current grant, or the current grant has not completed consent.
+  class AuthorizationRequired < Unavailable; end
+  # RubyLLM verified the callback and the provider reported access_denied.
+  class ConsentRefused < Unavailable; end
+  # The provider does not offer automatic client registration.
+  class RegistrationUnsupported < Unavailable; end
+  # The provider advertised a consent URL that fails the outbound policy.
+  class UnsafeConsent < Unavailable; end
+
   belongs_to :account
   belongs_to :account_user
   belongs_to :mcp_server
@@ -30,6 +39,21 @@ class McpAuthorization < ApplicationRecord
 
   validate :matching_connector_and_membership, on: :create
   before_create :lock_and_validate_identity
+
+  # @param error [McpServer::Client::Error] Sanitized application error
+  # @param fallback [Symbol] App-defined reason for an unclassified failure
+  # @return [Symbol] Translation key, never provider-supplied text
+  def self.failure_reason(error, fallback: :unavailable)
+    case error
+    when ReconnectRequired then :reconnect_needed
+    when InsufficientScope then :insufficient_scope
+    when AuthorizationRequired then :authorization_needed
+    when ConsentRefused then :declined
+    when RegistrationUnsupported then :registration_unsupported
+    when UnsafeConsent then :unsafe_consent
+    else fallback
+    end
+  end
 
   def self.for_member(account_id:, mcp_server_id:, user_id:)
     joins(:account_user).where(account_id:, mcp_server_id:, user_id:, account_users: { account_id:, user_id: })
@@ -49,9 +73,30 @@ class McpAuthorization < ApplicationRecord
   end
 
   def authorized?
-    client.authorized?
+    with_client(&:authorized?)
   rescue Unavailable
     false
+  end
+
+  # @return [String] Local grant state without constructing a native client or refreshing
+  def workspace_state
+    admit!
+    store = CredentialStore.new(self)
+    store.verify_schema!
+    store.owned_data.to_h["access_token"].present? ? "authorized" : "authorization_required"
+  rescue ReconnectRequired
+    "reconnect_required"
+  rescue Unavailable, ActiveRecord::Encryption::Errors::Base
+    "authorization_required"
+  end
+
+  # @yieldparam connection [McpServer::Client] The native client for one operation
+  # @return [Object] The result of the operation
+  def with_client
+    connection = client
+    yield connection
+  ensure
+    connection&.close
   end
 
   # Native OAuth takes its own per-key mutex before entering the store. Take the

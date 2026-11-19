@@ -13,6 +13,9 @@ Rails.application.routes.draw do
 
   resource :language_preference, only: :update
 
+  # The controller authenticates without retaining the provider's query on sign-in.
+  get "/mcp/oauth/callback", to: "mcp_servers/oauth_callbacks#show", as: :mcp_oauth_callback, format: false
+
   # API routes
   get "v1/models", to: "api/v1/models#index"
   post "v1/chat/completions", to: "api/v1/completions#create"
@@ -50,6 +53,7 @@ Rails.application.routes.draw do
           resource :connection, only: [ :create, :destroy ]
           resource :connection_test, only: :create
           resource :tool_execution, only: :create
+          resource :oauth_authorization, only: [ :create, :destroy ]
         end
       end
       namespace :sources do

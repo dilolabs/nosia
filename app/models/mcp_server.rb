@@ -56,7 +56,7 @@ class McpServer < ApplicationRecord
   def stdio_executable? = command.is_a?(String) && STDIO_EXECUTABLE.match?(command)
   def effective_endpoint = url || endpoint
 
-  def ready_for_tools? = status_ready? && !legacy_sse? && !stdio_disabled?
+  def ready_for_tools? = !oauth? && status_ready? && !legacy_sse? && !stdio_disabled?
 
   # @return [Hash] A fresh set of headers with explicit static credentials taking precedence
   def static_headers
@@ -135,8 +135,11 @@ class McpServer < ApplicationRecord
   # Execute a ready server's tool through RubyLLM's keyword interface.
   # @param tool_name [String] registered tool name
   # @param arguments [Hash] JSON object, never attachment paths or model attributes
+  # @param user [User, nil] Explicit acting member for OAuth
   # @return [Hash] success/result or the existing error wrapper
-  def execute_tool(tool_name, arguments = {})
+  # @raise [McpServer::Client::Error] Sanitized OAuth failure; caller localizes by type
+  def execute_tool(tool_name, arguments = {}, user: nil)
+    return execute_oauth_tool(tool_name, arguments, user) if oauth?
     return { error: I18n.t("nosia.mcp.not_ready") } unless ready_for_tools?
 
     arguments = arguments.to_h.transform_keys(&:to_s)
@@ -146,12 +149,10 @@ class McpServer < ApplicationRecord
     else
       with_client { |connection| connection.call(tool_name, arguments) }
     end
-    if result == :missing_tool
-      { error: I18n.t("nosia.mcp.tool_not_found", name: tool_name) }
-    else
-      { success: true, result: result }
-    end
+    tool_execution_result(tool_name, result)
   rescue Client::Error
+    raise if oauth?
+
     { error: I18n.t("nosia.mcp_workspace.remote_failure") }
   end
 
@@ -170,6 +171,19 @@ class McpServer < ApplicationRecord
   end
 
   private
+
+  def execute_oauth_tool(tool_name, arguments, user)
+    result = with_authorized_oauth_client(user) { |connection| connection.call(tool_name, arguments.to_h.transform_keys(&:to_s)) }
+    tool_execution_result(tool_name, result)
+  end
+
+  def tool_execution_result(tool_name, result)
+    if result == :missing_tool
+      { error: I18n.t("nosia.mcp.tool_not_found", name: tool_name) }
+    else
+      { success: true, result: result }
+    end
+  end
 
   def set_default_status
     self.status ||= "disconnected"

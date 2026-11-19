@@ -1,8 +1,10 @@
-<%# locals: (server:) %>
+<%# locals: (server:, oauth_state: nil) %>
 <div class="n-workspace-actions" data-mcp-busy-group>
   <%= link_to t("nosia.actions.edit"), mcp_edit_path(server), class: "n-workspace-button" %>
   <% if server.legacy_sse? %>
     <p class="n-workspace-help"><%= t("nosia.mcp_workspace.legacy_sse_migration") %></p>
+  <% elsif server.oauth? %>
+    <%= render "oauth_controls", server: server, state: oauth_state, show_test: true %>
   <% elsif server.transport_type == "stdio" && !McpServer.stdio_enabled? %>
     <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
   <% else %>

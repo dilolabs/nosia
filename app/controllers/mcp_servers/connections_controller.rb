@@ -3,10 +3,15 @@ class McpServers::ConnectionsController < ApplicationController
   include McpScoped
 
   before_action :set_mcp_server
+  before_action :protect_oauth_response
 
   # @return [void] Tests the connection and redirects with its outcome
   def create
-    if @mcp_server.test_connection!
+    if @mcp_server.oauth?
+      redirect_to account_mcp_server_path(@account, @mcp_server), status: :see_other, notice: mcp_oauth_text(:use_authorize)
+    elsif @mcp_server.legacy_sse?
+      redirect_to mcp_record_path(@mcp_server), alert: t("nosia.mcp_workspace.legacy_sse_migration")
+    elsif @mcp_server.test_connection!
       redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.connected")
     else
       redirect_to mcp_record_path(@mcp_server), alert: t("nosia.mcp.connection_failed")
@@ -15,7 +20,16 @@ class McpServers::ConnectionsController < ApplicationController
 
   # @return [void] Disconnects the server and preserves the detail context
   def destroy
-    @mcp_server.disconnect!
-    redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.disconnected")
+    if @mcp_server.oauth?
+      @mcp_server.disconnect!(user: Current.user)
+      redirect_to account_mcp_server_path(@account, @mcp_server), status: :see_other, notice: mcp_oauth_text(:disconnected)
+    elsif @mcp_server.legacy_sse?
+      redirect_to mcp_record_path(@mcp_server), alert: t("nosia.mcp_workspace.legacy_sse_migration")
+    else
+      @mcp_server.disconnect!
+      redirect_to mcp_record_path(@mcp_server), notice: t("nosia.mcp.disconnected")
+    end
+  rescue McpAuthorization::Unavailable => error
+    redirect_to account_mcp_server_path(@account, @mcp_server), status: :see_other, alert: mcp_oauth_text(McpAuthorization.failure_reason(error))
   end
 end

@@ -31,4 +31,11 @@ module McpScoped
       key = request.path_parameters.key?(:mcp_server_id) ? :mcp_server_id : :id
       @mcp_server = @account.mcp_servers.find(mcp_path_id(key))
     end
+
+    def protect_oauth_response
+      if @mcp_server.oauth?
+        no_store
+        response.set_header("Referrer-Policy", "no-referrer")
+      end
+    end
 end

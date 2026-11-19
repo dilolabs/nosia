@@ -43,6 +43,9 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
       capture_grant_exchange(env)
     elsif env.request_headers["Accept"] == "application/json" && env.method == :get && @operation == :consent
       Attempt.new(kind: :metadata)
+    elsif env.request_headers["Content-Type"] == "application/json" && env.method == :post && @operation == :consent &&
+        !same_destination?(env, @grant.endpoint)
+      Attempt.new(kind: :registration)
     elsif same_destination?(env, @grant.endpoint)
       # RubyLLM's direct-call API can otherwise poll an unsolicited task
       # even though this client didn't negotiate the extension.
@@ -61,6 +64,10 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
         raise McpOutbound::Blocked unless (200...300).cover?(response.status) || (400...600).cover?(response.status)
 
         validate_metadata(response.body) if (200...300).cover?(response.status)
+      when :registration
+        if [ 401, 403, 404, 405, 501 ].include?(response.status)
+          raise McpAuthorization::RegistrationUnsupported
+        end
       when :mcp, :expired_access
         observe_mcp(attempt, response)
       when :refresh
@@ -137,9 +144,21 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
 
     def validate_metadata(body)
       if (document = json_object(body))
-        document.slice(*URL_FIELDS).each_value { |value| validate_raw_url!(value) }
+        document.slice(*URL_FIELDS).each { |field, value| validate_metadata_url!(field, value) }
         Array(document["authorization_servers"]).each { |url| validate_raw_url!(url) }
+        if document.values_at("issuer", "authorization_endpoint", "token_endpoint").all?(&:present?) &&
+            !document.key?("registration_endpoint")
+          raise McpAuthorization::RegistrationUnsupported
+        end
       end
+    end
+
+    def validate_metadata_url!(field, value)
+      validate_raw_url!(value)
+    rescue McpOutbound::Blocked
+      raise McpAuthorization::UnsafeConsent if field == "authorization_endpoint"
+
+      raise
     end
 
     def validate_raw_url!(url)

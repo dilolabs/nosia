@@ -1,0 +1,467 @@
+require "test_helper"
+require_relative "../support/mcp_oauth_fixtures"
+
+class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
+  include McpOauthFixtures
+
+  CALLBACK = "/mcp/oauth/callback"
+  CODE = "fixture-private-callback-code"
+  DETAIL = "fixture-private-provider-description"
+  CONSENT_PATH = "/fixture-private-consent-location"
+
+  setup do
+    @server.update!(auth_mode: "oauth", status: "ready", last_error: "shared-private-diagnostic",
+      latency_ms: 123_456, metadata: { tools_cache: [ { name: "shared-private-tool" } ] },
+      token: "fixture-private-static-token", headers: { "X-Static" => "fixture-private-static-header" })
+    @other = oauth_fixture("accounts", :oauth_other)
+    @other.update!(created_at: 1.day.ago)
+    @alice_browser = authenticated_browser(@alice)
+    @saved_origin = ENV["NOSIA_URL"]
+    ENV["NOSIA_URL"] = "https://nosia.example.test/"
+    stub_url_resolver("93.184.216.34")
+  end
+
+  teardown do
+    ENV["NOSIA_URL"] = @saved_origin
+    unstub_url_resolver
+  end
+
+  test "consent returns to its original path account and no other member borrows access" do
+    bob = authenticated_browser(@bob)
+    same_user = authenticated_browser(@alice)
+    shared = @server.reload.attributes
+    @other.update!(created_at: @team.created_at + 1.day)
+
+    @wire.install(self) do
+      assert_equal @team, @alice.first_account
+      state = start
+      @other.update!(created_at: @team.created_at - 1.day)
+      @alice_browser.get account_mcp_servers_path(@other)
+      assert_equal @other, @alice.first_account
+      [ bob, same_user ].each do |browser|
+        callback(state, browser:)
+        assert_equal root_path, location_path(browser)
+        browser.get detail_path
+        assert_equal "Authorization required", Nokogiri::HTML5(browser.response.body).at_css(".n-mcp-status").text.strip
+        refute_includes browser.response.body, "Look up a fixture"
+      end
+      assert_empty @wire.token_requests
+      callback(state)
+      assert_equal detail_path, location_path
+      assert_equal "Authorized", @alice_browser.flash[:notice]
+      assert_equal 1, @wire.token_requests.size
+
+      @alice_browser.follow_redirect!
+      assert_includes @alice_browser.response.body, "Look up a fixture"
+      refute_includes @alice_browser.response.body, "shared-private"
+      assert_empty @wire.methods_requested & %w[tools/call prompts/get resources/read]
+      count = @wire.requests.size
+      bob.get detail_path
+      assert_includes bob.response.body, "Authorization required"
+      refute_includes bob.response.body, "Look up a fixture"
+      [ test_connection_mcp_server_path(@server), account_mcp_server_connection_test_path(@team, @server) ].each do |path|
+        bob.post path, as: :json
+        assert_equal 422, bob.response.status
+        assert_equal "Authorize this connector before using it.", bob.response.parsed_body.fetch("error")
+      end
+      [ execute_tool_mcp_server_path(@server), account_mcp_server_tool_execution_path(@team, @server) ].each do |path|
+        bob.post path, as: :json, params: { tool_name: "lookup" }
+        assert_equal({ "error" => "Authorize this connector before using it." }, bob.response.parsed_body)
+      end
+      assert_equal count, @wire.requests.size
+      assert_equal shared, @server.reload.attributes
+    end
+  end
+
+  test "wrong state is unrelated but matching malformed, denied, or wrong issuer attempts are consumed" do
+    @wire.install(self) do
+      state = start
+      callback("unrelated")
+      assert_equal root_path, location_path
+      callback(state, code: [ CODE ])
+      assert_equal detail_path, location_path
+      assert_equal "This authorization attempt is invalid or no longer active. Start again.", @alice_browser.flash[:alert]
+      callback(state)
+      assert_equal root_path, location_path
+
+      state = start
+      callback(state, iss: "https://wrong-issuer.example.test")
+      assert_equal detail_path, location_path
+      assert_equal "Could not complete authorization. Start again.", @alice_browser.flash[:alert]
+      callback(state)
+      assert_equal root_path, location_path
+
+      state = start
+      callback(state, code: nil, error: "access_denied", error_description: DETAIL)
+      assert_equal "Authorization was declined. You can try again.", @alice_browser.flash[:alert]
+      assert_empty @wire.token_requests
+    end
+  end
+
+  test "expiry, newer starts and replay cannot change a usable grant" do
+    @wire.install(self) do
+      old = start
+      current = start
+      callback(old)
+      assert_empty @wire.token_requests
+      callback(current)
+      assert_equal "Authorized", @alice_browser.flash[:notice]
+      callback(current)
+      assert_equal root_path, location_path
+      assert_equal 1, @wire.token_requests.size
+      @alice_browser.post authorization_path
+      assert_equal detail_path, location_path
+      assert_equal "Disconnect your current authorization before starting again.", @alice_browser.flash[:alert]
+
+      @alice_browser.delete authorization_path
+      expired = start
+      travel 11.minutes do
+        callback(expired)
+        assert_equal detail_path, location_path
+        assert_equal "This authorization attempt expired. Start again.", @alice_browser.flash[:alert]
+      end
+      assert_equal 1, @wire.token_requests.size
+    end
+  end
+
+  test "foreign and retired identities cannot complete consent" do
+    @wire.install(self) do
+      foreign = oauth_fixture("mcp_servers", :oauth_other)
+      bob = authenticated_browser(@bob)
+      bob.post account_mcp_server_oauth_authorization_path(@other, foreign)
+      assert_equal 404, bob.response.status
+      state = start
+      @member.destroy!
+      callback(state)
+      assert_equal root_path, location_path
+      assert_nil @server.oauth_grant_for(@alice)
+      assert_empty @wire.token_requests
+    end
+  end
+
+  test "disconnect retires only the acting member and pending callbacks cannot restore it" do
+    bob = authenticated_browser(@bob)
+    @wire.install(self) do
+      callback(start(browser: bob), browser: bob)
+      pending = start
+      @alice_browser.delete authorization_path
+      assert_private_redirect(@alice_browser)
+      assert_equal detail_path, location_path
+      assert_equal "Your authorization was disconnected.", @alice_browser.flash[:notice]
+      callback(pending)
+      refute @server.oauth_grant_for(@alice)&.authorized?
+      assert @server.oauth_grant_for(@bob).authorized?
+      assert_equal 1, @wire.token_requests.size
+
+      pending = start
+      @alice_browser.delete detail_path
+      callback(pending)
+      assert_equal root_path, location_path
+      assert_equal 1, @wire.token_requests.size
+    end
+  end
+
+  test "origin is verified independently of request headers before discovery" do
+    @wire.install(self) do
+      [ nil, "http://nosia.example.test", "https://@nosia.example.test", "https://nosia.example.test/?",
+        "https://nosia.example.test/#", "https://nosia.example.test/subpath", "https://127.0.0.1" ].each do |origin|
+        ENV["NOSIA_URL"] = origin
+        @alice_browser.post authorization_path, headers: { "X-Forwarded-Host" => "public.example.test", "X-Forwarded-Proto" => "https" }
+        assert_equal detail_path, location_path
+        assert_equal "Set NOSIA_URL to a public HTTPS origin before using OAuth.", @alice_browser.flash[:alert]
+      end
+      assert_empty @wire.oauth_requests
+      assert_nil @server.oauth_grant_for(@alice)
+    end
+  end
+
+  test "unsafe consent destination and providers that need pre-registration get local outcomes" do
+    @wire.install(self) do
+      @wire.issuer_metadata["authorization_endpoint"] = "https://127.0.0.1/authorize"
+      with_singleton_replacement(UrlGuard, :resolve, ->(host) { [ IPAddr.new(host == "127.0.0.1" ? host : "93.184.216.34") ] }) do
+        @alice_browser.post authorization_path
+        assert_equal detail_path, location_path
+        assert_equal "The provider’s consent page must use a public HTTPS address.", @alice_browser.flash[:alert]
+      end
+      @wire.issuer_metadata["authorization_endpoint"] = "#{NativeMcpOAuthWire::ORIGIN}/authorize"
+      @wire.issuer_metadata.delete("registration_endpoint")
+      @alice_browser.post authorization_path, headers: { "Accept-Language" => "fr" }
+      assert_equal detail_path, location_path
+      assert_equal I18n.t("nosia.mcp_workspace.oauth.registration_unsupported", locale: :fr), @alice_browser.flash[:alert]
+      assert_empty @wire.token_requests
+    end
+  end
+
+  test "oauth launch requires a CSRF token and rejects cross origin native forms" do
+    old = ApplicationController.allow_forgery_protection
+    ApplicationController.allow_forgery_protection = true
+    @wire.install(self) do
+      @alice_browser.get authorization_path
+      assert_equal 404, @alice_browser.response.status
+      @alice_browser.post authorization_path
+      assert_equal 422, @alice_browser.response.status
+      assert_equal "no-store", @alice_browser.response.headers["Cache-Control"]
+      @alice_browser.get detail_path
+      page = Nokogiri::HTML5(@alice_browser.response.body)
+      form = page.at_css("form[action='#{authorization_path}'][data-turbo=false]")
+      assert form
+      token = form.at_css("input[name=authenticity_token]")["value"]
+      @alice_browser.post authorization_path, params: { authenticity_token: token }, headers: { "Origin" => "https://foreign.example.test" }
+      assert_equal 422, @alice_browser.response.status
+      assert_equal "no-referrer", @alice_browser.response.headers["Referrer-Policy"]
+      assert_empty @wire.oauth_requests
+      @alice_browser.post authorization_path, params: { authenticity_token: token }
+      assert_private_redirect(@alice_browser)
+      assert_equal NativeMcpOAuthWire::HOST, URI(@alice_browser.response.location).host
+    end
+  ensure
+    ApplicationController.allow_forgery_protection = old
+  end
+
+  test "anonymous callbacks never persist or reflect callback data" do
+    browser = open_session
+    callback("fixture-private-anonymous-state", browser:)
+    assert_private_redirect(browser)
+    assert_equal root_path, location_path(browser)
+    assert_nil browser.request.session[:return_to_after_authenticating]
+    refute_includes browser.response.body, CODE
+  end
+
+  test "callback cannot use pending browser state after changing authenticated sessions" do
+    @wire.install(self) do
+      state = start
+      prior_id = @alice_browser.cookies[:session_id]
+      @alice_browser.post login_path, params: { email: @alice.email, password: "fixture-password" }
+      refute_equal prior_id, @alice_browser.cookies[:session_id]
+      callback(state)
+      assert_equal root_path, location_path
+      assert_empty @wire.token_requests
+    end
+  end
+
+  test "only five most recent pending attempts are available from a browser" do
+    @wire.install(self) do
+      first, *states = Array.new(6) { start }
+      entries = @alice_browser.request.session[:mcp_oauth_attempts]
+      assert_equal states.map { |state| Digest::SHA256.hexdigest(state) }, entries.keys
+      assert entries.values.all? { |entry| entry.keys.sort == %w[account_id deadline grant_id server_id session_id] }
+      callback(first)
+      assert_equal root_path, location_path
+      callback(states.last)
+      assert_equal detail_path, location_path
+      assert_equal "Authorized", @alice_browser.flash[:notice]
+      assert_equal 1, @wire.token_requests.size
+    end
+  end
+
+  test "consent redirect and malformed or denied callbacks redact Rails logs and keep markers out of feedback" do
+    @wire.issuer_metadata["authorization_endpoint"] = "#{NativeMcpOAuthWire::ORIGIN}#{CONSENT_PATH}?vendor=fixture-private-query"
+    captured = StringIO.new
+    logger = ActiveSupport::Logger.new(captured)
+    Rails.logger.broadcast_to(logger)
+    @wire.install(self) do
+      state = start
+      assert_includes @alice_browser.response.location, CONSENT_PATH
+      assert_empty @alice_browser.response.body
+      markers = [ state, CODE, DETAIL, CONSENT_PATH, "fixture-private-query" ]
+      @alice_browser.get "#{CALLBACK}?state=#{state}&c%6Fde%5B%5D=#{CODE}&error_description%5Bx%5D=#{DETAIL}"
+      assert_private_redirect(@alice_browser)
+      assert_empty @alice_browser.response.body
+      markers.each { |marker| refute_includes @alice_browser.response.location, marker }
+      @alice_browser.follow_redirect!
+      markers.each { |marker| refute_includes @alice_browser.response.body, marker }
+      state = start
+      callback(state, code: nil, error: "access_denied", error_description: DETAIL)
+      assert_includes @alice_browser.flash[:alert], "declined"
+      assert_includes captured.string, "Redirected to [FILTERED]"
+      (markers + [ state ]).each { |marker| refute_includes captured.string, marker }
+    end
+  ensure
+    Rails.logger.stop_broadcasting_to(logger)
+  end
+
+  test "conflicting callback parameter shapes are rejected without logging raw query values" do
+    captured = StringIO.new
+    logger = ActiveSupport::Logger.new(captured)
+    Rails.logger.broadcast_to(logger)
+    @wire.install(self) do
+      state = start
+      @alice_browser.get "#{CALLBACK}?state=#{state}&code=#{CODE}&code%5B%5D=#{DETAIL}"
+      assert_private_redirect(@alice_browser)
+      assert_equal detail_path, location_path
+      refute_includes @alice_browser.response.body, CODE
+      refute_includes captured.string, CODE
+      refute_includes captured.string, DETAIL
+      assert_empty @wire.token_requests
+      callback(state)
+      assert_equal root_path, location_path
+    end
+  ensure
+    Rails.logger.stop_broadcasting_to(logger)
+  end
+
+  test "save and lists are offline even when the current grant is ready and preserve existing static secrets" do
+    @wire.install(self) do
+      callback(start)
+      count = @wire.requests.size
+      oauth_count = @wire.oauth_requests.size
+      failure = method(:flunk)
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { failure.call("Saving and listing must not construct a native client") }) do
+        @alice_browser.patch detail_path, params: { mcp_server: { name: "Renamed", auth_mode: "oauth",
+          token: "ignore-me", configuration_values: { api_key: "ignore-me" }, remove_credentials: [ "token" ] } }
+        assert_equal 303, @alice_browser.response.status
+        @alice_browser.follow_redirect!
+        assert_equal "Authorized", Nokogiri::HTML5(@alice_browser.response.body).at_css(".n-mcp-status").text.strip
+        assert_includes @alice_browser.response.body, "Connect to discover"
+        @alice_browser.get account_mcp_servers_path(@team)
+        row = Nokogiri::HTML5(@alice_browser.response.body).at_css("#mcp_server_#{@server.id} .n-mcp-status")
+        assert_equal "Authorized", row.text.strip
+        @alice_browser.get account_mcp_servers_path(@team, status: "ready")
+        refute_includes @alice_browser.response.body, "Renamed"
+      end
+      @alice_browser.get edit_account_mcp_server_path(@team, @server)
+      assert_includes @alice_browser.response.body, "mcp_server[auth_mode]"
+      refute_includes @alice_browser.response.body, "mcp_server_configuration_values_token"
+      @alice_browser.patch detail_path, params: { mcp_server: { auth_mode: "oauth", endpoint: "http://mcp.example.test/mcp" } }
+      assert_equal 422, @alice_browser.response.status
+      refute_includes @alice_browser.response.body, "fixture-private-static"
+      @alice_browser.post account_mcp_servers_path(@team), params: { mcp_server: {
+        name: "New OAuth", endpoint: NativeMcpOAuthWire::URL, auth_mode: "oauth", transport_type: "streamable" } }
+      assert_equal 303, @alice_browser.response.status
+      @alice_browser.follow_redirect!
+      assert_includes @alice_browser.response.body, "Authorization required"
+      assert_equal count, @wire.requests.size
+      assert_equal oauth_count, @wire.oauth_requests.size
+      assert_equal "fixture-private-static-token", @server.reload.token
+      assert_equal "fixture-private-static-header", @server.headers.fetch("X-Static")
+      assert_nil @server.api_key
+    end
+  end
+
+  test "wrong transports and static mode cannot start OAuth" do
+    @wire.install(self) do
+      %w[streamable local stdio sse].each do |transport|
+        @server.update_columns(auth_mode: "static", transport_type: transport)
+        @alice_browser.post authorization_path
+        assert_equal detail_path, location_path
+        assert_equal "OAuth is available only for public HTTPS Streamable HTTP connectors.", @alice_browser.flash[:alert]
+        next if transport == "streamable"
+
+        @alice_browser.patch detail_path, params: { mcp_server: { auth_mode: "oauth" } }
+        assert_equal 422, @alice_browser.response.status
+        assert_equal "static", @server.reload.auth_mode
+      end
+      assert_empty @wire.oauth_requests
+    end
+  end
+
+  test "scoped and legacy operations report typed member results without changing shared diagnostics" do
+    bob = authenticated_browser(@bob)
+    @wire.install(self) do
+      callback(start(browser: bob), browser: bob)
+      shared = @server.reload.attributes
+      bob.get mcp_server_path(@server)
+      assert_includes bob.response.body, authorization_path
+      refute_includes bob.response.body, "shared-private"
+      bob.post connect_mcp_server_path(@server)
+      assert_equal detail_path, location_path(bob)
+      bob.post test_connection_mcp_server_path(@server), as: :json
+      assert_equal({ "success" => true, "status" => "authorized", "latency" => nil,
+        "message" => "Connection established" }, bob.response.parsed_body)
+      bob.post account_mcp_server_tool_execution_path(@team, @server), as: :json,
+        params: { tool_name: "lookup", arguments: { query: "fixture" } }
+      assert_equal({ "success" => true, "result" => "found" }, bob.response.parsed_body)
+      refute @wire.requests.any? { |entry| entry[:headers]["X-Static"] || entry[:headers]["Authorization"].to_s.include?("fixture-private-static") }
+
+      @wire.mcp_rejection = ->(*) { [ 403, { "WWW-Authenticate" => 'Bearer error="insufficient_scope"' }, DETAIL ] }
+      bob.post account_mcp_server_connection_test_path(@team, @server)
+      assert_equal detail_path, location_path(bob)
+      bob.follow_redirect!
+      assert_includes bob.response.body, "The provider did not grant enough access for this operation."
+      bob.post execute_tool_mcp_server_path(@server), params: { tool_name: "lookup" }, as: :json
+      assert_equal "The provider did not grant enough access for this operation.", bob.response.parsed_body.fetch("error")
+      assert @server.oauth_grant_for(@bob).authorized?
+      assert_equal shared, @server.reload.attributes
+
+      @wire.mcp_rejection = ->(*) { [ 401, { "WWW-Authenticate" => 'Bearer error="invalid_token"' }, DETAIL ] }
+      @wire.refresh_response = ->(*) { [ 503, { "Content-Type" => "application/json" }, '{"error":"temporarily_unavailable"}' ] }
+      bob.post account_mcp_server_tool_execution_path(@team, @server), params: { tool_name: "lookup" }, as: :json
+      assert_equal "Could not authenticate to the MCP server. Try again, or disconnect and authorize again.", bob.response.parsed_body.fetch("error")
+      assert @server.oauth_grant_for(@bob).authorized?
+      assert_equal shared, @server.reload.attributes
+
+      @wire.refresh_response = ->(*) { [ 400, { "Content-Type" => "application/json" }, '{"error":"invalid_grant"}' ] }
+      bob.post test_connection_mcp_server_path(@server), as: :json
+      assert_equal({ "success" => false, "status" => "reconnect_required", "error" => "Reconnect your authorization to use this connector.",
+        "message" => "Connection failed" }, bob.response.parsed_body)
+      bob.get mcp_server_path(@server)
+      assert_includes bob.response.body, "Reconnect required"
+      assert_includes bob.response.body, "Reconnect with OAuth"
+      assert_includes bob.response.body, "Clear my authorization"
+      bob.post account_mcp_server_tool_execution_path(@team, @server), params: { tool_name: "lookup" }, as: :json
+      assert_equal "Reconnect your authorization to use this connector.", bob.response.parsed_body.fetch("error")
+      assert_equal shared, @server.reload.attributes
+      bob.post disconnect_mcp_server_path(@server)
+      assert_equal detail_path, location_path(bob)
+      assert_nil @server.oauth_grant_for(@bob)
+    end
+  end
+
+  test "capability browsing shares one native connection and distinguishes unavailable from empty" do
+    @wire.install(self) do
+      callback(start)
+      @wire.fail_method = "prompts/list"
+      @wire.resources = []
+      @alice_browser.get detail_path
+      page = Nokogiri::HTML5(@alice_browser.response.body)
+      assert_includes page.at_css("#tools").text, "Look up a fixture"
+      assert_includes page.at_css("#prompts").text, "Could not authenticate"
+      assert_includes page.at_css("#resources").text, "reported no items"
+      assert_equal 1, @wire.methods_requested.count("server/discover")
+      assert_empty @wire.methods_requested & %w[tools/call prompts/get resources/read]
+    end
+  end
+
+  test "OAuth connection test feedback belongs to the connector that was tested" do
+    other_server = oauth_fixture("mcp_servers", :oauth_team_duplicate)
+    other_server.update!(auth_mode: "oauth")
+    @alice_browser.post account_mcp_server_connection_test_path(@team, @server)
+    assert_equal detail_path, location_path
+    @alice_browser.get account_mcp_server_path(@team, other_server)
+    refute Nokogiri::HTML5(@alice_browser.response.body).at_css("#connection-test-result")
+  end
+
+  private
+    def authenticated_browser(user)
+      open_session do |browser|
+        browser.post login_path, params: { email: user.email, password: "fixture-password" }
+        assert_equal 302, browser.response.status
+        assert browser.cookies[:session_id].present?
+      end
+    end
+
+    def authorization_path = "#{detail_path}/oauth_authorization"
+    def detail_path = account_mcp_server_path(@team, @server)
+    def location_path(browser = @alice_browser) = browser.response.location && URI(browser.response.location).path
+
+    def start(browser: @alice_browser)
+      browser.post authorization_path
+      assert_private_redirect(browser)
+      uri = URI(browser.response.location)
+      assert_equal NativeMcpOAuthWire::HOST, uri.host
+      query = URI.decode_www_form(uri.query).to_h
+      assert_equal NativeMcpOAuthWire::REDIRECT_URI, query.fetch("redirect_uri")
+      query.fetch("state")
+    end
+
+    def callback(state, browser: @alice_browser, **params)
+      browser.get CALLBACK, params: { code: CODE, iss: NativeMcpOAuthWire::ORIGIN, state: }.merge(params).compact
+      assert_private_redirect(browser)
+    end
+
+    def assert_private_redirect(browser)
+      assert_equal 303, browser.response.status
+      assert_equal "no-store", browser.response.headers["Cache-Control"]
+      assert_equal "no-referrer", browser.response.headers["Referrer-Policy"]
+    end
+end

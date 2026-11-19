@@ -1,4 +1,14 @@
 fr:
+  activerecord:
+    attributes:
+      mcp_server:
+        auth_mode: Mode d’authentification
+    errors:
+      models:
+        mcp_server:
+          attributes:
+            auth_mode:
+              oauth_transport_required: nécessite une adresse HTTPS publique en HTTP diffusable
   nosia:
     mcp_workspace:
       description: Gérez les outils et les ressources disponibles pour vos assistants.
@@ -53,3 +63,30 @@ fr:
       invalid_attachment_data: Données de pièce jointe non valides
       credential_conflict: Choisissez un remplacement ou une suppression, pas les deux.
       optional: Facultatif
+      oauth:
+        mode: Mode d’authentification
+        static: Aucune, jeton porteur ou clé API
+        oauth: OAuth
+        mode_help: OAuth nécessite une adresse HTTPS publique en HTTP diffusable. Enregistrez d’abord, puis autorisez l’accès depuis la fiche du serveur.
+        authorization_required: Autorisation requise
+        authorized: Autorisé
+        reconnect_required: Reconnexion requise
+        authorize: Autoriser avec OAuth
+        reconnect: Reconnecter avec OAuth
+        disconnect: Déconnecter mon autorisation
+        clear: Effacer mon autorisation
+        disconnected: Votre autorisation a été déconnectée.
+        use_authorize: Gérez votre autorisation depuis les commandes OAuth de la fiche du serveur.
+        authorization_needed: Autorisez ce connecteur avant de l’utiliser.
+        reconnect_needed: Renouvelez votre autorisation pour utiliser ce connecteur.
+        insufficient_scope: Le fournisseur n’a pas accordé les droits nécessaires à cette opération.
+        unavailable: Impossible de s’authentifier auprès du serveur MCP. Réessayez ou déconnectez votre autorisation, puis autorisez à nouveau l’accès.
+        invalid_configuration: OAuth n’est disponible que pour les connecteurs en HTTP diffusable avec une adresse HTTPS publique.
+        invalid_origin: Configurez NOSIA_URL avec une origine HTTPS publique avant d’utiliser OAuth.
+        unsafe_consent: La page de consentement du fournisseur doit utiliser une adresse HTTPS publique.
+        registration_unsupported: Ce fournisseur n’enregistre pas automatiquement les applications. Utilisez un connecteur compatible avec l’inscription dynamique ou demandez au fournisseur de l’activer.
+        already_authorized: Déconnectez votre autorisation actuelle avant de recommencer.
+        failed: Impossible de terminer l’autorisation. Recommencez.
+        declined: L’autorisation a été refusée. Vous pouvez réessayer.
+        expired: Cette tentative d’autorisation a expiré. Recommencez.
+        invalid_attempt: Cette tentative d’autorisation est invalide ou n’est plus active. Recommencez.

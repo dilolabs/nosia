@@ -1,11 +1,11 @@
-<%# locals: (server:, success:) %>
+<%# locals: (server:, success:, oauth_reason: nil) %>
 <section id="connection-test-result" class="n-mcp-message" role="<%= success ? 'status' : 'alert' %>" aria-labelledby="connection-test-heading">
   <h2 id="connection-test-heading" class="n-workspace-section-title"><%= t(success ? "nosia.mcp.connection_established" : "nosia.mcp.connection_failed") %></h2>
-  <p class="n-workspace-help"><%= t(success ? "nosia.mcp.connection_test_success_help" : "nosia.mcp.connection_test_failure_help") %></p>
-  <% if success && server.latency_ms %>
+  <p class="n-workspace-help"><%= oauth_reason && !success ? mcp_oauth_text(oauth_reason) : t(success ? "nosia.mcp.connection_test_success_help" : "nosia.mcp.connection_test_failure_help") %></p>
+  <% if success && !oauth_reason && server.latency_ms %>
     <p class="n-workspace-help"><%= t("nosia.mcp.connection_test_latency", latency: t("nosia.mcp.latency", milliseconds: number_with_delimiter(server.latency_ms))) %></p>
   <% end %>
-  <% unless success %>
+  <% unless success || oauth_reason %>
     <%= link_to t("nosia.actions.edit"), mcp_edit_path(server), class: "n-workspace-link" %>
   <% end %>
 </section>

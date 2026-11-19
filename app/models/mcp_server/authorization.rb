@@ -45,9 +45,25 @@ module McpServer::Authorization
     raise McpAuthorization::Unavailable, cause: nil
   end
 
+  # @param user [User] Current member explicitly selected by the caller
+  # @yieldparam connection [McpServer::Client] The acting member's usable client
+  # @return [Object] The result of the operation
+  # @raise [McpAuthorization::Unavailable] No matching usable authorization
+  def with_authorized_oauth_client(user)
+    grant = oauth_grant_for(user)
+    raise McpAuthorization::AuthorizationRequired unless grant
+    raise McpAuthorization::ReconnectRequired if grant.reconnect_required_at
+
+    grant.with_client do |connection|
+      raise McpAuthorization::AuthorizationRequired unless connection.authorized?
+
+      yield connection
+    end
+  end
+
   private
     def validate_oauth_transport
-      errors.add(:auth_mode, :invalid) if oauth? && !oauth_configuration?
+      errors.add(:auth_mode, :oauth_transport_required) if oauth? && !oauth_configuration?
     end
 
     def valid_oauth_endpoint?(transport, endpoint)
@@ -79,7 +95,7 @@ module McpServer::Authorization
       # A stale editor may have validated against a different mode before
       # this transaction obtained the account lock.
       if mode == "oauth" && !valid_oauth_endpoint?(transport, endpoint)
-        errors.add(:auth_mode, :invalid)
+        errors.add(:auth_mode, :oauth_transport_required)
         throw :abort
       end
       if resulting_identity != [ saved.auth_mode, saved.transport_type, saved.effective_endpoint, saved.account_id ]

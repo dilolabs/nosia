@@ -1,5 +1,5 @@
 <%# locals: (mcp_server:) %>
-<%= form_with model: mcp_form_model(mcp_server), class: "n-mcp-form-sections", data: { mcp_form: true, controller: "mcp-form form-errors html-form mcp-secrets", action: "click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML turbo:before-cache@document->mcp-secrets#clear" } do |f| %>
+<%= form_with model: mcp_form_model(mcp_server), class: "n-mcp-form-sections", data: { mcp_form: true, controller: "mcp-form form-errors html-form mcp-secrets", action: "change->mcp-form#toggleFields click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML turbo:before-cache@document->mcp-secrets#clear" } do |f| %>
   <%= render "mcp_workspace/errors", record: mcp_server %>
   <section class="n-workspace-panel space-y-4">
     <h2 class="n-workspace-section-title"><%= t("nosia.mcp.configuration") %></h2>
@@ -17,6 +17,11 @@
       <div data-mcp-form-target="httpFields">
         <%= render "mcp_workspace/field", form: f, attribute: :endpoint, label: t("nosia.mcp.url"), conditional_required: true %>
       </div>
+      <div>
+        <%= render "mcp_workspace/field", form: f, attribute: :auth_mode, label: mcp_oauth_text(:mode),
+          type: :select, choices: [[mcp_oauth_text(:static), "static"], [mcp_oauth_text(:oauth), "oauth"]] %>
+        <p class="n-workspace-help"><%= mcp_oauth_text(:mode_help) %></p>
+      </div>
       <div class="space-y-4" data-mcp-form-target="stdioFields">
         <%= render "mcp_workspace/field", form: f, attribute: :command, label: t("nosia.mcp.command") %>
         <%= render "mcp_workspace/field", form: f, attribute: :args, label: t("nosia.mcp.arguments"), type: :textarea, value: Array(mcp_server.args).join("\n") %>
@@ -27,7 +32,7 @@
   <% fields = mcp_server.workspace_configuration_fields %>
   <% engine = mcp_server.metadata&.[]("engine") if mcp_server.local? %>
   <% if fields.any? %>
-    <%= tag.section class: "n-workspace-panel space-y-4", data: (mcp_server.local? ? {} : { mcp_form_target: "httpFields" }) do %>
+    <%= tag.section class: "n-workspace-panel space-y-4", data: (mcp_server.local? ? {} : { mcp_form_target: "staticFields" }) do %>
       <h2 class="n-workspace-section-title"><%= t(mcp_server.local? ? "nosia.mcp_workspace.authentication" : "nosia.mcp.authentication") %></h2>
       <%= render "mcp_catalog/fields", fields: fields, values: mcp_server.workspace_public_values, record: mcp_server, catalog: false, template: (McpCatalog.find(engine) if mcp_server.local?) %>
     <% end %>

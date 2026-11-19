@@ -2,7 +2,7 @@
 <section id="<%= kind %>" class="n-mcp-panel" data-mcp-server-target="panel" data-tab-key="<%= kind %>" data-mcp-capability="<%= kind %>">
   <h2 class="n-workspace-section-title"><%= t("nosia.mcp.#{kind}") %></h2>
   <% if result.state != :loaded %>
-    <p class="n-workspace-help"><%= t(result.state == :not_loaded ? "nosia.mcp_workspace.not_loaded" : "nosia.mcp_workspace.unavailable") %></p>
+    <p class="n-workspace-help"><%= result.reason ? mcp_oauth_text(result.reason) : t(result.state == :not_loaded ? "nosia.mcp_workspace.not_loaded" : "nosia.mcp_workspace.unavailable") %></p>
   <% elsif result.items.empty? %>
     <p class="n-workspace-help"><%= t("nosia.mcp_workspace.no_items") %></p>
   <% else %>

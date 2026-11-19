@@ -1,6 +1,8 @@
-<%# locals: (server:) %>
+<%# locals: (server:, oauth_state: nil) %>
 <% if server.legacy_sse? %>
   <span class="n-mcp-status" data-state="unavailable"><%= t("nosia.mcp_workspace.legacy_sse_unavailable") %></span>
+<% elsif server.oauth? %>
+  <span class="n-mcp-status" data-state="<%= oauth_state == 'authorized' ? 'ready' : oauth_state %>"><%= mcp_oauth_text(oauth_state) %></span>
 <% else %>
   <span class="n-mcp-status" data-state="<%= server.status %>"><%= t("nosia.mcp.status.#{server.status}") %></span>
 <% end %>

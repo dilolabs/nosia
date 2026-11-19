@@ -9,6 +9,8 @@
       <p class="n-workspace-help"><%= t("nosia.mcp_workspace.saved_test_help") %></p>
       <% if @mcp_server.saved_legacy_sse? %>
         <p class="n-workspace-help"><%= t("nosia.mcp_workspace.legacy_sse_migration") %></p>
+      <% elsif @mcp_server.auth_mode_in_database == "oauth" && mcp_oauth_state(@mcp_server) != "authorized" %>
+        <p class="n-workspace-help"><%= mcp_oauth_text(:use_authorize) %></p>
       <% elsif @mcp_server.attribute_in_database("transport_type") == "stdio" && !McpServer.stdio_enabled? %>
         <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
       <% else %>
