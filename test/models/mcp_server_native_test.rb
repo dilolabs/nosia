@@ -298,6 +298,49 @@ class McpServerNativeTest < ActiveSupport::TestCase
     assert_same adapter, RubyLLM.config.faraday_adapter
   end
 
+  test "a stale static server and its retained client cannot send headers after OAuth mode is saved" do
+    @server.update!(token: "fixture-static-token")
+    stale = McpServer.find(@server.id)
+    retained = stale.client
+    @server.update!(auth_mode: "oauth")
+
+    @wire.install(self) do
+      [ retained, stale.client ].compact.each do |client|
+        assert_raises(McpServer::Client::Error) { client.tools }
+      ensure
+        client.close
+      end
+    end
+    assert_empty @wire.requests
+    refute McpOutbound.active?
+  end
+
+  test "the real guarded adapter denies stale static requests before constructing a socket" do
+    @server.update!(token: "fixture-static-token")
+    retained = @server.client
+    attempts = []
+    constructor = ->(*args) do
+      attempts << args
+      raise Errno::ECONNREFUSED
+    end
+
+    with_singleton_replacement(UrlGuard, :resolve, ->(_) { [ IPAddr.new("93.184.216.34") ] }) do
+      with_singleton_replacement(Net::HTTP, :new, constructor) do
+        assert_raises(McpServer::Client::Error) { retained.tools }
+        assert_equal [ [ NativeMcpWire::HOST, 443, nil ] ], attempts
+        @server.update!(auth_mode: "oauth")
+
+        error = assert_raises(McpServer::Client::Error) { retained.tools }
+        assert_instance_of McpServer::Client::Error, error
+        assert_equal "Could not connect to the MCP server", error.message
+        assert_nil error.cause
+        assert_equal [ [ NativeMcpWire::HOST, 443, nil ] ], attempts
+      end
+    end
+  ensure
+    retained&.close
+  end
+
   test "a legacy SSE record stays editable but cannot connect, execute, or be selected" do
     @server.update_columns(transport_type: "sse", endpoint: "https://mcp.example.test/sse",
       connection_config: { "url" => "https://mcp.example.test/old" })

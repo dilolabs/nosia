@@ -7,7 +7,7 @@ class NativeMcpOAuthWire < NativeMcpWire
   REDIRECT_URI = "https://nosia.example.test/mcp/oauth/callback"
 
   attr_reader :oauth_requests, :resource_metadata, :issuer_metadata
-  attr_accessor :challenge, :expires_in, :refresh_token, :refresh_response, :mcp_rejection, :before_reply
+  attr_accessor :challenge, :expires_in, :refresh_token, :refresh_response, :mcp_rejection, :before_reply, :metadata_response
 
   def initialize
     super
@@ -37,8 +37,9 @@ class NativeMcpOAuthWire < NativeMcpWire
       before_reply&.call(path, form)
       case [ env.method, path ]
       when [ :get, METADATA_PATH ], [ :get, "/.well-known/oauth-protected-resource/mcp" ]
-        document(resource_metadata)
-      when [ :get, DISCOVERY_PATH ] then document(issuer_metadata)
+        metadata_response&.call(path, resource_metadata) || document(resource_metadata)
+      when [ :get, DISCOVERY_PATH ]
+        metadata_response&.call(path, issuer_metadata) || document(issuer_metadata)
       when [ :post, "/register" ]
         document({ "client_id" => "fixture-dynamic-client", "client_secret" => "fixture-client-signing-secret" }, 201)
       when [ :post, "/token" ] then exchange(form)

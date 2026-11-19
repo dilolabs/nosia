@@ -142,7 +142,8 @@ class McpAuthorizationConcurrencyTest < ActiveSupport::TestCase
 
       concurrent do |workers|
         call = workers.call do
-          assert_raises(McpAuthorization::Unavailable) { client.call("lookup", {}) }
+          error = assert_raises(McpAuthorization::Unavailable) { client.call("lookup", {}) }
+          assert_nil error.cause
         end
         wait_for(at_tool)
         @member.destroy!
@@ -153,6 +154,35 @@ class McpAuthorizationConcurrencyTest < ActiveSupport::TestCase
       assert_equal [ "tools/list", "tools/call" ], @wire.methods_requested.last(2)
       refute native_credentials.exists?(owner: grant)
     end
+  end
+
+  test "a stale static client cannot retry with its old headers after the OAuth mode switch commits" do
+    @server.update!(token: "fixture-static-token")
+    wire = NativeMcpWire.new
+    wire.legacy = wire.fail_reinitialize = true
+    at_tool, release_tool = Array.new(2) { Queue.new }
+    original = wire.method(:reply)
+    wire.define_singleton_method(:reply) do |env|
+      if env.request_headers["Mcp-Method"] == "tools/call"
+        at_tool << true
+        Timeout.timeout(5) { release_tool.pop }
+      end
+      original.call(env)
+    end
+
+    wire.install(self) do
+      client = @server.client
+      client.tools
+      concurrent do |workers|
+        call = workers.call { assert_raises(McpServer::Client::Error) { client.call("lookup", {}) } }
+        wait_for(at_tool)
+        @server.update!(auth_mode: "oauth")
+        release_tool << true
+        join(call)
+      end
+      client.close
+    end
+    assert_equal [ "server/discover", "initialize", "notifications/initialized", "tools/list", "tools/call" ], wire.methods_requested
   end
 
   test "an earlier failure cannot mark a credential rotated after refresh unwinds" do
@@ -172,7 +202,10 @@ class McpAuthorizationConcurrencyTest < ActiveSupport::TestCase
       @wire.refresh_response = ->(_) { [ 401, { "Content-Type" => "application/json" }, '{"error":"invalid_grant"}' ] }
 
       concurrent do |workers|
-        failure = workers.call { assert_raises(McpServer::Client::Error) { client.tools } }
+        failure = workers.call do
+          error = assert_raises(McpServer::Client::Error) { client.tools }
+          assert_instance_of McpAuthorization::Unavailable, error
+        end
         wait_for(at_marker)
         @wire.refresh_response = nil
         @wire.expires_in = 3600
@@ -200,6 +233,42 @@ class McpAuthorizationConcurrencyTest < ActiveSupport::TestCase
       assert_raises(ActiveRecord::RecordNotFound) { stale_member.update!(user: @bob) }
       assert grant.authorized?
       assert_nil other_server.oauth_grant_for(@bob)
+    end
+  end
+
+  test "lookup overlapping reassignment never returns the replacement member's grant" do
+    original = begin_grant
+    @team.account_users.find_by!(user: @bob).destroy!
+    at_lookup, release_lookup = Array.new(2) { Queue.new }
+
+    @wire.install(self) do
+      @wire.authorize(original)
+      concurrent do |workers|
+        lookup = workers.call do
+          paused = false
+          subscriber = ->(event) do
+            if !paused && Thread.current[:looking_up_mcp_grant] && event.payload[:sql].match?(/\ASELECT .*"account_users"/)
+              paused = true
+              at_lookup << true
+              wait_for(release_lookup)
+            end
+          end
+          Thread.current[:looking_up_mcp_grant] = true
+          ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") { @server.oauth_grant_for(@alice) }
+        end
+        wait_for(at_lookup)
+        @member.update!(user: @bob)
+        replacement = @server.begin_oauth_grant_for!(@bob)
+        @wire.authorize(replacement)
+        release_lookup << true
+
+        found = join(lookup)
+        refute_equal replacement.id, found&.id
+        before = @wire.requests.dup
+        assert_raises(McpAuthorization::Unavailable) { (found || original).client.tools }
+        assert_equal before, @wire.requests
+        assert_equal replacement, @server.oauth_grant_for(@bob)
+      end
     end
   end
 

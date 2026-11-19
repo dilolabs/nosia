@@ -41,6 +41,17 @@ class McpAuthorizationTest < ActiveSupport::TestCase
     assert_equal 4, grants.map { |grant| credential(grant).data.fetch("access_token") }.uniq.size
   end
 
+  test "a member grant lookup is one uncached query even in another active account" do
+    grant = begin_grant
+    other_account = oauth_fixture("accounts", :oauth_other)
+    ActsAsTenant.with_tenant(other_account) do
+      ApplicationRecord.cache do
+        assert_equal grant, @server.oauth_grant_for(@alice)
+        assert_queries_count(1) { assert_equal grant, @server.oauth_grant_for(@alice) }
+      end
+    end
+  end
+
   test "native discovery, issuer checking, PKCE and DPoP persist only encrypted grant material" do
     assert_respond_to @server, :begin_oauth_grant_for!
     grant = begin_grant
@@ -107,6 +118,23 @@ class McpAuthorizationTest < ActiveSupport::TestCase
     @team.users.delete(@alice)
     refute @server.oauth_grant_for(@alice)
     refute native_credentials.exists?(owner: grant)
+  end
+
+  test "a retained grant independently verifies the member still represents its original user" do
+    grant = begin_grant
+    @wire.install(self) do
+      @wire.authorize(grant)
+      caller = grant.client
+      @team.account_users.find_by!(user: @bob).destroy!
+      # Simulate a data repair that bypasses the ordinary retirement callback.
+      @member.update_columns(user_id: @bob.id)
+
+      before = @wire.requests.dup
+      assert_nil @server.oauth_grant_for(@bob)
+      refute grant.reload.authorized?
+      assert_raises(McpAuthorization::Unavailable) { caller.tools }
+      assert_equal before, @wire.requests
+    end
   end
 
   {
@@ -189,6 +217,27 @@ class McpAuthorizationTest < ActiveSupport::TestCase
     end
   end
 
+  [ NativeMcpOAuthWire::METADATA_PATH, NativeMcpOAuthWire::DISCOVERY_PATH ].each do |redirect_path|
+    test "rejects a discovery redirect from #{redirect_path} before native consumption" do
+      grant = begin_grant
+      @wire.metadata_response = ->(path, document) do
+        if path == redirect_path
+          [ 302, { "Content-Type" => "application/json", "Location" => "#{NativeMcpOAuthWire::ORIGIN}/fixture-redirect" },
+            JSON.generate(document) ]
+        end
+      end
+      @wire.install(self) do
+        error = assert_raises(McpServer::Client::Error) { @wire.start(grant) }
+        refute_includes error.message, "fixture-redirect"
+        assert_nil error.cause
+      end
+
+      paths = [ "/mcp", NativeMcpOAuthWire::METADATA_PATH, NativeMcpOAuthWire::DISCOVERY_PATH ]
+      assert_equal paths.take(paths.index(redirect_path) + 1), @wire.oauth_requests.pluck(:path).uniq
+      refute native_credentials.exists?(owner: grant)
+    end
+  end
+
   test "refresh rotates credentials consumed by a fresh instance without losing tool error attribution" do
     assert_respond_to @server, :begin_oauth_grant_for!
     grant = begin_grant
@@ -243,7 +292,9 @@ class McpAuthorizationTest < ActiveSupport::TestCase
     @wire.install(self) do
       @wire.authorize(grant)
       client = grant.client
-      assert_raises(McpServer::Client::Error) { client.tools }
+      error = assert_raises(McpServer::Client::Error) { client.tools }
+      assert_instance_of McpAuthorization::ReconnectRequired, error
+      assert_nil error.cause
       assert grant.reload.reconnect_required_at
       refute grant.authorized?
       assert_equal 1, @wire.token_requests.count { |form| form["grant_type"] == "refresh_token" }
@@ -272,7 +323,9 @@ class McpAuthorizationTest < ActiveSupport::TestCase
       @wire.mcp_rejection = ->(*) { [ 401, { "WWW-Authenticate" => "Bearer" }, "" ] }
       @wire.install(self) do
         @wire.authorize(grant)
-        assert_raises(McpServer::Client::Error) { grant.client.tools }
+        error = assert_raises(McpServer::Client::Error) { grant.client.tools }
+        assert_instance_of McpAuthorization::Unavailable, error
+        assert_nil error.cause
       end
       assert_nil grant.reload.reconnect_required_at
       assert grant.authorized?
@@ -289,11 +342,22 @@ class McpAuthorizationTest < ActiveSupport::TestCase
       @wire.expires_in = expires
       @wire.refresh_token = false
       scheme = kind == :wrong_scheme ? "DPoP" : "Bearer"
-      challenge = code ? %(#{scheme} error="#{code}") : scheme
+      challenge = code ? %(#{scheme} error="#{code}", error_description="fixture-provider-detail", scope="fixture-private-scope") : scheme
       @wire.mcp_rejection = ->(*) { [ status, { "WWW-Authenticate" => challenge }, "" ] }
       @wire.install(self) do
         @wire.authorize(grant)
-        assert_raises(McpServer::Client::Error) { grant.client.tools }
+        error = assert_raises(McpServer::Client::Error) { grant.client.tools }
+        expected = if reconnect
+          McpAuthorization::ReconnectRequired
+        elsif kind == :insufficient_scope
+          McpAuthorization::InsufficientScope
+        else
+          McpAuthorization::Unavailable
+        end
+        assert_instance_of expected, error
+        assert_nil error.cause
+        refute_includes error.message, "fixture-provider-detail"
+        refute_includes error.message, "fixture-private-scope"
       end
       assert_equal reconnect, grant.reload.reconnect_required_at.present?
       assert_equal 1, @wire.token_requests.size

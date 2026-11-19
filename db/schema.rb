@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_19_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -215,9 +215,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_000003) do
     t.datetime "reconnect_required_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
     t.index ["account_id"], name: "index_mcp_authorizations_on_account_id"
     t.index ["account_user_id"], name: "index_mcp_authorizations_on_account_user_id"
     t.index ["mcp_server_id", "account_user_id"], name: "index_mcp_authorizations_on_mcp_server_id_and_account_user_id", unique: true
+    t.index ["user_id"], name: "index_mcp_authorizations_on_user_id"
   end
 
   create_table "mcp_servers", force: :cascade do |t|
@@ -702,6 +704,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_000003) do
   add_foreign_key "mcp_authorizations", "account_users"
   add_foreign_key "mcp_authorizations", "accounts"
   add_foreign_key "mcp_authorizations", "mcp_servers"
+  add_foreign_key "mcp_authorizations", "users"
   add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "messages", "chats"
   add_foreign_key "messages", "ruby_llm_models", column: "model_id"

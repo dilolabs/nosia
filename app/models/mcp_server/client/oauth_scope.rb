@@ -17,11 +17,17 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
 
   def during_operation(operation)
     @operation = operation
-    yield.tap { raise McpOutbound::Blocked if @rejected_credential }
+    yield
   ensure
     rejected = @rejected_credential
     @operation = @rejected_credential = @refresh_started = @nonce_retry = @deny_refresh = nil
-    @grant.mark_reconnect_required(rejected, &method(:fingerprint)) if rejected
+    if rejected && !$!.is_a?(RubyLLM::CancelledError)
+      if @grant.mark_reconnect_required(rejected, &method(:fingerprint))
+        raise McpAuthorization::ReconnectRequired, cause: nil
+      else
+        raise McpAuthorization::Unavailable, cause: nil
+      end
+    end
   end
 
   def admit!(_env)
@@ -51,7 +57,10 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
     if attempt
       case attempt.kind
       when :metadata
-        validate_metadata(response.body) if response.success?
+        # Faraday's raise_error still hands 3xx bodies to the SDK.
+        raise McpOutbound::Blocked unless (200...300).cover?(response.status) || (400...600).cover?(response.status)
+
+        validate_metadata(response.body) if (200...300).cover?(response.status)
       when :mcp, :expired_access
         observe_mcp(attempt, response)
       when :refresh
@@ -100,6 +109,10 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
       challenge.each_value do |parameters|
         validate_raw_url!(parameters[:resource_metadata]) if parameters.key?(:resource_metadata)
       end
+      if @operation == :use && response.status == 403 && challenge.slice("bearer", "dpop").values.any? { |params| params[:error] == "insufficient_scope" }
+        raise McpAuthorization::InsufficientScope
+      end
+
       invalid_token = response.status == 401 && challenge.dig(attempt.scheme, :error) == "invalid_token"
       @deny_refresh = true unless invalid_token
       if invalid_token && attempt.kind == :expired_access

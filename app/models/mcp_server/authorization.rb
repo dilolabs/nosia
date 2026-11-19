@@ -15,12 +15,11 @@ module McpServer::Authorization
   end
 
   def oauth_grant_for(user)
+    return unless persisted? && user&.id
+
     self.class.uncached do
-      saved, member = oauth_identity_for(user)
-      if saved && member
-        grant = McpAuthorization.find_by(account_id:, mcp_server_id: id, account_user_id: member.id)
-        grant if grant&.endpoint == saved.effective_endpoint
-      end
+      grant = McpAuthorization.for_member(account_id:, mcp_server_id: id, user_id: user.id).find_with_saved_oauth_connector
+      grant if grant&.matches_saved_connector?
     end
   end
 
@@ -31,13 +30,15 @@ module McpServer::Authorization
         saved, member = oauth_identity_for(user)
         raise McpAuthorization::Unavailable unless saved && member
 
-        grants = McpAuthorization.where(account_id:, mcp_server_id: id, account_user_id: member.id)
+        grants = McpAuthorization.for_member(account_id:, mcp_server_id: id, user_id: user.id)
+          .where(account_user_id: member.id)
         grant = grants.first
         if grant && (grant.reconnect_required_at || grant.endpoint != saved.effective_endpoint)
           grant.retire!
           grant = nil
         end
-        grant || grants.create!(endpoint: saved.effective_endpoint)
+        grant || McpAuthorization.create!(account_id:, mcp_server_id: id, account_user: member,
+          user_id: user.id, endpoint: saved.effective_endpoint)
       end
     end
   rescue ActiveRecord::RecordNotFound

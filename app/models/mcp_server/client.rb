@@ -10,8 +10,10 @@ class McpServer::Client
     @credential_store = credential_store || (McpAuthorization::CredentialStore.new(grant) if grant)
     @scope = if grant
       OauthScope.new(grant, @credential_store)
-    else
+    elsif server.transport_type == "stdio"
       RequestScope.new(https_only: false)
+    else
+      StaticHttpScope.new(server)
     end
     @lock = Mutex.new
     @prefix = "mcp_#{grant ? grant.mcp_server_id : server.id}"
@@ -28,8 +30,8 @@ class McpServer::Client
         scope = @scope
         RubyLLM.mcp(**options, transport: -> { Stdio.new(argv, env:, scope:) })
       else
-        url = McpOutbound.endpoint!(server.effective_endpoint, https_only: false)
-        @headers = server.static_headers
+        url = McpOutbound.endpoint!(@scope.endpoint, https_only: false)
+        @headers = @scope.headers
         context.mcp(**options, url: url.to_s, headers: @headers, allow_http: true)
       end
     end
@@ -50,10 +52,16 @@ class McpServer::Client
         end
       end
     end
-  rescue RubyLLM::CancelledError, McpAuthorization::Unavailable
+  rescue RubyLLM::CancelledError
     raise
+  rescue McpAuthorization::Unavailable, McpAuthorization::InsufficientScope => error
+    raise error.class, cause: nil
   rescue StandardError
-    raise Error, I18n.t("nosia.mcp_workspace.remote_failure"), cause: nil
+    if @credential_store
+      raise McpAuthorization::Unavailable, cause: nil
+    else
+      raise Error, I18n.t("nosia.mcp_workspace.remote_failure"), cause: nil
+    end
   end
 
   def authorized? = within(operation: :status) { @native.authorized? }
