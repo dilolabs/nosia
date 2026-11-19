@@ -83,16 +83,20 @@ class McpServer::Client
 
   # Returns text/structured content with actual native attachments for the model.
   # @param result [RubyLLM::MCP::Result] First-party native result
+  # @param server_name [String] The wire name used to look up the current schema
   # @return [String, Array, Hash]
-  def output(result)
-    text = result_text(result)
-
+  def output(result, server_name:)
+    output_schema = @native_catalog.output_schema_for(server_name)
     if result.error?
-      tool_error(text)
+      tool_error(result_text(result))
+    elsif result.to_h.key?("structuredContent") && !output_schema.nil? && !McpServer::OutputSchema.valid?(output_schema, result.structured)
+      { error: I18n.t("nosia.mcp_workspace.invalid_structured_output") }
+    elsif !valid_attachment_data?(result)
+      execution_error(I18n.t("nosia.mcp_workspace.invalid_attachment_data"))
     elsif result.attachments.empty?
-      text
+      result_text(result)
     else
-      [ text, *attachments_with_declared_types(result) ]
+      [ result_text(result), *attachments_with_declared_types(result) ]
     end
   end
 
@@ -119,11 +123,14 @@ class McpServer::Client
 
   private
     def model_tools
+      # 2.2.3 exposes the wrapped tools but not their raw definitions. Install
+      # the observer on this one native client, not on the SDK class.
+      @native_catalog ||= @native.send(:client).extend(ToolCatalog)
       @native.tools.select { |tool| tool.visibility.include?(:model) }
     end
 
     def call_listed_tool(name, arguments)
-      output(@native.call(name, **arguments))
+      output(@native.call(name, **arguments), server_name: name)
     rescue RubyLLM::MCP::Error => error
       raise unless @scope.tool_protocol_error?(error)
 
@@ -165,6 +172,23 @@ class McpServer::Client
           attachment
         end
       end
+    end
+
+    def valid_attachment_data?(result)
+      # Native decoding is permissive. Check the original fields before
+      # handing the native attachment objects to either caller.
+      Array(result.to_h["content"]).each do |block|
+        case block["type"]
+        when "image", "audio"
+          Base64.strict_decode64(block["data"])
+        when "resource"
+          resource = block["resource"] || {}
+          Base64.strict_decode64(resource["blob"]) if !resource["text"] && resource.key?("blob")
+        end
+      end
+      true
+    rescue ArgumentError, TypeError
+      false
     end
 
     def stdio_argv(server)

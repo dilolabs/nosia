@@ -1,7 +1,7 @@
 # A native tool registered by value, retaining its client until the turn ends.
 class McpServer::RemoteTool < RubyLLM::Tool
-  delegate :server_name, :description, :parameters_schema, to: :@tool
-  attr_reader :name
+  delegate :server_name, :description, to: :@tool
+  attr_reader :name, :parameters_schema
 
   # @param tool [RubyLLM::MCP::Tool] The advertised native tool
   # @param client [McpServer::Client] The connection that advertised it
@@ -11,6 +11,7 @@ class McpServer::RemoteTool < RubyLLM::Tool
     @tool = tool
     @client = client
     @name = name
+    @parameters_schema = McpServer::InputSchema.for_provider(tool.parameters_schema)
   end
 
   # @param arguments [Hash] Parameters passed by the model
@@ -19,7 +20,7 @@ class McpServer::RemoteTool < RubyLLM::Tool
     @client.within do
       result = @tool.call(**arguments)
       case result
-      when RubyLLM::MCP::Result then @client.output(result)
+      when RubyLLM::MCP::Result then @client.output(result, server_name:)
       when RubyLLM::MCP::Outages::Failure then unavailable
       when Hash then @client.tool_error(result[:error])
       else unavailable

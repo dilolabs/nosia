@@ -19,6 +19,7 @@ class NativeMcpWire
   attr_accessor :tool_result, :legacy, :stream, :fail_method, :tools, :prompts, :resources, :ping
   attr_accessor :unavailable_method, :timeout_method, :fail_reinitialize, :failure_status
   attr_accessor :resume_tool_error
+  attr_accessor :next_tools_page
 
   def initialize
     @requests = []
@@ -73,7 +74,7 @@ class NativeMcpWire
     if method == fail_method || (method == "initialize" && @session_expired)
       outcome = rpc_error(-32_603, PRIVATE_MARKER)
     else
-      outcome = rpc_outcome(method)
+      outcome = rpc_outcome(method, rpc["params"])
     end
     return [ 202, {}, "" ] unless rpc.key?("id")
 
@@ -99,7 +100,7 @@ class NativeMcpWire
       "event: message\r\ndata: #{body}\r\n\r\n"
     end
 
-    def rpc_outcome(method)
+    def rpc_outcome(method, params)
       case method
       when "server/discover"
         return rpc_error(-32_601, "Method not found") if legacy
@@ -107,7 +108,14 @@ class NativeMcpWire
         { "result" => { "supportedVersions" => [ "2026-07-28" ], "capabilities" => { "tools" => {}, "resources" => {}, "prompts" => {} } } }
       when "initialize" then { "result" => { "protocolVersion" => "2025-11-25", "capabilities" => { "tools" => {}, "resources" => {}, "prompts" => {} } } }
       when "notifications/initialized" then {}
-      when "tools/list" then { "result" => { "tools" => tools } }
+      when "tools/list"
+        if params&.[]("cursor") == "tools-page-2"
+          { "result" => { "tools" => next_tools_page } }
+        else
+          page = { "tools" => tools }
+          page["nextCursor"] = "tools-page-2" if next_tools_page
+          { "result" => page }
+        end
       when "prompts/list" then { "result" => { "prompts" => prompts } }
       when "resources/list" then { "result" => { "resources" => resources } }
       when "resources/read" then { "result" => { "contents" => [ RESOURCE.merge("text" => "MCP resource body") ] } }

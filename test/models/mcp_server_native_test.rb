@@ -1,4 +1,5 @@
 require "test_helper"
+require "faraday/adapter/test"
 require "tempfile"
 require_relative "../support/chat_account_fixtures"
 require_relative "../support/native_mcp_wire"
@@ -102,6 +103,122 @@ class McpServerNativeTest < ActiveSupport::TestCase
       end
     end
     assert_equal %w[server/discover tools/list tools/call], @wire.methods_requested
+  end
+
+  test "the Chat Completions payload fills empty properties on object schemas without imposing constraints" do
+    input_schema = {
+      "type" => "object",
+      "additionalProperties" => {
+        "type" => "array", "items" => { "anyOf" => [
+          { "type" => "object", "description" => "Free-form object", "examples" => [ { "type" => "object" } ] },
+          { "type" => "object", "properties" => { "value" => { "type" => "object" } }, "required" => [ "value" ] },
+          { "type" => "string" }
+        ] }
+      },
+      "$defs" => { "entry" => { "type" => [ "object", "null" ] } }
+    }
+    announced = input_schema.deep_dup
+    @wire.tools = [ NativeMcpWire::TOOL.merge("inputSchema" => input_schema) ]
+
+    @wire.install(self) do
+      @server.with_client do |client|
+        schema = rendered_tool_parameters(client.tools.fetch(0))
+        assert_equal({}, schema["properties"])
+        assert_not schema.key?("required"), "Normalizing the root must not require argument keys"
+        variants = schema.dig("additionalProperties", "items", "anyOf")
+        assert_equal({ "type" => "object", "description" => "Free-form object",
+          "examples" => [ { "type" => "object" } ], "properties" => {} }, variants.fetch(0))
+        assert_equal({ "type" => "object", "properties" => { "value" => { "type" => "object", "properties" => {} } },
+          "required" => [ "value" ] }, variants.fetch(1))
+        assert_equal({ "type" => "string" }, variants.fetch(2))
+        assert_equal({ "type" => [ "object", "null" ], "properties" => {} }, schema.dig("$defs", "entry"))
+      end
+    end
+    assert_equal announced, @wire.tools.first.fetch("inputSchema")
+    assert_equal %w[server/discover tools/list], @wire.methods_requested
+  end
+
+  %i[workspace model].each do |boundary|
+    test "#{boundary} rejects a string where the advertised output schema expects an integer" do
+      @wire.tools = [ NativeMcpWire::TOOL.merge("outputSchema" => {
+        "type" => "object", "properties" => { "count" => { "$ref" => "#/$defs/count" } }, "required" => [ "count" ],
+        "$defs" => { "count" => { "type" => "integer" } }
+      }) ]
+      @wire.tool_result = { "structuredContent" => { "count" => NativeMcpWire::PRIVATE_MARKER }, "content" => [
+        { "type" => "image", "mimeType" => "image/png", "data" => Base64.strict_encode64("fixture image") }
+      ] }
+
+      @wire.install(self) do
+        error = { error: "Structured output is not valid" }
+        assert_equal boundary_result(boundary, error), run_native_tool(boundary)
+
+        @wire.tool_result.fetch("structuredContent")["count"] = 3
+        result = run_native_tool(boundary)
+        content = boundary == :workspace ? result.fetch(:result) : result
+        text, attachments = RubyLLM::Tool.split_result(content)
+        assert_equal({ "count" => 3 }, JSON.parse(text))
+        assert_equal [ "fixture image" ], attachments.map(&:content)
+      end
+      assert_equal %w[server/discover tools/list tools/call] * 2, @wire.methods_requested
+    end
+  end
+
+  test "advertised output schemas preserve valid primitive values and do not reject text-only or isError results" do
+    @wire.tools = [ NativeMcpWire::TOOL.merge("outputSchema" => { "type" => [ "boolean", "null" ] }) ]
+    @wire.install(self) do
+      [ false, nil ].each do |value|
+        @wire.tool_result = { "structuredContent" => value, "content" => [ { "type" => "text", "text" => "less authoritative" } ] }
+        assert_equal({ success: true, result: JSON.generate(value) }, @server.execute_tool("lookup"))
+      end
+      @wire.tool_result = { "content" => [ { "type" => "text", "text" => "Legacy text-only response" } ] }
+      assert_equal "Legacy text-only response", run_native_tool(:model)
+
+      @wire.tool_result = { "isError" => true, "structuredContent" => 2 }
+      assert_equal({ success: true, result: { error: "Tool execution error: 2" } }, @server.execute_tool("lookup"))
+    end
+  end
+
+  test "output schemas stay with the tools that advertised them across catalog pages" do
+    @wire.tools = [ NativeMcpWire::TOOL.merge("name" => "other", "outputSchema" => { "type" => "string" }) ]
+    @wire.next_tools_page = [ NativeMcpWire::TOOL.merge("outputSchema" => { "type" => "integer" }) ]
+    @wire.tool_result = { "structuredContent" => "fixture text" }
+    @wire.install(self) do
+      @server.with_client do |client|
+        tools = client.tools.index_by(&:server_name)
+        assert_equal '"fixture text"', tools.fetch("other").call
+        assert_equal({ error: "Structured output is not valid" }, tools.fetch("lookup").call)
+      end
+    end
+    assert_equal %w[server/discover tools/list tools/list tools/call tools/call], @wire.methods_requested
+  end
+
+  test "unavailable external output schema references fail closed without fetching or disclosing them" do
+    @wire.tools = [ NativeMcpWire::TOOL.merge("outputSchema" => { "$ref" => "https://not-the-mcp-host.test/fixture-schema" }) ]
+    @wire.tool_result = { "structuredContent" => { "count" => 3 } }
+    @wire.install(self) do
+      with_singleton_replacement(Net::HTTP, :new, ->(*) { raise Minitest::Assertion, "Output schema opened an HTTP connection" }) do
+        assert_equal({ success: true, result: { error: "Structured output is not valid" } }, @server.execute_tool("lookup"))
+      end
+    end
+    assert_equal %w[server/discover tools/list tools/call], @wire.methods_requested
+  end
+
+  %w[image audio resource].each do |type|
+    test "native #{type} tool attachments reject malformed base64 on both boundaries" do
+      malformed = "YWJj #{NativeMcpWire::PRIVATE_MARKER}!"
+      block = case type
+      when "image" then { "type" => type, "data" => malformed, "mimeType" => "image/png" }
+      when "audio" then { "type" => type, "data" => malformed, "mimeType" => "audio/wav" }
+      else { "type" => type, "resource" => { "uri" => "file:///fixture/report.pdf", "blob" => malformed, "mimeType" => "application/pdf" } }
+      end
+      @wire.tool_result = { "structuredContent" => { "count" => 3 }, "content" => [ block ] }
+
+      @wire.install(self) do
+        error = { error: "Tool execution error: Invalid attachment data" }
+        assert_equal error, run_native_tool(:model)
+        assert_equal({ success: true, result: error }, run_native_tool(:workspace))
+      end
+    end
   end
 
   test "direct tool calls require a wire name and an advertised tool on every call" do
@@ -444,6 +561,40 @@ class McpServerNativeTest < ActiveSupport::TestCase
   end
 
   private
+    def rendered_tool_parameters(tool)
+      request = nil
+      stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+        stub.post("/v1/chat/completions") do |env|
+          request = JSON.parse(env.body)
+          body = { model: "fixture-model", choices: [ { message: { role: "assistant", content: "Ready" }, finish_reason: "stop" } ] }
+          [ 200, { "Content-Type" => "application/json" }, JSON.generate(body) ]
+        end
+      end
+      adapter = Class.new(Faraday::Adapter::Test) do
+        define_method(:initialize) { |app, **| super(app, stubs, &nil) }
+      end
+      context = RubyLLM.context do |config|
+        config.faraday_adapter = adapter
+        config.openai_api_base = "http://127.0.0.1:9/v1"
+      end
+      chat = context.chat(model: "fixture-model", provider: :openai, assume_model_exists: true).with_tools(tool)
+      assert_equal "Ready", chat.ask("Which tool can you call?").content
+      stubs.verify_stubbed_calls
+      request.fetch("tools").fetch(0).fetch("function").fetch("parameters")
+    end
+
+    def run_native_tool(boundary)
+      if boundary == :workspace
+        @server.execute_tool("lookup")
+      else
+        @server.with_client { |client| client.tools.fetch(0).call }
+      end
+    end
+
+    def boundary_result(boundary, result)
+      boundary == :workspace ? { success: true, result: result } : result
+    end
+
     def with_stdio_peer(mode)
       previous = ENV["MCP_STDIO_ENABLED"]
       ENV["MCP_STDIO_ENABLED"] = "true"

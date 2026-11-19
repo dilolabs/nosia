@@ -49,5 +49,7 @@ en:
       legacy_sse_unavailable: Legacy SSE unavailable
       remote_failure: Could not connect to the MCP server
       tool_call_rejected: The MCP server rejected the tool call
+      invalid_structured_output: Structured output is not valid
+      invalid_attachment_data: Invalid attachment data
       credential_conflict: Choose either a replacement or removal, not both.
       optional: Optional
