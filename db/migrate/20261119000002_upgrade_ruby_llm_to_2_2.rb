@@ -1,7 +1,8 @@
 # PostgreSQL expansion of RubyLLM v2.2.3's upgrade_ruby_llm_to_2_2.rb.tt.
 # Copyright (c) 2025 Carmine Paolino (MIT; see support/ruby_llm_v2_legacy_content_sql.rb).
 class UpgradeRubyLlmTo22 < ActiveRecord::Migration[8.1]
-  USAGE_OPERATIONS = %w[chat embedding moderation image speech transcription ocr rerank judgment video research code_execution].freeze
+  SOURCE_USAGE_OPERATIONS = %w[chat embedding moderation image speech transcription ocr rerank judgment video research].freeze
+  USAGE_OPERATIONS = (SOURCE_USAGE_OPERATIONS + %w[code_execution]).freeze
 
   def up
     unless column_exists?(:ruby_llm_tool_calls, :provider_call_id)
@@ -87,7 +88,7 @@ class UpgradeRubyLlmTo22 < ActiveRecord::Migration[8.1]
       add_column :ruby_llm_chat_files, :read_digest, :string
     end
 
-    allow_code_execution_usage unless usage_accepts_code_execution?
+    upgrade_usage_operations
     # A check of the application's may still refuse the row.
     warn_about_code_execution_usage unless usage_accepts_code_execution?
   end
@@ -99,6 +100,34 @@ class UpgradeRubyLlmTo22 < ActiveRecord::Migration[8.1]
   end
 
   private
+    def upgrade_usage_operations
+      matches = check_constraints(:ruby_llm_usages).filter_map do |check|
+        operations = stock_usage_operations(check.expression)
+        [ check, operations ] if operations == SOURCE_USAGE_OPERATIONS.sort || operations == USAGE_OPERATIONS.sort
+      end
+      check, operations = matches.first
+      unless matches.one? && check.validate?
+        raise "Expected one validated stock RubyLLM 2.1 or 2.2 usage operation check, found #{matches.size} matching checks. Review ruby_llm_usages constraints before retrying."
+      end
+
+      if operations == SOURCE_USAGE_OPERATIONS.sort
+        remove_check_constraint :ruby_llm_usages, name: check.name
+        values = USAGE_OPERATIONS.map { |operation| connection.quote(operation) }.join(", ")
+        add_check_constraint :ruby_llm_usages, "operation::text IN (#{values})"
+      end
+    end
+
+    # Keep this matcher local to the migration. PostgreSQL deparses IN as
+    # = ANY, with varchar/text casts that vary across dump versions.
+    def stock_usage_operations(expression)
+      value = /'[a-z_]+'(?:::text|::character varying(?:::text)?)?|\('[a-z_]+'::character varying\)::text/
+      list = expression.squish[/
+        \A (?:operation|\(operation\)) (?:::text)? \s* = \s* ANY \s* \(
+        ARRAY\[ ((?:#{value})(?:,\s*(?:#{value}))*) \] (?:::text\[\])? \) \z
+      /x, 1]
+      list.scan(/'([a-z_]+)'/).flatten.sort if list
+    end
+
     # Asks the database, since each one prints a check differently: a check
     # refusing the row leaves code runs unmetered, with only a warning at run time.
     def usage_accepts_code_execution?
@@ -112,22 +141,6 @@ class UpgradeRubyLlmTo22 < ActiveRecord::Migration[8.1]
       true
     rescue ActiveRecord::StatementInvalid
       false
-    end
-
-    def allow_code_execution_usage
-      lists = check_constraints(:ruby_llm_usages).select { |check| operation_list?(check.expression) }
-      lists.each { |check| remove_check_constraint :ruby_llm_usages, name: check.name }
-      if lists.any?
-        add_check_constraint :ruby_llm_usages, "operation::text IN (#{USAGE_OPERATIONS.map { |operation| connection.quote(operation) }.join(', ')})"
-      end
-    end
-
-    # The list the install generator wrote, as each database prints it. A check
-    # with other conditions is the application's, and stays.
-    def operation_list?(expression)
-      names = expression.scan(/'(\w+)'/).flatten
-      expression.match?(/\A\(*[`"]?operation[`"]?\)*(?:::\w+)?\s*(?:in\b|=\s*any\b)/i) &&
-        !expression.match?(/\b(?:and|or|not)\b|<>|!=/i) && names.size > 1 && (names - USAGE_OPERATIONS).empty?
     end
 
     def warn_about_code_execution_usage

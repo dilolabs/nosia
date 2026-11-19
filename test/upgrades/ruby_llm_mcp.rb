@@ -15,6 +15,9 @@ class RubyLLMMcpUpgradeTest < Minitest::Test
   BASE_SCHEMA = "8f1fecf7f0ac7c79868cdb1e2867613ad87061e9:db/schema.rb"
   MIGRATION_2_1 = 20261119000001
   MIGRATION_2_2 = 20261119000002
+  USAGE_OPERATIONS_2_0 = %w[chat embedding moderation image speech transcription ocr rerank].freeze
+  USAGE_OPERATIONS_2_1 = (USAGE_OPERATIONS_2_0 + %w[judgment video research]).freeze
+  USAGE_OPERATIONS_2_2 = (USAGE_OPERATIONS_2_1 + %w[code_execution]).freeze
   SNAPSHOT_TABLES = %w[
     ruby_llm_models chats messages ruby_llm_tool_calls ruby_llm_usages accounts token_usages
     active_storage_attachments active_storage_blobs mcp_servers chat_mcp_sessions
@@ -51,13 +54,56 @@ class RubyLLMMcpUpgradeTest < Minitest::Test
       before_2_2 = persisted_records_snapshot
 
       migrate_to MIGRATION_2_2
-      assert connection.column_exists?(:ruby_llm_tool_calls, :provider_call_id, :string)
-      assert connection.column_exists?(:ruby_llm_tool_calls, :namespace, :string)
+      assert_2_2_schema
       assert_equal [ [ "call_historical", nil ] ], table(:ruby_llm_tool_calls).pluck(:tool_call_id, :provider_call_id)
       assert_equal before_2_2, persisted_records_snapshot
       assert_encrypted_connector
       insert_usage "code_execution"
       assert_rejects_usage "not_a_ruby_llm_operation"
+    end
+  end
+
+  def test_extends_only_the_complete_stock_usage_check
+    with_stable_2_0 do
+      # Install custom checks first to exercise selection independent of order.
+      remove_usage_allowlist
+      connection.add_check_constraint :ruby_llm_usages, "operation IN ('chat', 'embedding')", name: "local_operation_subset"
+      connection.add_check_constraint :ruby_llm_usages,
+        "#{stock_usage_expression(USAGE_OPERATIONS_2_0)} AND provider <> 'blocked'", name: "local_provider_rule"
+      custom = usage_checks.slice("local_operation_subset", "local_provider_rule")
+      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_0.reverse)
+
+      migrate_to MIGRATION_2_1
+      assert_usage_checks custom, USAGE_OPERATIONS_2_1, rejects: "code_execution"
+
+      # Rehearse another dump/installation format for the full 2.1 allowlist.
+      remove_usage_allowlist
+      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_1.reverse)
+      migrate_to MIGRATION_2_2
+      assert_usage_checks custom, USAGE_OPERATIONS_2_2, rejects: "not_a_ruby_llm_operation"
+    end
+  end
+
+  def test_refuses_to_guess_between_two_complete_stock_usage_checks
+    with_stable_2_0 do
+      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_0.reverse), name: "duplicate_operation_allowlist"
+      before = usage_checks
+
+      assert_refuses_usage_upgrade MIGRATION_2_1, /found 2/
+      assert_equal before, usage_checks
+    end
+  end
+
+  def test_refuses_to_replace_a_restricted_usage_check_without_stock_check
+    with_stable_2_0 do
+      migrate_to MIGRATION_2_1
+      remove_usage_allowlist
+      connection.add_check_constraint :ruby_llm_usages,
+        "#{stock_usage_expression(USAGE_OPERATIONS_2_1)} AND provider <> 'blocked'", name: "restricted_operation_allowlist"
+      before = usage_checks
+
+      assert_refuses_usage_upgrade MIGRATION_2_2, /found 0/
+      assert_equal before, usage_checks
     end
   end
 
@@ -186,6 +232,67 @@ class RubyLLMMcpUpgradeTest < Minitest::Test
       %i[mcp_state mcp_result].each do |column|
         assert connection.column_exists?(:ruby_llm_tool_calls, column, :jsonb)
       end
+      assert connection.column_exists?(:messages, :cache_ttl, :string)
+      assert connection.table_exists?(:ruby_llm_provider_files)
+      assert connection.column_exists?(:ruby_llm_provider_files, :file_id, :text, null: false)
+      assert connection.column_exists?(:ruby_llm_provider_files, :expires_at, :datetime)
+      assert connection.index_exists?(:ruby_llm_provider_files, %i[blob_key provider account], unique: true)
+    end
+
+    def assert_2_2_schema
+      assert connection.column_exists?(:ruby_llm_tool_calls, :provider_call_id, :string)
+      assert connection.column_exists?(:ruby_llm_tool_calls, :namespace, :string)
+      assert connection.table_exists?(:ruby_llm_queued_messages)
+      assert connection.column_exists?(:ruby_llm_queued_messages, :chat_id, :integer, limit: 8, null: false)
+      assert connection.column_exists?(:ruby_llm_queued_messages, :steer, :boolean, null: false)
+      assert_equal true, table(:ruby_llm_queued_messages).new.steer
+      assert connection.index_exists?(:ruby_llm_queued_messages, %i[chat_type chat_id])
+      assert connection.index_exists?(:ruby_llm_queued_messages, %i[sender_type sender_id])
+      assert connection.table_exists?(:ruby_llm_chat_files)
+      assert connection.column_exists?(:ruby_llm_chat_files, :path, :string, null: false)
+      assert connection.column_exists?(:ruby_llm_chat_files, :read_digest, :string)
+      assert connection.index_exists?(:ruby_llm_chat_files, %i[chat_type chat_id path])
+      assert connection.index_exists?(:ruby_llm_chat_files, %i[owner_type owner_id])
+      assert connection.column_exists?(:chats, :claim_token, :string)
+      assert connection.column_exists?(:chats, :claimed_until, :datetime)
+      index = connection.indexes(:chats).find { |candidate| candidate.columns == [ "claimed_until" ] }
+      assert_match(/\A\(?claim_token IS NOT NULL\)?\z/, index&.where.to_s)
+    end
+
+    def stock_usage_expression(operations)
+      values = operations.map { |operation| connection.quote(operation) }.join(", ")
+      "operation IN (#{values})"
+    end
+
+    def usage_checks
+      connection.check_constraints(:ruby_llm_usages).to_h { |check| [ check.name, check.expression ] }
+    end
+
+    def remove_usage_allowlist
+      name, = (usage_checks.except("local_operation_subset", "local_provider_rule")).find { |_, expression| expression.start_with?("operation") }
+      connection.remove_check_constraint :ruby_llm_usages, name: name
+    end
+
+    def assert_usage_checks(custom, permitted, rejects:)
+      checks = usage_checks
+      assert_equal custom, checks.slice(*custom.keys)
+      stock = checks.except(*custom.keys).values.select { |expression| expression.start_with?("operation") }
+      assert_equal 1, stock.size, "Expected one stock operation check"
+      permitted.each { |operation| assert evaluates_usage_check(stock.first, operation), "Stock check should accept #{operation}" }
+      refute evaluates_usage_check(stock.first, rejects), "Stock check should reject #{rejects}"
+      assert_rejects_usage "research" # The custom subset still applies to real inserts.
+    end
+
+    def evaluates_usage_check(expression, operation)
+      # Evaluate the database's stock check in isolation from local rules.
+      connection.select_value("SELECT (#{expression}) FROM (VALUES (#{connection.quote(operation)}::varchar)) AS usage(operation)")
+    end
+
+    def assert_refuses_usage_upgrade(version, message)
+      error = assert_raises(StandardError) do
+        connection.transaction(requires_new: true) { migrate_to version }
+      end
+      assert_match message, error.message
     end
 
     def insert_usage(operation)
