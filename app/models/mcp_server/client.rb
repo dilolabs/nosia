@@ -6,26 +6,29 @@ class McpServer::Client
 
   # @param server [McpServer] An eligible remote connector
   # @raise [Error] Invalid connector settings
-  def initialize(server)
-    @scope = RequestScope.new(https_only: false)
+  def initialize(server = nil, grant: nil, credential_store: nil)
+    @credential_store = credential_store || (McpAuthorization::CredentialStore.new(grant) if grant)
+    @scope = if grant
+      OauthScope.new(grant, @credential_store)
+    else
+      RequestScope.new(https_only: false)
+    end
     @lock = Mutex.new
-    @prefix = "mcp_#{server.id}"
+    @prefix = "mcp_#{grant ? grant.mcp_server_id : server.id}"
     options = { name: @prefix, prefix: @prefix, input_requests: false }
-    @native = within do
-      if server.transport_type == "stdio"
+    @native = within(operation: :setup) do
+      if grant
+        @credential_store.verify_schema!
+        url = McpOutbound.endpoint!(grant.endpoint, https_only: true).to_s
+        @credential_store.native_key(url)
+        context.mcp(**options, url:, oauth: { owner: grant })
+      elsif server.transport_type == "stdio"
         argv = stdio_argv(server)
         env = server.env || {}
         scope = @scope
         RubyLLM.mcp(**options, transport: -> { Stdio.new(argv, env:, scope:) })
       else
         url = McpOutbound.endpoint!(server.effective_endpoint, https_only: false)
-        context = RubyLLM.context do |config|
-          config.faraday_adapter = McpOutbound::Adapter
-          config.logger = QUIET_LOGGER
-          # Faraday still does preliminary proxy discovery; the guarded adapter
-          # ignores it and pins the direct socket without changing process ENV.
-          config.http_proxy = nil
-        end
         @headers = server.static_headers
         context.mcp(**options, url: url.to_s, headers: @headers, allow_http: true)
       end
@@ -34,17 +37,37 @@ class McpServer::Client
 
   # Scopes every native call, including a tool call from a separate fiber.
   # @raise [Error] A sanitized native request or configuration failure
-  def within(&block)
+  def within(operation: :use)
     @lock.synchronize do
       raise Error if @closed
 
-      McpOutbound.with(@scope, &block)
+      McpOutbound.with(@scope) do
+        if @credential_store
+          @credential_store.admit_client!
+          @scope.during_operation(operation) { yield }
+        else
+          yield
+        end
+      end
     end
-  rescue RubyLLM::CancelledError
+  rescue RubyLLM::CancelledError, McpAuthorization::Unavailable
     raise
   rescue StandardError
     raise Error, I18n.t("nosia.mcp_workspace.remote_failure"), cause: nil
   end
+
+  def authorized? = within(operation: :status) { @native.authorized? }
+
+  def authorization_url(redirect_uri:)
+    within(operation: :consent) do
+      @credential_store.require_unused_grant!
+      Timeout.timeout(30, McpOutbound::Blocked) { @native.authorization_url(redirect_uri:) }
+    end
+  end
+
+  def authorize(params) = within(operation: :callback) { @native.authorize(params) }
+
+  def deauthorize = within(operation: :retire) { @native.deauthorize }
 
   # @return [Array<McpServer::RemoteTool>] Tools visible to the model
   def tools
@@ -103,6 +126,8 @@ class McpServer::Client
   # @param text [String] Error text from an executed tool
   # @return [Hash] Existing error wrapper with configured headers redacted
   def tool_error(text)
+    return execution_error(I18n.t("nosia.mcp_workspace.tool_call_rejected")) if @credential_store
+
     safe_text = (@headers || {}).values.grep(String).flat_map { |value| [ value, value.delete_prefix("Bearer ") ] }
       .reject(&:blank?).uniq.sort_by { |value| -value.length }.reduce(text.to_s) { |message, value| message.gsub(value, "[FILTERED]") }
     execution_error(safe_text)
@@ -122,6 +147,21 @@ class McpServer::Client
   end
 
   private
+    def context
+      RubyLLM.context do |config|
+        config.faraday_adapter = McpOutbound::Adapter
+        config.logger = QUIET_LOGGER
+        # Faraday still does preliminary proxy discovery; the guarded adapter
+        # ignores it and pins the direct socket without changing process ENV.
+        config.http_proxy = nil
+        if @credential_store
+          config.mcp_credential_store = @credential_store
+          config.connect_timeout = 5
+          config.request_timeout = 10
+        end
+      end
+    end
+
     def model_tools
       # 2.2.3 exposes the wrapped tools but not their raw definitions. Install
       # the observer on this one native client, not on the SDK class.

@@ -1,6 +1,7 @@
 class McpServer < ApplicationRecord
   include Configuration
   include CapabilitySnapshot
+  include Authorization
 
   acts_as_tenant :account
   belongs_to :account
@@ -9,7 +10,7 @@ class McpServer < ApplicationRecord
   # Validations
   validates :name, presence: true, uniqueness: { scope: :account_id }
   validates :transport_type, presence: true, inclusion: { in: %w[stdio streamable sse local] }
-  validates :endpoint, presence: true, if: -> { transport_type == "streamable" }
+  validates :endpoint, presence: true, if: -> { transport_type == "streamable" && !oauth? }
   validate :supported_transport
   validate :validate_streamable_endpoint, if: -> { transport_type == "streamable" }
   validate :stdio_transport_enabled_for_deployment, if: -> { transport_type == "stdio" }
@@ -74,7 +75,7 @@ class McpServer < ApplicationRecord
 
   # @return [McpServer::Client, nil] A fresh client, owned and closed by the caller
   def client
-    Client.new(self) if %w[streamable stdio].include?(transport_type) && !stdio_disabled?
+    Client.new(self) if auth_mode == "static" && %w[streamable stdio].include?(transport_type) && !stdio_disabled?
   end
 
   # Runs one workspace operation and closes its connection, even on failure.
@@ -89,7 +90,7 @@ class McpServer < ApplicationRecord
   # Tests the saved connection without running deployment-disabled processes.
   # @return [Boolean] Whether the connection succeeded
   def test_connection!
-    return false if legacy_sse? || stdio_disabled?
+    return false if oauth? || legacy_sse? || stdio_disabled?
     return test_local_connection! if local?
 
     start_time = Time.current
@@ -154,9 +155,18 @@ class McpServer < ApplicationRecord
     { error: I18n.t("nosia.mcp_workspace.remote_failure") }
   end
 
-  # Records disconnection; remote sessions are already closed by their owners.
-  def disconnect!
-    update_columns(status: "disconnected", updated_at: Time.current) unless legacy_sse?
+  # The legacy action must not retire another member's authorization.
+  def disconnect!(user: nil)
+    if oauth?
+      if user
+        Account.transaction do
+          Account.lock.find(account_id)
+          oauth_grant_for(user)&.retire!
+        end
+      end
+    elsif !legacy_sse?
+      update_columns(status: "disconnected", updated_at: Time.current)
+    end
   end
 
   private

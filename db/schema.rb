@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_19_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -207,6 +207,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_000002) do
     t.index ["author_id"], name: "index_documents_on_author_id"
   end
 
+  create_table "mcp_authorizations", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "mcp_server_id", null: false
+    t.bigint "account_user_id", null: false
+    t.text "endpoint", null: false
+    t.datetime "reconnect_required_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_mcp_authorizations_on_account_id"
+    t.index ["account_user_id"], name: "index_mcp_authorizations_on_account_user_id"
+    t.index ["mcp_server_id", "account_user_id"], name: "index_mcp_authorizations_on_mcp_server_id_and_account_user_id", unique: true
+  end
+
   create_table "mcp_servers", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "name", null: false
@@ -224,6 +237,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_000002) do
     t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "auth_mode", default: "static", null: false
     t.index ["account_id", "name"], name: "index_mcp_servers_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_mcp_servers_on_account_id"
     t.index ["enabled"], name: "index_mcp_servers_on_enabled"
@@ -685,6 +699,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_000002) do
   add_foreign_key "credentials", "users"
   add_foreign_key "documents", "accounts"
   add_foreign_key "documents", "authors"
+  add_foreign_key "mcp_authorizations", "account_users"
+  add_foreign_key "mcp_authorizations", "accounts"
+  add_foreign_key "mcp_authorizations", "mcp_servers"
   add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "messages", "chats"
   add_foreign_key "messages", "ruby_llm_models", column: "model_id"

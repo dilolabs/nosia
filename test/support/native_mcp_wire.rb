@@ -138,6 +138,7 @@ class NativeMcpWire
         super
         scope = McpOutbound.current!
         attempt = scope.capture(env)
+        scope.admit!(env)
         status, headers, body = @wire.reply(env)
         if env.stream_response?
           save_response(env, status, nil, headers, nil, finished: false)

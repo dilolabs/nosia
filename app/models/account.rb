@@ -3,6 +3,8 @@ class Account < ApplicationRecord
 
   belongs_to :owner, class_name: "User"
 
+  before_destroy :lock_for_mcp_authorization_cleanup, prepend: true
+
   has_many :account_users, dependent: :destroy do
     def grant_to(users)
       account = proxy_association.owner
@@ -10,7 +12,7 @@ class Account < ApplicationRecord
     end
   end
   has_many :api_tokens, dependent: :destroy
-  has_many :users, through: :account_users
+  has_many :users, through: :account_users, dependent: :destroy
   has_many :chats, dependent: :destroy
   has_many :chunks, dependent: :destroy
   has_many :documents, dependent: :destroy
@@ -92,4 +94,10 @@ class Account < ApplicationRecord
       fallback_used: models.any? { |entry| entry[:fallback] }
     }
   end
+
+  private
+    def lock_for_mcp_authorization_cleanup
+      Account.lock.find(id)
+      McpAuthorization.uncached { McpAuthorization.where(account_id: id).find_each(&:retire!) }
+    end
 end
