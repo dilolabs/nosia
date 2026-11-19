@@ -41,10 +41,15 @@ class McpAuthorizationTest < ActiveSupport::TestCase
     assert_equal 4, grants.map { |grant| credential(grant).data.fetch("access_token") }.uniq.size
   end
 
-  test "a member grant lookup is one uncached query even in another active account" do
-    grant = begin_grant
+  test "a member grant can be allocated and looked up uncached in another active account" do
+    @server.update!(auth_mode: "oauth")
     other_account = oauth_fixture("accounts", :oauth_other)
     ActsAsTenant.with_tenant(other_account) do
+      assert_nil @server.oauth_grant_for(@alice)
+      grant = @server.begin_oauth_grant_for!(@alice)
+      assert_predicate grant, :persisted?
+      assert_equal [ @team.id, @member.id, @alice.id, @server.id ],
+        [ grant.account_id, grant.account_user_id, grant.user_id, grant.mcp_server_id ]
       ApplicationRecord.cache do
         assert_equal grant, @server.oauth_grant_for(@alice)
         assert_queries_count(1) { assert_equal grant, @server.oauth_grant_for(@alice) }

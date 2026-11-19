@@ -37,7 +37,7 @@ module McpServer::Authorization
           grant.retire!
           grant = nil
         end
-        grant || McpAuthorization.create!(account_id:, mcp_server_id: id, account_user: member,
+        grant || McpAuthorization.create!(account_id:, mcp_server: saved, account_user: member,
           user_id: user.id, endpoint: saved.effective_endpoint)
       end
     end
