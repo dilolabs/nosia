@@ -1,4 +1,5 @@
-# Run explicitly with: bundle exec ruby test/upgrades/ruby_llm_v2.rb
+# Run explicitly against a pre-created disposable PostgreSQL database:
+# NOSIA_RUBY_LLM_REPLAY_DATABASE=nosia_mcp_oauth_replay_test bundle exec ruby test/upgrades/ruby_llm_v2.rb
 # Deliberately not a Rails *_test.rb: test_helper would load the current schema.
 require "bundler/setup"
 require "minitest/autorun"
@@ -9,8 +10,25 @@ require "ruby_llm"
 end
 require "neighbor"
 
+# Model the removal of the historical generator helper even on the 2.0 bundle.
+module RejectUpstreamLegacyContentSql
+  private
+    def require(path)
+      if path == "generators/ruby_llm/upgrade/legacy_content_sql"
+        raise LoadError, "Historical replay must not require #{path}"
+      end
+
+      super
+    end
+end
+
+Kernel.prepend(RejectUpstreamLegacyContentSql)
+
 class RubyLLMV2UpgradeTest < Minitest::Test
-  DATABASE = "nosia_ruby_llm_upgrade_migration_test"
+  if ENV.key?("NOSIA_RUBY_LLM_REPLAY_DATABASE") && ENV["NOSIA_RUBY_LLM_REPLAY_DATABASE"] != "nosia_mcp_oauth_replay_test"
+    abort "NOSIA_RUBY_LLM_REPLAY_DATABASE must be nosia_mcp_oauth_replay_test"
+  end
+  DATABASE = ENV.fetch("NOSIA_RUBY_LLM_REPLAY_DATABASE", "nosia_ruby_llm_upgrade_migration_test")
   ROOT = File.expand_path("../..", __dir__)
   PHASES = %w[prepare_ruby_llm_v2_upgrade backfill_ruby_llm_v2_data finish_ruby_llm_v2_upgrade].freeze
   LEGACY_SCHEMA = File.join(ROOT, "test/fixtures/files/ruby_llm_1_16_schema.rb")
