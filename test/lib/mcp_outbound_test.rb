@@ -227,27 +227,36 @@ class McpOutboundTest < ActiveSupport::TestCase
     end
   end
 
-  test "streams event chunks over TLS with original SNI and Host while ignoring an environment proxy" do
-    chunks = [ "data: first\n\n", "data: second\n\n" ]
+  test "streams complete events over TLS with original SNI and Host while ignoring an environment proxy" do
+    events = [ "data: first\n\n", "data: second\n\n" ]
+    pending = +""
     delivered = []
     ack = Queue.new
     proxy = { "https_proxy" => "http://127.0.0.1:1", "no_proxy" => "" }
     previous = ENV.to_h.slice(*proxy.keys)
     ENV.update(proxy)
 
-    with_tls_peer(HOST, IPV4, ->(socket) { send_event_stream(socket, chunks, ack) }) do |url, store, connection_details|
+    with_tls_peer(HOST, IPV4, ->(socket) { send_event_stream(socket, events, ack) }) do |url, store, connection_details|
       client = connection(url, ssl: { cert_store: store })
       assert_equal "127.0.0.1", client.proxy.uri.host
       response = within_scope do
         client.get do |request|
-          request.options.on_data = ->(chunk, _size, _env) { delivered << chunk; ack << true }
+          request.options.on_data = ->(chunk, _size, _env) do
+            pending << chunk
+            while (boundary = pending.index("\n\n"))
+              event = pending.slice!(0, boundary + 2)
+              delivered << event
+              ack << event
+            end
+          end
         end
       end
 
       port = URI(url).port
       assert_equal [ HOST, "#{HOST}:#{port}" ], connection_details
       assert_equal [ 200, "text/event-stream", "" ], [ response.status, response.headers["content-type"], response.body ]
-      assert_equal chunks, delivered
+      assert_equal events, delivered
+      assert_empty pending
     end
   ensure
     proxy.each_key { |key| ENV[key] = previous[key] }
@@ -280,30 +289,16 @@ class McpOutboundTest < ActiveSupport::TestCase
     end
   end
 
-  test "enforces TLS and both verification settings after the adapter configuration block" do
-    seen = []
-    original = Net::HTTP.method(:new)
-    constructor = ->(*args) do
-      original.call(*args).tap do |http|
-        http.define_singleton_method(:start) do
-          seen << [ use_ssl?, verify_mode, verify_hostname ]
-          raise Errno::ECONNREFUSED
-        end
-      end
-    end
+  test "rejects a raw Net::HTTP configuration block when Faraday builds the adapter" do
     client = connection(URL) do |http|
-      http.use_ssl = false
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      http.verify_hostname = false
+      http.ipaddr = "127.0.0.1"
+      http.proxy_from_env = true
+      http.max_retries = 2
+      http.verify_callback = ->(*) { true }
     end
 
-    with_dns(IPV4) do
-      with_stub(Net::HTTP, :new, constructor) do
-        assert_raises(Faraday::ConnectionFailed) { within_scope { client.get } }
-      end
-    end
-
-    assert_equal [ [ true, OpenSSL::SSL::VERIFY_PEER, true ] ], seen
+    error = assert_raises(ArgumentError) { client.app }
+    assert_match(/configuration block/, error.message)
   end
 
   test "returns a redirect without following it and captures request state before Faraday overwrites it" do

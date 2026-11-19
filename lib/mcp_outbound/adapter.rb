@@ -5,6 +5,13 @@ require "faraday/net_http"
 
 module McpOutbound
   class Adapter < Faraday::Adapter::NetHttp
+    def initialize(...)
+      # A raw Net::HTTP configuration block could override the socket policy.
+      raise ArgumentError, "MCP outbound adapter does not accept a Net::HTTP configuration block" if block_given?
+
+      super
+    end
+
     def call(env)
       scope = McpOutbound.current!
       attempt = scope.capture(env)

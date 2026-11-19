@@ -51,11 +51,14 @@ module McpOutboundTls
       tcp&.close
     end
 
-    def send_event_stream(socket, chunks, ack)
+    def send_event_stream(socket, events, ack)
       socket.write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n")
-      chunks.each do |chunk|
-        socket.write("#{chunk.bytesize.to_s(16)}\r\n#{chunk}\r\n")
-        raise "event not delivered while stream was open" unless ack.pop(timeout: 3)
+      events.each do |event|
+        # Split the event terminator across HTTP chunks.
+        [ event[0...-1], event[-1] ].each do |chunk|
+          socket.write("#{chunk.bytesize.to_s(16)}\r\n#{chunk}\r\n")
+        end
+        raise "event not delivered while stream was open" unless ack.pop(timeout: 3) == event
       end
       socket.write("0\r\n\r\n")
     end
