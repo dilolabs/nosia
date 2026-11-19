@@ -11,7 +11,9 @@
   <div class="n-workspace-actions">
     <%= link_to t("nosia.mcp_workspace.open"), mcp_record_path(server), class: "n-workspace-link" %>
     <%= link_to t("nosia.actions.edit"), mcp_edit_path(server), class: "n-workspace-link" %>
-    <% if server.transport_type == "stdio" && !McpServer.stdio_enabled? %>
+    <% if server.legacy_sse? %>
+      <p class="n-workspace-help"><%= t("nosia.mcp_workspace.legacy_sse_migration") %></p>
+    <% elsif server.transport_type == "stdio" && !McpServer.stdio_enabled? %>
       <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
     <% elsif server.status_ready? %>
       <%= button_to t("nosia.mcp.disconnect"), mcp_disconnect_path(server), method: mcp_disconnect_method, class: "n-workspace-button n-mcp-operation-button", data: { turbo_submits_with: t("nosia.mcp_workspace.saving") }, form: { data: { mcp_operation: true } } %>

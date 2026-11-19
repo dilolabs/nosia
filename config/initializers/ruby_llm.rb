@@ -7,6 +7,17 @@ RubyLLM.configure do |config|
   config.openai_use_system_role = true # Use 'system' role instead of 'developer'
 end
 
-RubyLLM::MCP.configure do |config|
-  config.resource_url_validator = ->(url) { UrlGuard.verify!(url) }
+if Gem.loaded_specs.fetch("ruby_llm").version == Gem::Version.new("2.2.3")
+  # Remove once the pinned gem routes its native HTTP diagnostics through
+  # the context logger and test/lib/mcp_native_logging_test.rb passes without this.
+  quiet_mcp_logger = Logger.new(File::NULL)
+  RubyLLM.singleton_class.prepend(Module.new do
+    define_method(:logger) do
+      if defined?(McpOutbound) && McpOutbound.active?
+        quiet_mcp_logger
+      else
+        super()
+      end
+    end
+  end)
 end

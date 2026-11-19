@@ -1,5 +1,6 @@
 require "test_helper"
 require_relative "../support/mcp_workspace_fixtures"
+require_relative "../support/native_mcp_wire"
 
 class McpWorkspaceDetailTest < ActionDispatch::IntegrationTest
   include McpWorkspaceFixtures
@@ -84,18 +85,15 @@ class McpWorkspaceDetailTest < ActionDispatch::IntegrationTest
   end
 
   test "real prompt argument objects render metadata without fetching messages" do
-    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", status: "ready")
-    prompt = RubyLLM::MCP::Prompt.new(Object.new, { "name" => "summary", "description" => "Read-only metadata",
-      "arguments" => [ { "name" => "topic", "description" => "Research topic", "required" => true } ] })
-    prompt.define_singleton_method(:fetch) { |*| flunk "prompt was executed" }
-    resource = Struct.new(:uri, :description, :mime_type).new("mcp://example/record", "Resource metadata", "text/plain")
-    client = Struct.new(:tools, :prompts, :resources).new([], [ prompt ], [ resource ])
-    with_singleton_replacement(RubyLLM::MCP, :client, ->(**_) { client }) do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, status: "ready")
+    wire = NativeMcpWire.new
+    wire.install(self) do
       get account_mcp_server_path(@second, @second_server)
       assert_response :success
       assert_select "[data-mcp-capability=prompts] dt", text: /topic.*Required/
-      assert_select "[data-mcp-capability=resources] h3", text: "mcp://example/record"
+      assert_select "[data-mcp-capability=resources] h3", text: NativeMcpWire::RESOURCE.fetch("uri")
     end
+    assert_equal %w[server/discover tools/list prompts/list resources/list], wire.methods_requested
   end
 
   test "details never echo credential-bearing endpoint query or userinfo" do

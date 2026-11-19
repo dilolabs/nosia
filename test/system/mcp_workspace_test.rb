@@ -202,7 +202,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     before = [ Chat.count, Prompt.count ]
     @health_check = ->(_) { flunk "Saving must not test a connection" }
     assert_no_enqueued_jobs do
-      with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { flunk "Saving must not create an MCP client" }) do
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { raise Minitest::Assertion, "Saving must not create an MCP client" }) do
         visit new_account_mcp_server_path(@second)
         fill_in "mcp_server_name", with: "Browser custom"
         fill_in "mcp_server_endpoint", with: "https://mcp.example.org/mcp"
@@ -312,7 +312,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     before = [ McpServer.count, Chat.count, Prompt.count ]
     @health_check = ->(_) { flunk "Catalog GET must not test a connection" }
     assert_no_enqueued_jobs do
-      with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { flunk "Catalog GET must not create an MCP client" }) do
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { raise Minitest::Assertion, "Catalog GET must not create an MCP client" }) do
         McpCatalog.all.each do |entry|
           visit account_mcp_catalog_index_path(@second)
           mcp_tab_to("[data-mcp-entry='#{entry.fetch(:id)}'] h3 a")
@@ -336,7 +336,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "#mcp_server_endpoint[disabled]", visible: :all
     fill_in "mcp_server_command", with: "must-not-execute"
     fill_in "mcp_server_args", with: "--one\ntwo words"
-    select I18n.t("nosia.mcp.transport.sse"), from: "mcp_server_transport_type"
+    assert_no_selector "select#mcp_server_transport_type option[value=sse]", visible: :all
+    select I18n.t("nosia.mcp.transport.streamable"), from: "mcp_server_transport_type"
     assert_field "mcp_server_endpoint", disabled: false
     assert_no_selector "#mcp_server_command"
     assert_selector "#mcp_server_command[disabled]", visible: :all
@@ -575,7 +576,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "#mcp_server_configuration_values_token[disabled]", visible: :all
     refute page.evaluate_script("document.querySelector('#mcp_server_endpoint').required")
 
-    select I18n.t("nosia.mcp.transport.sse"), from: "mcp_server_transport_type"
+    assert_no_selector "select#mcp_server_transport_type option[value=sse]", visible: :all
+    select I18n.t("nosia.mcp.transport.streamable"), from: "mcp_server_transport_type"
     assert_field "mcp_server_configuration_values_token", with: "unsaved-http-secret", disabled: false
     assert_field "mcp_server_endpoint", disabled: false
     assert_selector "#mcp_server_args[disabled]", visible: :all

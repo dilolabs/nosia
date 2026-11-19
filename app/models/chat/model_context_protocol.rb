@@ -6,17 +6,18 @@ module Chat::ModelContextProtocol
     has_many :mcp_servers, through: :chat_mcp_sessions
   end
 
-  # Get all enabled MCP tools within this chat's account tenant.
-  # @return [Array<RubyLLM::Tool>] Tools from ready, linked servers
-  def mcp_tools
-    ActsAsTenant.with_tenant(account) do
-      chat_mcp_sessions.enabled.includes(:mcp_server).flat_map do |session|
-        if session.mcp_server&.status_ready?
-          session.mcp_server.tools
-        else
-          []
-        end
-      end.compact
+  # Registers linked tools and owns their remote sessions until the turn ends.
+  def with_mcp_tools
+    clients = []
+    tools = mcp_tools_for_turn(clients)
+    with_tools(nil)
+    with_tools(*tools) if tools.any?
+    yield
+  ensure
+    begin
+      with_tools(nil)
+    ensure
+      clients.each(&:close)
     end
   end
 
@@ -36,4 +37,30 @@ module Chat::ModelContextProtocol
   def remove_mcp_server(mcp_server)
     chat_mcp_sessions.find_by(mcp_server: mcp_server)&.destroy
   end
+
+  private
+    def mcp_tools_for_turn(clients)
+      ActsAsTenant.with_tenant(account) do
+        chat_mcp_sessions.enabled.includes(:mcp_server).flat_map do |session|
+          server = session.mcp_server
+          if server&.account_id == account_id && server.enabled? && server.ready_for_tools?
+            mcp_tools_for_server(server, clients)
+          else
+            []
+          end
+        end
+      end
+    end
+
+    def mcp_tools_for_server(server, clients)
+      return server.tools if server.local?
+
+      connection = server.client
+      return [] unless connection
+
+      clients << connection
+      connection.tools
+    rescue McpServer::Client::Error
+      []
+    end
 end

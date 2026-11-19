@@ -23,6 +23,7 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
     @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", status: "ready", metadata: nil)
     assert_nil @second_server.reload.metadata
     client = Struct.new(:tools, :resources).new([], [])
+    client.define_singleton_method(:close) { }
     client.define_singleton_method(:prompts) { raise "private diagnostic" }
     @second_server.define_singleton_method(:client) { client }
 
@@ -65,6 +66,7 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
     client.define_singleton_method(:tools) { calls[:tools] += 1; [] }
     client.define_singleton_method(:prompts) { calls[:prompts] += 1; raise "private diagnostic" }
     client.define_singleton_method(:resources) { calls[:resources] += 1; [] }
+    client.define_singleton_method(:close) { calls[:close] += 1 }
     @second_server.define_singleton_method(:client) { client }
     snapshot = @second_server.capability_snapshot
     assert_same snapshot, @second_server.capability_snapshot
@@ -72,7 +74,7 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
     assert_empty snapshot.fetch(:tools).items
     assert_equal :unavailable, snapshot.fetch(:prompts).state
     assert_equal :loaded, snapshot.fetch(:resources).state
-    assert_equal({ tools: 1, prompts: 1, resources: 1 }, calls)
+    assert_equal({ tools: 1, prompts: 1, resources: 1, close: 1 }, calls)
     refute snapshot.fetch(:prompts).to_h.values.join.include?("private diagnostic")
   end
 
@@ -91,6 +93,7 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
     @second_server.update!(status: "ready", endpoint: "https://mcp.example.org/mcp")
     snapshot = @second_server.capability_snapshot
     client = Struct.new(:tools, :prompts, :resources).new([], [], [])
+    client.define_singleton_method(:close) { }
     @second_server.define_singleton_method(:client) { client }
 
     @second_server.update!(transport_type: "streamable")

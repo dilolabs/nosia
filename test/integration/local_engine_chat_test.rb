@@ -31,11 +31,10 @@ class LocalEngineChatTest < ActiveSupport::TestCase
                                   assume_model_exists: true)
     chat.add_mcp_server(server)
 
-    tools = chat.mcp_tools
-    assert tools.any? { |t| t.name == "openalex_search_works" }, "OpenAlex tool not wired into chat"
-
-    adapted = tools.find { |t| t.name == "openalex_search_works" }
-    result = adapted.call(**{ "query" => "einstein" })
-    assert_match(/Relativity/, result)
+    chat.with_mcp_tools do
+      adapted = chat.to_llm.tools.fetch(:openalex_search_works)
+      assert_match(/Relativity/, adapted.call(query: "einstein"))
+    end
+    assert_empty chat.to_llm.tools
   end
 end

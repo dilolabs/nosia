@@ -13,7 +13,8 @@ class McpServers::ConnectionTestsController < ApplicationController
         if success
           render json: { success: true, status: @mcp_server.status, latency: @mcp_server.latency_ms, message: t("nosia.mcp.connection_established") }
         else
-          render json: { success: false, status: @mcp_server.status, error: @mcp_server.last_error, message: t("nosia.mcp.connection_failed") }, status: :unprocessable_entity
+          error = @mcp_server.legacy_sse? ? t("nosia.mcp_workspace.legacy_sse_migration") : @mcp_server.last_error
+          render json: { success: false, status: @mcp_server.status, error:, message: t("nosia.mcp.connection_failed") }, status: :unprocessable_entity
         end
       end
     end

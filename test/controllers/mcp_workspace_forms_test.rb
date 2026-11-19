@@ -130,7 +130,7 @@ class McpWorkspaceFormsTest < ActionDispatch::IntegrationTest
     original = server.attributes.deep_dup
     ENV["MCP_STDIO_ENABLED"] = "false"
 
-    with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { flunk "Form requests must not initialize an MCP client" }) do
+    with_singleton_replacement(McpServer::Client, :new, ->(*) { raise Minitest::Assertion, "Form requests must not initialize an MCP client" }) do
       %i[en fr].each do |locale|
         get edit_account_mcp_server_path(@second, server), headers: { "Accept-Language" => locale.to_s }
         assert_response :success
@@ -157,6 +157,32 @@ class McpWorkspaceFormsTest < ActionDispatch::IntegrationTest
     previous_stdio.nil? ? ENV.delete("MCP_STDIO_ENABLED") : ENV["MCP_STDIO_ENABLED"] = previous_stdio
   end
 
+  test "only legacy connectors offer SSE while editing and both locales explain migration" do
+    @second_server.update_columns(transport_type: "sse", endpoint: "https://mcp.example.test/sse")
+    %i[en fr].each do |locale|
+      headers = { "Accept-Language" => locale.to_s }
+      get new_account_mcp_server_path(@second), headers: headers
+      assert_response :success
+      assert_select "option[value=sse]", count: 0
+
+      get edit_account_mcp_server_path(@second, @second_server), headers: headers
+      assert_response :success
+      assert_select "option[value=sse][selected]"
+      assert_select "p", text: (locale == :en ? /Switch.*Streamable HTTP/ : /Passez.*Streamable HTTP/)
+      assert_select "form[action=?]", account_mcp_server_connection_test_path(@second, @second_server), count: 0
+
+      get account_mcp_server_path(@second, @second_server), headers: headers
+      assert_response :success
+      assert_select ".n-mcp-status[data-state=unavailable]"
+      assert_select "form[action=?]", account_mcp_server_connection_path(@second, @second_server), count: 0
+      assert_select "form[action=?]", account_mcp_server_connection_test_path(@second, @second_server), count: 0
+
+      get account_mcp_servers_path(@second, transport_type: "sse"), headers: headers
+      assert_response :success
+      assert_select "[data-mcp-row]", count: 1
+    end
+  end
+
   test "failed stdio edits do not hide testing for saved HTTP configuration" do
     previous_stdio = ENV["MCP_STDIO_ENABLED"]
     ENV["MCP_STDIO_ENABLED"] = "false"
@@ -165,7 +191,7 @@ class McpWorkspaceFormsTest < ActionDispatch::IntegrationTest
     end
     original = server.attributes.deep_dup
 
-    with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { flunk "Form requests must not initialize an MCP client" }) do
+    with_singleton_replacement(McpServer::Client, :new, ->(*) { raise Minitest::Assertion, "Form requests must not initialize an MCP client" }) do
       %i[en fr].each do |locale|
         get edit_account_mcp_server_path(@second, server), headers: { "Accept-Language" => locale.to_s }
         assert_response :success

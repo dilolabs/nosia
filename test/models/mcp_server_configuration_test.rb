@@ -1,5 +1,6 @@
 require "test_helper"
 require_relative "../support/mcp_workspace_fixtures"
+require_relative "../support/native_mcp_wire"
 
 class McpServerConfigurationTest < ActiveSupport::TestCase
   include McpWorkspaceFixtures
@@ -37,16 +38,15 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
   { "token" => [ "Authorization", "Bearer remote-secret" ], "api_key" => [ "X-API-Key", "remote-secret" ] }.each do |credential, (header, injected_value)|
     test "replacing #{credential} retires its saved header before removal without another connection test" do
       public_headers = { "X-Custom" => "keep" }
-      @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
+      @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL,
         auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers, env: { "UNEDITED" => "keep" } })
-      outgoing = []
-      remote_client = Struct.new(:tools).new([])
-      replacement = ->(config:, **_) { outgoing << config.deep_dup; remote_client }
-
-      with_singleton_replacement(RubyLLM::MCP, :client, replacement) do
+      wire = NativeMcpWire.new
+      wire.install(self) do
         assert @second.mcp_servers.find(@second_server.id).test_connection!
         tested = @second.mcp_servers.find(@second_server.id)
-        assert_equal injected_value, tested.headers.fetch(header)
+        assert_equal injected_value, wire.requests.last.fetch(:headers)[header]
+        assert_equal public_headers, tested.headers
+        tested.update!(headers: public_headers.merge(header => injected_value)) # Historical persisted copy
         connection = tested.connection_config.deep_dup
         [ {}, { credential => "" }, { credential => "remote-secret" } ].each do |values|
           assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: values)
@@ -65,34 +65,32 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
         assert_equal "replacement-secret", replaced.auth_config.fetch(credential)
         assert_equal public_headers, replaced.headers
         assert_equal({ "UNEDITED" => "keep" }, replaced.env)
-        assert_equal 1, outgoing.size
+        assert_equal %w[server/discover tools/list], wire.methods_requested
 
         assert @second.mcp_servers.find(@second_server.id).save_workspace({}, values: {}, removals: [ credential ])
         removed = @second.mcp_servers.find(@second_server.id)
         refute removed.auth_config.key?(credential)
         assert_equal public_headers, removed.headers
         assert_equal({ "UNEDITED" => "keep" }, removed.env)
-        assert_same remote_client, removed.client
-        assert_equal 2, outgoing.size
-        assert_equal public_headers, outgoing.last.fetch(:headers)
-        refute_includes outgoing.last.to_json, "remote-secret"
-        refute_includes outgoing.last.to_json, "replacement-secret"
+        assert removed.test_connection!
+        assert_equal %w[server/discover tools/list] * 2, wire.methods_requested
+        assert_equal "keep", wire.requests.last.fetch(:headers)["X-Custom"]
+        assert_nil wire.requests.last.fetch(:headers)[header]
+        refute_includes wire.requests.last.fetch(:headers).to_json, "remote-secret"
+        refute_includes wire.requests.last.fetch(:headers).to_json, "replacement-secret"
       end
     end
 
     test "removing #{credential} clears its persisted HTTP header copy without changing other configuration" do
       other_header = header == "Authorization" ? "X-API-Key" : "Authorization"
       public_headers = { "X-Custom" => "keep", other_header => "custom-auth" }
-      @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
-        auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers, env: { "UNEDITED" => "keep" } })
-      outgoing = []
-      remote_client = Struct.new(:tools).new([])
-      replacement = ->(config:, **_) { outgoing << config.deep_dup; remote_client }
-
-      with_singleton_replacement(RubyLLM::MCP, :client, replacement) do
+      @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL,
+        auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers.merge(header.downcase => injected_value), env: { "UNEDITED" => "keep" } })
+      wire = NativeMcpWire.new
+      wire.install(self) do
         assert @second.mcp_servers.find(@second_server.id).test_connection!
         tested = @second.mcp_servers.find(@second_server.id)
-        assert_equal injected_value, tested.headers.fetch(header)
+        assert_equal injected_value, tested.headers.fetch(header.downcase)
         before = tested.attributes.deep_dup
 
         refute tested.save_workspace({ name: "" }, values: {}, removals: [ credential ])
@@ -102,14 +100,15 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
         assert_equal before, @second.mcp_servers.find(@second_server.id).attributes
 
         editable = @second.mcp_servers.find(@second_server.id)
-        assert editable.save_workspace({ endpoint: "https://other.example.org/mcp" }, values: {}, removals: [ credential ])
+        assert editable.save_workspace({ endpoint: "https://#{NativeMcpWire::HOST}/new" }, values: {}, removals: [ credential ])
         saved = @second.mcp_servers.find(@second_server.id)
         refute saved.auth_config.key?(credential)
         assert_equal({ "UNEDITED" => "keep" }, saved.env)
-        assert_same remote_client, saved.client
-        assert_equal "https://other.example.org/mcp", outgoing.last.fetch(:url)
-        refute outgoing.last.fetch(:headers).key?(header)
-        assert_equal public_headers, outgoing.last.fetch(:headers)
+        assert saved.test_connection!
+        assert_equal "/new", wire.requests.last.fetch(:path)
+        refute wire.requests.last.fetch(:headers).key?(header)
+        assert_equal "custom-auth", wire.requests.last.fetch(:headers)[other_header]
+        assert_equal "keep", wire.requests.last.fetch(:headers)["X-Custom"]
         assert_equal public_headers, @second.mcp_servers.find(@second_server.id).headers
       end
     end
@@ -143,13 +142,10 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
         previous = ENV["MCP_STDIO_ENABLED"]
         ENV["MCP_STDIO_ENABLED"] = "true"
         public_headers = { "X-Custom" => "keep" }
-        @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp",
-          auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers, env: { "UNEDITED" => "keep" } })
-        outgoing = []
-        remote_client = Struct.new(:tools).new([])
-        replacement = ->(transport_type:, config:, **_) { outgoing << [ transport_type, config.deep_dup ]; remote_client }
-
-        with_singleton_replacement(RubyLLM::MCP, :client, replacement) do
+        @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL,
+          auth_config: { credential => "remote-secret" }, connection_config: { headers: public_headers.merge(header => injected_value), env: { "UNEDITED" => "keep" } })
+        wire = NativeMcpWire.new
+        wire.install(self) do
           assert @second.mcp_servers.find(@second_server.id).test_connection!
           tested = @second.mcp_servers.find(@second_server.id)
           assert_equal injected_value, tested.headers.fetch(header)
@@ -168,11 +164,12 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
           assert_equal public_headers, saved.headers
           assert_equal({ "UNEDITED" => "keep" }, saved.env)
 
-          assert saved.save_workspace({ transport_type: "streamable", endpoint: "https://other.example.org/mcp" }, values: {})
-          assert_same remote_client, @second.mcp_servers.find(@second_server.id).client
-          assert_equal [ :streamable, :streamable ], outgoing.map(&:first)
-          assert_equal "https://other.example.org/mcp", outgoing.last.last.fetch(:url)
-          assert_equal public_headers, outgoing.last.last.fetch(:headers)
+          assert saved.save_workspace({ transport_type: "streamable", endpoint: "https://#{NativeMcpWire::HOST}/new" }, values: {})
+          assert saved.test_connection!
+          assert_equal %w[server/discover tools/list] * 2, wire.methods_requested
+          assert_equal "/new", wire.requests.last.fetch(:path)
+          assert_nil wire.requests.last.fetch(:headers)[header]
+          assert_equal "keep", wire.requests.last.fetch(:headers)["X-Custom"]
           assert_equal({ "UNEDITED" => "keep" }, @second.mcp_servers.find(@second_server.id).env)
         end
       ensure
@@ -214,7 +211,7 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
     @second_server.update!(transport_type: "stdio", endpoint: nil, command: "must-not-run", args: [])
     ENV["MCP_STDIO_ENABLED"] = "false"
     before = @second_server.attributes
-    with_singleton_replacement(RubyLLM::MCP, :client, ->(**_) { flunk "stdio process construction attempted" }) do
+    with_singleton_replacement(RubyLLM, :mcp, ->(**) { raise Minitest::Assertion, "stdio construction attempted" }) do
       assert_nil @second_server.client
       refute @second_server.test_connection!
     end

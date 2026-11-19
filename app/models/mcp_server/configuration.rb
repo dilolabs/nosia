@@ -72,8 +72,8 @@ module McpServer::Configuration
       when "token" then [ "Authorization", "Bearer #{value}" ]
       when "api_key" then [ "X-API-Key", value ]
       end
-      if header && headers&.[](header) == expected
-        self.headers = headers.except(header)
+      if header && headers
+        self.headers = headers.reject { |key, value| key.to_s.casecmp?(header) && value == expected }
       end
     end
 

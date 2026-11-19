@@ -164,9 +164,13 @@ class ChatAccountTest < ActiveSupport::TestCase
     server = mcp_servers(:picker_second_tool)
     server.update!(metadata: { engine: "open_alex" })
     chat.chat_mcp_sessions.create!(mcp_server: server)
+    chat.with_model(chat.model_id, provider: :openai, assume_model_exists: true)
 
     ActsAsTenant.with_tenant(@first) do
-      assert_includes chat.mcp_tools.map(&:name), "openalex_search_works"
+      chat.with_mcp_tools do
+        assert_includes chat.to_llm.tools.values.map(&:name), "openalex_search_works"
+      end
+      assert_empty chat.to_llm.tools
       assert_equal @first, ActsAsTenant.current_tenant
     end
   end
@@ -246,7 +250,7 @@ class ChatAccountTest < ActiveSupport::TestCase
     chat.define_singleton_method(:with_model) { |*args, **options| }
     chat.define_singleton_method(:with_provider_options) { |**options| }
     chat.define_singleton_method(:with_temperature) { |*args| }
-    chat.define_singleton_method(:mcp_tools) { [] }
+    chat.define_singleton_method(:with_mcp_tools) { |&turn| turn.call }
     chat.define_singleton_method(:similarity_search) { |*args| [] }
     chat.define_singleton_method(:with_instructions) { |content, **options| instructions << content }
     chat.define_singleton_method(:broadcast_thinking_phase) { |*args| }

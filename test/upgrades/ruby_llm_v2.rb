@@ -5,7 +5,11 @@ require "bundler/setup"
 require "minitest/autorun"
 require "active_record"
 require "ruby_llm"
-%w[model tool_call usage batch chat_methods message_methods acts_as].each do |name|
+historical_runtime = Gem.loaded_specs.fetch("ruby_llm").version == Gem::Version.new("2.0.0")
+modern_before = %w[record payload_helpers] unless historical_runtime
+modern_after = %w[mcp_credential provider_file queued_message chat_file file_store chat_files chat_column_guard
+  message_broadcasting chunk_methods] unless historical_runtime
+[ *modern_before, *%w[model tool_call usage batch chat_methods message_methods], *modern_after, "acts_as" ].each do |name|
   require "ruby_llm/active_record/#{name}"
 end
 require "neighbor"
@@ -25,15 +29,19 @@ end
 Kernel.prepend(RejectUpstreamLegacyContentSql)
 
 class RubyLLMV2UpgradeTest < Minitest::Test
-  if ENV.key?("NOSIA_RUBY_LLM_REPLAY_DATABASE") && ENV["NOSIA_RUBY_LLM_REPLAY_DATABASE"] != "nosia_mcp_oauth_replay_test"
+  if ENV["NOSIA_RUBY_LLM_REPLAY_DATABASE"] != "nosia_mcp_oauth_replay_test"
     abort "NOSIA_RUBY_LLM_REPLAY_DATABASE must be nosia_mcp_oauth_replay_test"
   end
-  DATABASE = ENV.fetch("NOSIA_RUBY_LLM_REPLAY_DATABASE", "nosia_ruby_llm_upgrade_migration_test")
+  DATABASE = ENV.fetch("NOSIA_RUBY_LLM_REPLAY_DATABASE")
   ROOT = File.expand_path("../..", __dir__)
   PHASES = %w[prepare_ruby_llm_v2_upgrade backfill_ruby_llm_v2_data finish_ruby_llm_v2_upgrade].freeze
   LEGACY_SCHEMA = File.join(ROOT, "test/fixtures/files/ruby_llm_1_16_schema.rb")
 
-  # Exercise the real 2.0 lifecycle without loading Nosia's callbacks or models.
+  HISTORICAL_RUNTIME = Gem.loaded_specs.fetch("ruby_llm").version == Gem::Version.new("2.0.0")
+  NATIVE_MIGRATIONS = %w[20261119000001_upgrade_ruby_llm_to_2_1.rb 20261119000002_upgrade_ruby_llm_to_2_2.rb].freeze
+  NATIVE_TABLES = %w[ruby_llm_mcp_credentials ruby_llm_provider_files ruby_llm_queued_messages ruby_llm_chat_files].freeze
+
+  # Exercise each bundle's real lifecycle without loading Nosia's models.
   class RuntimeChat < ActiveRecord::Base
     self.table_name = "chats"
     include RubyLLM::ActiveRecord::ActsAs
@@ -73,7 +81,7 @@ class RubyLLMV2UpgradeTest < Minitest::Test
     # Rails configuration, DATABASE_URL, dotenv, credentials, or application models.
     fixture_tables = File.read(LEGACY_SCHEMA).scan(/create_table "([^"]+)"/).flatten
     verify_database
-    (fixture_tables + %w[ruby_llm_models ruby_llm_tool_calls ruby_llm_usages ruby_llm_batches ruby_llm_v2_backfills schema_migrations ar_internal_metadata]).each do |name|
+    (fixture_tables + NATIVE_TABLES + %w[ruby_llm_models ruby_llm_tool_calls ruby_llm_usages ruby_llm_batches ruby_llm_v2_backfills schema_migrations ar_internal_metadata]).each do |name|
       connection.drop_table(name, if_exists: true, force: :cascade)
     end
     verify_database
@@ -207,6 +215,7 @@ class RubyLLMV2UpgradeTest < Minitest::Test
     prepare.up
     backfill.up
     finish.up
+    advance_to_runtime_schema
     expected = table(:messages).find(105).attributes.merge("tool_call_id" => nil)
     RuntimeMessage.find(104).destroy!
     refute table(:ruby_llm_tool_calls).exists?(201)
@@ -219,11 +228,18 @@ class RubyLLMV2UpgradeTest < Minitest::Test
     prepare.up
     backfill.up
     finish.up
+    advance_to_runtime_schema
+    usage_rows = table(:ruby_llm_usages).order(:id).map(&:attributes)
     RuntimeChat.find(21).destroy!
     assert_equal 0, table(:chats).count
     assert_equal 0, table(:messages).count
     assert_equal 0, table(:ruby_llm_tool_calls).count
-    assert_equal 0, table(:ruby_llm_usages).count
+    if HISTORICAL_RUNTIME
+      assert_equal 0, table(:ruby_llm_usages).count, "2.0 destroyed the linked usage"
+    else
+      expected = usage_rows.map { |row| row.merge("chat_id" => nil, "chat_type" => nil, "message_id" => nil, "message_type" => nil) }
+      assert_equal expected, table(:ruby_llm_usages).order(:id).map(&:attributes), "2.2 retains usage and nullifies both links"
+    end
     assert_equal 0, table(:token_usages).count
   end
 
@@ -262,6 +278,16 @@ class RubyLLMV2UpgradeTest < Minitest::Test
   end
 
   private
+    def advance_to_runtime_schema
+      return if HISTORICAL_RUNTIME
+
+      NATIVE_MIGRATIONS.each { |file| require File.join(ROOT, "db/migrate", file) }
+      UpgradeRubyLlmTo21.new.migrate(:up)
+      UpgradeRubyLlmTo22.new.migrate(:up)
+      [ RuntimeChat, RuntimeMessage, RubyLLM::ActiveRecord::ToolCall, RubyLLM::ActiveRecord::Usage ].each(&:reset_column_information)
+      @tables = {}
+    end
+
     def connection
       ActiveRecord::Base.connection
     end

@@ -24,7 +24,7 @@ module Chat::AccountScoped
     requested = normalized_source_ids(ids)
 
     ActsAsTenant.with_tenant(account) do
-      servers = account.mcp_servers.where(id: requested).to_a
+      servers = account.mcp_servers.where(id: requested).where.not(transport_type: "sse").to_a
       if servers.map { |server| server.id.to_s }.sort != requested.sort
         raise ActiveRecord::RecordNotFound
       end

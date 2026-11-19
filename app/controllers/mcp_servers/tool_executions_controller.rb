@@ -10,7 +10,7 @@ class McpServers::ToolExecutionsController < ApplicationController
     if !params[:arguments].nil? && !params[:arguments].is_a?(ActionController::Parameters)
       render json: { error: t("nosia.mcp.arguments_invalid") }, status: :bad_request
     else
-      arguments = params.permit(arguments: {}).fetch(:arguments, {}).to_h
+      arguments = params.permit(arguments: {}).to_h.fetch("arguments", {})
       render json: tool_result_for_json(@mcp_server.execute_tool(params[:tool_name], arguments))
     end
   end
@@ -19,12 +19,16 @@ class McpServers::ToolExecutionsController < ApplicationController
     def tool_result_for_json(value)
       case value
       when RubyLLM::Attachment
-        { type: value.type.to_s, data: value.encoded, mimeType: value.mime_type, filename: value.filename }
+        { type: value.type.to_s, data: value.encoded, mimeType: value.mime_type, filename: value.filename.presence || "mcp-attachment" }
       when Array
         value.map { |item| tool_result_for_json(item) }
       when Hash
-        value.transform_values { |item| tool_result_for_json(item) }
-      when String, Numeric, TrueClass, FalseClass, NilClass
+        value.to_h do |key, item|
+          raise TypeError, "Unsupported tool result JSON key" unless key.is_a?(String) || key.is_a?(Symbol)
+
+          [ key, tool_result_for_json(item) ]
+        end
+      when String, Integer, Float, BigDecimal, TrueClass, FalseClass, NilClass
         value
       else
         raise TypeError, "Unsupported tool result JSON value"

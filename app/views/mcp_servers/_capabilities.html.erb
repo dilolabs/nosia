@@ -16,7 +16,7 @@
               <p class="n-workspace-help"><%= t("nosia.mcp.mime_type", type: item.mime_type) %></p>
             <% end %>
           <% else %>
-            <h3 class="n-workspace-section-title"><%= item.name %></h3>
+            <h3 class="n-workspace-section-title"><%= item.respond_to?(:server_name) ? item.server_name : item.name %></h3>
             <p class="n-workspace-help"><%= item.description %></p>
             <% if kind == :tools && (schema = mcp_tool_schema(item)) %>
               <details>

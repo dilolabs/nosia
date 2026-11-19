@@ -1,2 +1,6 @@
 <%# locals: (server:) %>
-<span class="n-mcp-status" data-state="<%= server.status %>"><%= t("nosia.mcp.status.#{server.status}") %></span>
+<% if server.legacy_sse? %>
+  <span class="n-mcp-status" data-state="unavailable"><%= t("nosia.mcp_workspace.legacy_sse_unavailable") %></span>
+<% else %>
+  <span class="n-mcp-status" data-state="<%= server.status %>"><%= t("nosia.mcp.status.#{server.status}") %></span>
+<% end %>

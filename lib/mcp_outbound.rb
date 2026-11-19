@@ -79,10 +79,24 @@ module McpOutbound
     end
 
     def current!
-      owner, scope = Fiber[:nosia_mcp_outbound_scope]
-      return scope if owner.equal?(Fiber.current) && scope
+      return Fiber[:nosia_mcp_outbound_scope].last if active?
 
       raise Blocked, "missing MCP outbound scope"
+    end
+
+    # Child fibers inherit storage but must explicitly enter their own scope.
+    def active?
+      owner, scope = Fiber[:nosia_mcp_outbound_scope]
+      owner.equal?(Fiber.current) && !!scope
+    end
+
+    # Reject known nonpublic literals without resolving an ordinary hostname.
+    def check_literal!(uri)
+      literal = IPAddr.new(uri.hostname)
+      literal = literal.native if literal.ipv4_mapped?
+      raise Blocked, "nonpublic address" unless public_ip?(literal)
+    rescue IPAddr::InvalidAddressError
+      nil
     end
 
     private
