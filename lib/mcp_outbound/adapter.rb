@@ -11,6 +11,17 @@ module McpOutbound
       super(env).tap { |response| scope.observe(attempt, response) }
     end
 
+    def build_connection(env)
+      super.tap do |http|
+        if env.url.scheme == "https"
+          # Enforce after Faraday applies options, preserving its CA settings.
+          http.use_ssl = true
+          http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+          http.verify_hostname = true
+        end
+      end
+    end
+
     def net_http_connection(env)
       scope = McpOutbound.current!
       uri, address = McpOutbound.destination!(env.url, https_only: scope.https_only?)

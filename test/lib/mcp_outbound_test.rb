@@ -64,6 +64,35 @@ class McpOutboundTest < ActiveSupport::TestCase
     end
   end
 
+  test "validates raw endpoints before Faraday can rewrite userinfo or discard a fragment" do
+    with_dns(IPV4) do |lookups|
+      raw_base = "https://demo:password@#{HOST}:8443/mcp"
+      raw_request = "#{URL}#fragment"
+
+      normalized = connection(raw_base, proxy: "http://127.0.0.1:1")
+      assert_nil normalized.url_prefix.userinfo
+      assert_match(/\ABasic /, normalized.headers["Authorization"])
+      request = normalized.build_request(:get) { |req| req.url(raw_request) }
+      assert_equal URI(URL), normalized.build_url(request.path, request.params)
+
+      with_stub(Faraday, :new, ->(*) { flunk "invalid raw endpoint reached Faraday" }) do
+        assert_raises(McpOutbound::Blocked) do
+          connection(McpOutbound.endpoint!(raw_base, https_only: true))
+        end
+      end
+      assert_raises(McpOutbound::Blocked) do
+        normalized.build_request(:get) { |req| req.url(McpOutbound.endpoint!(raw_request, https_only: true)) }
+      end
+
+      endpoint = McpOutbound.endpoint!(URL, https_only: true)
+      assert_equal URI(URL), endpoint
+      guarded = connection(endpoint, proxy: "http://127.0.0.1:1")
+      assert_nil guarded.headers["Authorization"]
+      assert_equal URI(URL), guarded.build_url
+      assert_empty lookups
+    end
+  end
+
   test "blocks nonpublic IPv4 and IPv6 including mapped IPv4" do
     answers = %w[
       0.0.0.0 0.1.2.3 10.0.0.1 100.64.1.1 127.0.0.1 169.254.169.254 172.31.0.1
@@ -110,6 +139,32 @@ class McpOutboundTest < ActiveSupport::TestCase
 
     assert_equal :result, result
     assert_raises(McpOutbound::Blocked) { McpOutbound.current! }
+  end
+
+  test "child fibers need their own explicit scope both during and after the parent's scope" do
+    parent_scope = McpOutbound::Scope.new(https_only: true)
+    child_scope = McpOutbound::Scope.new(https_only: false)
+    probe = -> do
+      McpOutbound.current!
+    rescue McpOutbound::Blocked
+      :blocked
+    end
+
+    child = McpOutbound.with(parent_scope) do
+      fiber = Fiber.new do
+        Fiber.yield probe.call
+        McpOutbound.with(child_scope) { Fiber.yield McpOutbound.current! }
+        probe.call
+      end
+      assert_equal :blocked, fiber.resume
+      assert_same child_scope, fiber.resume
+      assert_same parent_scope, McpOutbound.current!
+      assert_equal :blocked, Thread.new { probe.call }.value
+      fiber
+    end
+
+    assert_equal :blocked, child.resume
+    assert_equal :blocked, probe.call
   end
 
   test "fails closed without a scope or with unsafe DNS before constructing a connection" do
@@ -207,6 +262,50 @@ class McpOutboundTest < ActiveSupport::TestCase
     end
   end
 
+  { verify: false, verify_mode: OpenSSL::SSL::VERIFY_NONE, verify_hostname: false }.each do |key, value|
+    test "rejects the wrong TLS hostname even with #{key}: #{value}" do
+      with_tls_peer("wrong.example.test", IPV4, nil) do |url, store|
+        client = connection(url, ssl: { cert_store: store, key => value })
+        error = assert_raises(Faraday::SSLError) { within_scope { client.get } }
+        assert_match(/hostname mismatch|does not match/, error.message)
+      end
+    end
+  end
+
+  test "rejects an untrusted certificate even with verification disabled in Faraday options" do
+    with_tls_peer(HOST, IPV4, nil) do |url, _store|
+      client = connection(url, ssl: { cert_store: OpenSSL::X509::Store.new, verify: false })
+      error = assert_raises(Faraday::SSLError) { within_scope { client.get } }
+      assert_match(/unable to get local issuer certificate|certificate verify failed/, error.message)
+    end
+  end
+
+  test "enforces TLS and both verification settings after the adapter configuration block" do
+    seen = []
+    original = Net::HTTP.method(:new)
+    constructor = ->(*args) do
+      original.call(*args).tap do |http|
+        http.define_singleton_method(:start) do
+          seen << [ use_ssl?, verify_mode, verify_hostname ]
+          raise Errno::ECONNREFUSED
+        end
+      end
+    end
+    client = connection(URL) do |http|
+      http.use_ssl = false
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      http.verify_hostname = false
+    end
+
+    with_dns(IPV4) do
+      with_stub(Net::HTTP, :new, constructor) do
+        assert_raises(Faraday::ConnectionFailed) { within_scope { client.get } }
+      end
+    end
+
+    assert_equal [ [ true, OpenSSL::SSL::VERIFY_PEER, true ] ], seen
+  end
+
   test "returns a redirect without following it and captures request state before Faraday overwrites it" do
     location = "https://redirect.example.test/mcp"
     handler = ->(socket) do
@@ -246,13 +345,13 @@ class McpOutboundTest < ActiveSupport::TestCase
       McpOutbound.with(McpOutbound::Scope.new(https_only: true), &block)
     end
 
-    def connection(url, **options)
+    def connection(url, **options, &configure)
       # Faraday may consult DNS for no_proxy rules before invoking the adapter.
       # Only the guarded connection's separate UrlGuard lookup is under test.
       resolve_proxy_host = ->(host) { assert_equal HOST, host; IPV4 }
       with_stub(IPSocket, :getaddress, resolve_proxy_host) do
         Faraday.new(url, request: { timeout: 3 }, **options) do |builder|
-          builder.adapter McpOutbound::Adapter
+          builder.adapter McpOutbound::Adapter, &configure
         end
       end
     end

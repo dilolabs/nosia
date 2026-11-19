@@ -39,8 +39,27 @@ module McpOutbound
   end
 
   class << self
+    # Call on the raw URL before a client can normalize away forbidden syntax.
+    # This checks syntax only; socket creation must still validate DNS.
+    def endpoint!(url, https_only:)
+      raw = url.to_s
+      uri = URI.parse(raw)
+      https = uri.is_a?(URI::HTTPS)
+      http = uri.is_a?(URI::HTTP) && uri.scheme == "http"
+      raise Blocked, "scheme not allowed" unless https || (http && https_only == false)
+      raise Blocked, "host missing" if uri.hostname.to_s.empty?
+      raise Blocked, "port not allowed" unless (1..65535).cover?(uri.port)
+      # URI discards empty userinfo; also check the unparsed authority.
+      raise Blocked, "userinfo not allowed" if uri.userinfo || raw.match?(%r{\Ahttps?://[^/?#]*@}i)
+      raise Blocked, "fragment not allowed" if uri.fragment
+
+      uri
+    rescue URI::Error
+      raise Blocked, "invalid URL", cause: nil
+    end
+
     def destination!(url, https_only:)
-      uri = checked_uri!(url, https_only: https_only)
+      uri = endpoint!(url, https_only: https_only)
       addresses = UrlGuard.resolve(uri.hostname).map { |ip| ip.ipv4_mapped? ? ip.native : ip }
       raise Blocked, "host does not resolve" if addresses.empty?
       raise Blocked, "host resolves to a nonpublic address" unless addresses.all? { public_ip?(it) }
@@ -50,34 +69,23 @@ module McpOutbound
 
     def with(scope)
       previous = Fiber[:nosia_mcp_outbound_scope]
-      Fiber[:nosia_mcp_outbound_scope] = scope
+      entry = [ Fiber.current, scope ]
+      Fiber[:nosia_mcp_outbound_scope] = entry
       yield
     ensure
+      # Child fibers inherit the entry, but cannot use it or retain its scope.
+      entry.clear
       Fiber[:nosia_mcp_outbound_scope] = previous
     end
 
     def current!
-      Fiber[:nosia_mcp_outbound_scope] || raise(Blocked, "missing MCP outbound scope")
+      owner, scope = Fiber[:nosia_mcp_outbound_scope]
+      return scope if owner.equal?(Fiber.current) && scope
+
+      raise Blocked, "missing MCP outbound scope"
     end
 
     private
-      def checked_uri!(url, https_only:)
-        raw = url.to_s
-        uri = URI.parse(raw)
-        https = uri.is_a?(URI::HTTPS)
-        http = uri.is_a?(URI::HTTP) && uri.scheme == "http"
-        raise Blocked, "scheme not allowed" unless https || (http && https_only == false)
-        raise Blocked, "host missing" if uri.hostname.to_s.empty?
-        raise Blocked, "port not allowed" unless (1..65535).cover?(uri.port)
-        # URI discards empty userinfo; also check the unparsed authority.
-        raise Blocked, "userinfo not allowed" if uri.userinfo || raw.match?(%r{\Ahttps?://[^/?#]*@}i)
-        raise Blocked, "fragment not allowed" if uri.fragment
-
-        uri
-      rescue URI::Error
-        raise Blocked, "invalid URL", cause: nil
-      end
-
       def public_ip?(ip)
         if ip.ipv4?
           NONPUBLIC_IPV4.none? { it.include?(ip) }
