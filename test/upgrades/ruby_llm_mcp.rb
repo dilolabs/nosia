@@ -18,6 +18,12 @@ class RubyLLMMcpUpgradeTest < Minitest::Test
   USAGE_OPERATIONS_2_0 = %w[chat embedding moderation image speech transcription ocr rerank].freeze
   USAGE_OPERATIONS_2_1 = (USAGE_OPERATIONS_2_0 + %w[judgment video research]).freeze
   USAGE_OPERATIONS_2_2 = (USAGE_OPERATIONS_2_1 + %w[code_execution]).freeze
+  USAGE_CHECK_2_0_MIGRATION = "chk_rails_71abd85d6e"
+  USAGE_CHECK_2_0_SCHEMA = "chk_rails_e93d6d7e68"
+  USAGE_CHECK_2_1_MIGRATION = "chk_rails_68fa7685c9"
+  USAGE_CHECK_2_1_SCHEMA = "chk_rails_b21c7a9cfb"
+  USAGE_CHECK_2_2_MIGRATION = "chk_rails_6a1e6be1a0"
+  USAGE_CHECK_2_2_SCHEMA = "chk_rails_5b032552ee"
   SNAPSHOT_TABLES = %w[
     ruby_llm_models chats messages ruby_llm_tool_calls ruby_llm_usages accounts token_usages
     active_storage_attachments active_storage_blobs mcp_servers chat_mcp_sessions
@@ -66,30 +72,42 @@ class RubyLLMMcpUpgradeTest < Minitest::Test
   def test_extends_only_the_complete_stock_usage_check
     with_stable_2_0 do
       # Install custom checks first to exercise selection independent of order.
-      remove_usage_allowlist
+      remove_usage_check USAGE_CHECK_2_0_SCHEMA
       connection.add_check_constraint :ruby_llm_usages, "operation IN ('chat', 'embedding')", name: "local_operation_subset"
       connection.add_check_constraint :ruby_llm_usages,
         "#{stock_usage_expression(USAGE_OPERATIONS_2_0)} AND provider <> 'blocked'", name: "local_provider_rule"
-      custom = usage_checks.slice("local_operation_subset", "local_provider_rule")
-      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_0.reverse)
+      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_0), name: "local_exact_2_0"
+      custom = usage_checks.slice("local_operation_subset", "local_provider_rule", "local_exact_2_0")
+      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_0)
+      assert usage_checks.key?(USAGE_CHECK_2_0_MIGRATION)
 
       migrate_to MIGRATION_2_1
-      assert_usage_checks custom, USAGE_OPERATIONS_2_1, rejects: "code_execution"
+      assert_usage_checks custom, USAGE_CHECK_2_1_MIGRATION, USAGE_OPERATIONS_2_1, rejects: "code_execution"
 
-      # Rehearse another dump/installation format for the full 2.1 allowlist.
-      remove_usage_allowlist
-      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_1.reverse)
+      # Reapply the PostgreSQL expression as an unnamed Rails schema dump would.
+      expression = usage_checks.fetch(USAGE_CHECK_2_1_MIGRATION)
+      remove_usage_check USAGE_CHECK_2_1_MIGRATION
+      connection.add_check_constraint :ruby_llm_usages, expression, name: "local_exact_2_1"
+      custom = custom.merge(usage_checks.slice("local_exact_2_1"))
+      connection.add_check_constraint :ruby_llm_usages, expression
+      assert usage_checks.key?(USAGE_CHECK_2_1_SCHEMA)
       migrate_to MIGRATION_2_2
-      assert_usage_checks custom, USAGE_OPERATIONS_2_2, rejects: "not_a_ruby_llm_operation"
+      assert_usage_checks custom, USAGE_CHECK_2_2_MIGRATION, USAGE_OPERATIONS_2_2, rejects: "not_a_ruby_llm_operation"
     end
   end
 
   def test_refuses_to_guess_between_two_complete_stock_usage_checks
     with_stable_2_0 do
-      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_0.reverse), name: "duplicate_operation_allowlist"
+      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_0)
       before = usage_checks
-
       assert_refuses_usage_upgrade MIGRATION_2_1, /found 2/
+      assert_equal before, usage_checks
+
+      remove_usage_check USAGE_CHECK_2_0_MIGRATION
+      migrate_to MIGRATION_2_1
+      connection.add_check_constraint :ruby_llm_usages, usage_checks.fetch(USAGE_CHECK_2_1_MIGRATION)
+      before = usage_checks
+      assert_refuses_usage_upgrade MIGRATION_2_2, /found 2/
       assert_equal before, usage_checks
     end
   end
@@ -97,12 +115,51 @@ class RubyLLMMcpUpgradeTest < Minitest::Test
   def test_refuses_to_replace_a_restricted_usage_check_without_stock_check
     with_stable_2_0 do
       migrate_to MIGRATION_2_1
-      remove_usage_allowlist
+      remove_usage_check USAGE_CHECK_2_1_MIGRATION
       connection.add_check_constraint :ruby_llm_usages,
-        "#{stock_usage_expression(USAGE_OPERATIONS_2_1)} AND provider <> 'blocked'", name: "restricted_operation_allowlist"
+        "#{stock_usage_expression(USAGE_OPERATIONS_2_1)} AND provider <> 'blocked'", name: USAGE_CHECK_2_1_MIGRATION
       before = usage_checks
 
       assert_refuses_usage_upgrade MIGRATION_2_2, /found 0/
+      assert_equal before, usage_checks
+    end
+  end
+
+  def test_2_1_refuses_a_custom_exact_allowlist_without_the_stock_check
+    with_stable_2_0 do
+      assert_refuses_custom_copy MIGRATION_2_1, USAGE_CHECK_2_0_SCHEMA
+    end
+  end
+
+  def test_2_2_refuses_a_custom_exact_allowlist_without_the_stock_check
+    with_stable_2_0 do
+      migrate_to MIGRATION_2_1
+      assert_refuses_custom_copy MIGRATION_2_2, USAGE_CHECK_2_1_MIGRATION
+    end
+  end
+
+  def test_does_not_accept_current_operations_under_a_source_stock_check_name
+    with_stable_2_0 do
+      remove_usage_check USAGE_CHECK_2_0_SCHEMA
+      connection.add_check_constraint :ruby_llm_usages, stock_usage_expression(USAGE_OPERATIONS_2_1), name: USAGE_CHECK_2_0_SCHEMA
+      before = usage_checks
+      assert_refuses_usage_upgrade MIGRATION_2_1, /found 0/
+      assert_equal before, usage_checks
+    end
+  end
+
+  def test_accepts_already_upgraded_checks_from_rails_schema_load
+    with_stable_2_0 do
+      migrate_to MIGRATION_2_1
+      reload_usage_check USAGE_CHECK_2_1_MIGRATION, USAGE_CHECK_2_1_SCHEMA
+      before = usage_checks
+      UpgradeRubyLlmTo21.new.migrate(:up)
+      assert_equal before, usage_checks
+
+      migrate_to MIGRATION_2_2
+      reload_usage_check USAGE_CHECK_2_2_MIGRATION, USAGE_CHECK_2_2_SCHEMA
+      before = usage_checks
+      UpgradeRubyLlmTo22.new.migrate(:up)
       assert_equal before, usage_checks
     end
   end
@@ -268,19 +325,34 @@ class RubyLLMMcpUpgradeTest < Minitest::Test
       connection.check_constraints(:ruby_llm_usages).to_h { |check| [ check.name, check.expression ] }
     end
 
-    def remove_usage_allowlist
-      name, = (usage_checks.except("local_operation_subset", "local_provider_rule")).find { |_, expression| expression.start_with?("operation") }
+    def remove_usage_check(name)
       connection.remove_check_constraint :ruby_llm_usages, name: name
     end
 
-    def assert_usage_checks(custom, permitted, rejects:)
+    def reload_usage_check(old_name, new_name)
+      expression = usage_checks.fetch(old_name)
+      remove_usage_check old_name
+      connection.add_check_constraint :ruby_llm_usages, expression
+      assert usage_checks.key?(new_name)
+    end
+
+    def assert_usage_checks(custom, stock_name, permitted, rejects:)
       checks = usage_checks
       assert_equal custom, checks.slice(*custom.keys)
-      stock = checks.except(*custom.keys).values.select { |expression| expression.start_with?("operation") }
-      assert_equal 1, stock.size, "Expected one stock operation check"
-      permitted.each { |operation| assert evaluates_usage_check(stock.first, operation), "Stock check should accept #{operation}" }
-      refute evaluates_usage_check(stock.first, rejects), "Stock check should reject #{rejects}"
+      assert_equal [ stock_name ], checks.except(*custom.keys).filter_map { |name, expression| name if expression.start_with?("operation") }
+      stock = checks.fetch(stock_name)
+      permitted.each { |operation| assert evaluates_usage_check(stock, operation), "Stock check should accept #{operation}" }
+      refute evaluates_usage_check(stock, rejects), "Stock check should reject #{rejects}"
       assert_rejects_usage "research" # The custom subset still applies to real inserts.
+    end
+
+    def assert_refuses_custom_copy(version, stock_name)
+      expression = usage_checks.fetch(stock_name)
+      remove_usage_check stock_name
+      connection.add_check_constraint :ruby_llm_usages, expression, name: "chk_rails_0123456789"
+      before = usage_checks
+      assert_refuses_usage_upgrade version, /found 0/
+      assert_equal before, usage_checks
     end
 
     def evaluates_usage_check(expression, operation)

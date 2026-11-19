@@ -4,6 +4,12 @@ class UpgradeRubyLlmTo21 < ActiveRecord::Migration[8.1]
   SOURCE_USAGE_OPERATIONS = %w[chat embedding moderation image speech transcription ocr rerank].freeze
   USAGE_OPERATIONS = (SOURCE_USAGE_OPERATIONS + %w[judgment video research]).freeze
 
+  # Rails hashes the original SQL, so loading a deparsed dump can change the name.
+  # 2.0: prepare migration, checked-in 2.0 schema, and its PostgreSQL 18 re-dump.
+  SOURCE_USAGE_CHECK_NAMES = %w[chk_rails_71abd85d6e chk_rails_e93d6d7e68 chk_rails_5a75d411f0].freeze
+  # 2.1: this migration and its Rails schema dump.
+  USAGE_CHECK_NAMES = %w[chk_rails_68fa7685c9 chk_rails_b21c7a9cfb].freeze
+
   def up
     unless table_exists?(:ruby_llm_mcp_credentials)
       create_table :ruby_llm_mcp_credentials, id: :bigint do |t|
@@ -69,16 +75,20 @@ class UpgradeRubyLlmTo21 < ActiveRecord::Migration[8.1]
 
   private
     def upgrade_usage_operations
-      matches = check_constraints(:ruby_llm_usages).filter_map do |check|
-        operations = stock_usage_operations(check.expression)
-        [ check, operations ] if operations == SOURCE_USAGE_OPERATIONS.sort || operations == USAGE_OPERATIONS.sort
+      matches = check_constraints(:ruby_llm_usages).select do |check|
+        case check.name
+        when *SOURCE_USAGE_CHECK_NAMES
+          stock_usage_operations(check.expression) == SOURCE_USAGE_OPERATIONS.sort
+        when *USAGE_CHECK_NAMES
+          stock_usage_operations(check.expression) == USAGE_OPERATIONS.sort
+        end
       end
-      check, operations = matches.first
+      check = matches.first
       unless matches.one? && check.validate?
         raise "Expected one validated stock RubyLLM 2.0 or 2.1 usage operation check, found #{matches.size} matching checks. Review ruby_llm_usages constraints before retrying."
       end
 
-      if operations == SOURCE_USAGE_OPERATIONS.sort
+      if SOURCE_USAGE_CHECK_NAMES.include?(check.name)
         remove_check_constraint :ruby_llm_usages, name: check.name
         values = USAGE_OPERATIONS.map { |operation| connection.quote(operation) }.join(", ")
         add_check_constraint :ruby_llm_usages, "operation::text IN (#{values})"
