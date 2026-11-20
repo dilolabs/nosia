@@ -408,10 +408,13 @@ The Model Context Protocol is an open protocol that standardizes how application
    - **And more** - Extensible catalog of integrations
 
 3. **Activate an MCP Server**:
-   - Click on a server from the catalog
-   - Provide required configuration (API keys, tokens)
-   - Test the connection
-   - Enable it for your chats
+   - Choose a server from the catalog, fill in its settings, and save.
+   - For a static connection, save any required API key or token, then use
+     **Test connection** on the server’s details page.
+   - For an OAuth connector, each member chooses **Authorize with OAuth** on the
+     server’s details page and completes consent. No separate test is required
+     after consent.
+   - Turn on **Enabled for conversations** to make the connector available to chats.
 
 4. **Add MCP to Chat**:
    - Open or create a chat session
@@ -450,20 +453,23 @@ When MCP servers are enabled, the AI can:
 
 Beyond the catalog, you can add custom MCP servers:
 
-1. **Navigate to MCP Settings** → **Custom Servers**
+1. In the MCP workspace, select **Add custom server**.
 2. **Choose transport type**:
-   - **stdio** - Local processes (NPX, Python scripts)
-   - **SSE** - Server-sent events over HTTP
-   - **HTTP** - Standard HTTP endpoints
+   - **Streamable HTTP** for a remote endpoint, with static authentication or
+     OAuth. OAuth requires a public HTTPS endpoint and a compatible provider.
+   - **STDIO** for a local process, if enabled on the deployment.
 
 3. **Configure connection**:
-   - Provide endpoint or command
-   - Add authentication credentials
-   - Test connection
+   - Enter the endpoint or command and save.
+   - For a static connection, enter any required credentials before saving, then
+     use **Test connection** with the saved configuration.
+   - For OAuth, save first, then [authorize as the signed-in member](docs/mcp-workspace.md#connect-with-oauth).
 
-4. **Use in chats** - Enable the custom server for your conversations
+4. **Use in chats** - Enable the connector for conversations and select it in
+   the chat’s **Tools** menu.
 
-**Test connection** uses the saved server configuration. Save any edits first. While the test runs, the button shows a busy state; the server page then displays the result, response time, or error details with troubleshooting guidance.
+Legacy SSE is no longer offered for new connections. See how to
+[migrate a legacy SSE connector](docs/mcp-workspace.md#migrate-a-legacy-sse-connector).
 
 For more details on MCP integration, see the [MCP Documentation](https://modelcontextprotocol.io/).
 

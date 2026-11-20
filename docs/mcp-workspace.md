@@ -66,13 +66,15 @@ provider’s consent page has its own language settings.
 
 ### Provider and deployment requirements
 
-- OAuth works with public HTTPS Streamable HTTP servers whose authorization
-  provider supports dynamic client registration. If Nosia reports that the
-  provider does not register apps automatically, use a compatible connector or
-  ask the provider to enable dynamic registration. A provider that requires a
-  pre-registered client ID or secret is not supported, and no named provider is
-  guaranteed. The flow uses the web browser; there is no separate desktop
-  handoff or support for additional OAuth modes or custom scopes.
+- OAuth requires public HTTPS for the Streamable HTTP MCP endpoint and for
+  the OAuth discovery, dynamic client registration, browser consent, and token
+  endpoints. Their hostnames must resolve only to public addresses. If Nosia
+  reports that the provider does not register apps automatically, use a
+  compatible connector or ask the provider to enable dynamic registration. A
+  provider that requires a pre-registered client ID or secret is not supported,
+  and no named provider is guaranteed. The flow uses the web browser; there is
+  no separate desktop handoff or support for additional OAuth modes or custom
+  scopes.
 - Set `NOSIA_URL` to the exact public HTTPS origin users open in their browser:
   scheme and host, plus the port if non-default, without a path, query, or
   fragment. For `NOSIA_URL=https://nosia.example.org`, the exact callback is
@@ -86,13 +88,18 @@ provider’s consent page has its own language settings.
   an existing deployment. Nosia encrypts stored OAuth credentials using these
   settings.
 - Keep callback query strings and OAuth consent redirect `Location` values out
-  of reverse-proxy, access, and observability logs. Rails-side filtering does
-  not sanitize upstream logs. Preserve `Cache-Control: no-store` and
-  `Referrer-Policy: no-referrer` on OAuth responses through the proxy.
+  of reverse-proxy, access, and observability logs. Wherever request or
+  response headers or bodies are captured, exclude OAuth tokens (including
+  access and refresh tokens), client secrets, and signing material. If those
+  values cannot be reliably redacted, disable the corresponding capture.
+  Rails-side filtering does not sanitize upstream logs. Preserve
+  `Cache-Control: no-store` and `Referrer-Policy: no-referrer` on OAuth
+  responses through the proxy.
 
 Static authentication (none, bearer token, or API key) is still available.
-Plain `http://` is allowed for legacy static compatibility only: it is
-unencrypted, including any credentials and MCP data it carries. Prefer HTTPS.
+Plain `http://` is allowed for legacy static compatibility only, and the
+endpoint must still resolve only to public addresses. Plain HTTP does not
+encrypt credentials or MCP data in transit. Prefer HTTPS.
 
 ## Migrate a legacy SSE connector
 
