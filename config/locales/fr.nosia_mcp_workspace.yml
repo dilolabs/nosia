@@ -7,6 +7,8 @@ fr:
       models:
         mcp_server:
           attributes:
+            base:
+              workspace_configuration_changed: La configuration du connecteur a changé pendant la modification. Rechargez la page avant de réessayer.
             auth_mode:
               oauth_transport_required: nécessite une adresse HTTPS publique en HTTP diffusable
   nosia:

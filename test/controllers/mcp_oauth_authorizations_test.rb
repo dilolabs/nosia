@@ -426,6 +426,30 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
     assert_equal "fixture-private-static-token", @server.token
   end
 
+  test "an old static form cannot silently switch OAuth back to static on either workspace route" do
+    bob = authenticated_browser(@bob)
+    [ account_mcp_server_path(@team, @server), mcp_server_path(@server) ].each do |path|
+      @server.update!(auth_mode: "static")
+      edit_path = "#{path}/edit"
+      bob.get edit_path
+      assert_equal 200, bob.response.status
+      original_mode = Nokogiri::HTML5(bob.response.body).at_css("input[name='mcp_server[editing_auth_mode]']")["value"]
+      assert_equal "static", original_mode
+      # The old form was opened in static mode before a different edit won.
+      @server.update!(auth_mode: "oauth")
+      before = @server.attributes
+
+      bob.patch path, params: { mcp_server: { editing_auth_mode: original_mode, auth_mode: "static",
+        token: "stale-secret" } }, headers: { "Accept-Language" => "fr" }
+      assert_equal 422, bob.response.status
+      page = Nokogiri::HTML5(bob.response.body)
+      assert_includes page.at_css("[data-form-errors-target=summary]").text, "Rechargez"
+      assert_equal original_mode, page.at_css("input[name='mcp_server[editing_auth_mode]']")["value"]
+      refute_includes bob.response.body, "stale-secret"
+      assert_equal before, @server.reload.attributes
+    end
+  end
+
   test "ready OAuth can atomically switch to static with explicit replacement and removal" do
     @server.update!(api_key: "fixture-obsolete-key", headers: { "Authorization" => "Bearer fixture-private-static-token", "X-API-Key" => "fixture-obsolete-key" })
     @wire.install(self) do

@@ -2,6 +2,8 @@
 module McpServer::Configuration
   extend ActiveSupport::Concern
 
+  WORKSPACE_ATTRIBUTES = %w[name transport_type endpoint enabled notes tags command args auth_mode].freeze
+
   included { validate :validate_workspace_configuration }
 
   # @param auth_mode [String] Saved or proposed mode
@@ -34,9 +36,11 @@ module McpServer::Configuration
   # @param attributes [Hash] Whitelisted ordinary model attributes
   # @param values [Hash] Whitelisted declared configuration inputs
   # @param removals [Array<String>] Explicit saved-secret removals
+  # @param editing_auth_mode [String, nil] Optional saved mode from the rendered editor
   # @return [Boolean] Whether this complete edit was valid and saved
-  def save_workspace(attributes, values:, removals: [])
-    attrs = attributes.to_h.stringify_keys
+  def save_workspace(attributes, values:, removals: [], editing_auth_mode: nil)
+    attrs = attributes.to_h.stringify_keys.slice(*WORKSPACE_ATTRIBUTES)
+    @workspace_editing_auth_mode = editing_auth_mode
     @workspace_configuration_errors = []
     if persisted? && local? && attrs.key?("transport_type") && attrs["transport_type"] != "local"
       @workspace_configuration_errors << [ :transport_type, I18n.t("nosia.mcp_workspace.local_transport_fixed") ]
@@ -73,6 +77,7 @@ module McpServer::Configuration
     save
   ensure
     @workspace_configuration_errors = nil
+    @workspace_editing_auth_mode = nil
   end
 
   private

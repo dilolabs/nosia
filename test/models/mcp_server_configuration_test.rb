@@ -5,6 +5,50 @@ require_relative "../support/native_mcp_wire"
 class McpServerConfigurationTest < ActiveSupport::TestCase
   include McpWorkspaceFixtures
 
+  [ {}, { auth_mode: "static" } ].each do |attributes|
+    test "a stale static credential save cannot change an OAuth connector #{attributes.empty? ? 'without' : 'with'} a submitted mode" do
+      @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, token: "retained-token")
+      stale = @second.mcp_servers.find(@second_server.id)
+      @second_server.update!(auth_mode: "oauth")
+      before = @second_server.attributes
+
+      refute stale.save_workspace(attributes, values: { token: "stale-replacement" })
+      assert stale.errors.added?(:base, :workspace_configuration_changed)
+      assert_equal before, @second_server.reload.attributes
+    end
+  end
+
+  test "a stale editor cannot replace a credential for a changed effective endpoint" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, token: "retained-token")
+    stale = @second.mcp_servers.find(@second_server.id)
+    @second_server.update!(url: "https://mcp.example.test/replacement")
+    before = @second_server.attributes
+
+    refute stale.save_workspace({}, values: { token: "stale-replacement" })
+    assert stale.errors.added?(:base, :workspace_configuration_changed)
+    assert_equal before, @second_server.reload.attributes
+  end
+
+  test "a stale model credential update cannot bypass the saved mode check" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, token: "retained-token")
+    stale = @second.mcp_servers.find(@second_server.id)
+    @second_server.update!(auth_mode: "oauth")
+
+    refute stale.update(token: "stale-replacement")
+    assert stale.errors.added?(:base, :workspace_configuration_changed)
+    assert_equal "retained-token", @second_server.reload.token
+  end
+
+  test "workspace saves discard credential attributes and inputs when the destination is OAuth" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, token: "retained-token")
+    config = @second_server.auth_config
+
+    assert @second_server.save_workspace({ auth_mode: "oauth", auth_config: { token: "unlisted" }, api_key: "unlisted" },
+      values: { token: "forged" }, removals: [ "token" ])
+    assert @second_server.reload.oauth?
+    assert_equal config, @second_server.auth_config
+  end
+
   test "blank keeps saved secrets and replacement preserves other configuration" do
     @second_server.update!(connection_config: { env: { "UNEDITED" => "keep" } })
     assert @second_server.save_workspace({ notes: "Updated" }, values: { "api_key" => "", "team" => "New team" })

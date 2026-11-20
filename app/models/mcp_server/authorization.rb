@@ -1,10 +1,13 @@
 module McpServer::Authorization
   extend ActiveSupport::Concern
 
+  CONNECTION_IDENTITY_FIELDS = %w[auth_mode transport_type endpoint connection_config account_id].freeze
+  CONNECTION_CONFIGURATION_FIELDS = (CONNECTION_IDENTITY_FIELDS + %w[auth_config]).freeze
+
   included do
     validates :auth_mode, inclusion: { in: %w[static oauth] }
     validate :validate_oauth_transport
-    before_update :retire_changed_oauth_identity
+    before_update :guard_connection_configuration_update
     before_destroy :retire_oauth_authorizations, prepend: true
   end
 
@@ -84,27 +87,39 @@ module McpServer::Authorization
       end
     end
 
-    def retire_changed_oauth_identity
-      return unless %w[auth_mode transport_type endpoint connection_config account_id].any? { |name| will_save_change_to_attribute?(name) }
+    def guard_connection_configuration_update
+      return unless @workspace_editing_auth_mode || CONNECTION_CONFIGURATION_FIELDS.any? { |name| will_save_change_to_attribute?(name) }
 
       previous_account = account_id_in_database
       Account.where(id: [ previous_account, account_id ]).order(:id).lock.load
       saved = self.class.uncached { self.class.unscoped.find_by!(id:, account_id: previous_account) }
+      saved_identity = [ saved.auth_mode, saved.transport_type, saved.effective_endpoint, saved.account_id ]
+      if stale_connection_configuration?(saved, saved_identity)
+        errors.add(:base, :workspace_configuration_changed)
+        throw :abort
+      end
+
       resulting_identity = oauth_identity_after_update(saved)
       mode, transport, endpoint = resulting_identity
-      # A stale editor may have validated against a different mode before
-      # this transaction obtained the account lock.
       if mode == "oauth" && !valid_oauth_endpoint?(transport, endpoint)
         errors.add(:auth_mode, :oauth_transport_required)
         throw :abort
       end
-      if resulting_identity != [ saved.auth_mode, saved.transport_type, saved.effective_endpoint, saved.account_id ]
-        retire_oauth_authorizations
-      end
+      retire_oauth_authorizations if resulting_identity != saved_identity
+    end
+
+    def stale_connection_configuration?(saved, saved_identity)
+      # Compare against what the editor loaded, not the submitted destination
+      # mode: an unchanged value is omitted from Rails' partial UPDATE.
+      loaded_endpoint = connection_config_in_database&.[]("url") || endpoint_in_database
+      loaded_identity = [ auth_mode_in_database, transport_type_in_database, loaded_endpoint, account_id_in_database ]
+      (@workspace_editing_auth_mode && @workspace_editing_auth_mode != saved.auth_mode) || loaded_identity != saved_identity ||
+        (will_save_change_to_auth_config? && auth_config_in_database != saved.auth_config) ||
+        (will_save_change_to_connection_config? && connection_config_in_database != saved.connection_config)
     end
 
     def oauth_identity_after_update(saved)
-      mode, transport, endpoint, config, account = %w[auth_mode transport_type endpoint connection_config account_id].map do |name|
+      mode, transport, endpoint, config, account = CONNECTION_IDENTITY_FIELDS.map do |name|
         will_save_change_to_attribute?(name) ? self[name] : saved[name]
       end
       [ mode, transport, config&.[]("url") || endpoint, account ]

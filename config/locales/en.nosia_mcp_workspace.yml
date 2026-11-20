@@ -7,6 +7,8 @@ en:
       models:
         mcp_server:
           attributes:
+            base:
+              workspace_configuration_changed: This connector’s configuration changed while you were editing. Reload the page before trying again.
             auth_mode:
               oauth_transport_required: requires a public HTTPS Streamable HTTP endpoint
   nosia:

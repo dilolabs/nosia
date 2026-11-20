@@ -88,7 +88,7 @@ class McpServersController < ApplicationController
     end
 
     def mcp_server_params
-      params.require(:mcp_server).permit(:name, :transport_type, :endpoint, :enabled, :notes, :tags, :command, :args, :auth_mode)
+      params.require(:mcp_server).permit(*McpServer::Configuration::WORKSPACE_ATTRIBUTES, :editing_auth_mode)
     end
 
     def redirect_after_workspace_save(notice_key)
@@ -103,10 +103,11 @@ class McpServersController < ApplicationController
     end
 
     def save_workspace(attributes)
+      @editing_auth_mode = attributes.delete(:editing_auth_mode)&.to_s
       fields = @mcp_server.workspace_configuration_fields(auth_mode: attributes.fetch(:auth_mode, @mcp_server.auth_mode),
         transport_type: attributes.fetch(:transport_type, @mcp_server.transport_type))
       allowed = fields.map { |field| field[:name].to_s }
-      @mcp_server.save_workspace(attributes, values: configuration_values(allowed), removals: configuration_removals(allowed))
+      @mcp_server.save_workspace(attributes, values: configuration_values(allowed), removals: configuration_removals(allowed), editing_auth_mode: @editing_auth_mode)
     end
 
     def configuration_values(allowed)
