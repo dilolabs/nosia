@@ -7,7 +7,7 @@ gem "dotenv", groups: [ :development, :test ] # A Ruby gem to load environment v
 gem "rails", "~> 8.1.0", ">= 8.1.4.1"
 gem "rails-i18n", "~> 8.0"
 # RubyLLM requires JSON 2.x.
-gem "json", "< 3"
+gem "json", "< 4"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
 # Use postgresql as the database for Active Record
