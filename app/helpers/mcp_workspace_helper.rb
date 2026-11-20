@@ -89,8 +89,9 @@ module McpWorkspaceHelper
   # @param server [McpServer] Authorized record
   # @return [String] Credential-free endpoint/command label
   def mcp_endpoint_label(server)
-    if server.endpoint.present?
-      uri = URI.parse(server.endpoint.match?(%r{\Ahttps?://}i) ? server.endpoint : "https://#{server.endpoint}")
+    endpoint = server.oauth? ? server.effective_endpoint : server.endpoint
+    if endpoint.present?
+      uri = URI.parse(endpoint.match?(%r{\Ahttps?://}i) ? endpoint : "https://#{endpoint}")
       "#{uri.host}#{uri.path}"
     elsif server.command.present?
       File.basename(server.command.to_s.split.first.to_s)

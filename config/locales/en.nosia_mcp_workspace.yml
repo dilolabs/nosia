@@ -66,6 +66,8 @@ en:
       oauth:
         mode: Authentication mode
         static: None, bearer token, or API key
+        static_credentials: Static credentials
+        static_credentials_help: These fields apply only when you choose the static authentication mode. You can replace or remove saved credentials in the same edit.
         oauth: OAuth
         mode_help: OAuth requires a public HTTPS Streamable HTTP endpoint. Save first, then authorize from the server details.
         authorization_required: Authorization required

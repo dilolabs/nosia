@@ -28,8 +28,8 @@ class McpServers::ConnectionTestsController < ApplicationController
       reason = oauth_test_failure
       respond_to do |format|
         format.html do
-          redirect_to account_mcp_server_path(@account, @mcp_server), status: :see_other,
-            flash: { mcp_oauth_test: { "server_id" => @mcp_server.id, "session_id" => Current.session.id, "reason" => (reason || :success).to_s } }
+          redirect_within_oauth_workspace(account_mcp_server_path(@account, @mcp_server),
+            mcp_oauth_test: { "server_id" => @mcp_server.id, "session_id" => Current.session.id, "reason" => (reason || :success).to_s })
         end
         format.json do
           state = mcp_oauth_state(@mcp_server)

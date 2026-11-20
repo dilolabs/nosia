@@ -66,6 +66,8 @@ fr:
       oauth:
         mode: Mode d’authentification
         static: Aucune, jeton porteur ou clé API
+        static_credentials: Identifiants statiques
+        static_credentials_help: Ces champs ne sont utilisés que si vous choisissez le mode d’authentification statique. Vous pouvez remplacer ou supprimer les identifiants enregistrés dans cette même modification.
         oauth: OAuth
         mode_help: OAuth nécessite une adresse HTTPS publique en HTTP diffusable. Enregistrez d’abord, puis autorisez l’accès depuis la fiche du serveur.
         authorization_required: Autorisation requise

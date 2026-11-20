@@ -2,10 +2,6 @@
 module McpOauthFlow
   extend ActiveSupport::Concern
 
-  included do
-    prepend_before_action :set_mcp_oauth_privacy_headers
-  end
-
   private
     def set_mcp_oauth_privacy_headers
       no_store
@@ -37,6 +33,40 @@ module McpOauthFlow
 
     def redirect_oauth(reason, notice: false)
       path = @mcp_server ? account_mcp_server_path(@mcp_server.account_id, @mcp_server) : root_path
-      redirect_to path, status: :see_other, flash: { (notice ? :notice : :alert) => mcp_oauth_text(reason) }, allow_other_host: false
+      redirect_within_oauth_workspace(path, (notice ? :notice : :alert) => mcp_oauth_text(reason))
+    end
+
+    def redirect_within_oauth_workspace(path, feedback)
+      redirect_to_internal_workspace_path(path, feedback, origin: oauth_app_origin)
+    end
+
+    def redirect_to_internal_workspace_path(path, feedback, origin: nil)
+      raise ArgumentError, "Expected an internal workspace path" unless %r{\A/(?!/)[^\\?#[:cntrl:]]*\z}.match?(path)
+
+      set_mcp_oauth_privacy_headers
+      feedback.each { |key, value| flash[key] = value }
+      # redirect_to would expand an internal path using incoming Host headers.
+      response.location = "#{origin}#{path}"
+      head :see_other
+    end
+
+    def oauth_app_origin
+      return @oauth_app_origin if defined?(@oauth_app_origin)
+
+      @oauth_app_origin = verified_oauth_app_origin
+    end
+
+    def verified_oauth_app_origin
+      raw = ENV["NOSIA_URL"]
+      return unless raw&.start_with?("https://")
+
+      uri = McpOutbound.endpoint!(raw, https_only: true)
+      return unless uri.query.nil? && [ "", "/" ].include?(uri.path)
+
+      McpOutbound.check_literal!(uri)
+      McpOutbound.destination!(raw, https_only: true)
+      uri.origin
+    rescue McpOutbound::Blocked
+      nil
     end
 end

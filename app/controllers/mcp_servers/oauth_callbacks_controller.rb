@@ -3,6 +3,8 @@ class McpServers::OauthCallbacksController < ApplicationController
   include McpOauthFlow
   include McpWorkspaceHelper
 
+  prepend_before_action :set_mcp_oauth_privacy_headers
+
   # @return [void] Redirects to the original authorized connector or a safe fallback
   def show
     return head :method_not_allowed unless request.get?

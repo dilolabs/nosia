@@ -175,6 +175,38 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "callback and old OAuth actions return to the configured origin despite forwarded request headers" do
+    hostile = { "Host" => "incoming.example.test", "X-Forwarded-Host" => "forwarded.example.test", "X-Forwarded-Proto" => "http" }
+    @wire.install(self) do
+      state = start
+      @alice_browser.get CALLBACK, params: { code: CODE, state: state, iss: NativeMcpOAuthWire::ORIGIN, return_to: "https://ignored.example.test" }, headers: hostile
+      assert_private_redirect(@alice_browser)
+      assert_equal "https://nosia.example.test#{detail_path}", @alice_browser.response.location
+      assert_equal "Authorized", @alice_browser.flash[:notice]
+      assert_empty @alice_browser.response.body
+      @alice_browser.post account_mcp_server_connection_test_path(@team, @server), headers: hostile
+      assert_private_redirect(@alice_browser)
+      assert_equal "https://nosia.example.test#{detail_path}", @alice_browser.response.location
+      @alice_browser.delete account_mcp_server_connection_path(@team, @server), headers: hostile
+      assert_private_redirect(@alice_browser)
+      assert_equal "https://nosia.example.test#{detail_path}", @alice_browser.response.location
+    end
+  end
+
+  test "setup and callback fallback use an internal relative Location when origin is unusable" do
+    hostile = { "X-Forwarded-Host" => "forwarded.example.test", "X-Forwarded-Proto" => "https" }
+    ENV["NOSIA_URL"] = "https://127.0.0.1"
+    @alice_browser.post authorization_path, headers: hostile
+    assert_private_redirect(@alice_browser)
+    assert_equal detail_path, @alice_browser.response.location
+    assert_equal "Set NOSIA_URL to a public HTTPS origin before using OAuth.", @alice_browser.flash[:alert]
+
+    @alice_browser.get CALLBACK, params: { code: CODE, state: "unmatched", error_description: DETAIL }, headers: hostile
+    assert_private_redirect(@alice_browser)
+    assert_equal root_path, @alice_browser.response.location
+    assert_empty @alice_browser.response.body
+  end
+
   test "unsafe consent destination and providers that need pre-registration get local outcomes" do
     @wire.install(self) do
       @wire.issuer_metadata["authorization_endpoint"] = "https://127.0.0.1/authorize"
@@ -321,7 +353,7 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
       end
       @alice_browser.get edit_account_mcp_server_path(@team, @server)
       assert_includes @alice_browser.response.body, "mcp_server[auth_mode]"
-      refute_includes @alice_browser.response.body, "mcp_server_configuration_values_token"
+      refute_includes @alice_browser.response.body, "fixture-private-static"
       @alice_browser.patch detail_path, params: { mcp_server: { auth_mode: "oauth", endpoint: "http://mcp.example.test/mcp" } }
       assert_equal 422, @alice_browser.response.status
       refute_includes @alice_browser.response.body, "fixture-private-static"
@@ -335,6 +367,92 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
       assert_equal "fixture-private-static-token", @server.reload.token
       assert_equal "fixture-private-static-header", @server.headers.fetch("X-Static")
       assert_nil @server.api_key
+    end
+  end
+
+  test "OAuth edits retain the override on unchanged and invalid submissions" do
+    @server.update!(endpoint: "https://old.example.test/mcp", url: NativeMcpOAuthWire::URL)
+    @wire.install(self) do
+      callback(start)
+      grant = @server.oauth_grant_for(@alice)
+      count = @wire.oauth_requests.size
+      @alice_browser.get edit_account_mcp_server_path(@team, @server)
+      field = Nokogiri::HTML5(@alice_browser.response.body).at_css("#mcp_server_endpoint")
+      assert_equal "https://old.example.test/mcp", field["value"]
+
+      @alice_browser.patch detail_path, params: { mcp_server: { endpoint: field["value"], notes: "Unchanged URL" } }
+      @alice_browser.follow_redirect!
+      assert_equal "https://old.example.test/mcp", @server.reload.endpoint
+      assert_equal NativeMcpOAuthWire::URL, @server.url
+      assert_equal grant, @server.oauth_grant_for(@alice)
+
+      @alice_browser.patch detail_path, params: { mcp_server: { endpoint: "http://mcp.example.test/insecure" } }
+      assert_equal 422, @alice_browser.response.status
+      field = Nokogiri::HTML5(@alice_browser.response.body).at_css("#mcp_server_endpoint")
+      assert_equal "http://mcp.example.test/insecure", field["value"]
+      assert_equal NativeMcpOAuthWire::URL, @server.reload.effective_endpoint
+      assert_equal grant, @server.oauth_grant_for(@alice)
+      assert_equal count, @wire.oauth_requests.size
+      assert_empty @wire.requests
+    end
+  end
+
+  test "saving a different OAuth URL clears the encrypted override and retires its grant without discovery" do
+    @server.update!(endpoint: "https://old.example.test/mcp", url: NativeMcpOAuthWire::URL)
+    @wire.install(self) do
+      callback(start)
+      grant = @server.oauth_grant_for(@alice)
+      count = @wire.oauth_requests.size
+      url = "https://new.example.test/mcp"
+      fail_on_lookup = method(:flunk)
+      with_singleton_replacement(UrlGuard, :resolve, ->(*) { fail_on_lookup.call("Save and its redirect must not resolve a host") }) do
+        @alice_browser.patch detail_path, params: { mcp_server: { endpoint: url } }
+        assert_private_redirect(@alice_browser)
+        @alice_browser.follow_redirect!
+      end
+      assert_equal url, @server.reload.effective_endpoint
+      assert_nil @server.url
+      refute McpAuthorization.exists?(id: grant.id)
+      assert_equal "fixture-private-static-header", @server.headers.fetch("X-Static")
+      assert_equal count, @wire.oauth_requests.size
+      assert_empty @wire.requests
+    end
+  end
+
+  test "OAuth to static keeps the opted-in saved credentials when replacement fields are blank" do
+    @alice_browser.patch detail_path, params: { mcp_server: { auth_mode: "static", configuration_values: { token: "", api_key: "" } } }
+    assert_private_redirect(@alice_browser)
+    assert_equal "static", @server.reload.auth_mode
+    assert_equal "fixture-private-static-token", @server.token
+  end
+
+  test "ready OAuth can atomically switch to static with explicit replacement and removal" do
+    @server.update!(api_key: "fixture-obsolete-key", headers: { "Authorization" => "Bearer fixture-private-static-token", "X-API-Key" => "fixture-obsolete-key" })
+    @wire.install(self) do
+      callback(start)
+      grant = @server.oauth_grant_for(@alice)
+      count = @wire.oauth_requests.size
+      @alice_browser.patch detail_path, params: { mcp_server: { auth_mode: "static", name: "", remove_credentials: [ "api_key" ],
+        configuration_values: { token: "fixture-replacement-token" } } }
+      assert_equal 422, @alice_browser.response.status
+      %w[fixture-obsolete-key fixture-replacement-token fixture-private-static-token].each do |secret|
+        refute_includes @alice_browser.response.body, secret
+      end
+      assert_equal "oauth", @server.reload.auth_mode
+      assert_equal grant, @server.oauth_grant_for(@alice)
+
+      @alice_browser.patch detail_path, params: { mcp_server: { auth_mode: "static", remove_credentials: [ "api_key", "unlisted" ],
+        configuration_values: { token: "fixture-replacement-token", unlisted: "do-not-save" } } }
+      assert_private_redirect(@alice_browser)
+      @alice_browser.follow_redirect!
+      assert_equal "static", @server.reload.auth_mode
+      assert_equal "fixture-replacement-token", @server.token
+      assert_nil @server.api_key
+      assert_equal({ "Authorization" => "Bearer fixture-replacement-token" }, @server.static_headers)
+      refute @server.auth_config.key?("unlisted")
+      refute McpAuthorization.exists?(id: grant.id)
+      assert_equal count, @wire.oauth_requests.size
+      assert_empty @wire.requests
     end
   end
 
@@ -431,9 +549,43 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
     refute Nokogiri::HTML5(@alice_browser.response.body).at_css("#connection-test-result")
   end
 
+  { success: :stay_oauth, failure: :stay_oauth, restored: :back_to_static, credentials: :replace_credentials }.each do |outcome, change|
+    test "an in-flight static test cannot commit #{outcome} after its configuration changes" do
+      @server.update!(auth_mode: "static")
+      static_wire = NativeMcpWire.new
+      static_wire.unavailable_method = "tools/list" if outcome == :failure
+      original_reply = static_wire.method(:reply)
+      server_id = @server.id
+      expected = nil
+      with_singleton_replacement(static_wire, :reply, ->(env) {
+        if JSON.parse(env.body)["method"] == "tools/list" && !expected
+          saved = McpServer.find(server_id)
+          if change == :replace_credentials
+            saved.update_columns(auth_config: { token: "fixture-rotated-during-exchange" })
+          else
+            saved.update!(auth_mode: "oauth")
+            saved.update!(auth_mode: "static") if change == :back_to_static
+          end
+          expected = saved.reload.attributes
+        end
+        original_reply.call(env)
+      }) do
+        static_wire.install(self) do
+          @alice_browser.post account_mcp_server_connection_test_path(@team, @server), as: :json
+          assert_includes static_wire.methods_requested, "tools/list"
+          assert_equal expected, @server.reload.attributes
+          assert_equal 422, @alice_browser.response.status
+          assert_equal false, @alice_browser.response.parsed_body.fetch("success")
+        end
+      end
+    end
+  end
+
   private
     def authenticated_browser(user)
       open_session do |browser|
+        browser.host! "nosia.example.test"
+        browser.https!
         browser.post login_path, params: { email: user.email, password: "fixture-password" }
         assert_equal 302, browser.response.status
         assert browser.cookies[:session_id].present?

@@ -38,10 +38,11 @@ class McpServersController < ApplicationController
 
   # @return [void] Creates an account server or returns input/validation errors
   def create
-    @mcp_server = @account.mcp_servers.build(transport_type: mcp_server_params[:transport_type])
+    attributes = mcp_server_params
+    @mcp_server = @account.mcp_servers.build(transport_type: attributes[:transport_type])
 
-    if @mcp_server.save_workspace(mcp_server_params, values: configuration_values, removals: configuration_removals)
-      redirect_to mcp_record_path(@mcp_server), status: configuration_redirect_status, notice: t("nosia.mcp.created"), flash: { mcp_configuration_saved: @mcp_server.id }
+    if save_workspace(attributes)
+      redirect_after_workspace_save("nosia.mcp.created")
     else
       render :new, status: :unprocessable_entity
     end
@@ -53,8 +54,9 @@ class McpServersController < ApplicationController
 
   # @return [void] Updates an account server or returns input/validation errors
   def update
-    if @mcp_server.save_workspace(mcp_server_params, values: configuration_values, removals: configuration_removals)
-      redirect_to mcp_record_path(@mcp_server), status: configuration_redirect_status, notice: t("nosia.mcp.updated"), flash: { mcp_configuration_saved: @mcp_server.id }
+    attributes = mcp_server_params
+    if save_workspace(attributes)
+      redirect_after_workspace_save("nosia.mcp.updated")
     else
       render :edit, status: :unprocessable_entity
     end
@@ -63,7 +65,11 @@ class McpServersController < ApplicationController
   # @return [void] Deletes the authorized server and preserves the list context
   def destroy
     @mcp_server.destroy
-    redirect_to mcp_index_path, status: configuration_redirect_status, notice: t("nosia.mcp.deleted")
+    if @mcp_server.oauth?
+      redirect_to_internal_workspace_path(mcp_index_path, { notice: t("nosia.mcp.deleted") })
+    else
+      redirect_to mcp_index_path, notice: t("nosia.mcp.deleted")
+    end
   end
 
   private
@@ -85,19 +91,31 @@ class McpServersController < ApplicationController
       params.require(:mcp_server).permit(:name, :transport_type, :endpoint, :enabled, :notes, :tags, :command, :args, :auth_mode)
     end
 
-    def configuration_redirect_status
-      protect_oauth_response
-      @mcp_server.oauth? || @mcp_server.auth_mode_before_last_save == "oauth" ? :see_other : :found
+    def redirect_after_workspace_save(notice_key)
+      path = mcp_record_path(@mcp_server)
+      feedback = { notice: t(notice_key), mcp_configuration_saved: @mcp_server.id }
+      if @mcp_server.oauth? || @mcp_server.auth_mode_before_last_save == "oauth"
+        # Saving configuration is offline, including the redirect.
+        redirect_to_internal_workspace_path(path, feedback)
+      else
+        redirect_to path, flash: feedback
+      end
     end
 
-    def configuration_values
+    def save_workspace(attributes)
+      fields = @mcp_server.workspace_configuration_fields(auth_mode: attributes.fetch(:auth_mode, @mcp_server.auth_mode),
+        transport_type: attributes.fetch(:transport_type, @mcp_server.transport_type))
+      allowed = fields.map { |field| field[:name].to_s }
+      @mcp_server.save_workspace(attributes, values: configuration_values(allowed), removals: configuration_removals(allowed))
+    end
+
+    def configuration_values(allowed)
       root = params.require(:mcp_server)
-      allowed = @mcp_server.workspace_configuration_fields.map { |field| field[:name].to_s }
       legacy = root.permit(:token, :api_key).to_h.slice(*allowed)
       legacy.merge(root.fetch(:configuration_values, ActionController::Parameters.new).permit(*allowed).to_h)
     end
 
-    def configuration_removals
-      params.require(:mcp_server).permit(remove_credentials: []).fetch(:remove_credentials, [])
+    def configuration_removals(allowed)
+      params.require(:mcp_server).permit(remove_credentials: []).fetch(:remove_credentials, []) & allowed
     end
 end

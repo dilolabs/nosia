@@ -23,49 +23,77 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
 
   test "a native cross-origin consent form works without JavaScript and disconnect is per member" do
     old_origin = ENV["NOSIA_URL"]
+    old_app_host = Capybara.app_host
     browser = nil
     stub_url_resolver("93.184.216.34")
     @wire.install(self) do
-      ENV["NOSIA_URL"] = "https://nosia.example.test"
-      sign_in(@alice)
-      orbite_select_language("FR")
-      assert_selector "html[lang=fr]"
       browser = page.driver.browser
-      browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
       browser.execute_cdp("Security.setIgnoreCertificateErrors", ignore: true)
-      visit edit_account_mcp_server_path(@team, @server)
-      select "OAuth", from: "Mode d’authentification"
-      fill_in "mcp_server_configuration_values_token", with: "ignored-static-fixture-token"
-      click_on I18n.t("nosia.actions.save", locale: :fr)
-      assert_current_path account_mcp_server_path(@team, @server)
-      assert_selector ".n-mcp-status", exact_text: "Autorisation requise"
-      assert_empty @wire.oauth_requests
-      assert_nil @server.reload.token
-      @wire.authorize(@server.begin_oauth_grant_for!(@bob))
-
-      with_local_consent_page do |consent_url|
-        @wire.issuer_metadata["authorization_endpoint"] = consent_url
-
-        find_button("Autoriser avec OAuth").send_keys(:enter)
-        assert_text "Controlled provider"
-        click_link "Approve"
+      with_https_app do |app_origin|
+        Capybara.app_host = ENV["NOSIA_URL"] = app_origin
+        sign_in(@alice)
+        orbite_select_language("FR")
+        assert_selector "html[lang=fr]"
+        browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+        visit edit_account_mcp_server_path(@team, @server)
+        select "OAuth", from: "Mode d’authentification"
+        fill_in "mcp_server_configuration_values_token", with: "ignored-static-fixture-token"
+        click_on I18n.t("nosia.actions.save", locale: :fr)
         assert_current_path account_mcp_server_path(@team, @server)
-        assert_selector ".n-mcp-status", exact_text: "Autorisé"
-        assert_button "Tester la connexion"
-        assert @server.oauth_grant_for(@alice).authorized?
-
-        click_button "Déconnecter mon autorisation"
         assert_selector ".n-mcp-status", exact_text: "Autorisation requise"
-        assert_no_button "Tester la connexion"
-        assert_nil @server.oauth_grant_for(@alice)
-        assert @server.oauth_grant_for(@bob).authorized?
+        assert_empty @wire.oauth_requests
+        assert_nil @server.reload.token
+        @wire.authorize(@server.begin_oauth_grant_for!(@bob))
+
+        with_local_consent_page("#{app_origin}/mcp/oauth/callback") do |consent_url|
+          @wire.issuer_metadata["authorization_endpoint"] = consent_url
+          find_button("Autoriser avec OAuth").send_keys(:enter)
+          assert_text "Controlled provider"
+          click_link "Approve"
+          assert_current_path account_mcp_server_path(@team, @server)
+          assert_selector ".n-mcp-status", exact_text: "Autorisé"
+          assert_button "Tester la connexion"
+          assert @server.oauth_grant_for(@alice).authorized?
+
+          click_button "Déconnecter mon autorisation"
+          assert_selector ".n-mcp-status", exact_text: "Autorisation requise"
+          assert_no_button "Tester la connexion"
+          assert_nil @server.oauth_grant_for(@alice)
+          assert @server.oauth_grant_for(@bob).authorized?
+        end
       end
     end
   ensure
     browser&.execute_cdp("Emulation.setScriptExecutionDisabled", value: false)
     browser&.execute_cdp("Security.setIgnoreCertificateErrors", ignore: false)
+    Capybara.app_host = old_app_host
     ENV["NOSIA_URL"] = old_origin
     unstub_url_resolver
+  end
+
+  [ true, false ].each do |javascript|
+    test "the OAuth edit can switch to static and change credentials #{javascript ? 'with' : 'without'} JavaScript" do
+      browser = nil
+      @server.update!(auth_mode: "oauth", token: "fixture-old-token", api_key: "fixture-old-key")
+      sign_in(@alice)
+      browser = page.driver.browser
+      browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: !javascript)
+      visit edit_account_mcp_server_path(@team, @server)
+      assert_no_selector "#mcp_server_configuration_values_token"
+      select "None, bearer token, or API key", from: "Authentication mode"
+      find("summary", exact_text: "Static credentials").send_keys(:enter) unless javascript
+      assert_selector "#mcp_server_configuration_values_token[value='']"
+      assert_selector "#mcp_server_configuration_values_api_key[value='']"
+      fill_in "mcp_server_configuration_values_token", with: "fixture-new-token"
+      find("#mcp_server_configuration_values_api_key").ancestor(".n-mcp-field").check("Remove saved credential on Save")
+      click_on "Save"
+      assert_current_path account_mcp_server_path(@team, @server)
+      assert_equal "static", @server.reload.auth_mode
+      assert_equal "fixture-new-token", @server.token
+      assert_nil @server.api_key
+    ensure
+      browser&.execute_cdp("Emulation.setScriptExecutionDisabled", value: false)
+    end
   end
 
   private
@@ -77,14 +105,25 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
       assert_selector "[data-dashboard]"
     end
 
-    # The provider's browser origin is loopback-only; the adapter fixture
-    # separately checks the registered public callback URI. Translate that URI
-    # back to the local Capybara app link instead of navigating to public DNS.
-    def with_local_consent_page
+    # Both browser origins use local TLS listeners; the resolver stub stands
+    # in for the configured application's public DNS.
+    def with_https_app
+      certificate, = tls_context("localhost")
+      tls = Puma::MiniSSL::Context.new
+      tls.cert_pem = certificate.cert.to_pem
+      tls.key_pem = certificate.key.to_pem
+      server = Puma::Server.new(Rails.application)
+      server.add_ssl_listener("127.0.0.1", 0, tls)
+      server.run
+      yield "https://localhost:#{server.connected_ports.first}"
+    ensure
+      server&.stop(true)
+    end
+
+    def with_local_consent_page(expected_callback)
       listener = TCPServer.new("127.0.0.1", 0)
       context, = tls_context("localhost")
       tls = OpenSSL::SSL::SSLServer.new(listener, context)
-      app_url = URI(page.current_url).origin
       peer = Thread.new do
         loop do
           socket = tls.accept
@@ -99,9 +138,9 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
             uri = URI(target)
             body = if uri.path == "/authorize" && headers.grep(/\Areferer:/i).empty?
               query = URI.decode_www_form(uri.query).to_h
-              raise "Unexpected callback URI" unless query.fetch("redirect_uri") == NativeMcpOAuthWire::REDIRECT_URI
+              raise "Unexpected callback URI" unless query.fetch("redirect_uri") == expected_callback
 
-              callback = URI("#{app_url}/mcp/oauth/callback")
+              callback = URI(expected_callback)
               callback.query = URI.encode_www_form(@wire.callback(query))
               %(<h1>Controlled provider</h1><a href="#{ERB::Util.html_escape(callback.to_s)}">Approve</a>)
             else
@@ -115,7 +154,7 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
           # Chromium may cancel speculative connections.
         end
       end
-      yield "https://localhost:#{listener.addr[1]}/authorize"
+      yield "https://127.0.0.1:#{listener.addr[1]}/authorize"
     ensure
       peer&.kill&.join if peer&.alive?
       listener&.close

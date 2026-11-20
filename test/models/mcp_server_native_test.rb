@@ -64,6 +64,18 @@ class McpServerNativeTest < ActiveSupport::TestCase
     assert_equal "fixture-api-key", @server.api_key
   end
 
+  test "stale static test and disconnect cannot write to a connector already switched to OAuth" do
+    stale = McpServer.find(@server.id)
+    @server.update!(auth_mode: "oauth")
+    attributes = @server.reload.attributes
+
+    @wire.install(self) { refute stale.test_connection! }
+    assert_empty @wire.requests
+    assert_equal attributes, @server.reload.attributes
+    refute stale.disconnect!
+    assert_equal attributes, @server.reload.attributes
+  end
+
   test "legacy initialize can stream over Streamable HTTP and closes its session after tool execution" do
     @wire.legacy = @wire.stream = true
     @wire.install(self) do
@@ -414,7 +426,7 @@ class McpServerNativeTest < ActiveSupport::TestCase
   test "stdio does not use shell builtins in place of a missing executable" do
     previous = ENV["MCP_STDIO_ENABLED"]
     ENV["MCP_STDIO_ENABLED"] = "true"
-    @server.assign_attributes(transport_type: "stdio", command: "exit", args: [], env: { "PATH" => "/nonexistent" })
+    @server.update!(transport_type: "stdio", command: "exit", args: [], env: { "PATH" => "/nonexistent" })
     assert_not @server.test_connection!
     assert_equal "Could not connect to the MCP server", @server.last_error
   ensure

@@ -4,15 +4,19 @@ module McpServer::Configuration
 
   included { validate :validate_workspace_configuration }
 
+  # @param auth_mode [String] Saved or proposed mode
+  # @param transport_type [String] Saved or proposed transport
   # @return [Array<Hash>] Declared fields; never inferred from encrypted keys
-  def workspace_configuration_fields
-    if oauth?
-      []
-    elsif local?
+  def workspace_configuration_fields(auth_mode: self.auth_mode, transport_type: self.transport_type)
+    return [] unless auth_mode == "static"
+
+    if transport_type == "local"
       Array(Engines::Registry[metadata&.[]("engine")]&.required_config).map(&:deep_symbolize_keys)
-    else
+    elsif %w[streamable sse stdio].include?(transport_type)
       [ { name: "token", label: I18n.t("nosia.mcp.bearer_token"), type: "secret" },
         { name: "api_key", label: I18n.t("nosia.mcp.api_key"), type: "secret" } ]
+    else
+      []
     end
   end
 
@@ -40,6 +44,9 @@ module McpServer::Configuration
     end
     if attrs["args"].is_a?(String)
       attrs["args"] = attrs["args"] == Array(args).join("\n") ? args : (attrs["args"].empty? ? [] : attrs["args"].lines(chomp: true))
+    end
+    if (oauth? || attrs["auth_mode"] == "oauth") && attrs.key?("endpoint") && attrs["endpoint"] != endpoint && url
+      self.url = nil
     end
     assign_attributes(attrs)
     return save if oauth?

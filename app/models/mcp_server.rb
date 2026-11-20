@@ -43,6 +43,7 @@ class McpServer < ApplicationRecord
   encrypts :auth_config, :connection_config
 
   STDIO_EXECUTABLE = %r{\A[a-zA-Z0-9_./+-]+\z}
+  STATIC_DIAGNOSTICS_REVISION = %w[updated_at transport_type endpoint auth_config connection_config metadata].freeze
 
   # Spawning local processes from user-supplied commands is opt-in per
   # deployment: multi-tenant hosts keep MCP_STDIO_ENABLED unset.
@@ -94,22 +95,22 @@ class McpServer < ApplicationRecord
     return test_local_connection! if local?
 
     start_time = Time.current
-    update_columns(status: "connecting", last_error: nil, updated_at: Time.current)
+    return false unless write_static_diagnostics(status: "connecting", last_error: nil)
+
     tools = with_client(&:tools)
     return false unless tools
 
-    update_columns(
+    write_static_diagnostics(
       status: "ready",
       last_connected_at: Time.current,
       latency_ms: ((Time.current - start_time) * 1000).to_i,
       last_error: nil,
       metadata: (metadata || {}).merge("tools_cache" => tools.map { |tool| { name: tool.server_name, description: tool.description } },
-        "last_test_at" => Time.current.iso8601),
-      updated_at: Time.current
+        "last_test_at" => Time.current.iso8601)
     )
   rescue Client::Error
-    update_columns(status: "error", last_error: I18n.t("nosia.mcp_workspace.remote_failure"),
-      metadata: (metadata || {}).merge("last_test_at" => Time.current.iso8601), updated_at: Time.current)
+    write_static_diagnostics(status: "error", last_error: I18n.t("nosia.mcp_workspace.remote_failure"),
+      metadata: (metadata || {}).merge("last_test_at" => Time.current.iso8601))
     false
   end
 
@@ -166,11 +167,30 @@ class McpServer < ApplicationRecord
         end
       end
     elsif !legacy_sse?
-      update_columns(status: "disconnected", updated_at: Time.current)
+      write_static_diagnostics(status: "disconnected")
     end
   end
 
   private
+
+  # Lock only the connector and only while checking and writing diagnostics.
+  # Configuration edits can acquire the account lock first; never take it here.
+  # The timestamp also rejects a saved change that was undone during the test.
+  def write_static_diagnostics(values)
+    self.class.transaction do
+      saved = self.class.unscoped.lock.find_by(id:, account_id:, auth_mode: "static")
+      next false unless saved && saved.slice(*STATIC_DIAGNOSTICS_REVISION) == slice(*STATIC_DIAGNOSTICS_REVISION)
+
+      changes = values.merge(updated_at: Time.current)
+      if saved.update_columns(changes)
+        assign_attributes(saved.reload.slice(*changes.keys))
+        clear_attribute_changes(changes.keys)
+        true
+      else
+        false
+      end
+    end
+  end
 
   def execute_oauth_tool(tool_name, arguments, user)
     result = with_authorized_oauth_client(user) { |connection| connection.call(tool_name, arguments.to_h.transform_keys(&:to_s)) }
@@ -237,23 +257,22 @@ class McpServer < ApplicationRecord
 
   def test_local_connection!
     start_time = Time.current
-    update!(status: "connecting", last_error: nil)
+    return false unless write_static_diagnostics(status: "connecting", last_error: nil)
 
     registration = Engines::Registry[metadata["engine"]]
     raise "Unknown engine: #{metadata["engine"]}" unless registration
 
     registration.health_check.call(auth_config_for_tools)
     latency = ((Time.current - start_time) * 1000).to_i
-    update!(
+    write_static_diagnostics(
       status: "ready",
       last_connected_at: Time.current,
       latency_ms: latency,
       last_error: nil,
       metadata: (metadata || {}).merge("last_test_at" => Time.current.iso8601)
     )
-    true
   rescue => e
-    update!(
+    write_static_diagnostics(
       status: "error",
       last_error: e.message,
       metadata: (metadata || {}).merge("last_test_at" => Time.current.iso8601)

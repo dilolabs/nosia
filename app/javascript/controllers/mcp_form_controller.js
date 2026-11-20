@@ -21,6 +21,7 @@ export default class extends Controller {
     ]
     for (const [ targets, visible ] of groups) {
       targets.forEach(group => {
+        if (visible && group.hidden && group instanceof HTMLDetailsElement) group.open = true
         group.hidden = !visible
         group.querySelectorAll("input, textarea, select").forEach(input => {
           input.disabled = !visible

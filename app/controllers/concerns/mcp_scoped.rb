@@ -3,6 +3,7 @@ module McpScoped
   extend ActiveSupport::Concern
   include AccountScoped
   include McpWorkspaceHelper
+  include McpOauthFlow
 
   included { around_action :with_mcp_account }
 
@@ -33,9 +34,6 @@ module McpScoped
     end
 
     def protect_oauth_response
-      if @mcp_server.oauth?
-        no_store
-        response.set_header("Referrer-Policy", "no-referrer")
-      end
+      set_mcp_oauth_privacy_headers if @mcp_server.oauth?
     end
 end

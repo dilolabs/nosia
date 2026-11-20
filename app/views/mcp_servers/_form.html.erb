@@ -29,9 +29,17 @@
     <% end %>
   </section>
 
-  <% fields = mcp_server.workspace_configuration_fields %>
+  <% fields = mcp_server.workspace_configuration_fields(auth_mode: "static") %>
   <% engine = mcp_server.metadata&.[]("engine") if mcp_server.local? %>
-  <% if fields.any? %>
+  <% if mcp_server.oauth? && fields.any? %>
+    <details class="n-workspace-panel" data-mcp-form-target="staticFields">
+      <summary><%= mcp_oauth_text(:static_credentials) %></summary>
+      <div class="space-y-4">
+        <p class="n-workspace-help"><%= mcp_oauth_text(:static_credentials_help) %></p>
+        <%= render "mcp_catalog/fields", fields: fields, values: {}, record: mcp_server, catalog: false %>
+      </div>
+    </details>
+  <% elsif fields.any? %>
     <%= tag.section class: "n-workspace-panel space-y-4", data: (mcp_server.local? ? {} : { mcp_form_target: "staticFields" }) do %>
       <h2 class="n-workspace-section-title"><%= t(mcp_server.local? ? "nosia.mcp_workspace.authentication" : "nosia.mcp.authentication") %></h2>
       <%= render "mcp_catalog/fields", fields: fields, values: mcp_server.workspace_public_values, record: mcp_server, catalog: false, template: (McpCatalog.find(engine) if mcp_server.local?) %>

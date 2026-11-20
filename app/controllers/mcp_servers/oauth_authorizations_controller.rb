@@ -1,8 +1,8 @@
 # Starts native consent or forgets the acting member's local grant.
 class McpServers::OauthAuthorizationsController < ApplicationController
   include McpScoped
-  include McpOauthFlow
 
+  prepend_before_action :set_mcp_oauth_privacy_headers
   before_action :set_mcp_server
   before_action :require_oauth_configuration
   rescue_from ActionController::InvalidAuthenticityToken do
@@ -14,10 +14,11 @@ class McpServers::OauthAuthorizationsController < ApplicationController
 
   # @return [void] Redirects to a validated provider consent page
   def create
-    redirect_uri = oauth_redirect_uri
-    return redirect_oauth(:invalid_origin) unless redirect_uri
+    origin = oauth_app_origin
+    return redirect_oauth(:invalid_origin) unless origin
 
     grant = @mcp_server.begin_oauth_grant_for!(Current.user)
+    redirect_uri = "#{origin}#{mcp_oauth_callback_path}"
     grant.with_client do |client|
       if client.authorized?
         redirect_oauth(:already_authorized)
@@ -40,20 +41,6 @@ class McpServers::OauthAuthorizationsController < ApplicationController
   private
     def require_oauth_configuration
       redirect_oauth(:invalid_configuration) unless @mcp_server.oauth_configuration?
-    end
-
-    def oauth_redirect_uri
-      raw = ENV["NOSIA_URL"]
-      return unless raw&.start_with?("https://")
-
-      uri = McpOutbound.endpoint!(raw, https_only: true)
-      return unless uri.query.nil? && [ "", "/" ].include?(uri.path)
-
-      McpOutbound.check_literal!(uri)
-      McpOutbound.destination!(raw, https_only: true)
-      "#{uri.origin}#{mcp_oauth_callback_path}"
-    rescue McpOutbound::Blocked
-      nil
     end
 
     def redirect_to_consent(url, grant)
