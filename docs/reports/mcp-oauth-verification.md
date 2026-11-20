@@ -88,10 +88,13 @@ the links, without deleting other chats' or unlinked usage. `Message#tool_calls`
 returns a Hash keyed by call ID, while RubyLLM's converted message keeps its
 native collection. Production CSRF and callback behavior did not change.
 
-The follow-up used the same locked runtime and synthetic settings, loopback-only
-networking, and guarded disposable PostgreSQL databases on tmpfs. Logs with
-commands and exits are in `/tmp/opencode/nosia-mcp-oauth-final-verification/`
-(`status.tsv` is the index).
+Host checks ran in an isolated network namespace with loopback only, using the
+same locked runtime, synthetic settings, and guarded disposable PostgreSQL
+databases on tmpfs. The Docker build used network access to pull public base
+images and fetch build dependencies. Container packaging and health checks ran
+with `--network none`; health checks reached PostgreSQL over a private socket.
+Logs with commands and exits are in
+`/tmp/opencode/nosia-mcp-oauth-final-verification/` (`status.tsv` is the index).
 
 | Check | Exit | Result |
 | --- | ---: | --- |
