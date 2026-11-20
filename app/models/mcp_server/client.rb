@@ -222,8 +222,8 @@ class McpServer::Client
 
     def call_listed_tool(name, arguments)
       output(@native.call(name, **arguments), server_name: name)
-    rescue RubyLLM::MCP::Error => error
-      raise unless @scope.tool_protocol_error?(error)
+    rescue RubyLLM::MCP::Error, ToolCatalog::UnsolicitedTask => error
+      raise unless error.is_a?(ToolCatalog::UnsolicitedTask) || @scope.tool_protocol_error?(error)
 
       execution_error(I18n.t("nosia.mcp_workspace.tool_call_rejected"))
     end

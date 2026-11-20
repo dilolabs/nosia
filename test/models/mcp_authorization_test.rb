@@ -276,16 +276,25 @@ class McpAuthorizationTest < ActiveSupport::TestCase
     assert_equal "fixture-refresh-2", credential(grant).data.fetch("refresh_token")
   end
 
-  test "the OAuth connector does not negotiate tasks, apps or questions or poll unsolicited tasks" do
+  test "the workspace rejects unsolicited tasks on native OAuth Streamable HTTP without negotiating extensions" do
     grant = begin_grant
     @wire.legacy = true
-    @wire.tool_result = { "resultType" => "task", "taskId" => "fixture-task", "status" => "working" }
     @wire.install(self) do
       @wire.authorize(grant)
-      assert_raises(McpServer::Client::Error) { grant.client.call("lookup", {}) }
-      initialize_request = @wire.requests.find { |request| request[:rpc]["method"] == "initialize" }
-      assert_equal({}, initialize_request[:rpc].dig("params", "capabilities"))
-      assert_empty @wire.methods_requested.grep(%r{\Atasks/})
+      @wire.requests.clear
+      @wire.oauth_requests.clear
+      access_token = credential(grant).data.fetch("access_token")
+      @wire.tool_result = NativeMcpWire::UNSOLICITED_TASK.merge("statusMessage" => "#{access_token} #{NativeMcpWire::PRIVATE_MARKER}")
+
+      NativeMcpWire.assert_task_boundary(self, secret: access_token) do
+        error = { error: "Tool execution error: The MCP server rejected the tool call" }
+        assert_equal({ success: true, result: error }, @server.execute_tool("lookup", {}, user: @alice))
+      end
+
+      assert_equal [ "server/discover", "initialize", "notifications/initialized", "tools/list", "tools/call", :delete ],
+        @wire.methods_requested
+      assert_equal({}, @wire.requests.fetch(1).dig(:rpc, "params", "capabilities"))
+      assert_empty @wire.oauth_requests
     end
   end
 

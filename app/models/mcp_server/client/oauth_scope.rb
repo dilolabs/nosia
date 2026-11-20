@@ -45,10 +45,6 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
         !same_destination?(env, @grant.endpoint)
       Attempt.new(kind: :registration)
     elsif same_destination?(env, @grant.endpoint)
-      # RubyLLM's direct-call API can otherwise poll an unsolicited task
-      # even though this client didn't negotiate the extension.
-      raise McpOutbound::Blocked if env.request_headers["Mcp-Method"].to_s.start_with?("tasks/")
-
       super
       capture_mcp(env)
     end

@@ -36,7 +36,11 @@ STDIN.each_line do |line|
   when "tools/list"
     { result: { tools: [ { name: "lookup", inputSchema: { type: "object" } } ] } }
   when "tools/call"
-    { error: { code: -32_603, message: "fixture-private-error" } }
+    if mode == "unsolicited_task"
+      { result: { resultType: "task", taskId: "fixture-task", status: "working", statusMessage: "fixture-private-error" } }
+    else
+      { error: { code: -32_603, message: "fixture-private-error" } }
+    end
   else
     abort "unexpected request"
   end

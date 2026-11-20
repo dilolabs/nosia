@@ -215,6 +215,25 @@ class McpServerNativeTest < ActiveSupport::TestCase
   end
 
   %i[workspace model].each do |boundary|
+    test "#{boundary} rejects unsolicited tasks on native static Streamable HTTP" do
+      token = "fixture-static-token"
+      @server.update!(token:)
+      @server.update_columns(status: "ready")
+      @wire.legacy = @wire.stream = true
+      @wire.tool_result = NativeMcpWire::UNSOLICITED_TASK.merge("statusMessage" => "#{token} #{NativeMcpWire::PRIVATE_MARKER}")
+
+      @wire.install(self) { assert_unsolicited_task_rejected(boundary, secret: token) }
+      assert_equal [ "server/discover", "initialize", "notifications/initialized", "tools/list", "tools/call", :delete ],
+        @wire.methods_requested
+    end
+
+    test "#{boundary} rejects unsolicited tasks on enabled native stdio" do
+      with_stdio_peer("unsolicited_task") do |trace|
+        assert_unsolicited_task_rejected(boundary)
+        assert_equal %w[server/discover tools/list tools/call], File.readlines(trace, chomp: true)
+      end
+    end
+
     test "#{boundary} rejects a string where the advertised output schema expects an integer" do
       @wire.tools = [ NativeMcpWire::TOOL.merge("outputSchema" => {
         "type" => "object", "properties" => { "count" => { "$ref" => "#/$defs/count" } }, "required" => [ "count" ],
@@ -681,6 +700,24 @@ class McpServerNativeTest < ActiveSupport::TestCase
   end
 
   private
+    def assert_unsolicited_task_rejected(boundary, secret: nil)
+      NativeMcpWire.assert_task_boundary(self, secret:) do
+        if boundary == :workspace
+          error = { error: "Tool execution error: The MCP server rejected the tool call" }
+          assert_equal({ success: true, result: error }, @server.execute_tool("lookup"))
+        else
+          chat = chats(:picker_second_chat)
+          chat.add_mcp_server(@server)
+          chat.with_model(chat.model_id, provider: :openai, assume_model_exists: true)
+          turn = chat.with_mcp_tools do
+            assert_equal({ error: "Could not connect to the MCP server" }, chat.to_llm.tools.values.sole.call)
+            :completed
+          end
+          assert_equal :completed, turn
+        end
+      end
+    end
+
     def rendered_tool_parameters(tool)
       request = nil
       stubs = Faraday::Adapter::Test::Stubs.new do |stub|

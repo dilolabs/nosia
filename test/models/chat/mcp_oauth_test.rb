@@ -91,6 +91,30 @@ class ChatMcpOAuthTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::RecordNotFound) { @chat.selected_mcp_servers([ static.id ]) }
   end
 
+  test "chat rejects unsolicited tasks on native OAuth Streamable HTTP without interrupting the turn" do
+    chat = @alice.chats.create!(account: @team, model: ENV.fetch("LLM_MODEL"), provider: :openai, assume_model_exists: true)
+    chat.add_mcp_server(@server)
+
+    @wire.install(self) do
+      grant = @server.begin_oauth_grant_for!(@alice)
+      @wire.authorize(grant)
+      @wire.requests.clear
+      @wire.oauth_requests.clear
+      access_token = credential(grant).data.fetch("access_token")
+      @wire.tool_result = NativeMcpWire::UNSOLICITED_TASK.merge("statusMessage" => "#{access_token} #{NativeMcpWire::PRIVATE_MARKER}")
+
+      turn = chat.with_mcp_tools do
+        NativeMcpWire.assert_task_boundary(self, secret: access_token) do
+          assert_equal({ error: "Could not connect to the MCP server" }, chat.to_llm.tools.values.sole.call)
+        end
+        :completed
+      end
+      assert_equal :completed, turn
+      assert_equal %w[server/discover tools/list tools/call], @wire.methods_requested
+      assert_empty @wire.oauth_requests
+    end
+  end
+
   test "stopping a streamed turn clears tools and closes an authorized legacy-protocol session" do
     @wire.legacy = true
     chat = @alice.chats.create!(account: @team, model: ENV.fetch("LLM_MODEL"), provider: :openai, assume_model_exists: true)

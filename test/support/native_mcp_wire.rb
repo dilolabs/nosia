@@ -4,6 +4,7 @@ class NativeMcpWire
   URL = "https://#{HOST}/mcp"
   LEGACY_SESSION = "fixture-session"
   PRIVATE_MARKER = "fixture-private-error"
+  UNSOLICITED_TASK = { "resultType" => "task", "taskId" => "fixture-task", "status" => "working" }.freeze
   TOOL = {
     "name" => "lookup",
     "description" => "Look up a fixture",
@@ -32,6 +33,22 @@ class NativeMcpWire
   def install(test, &block)
     wire = self
     test.with_singleton_replacement(McpOutbound::Adapter, :new, ->(app, *) { Adapter.new(app, wire) }, &block)
+  end
+
+  def self.assert_task_boundary(test, secret: nil, &block)
+    # A wire-only assertion misses a wait blocked by the OAuth adapter or a
+    # task object discarded by the chat wrapper. Stop at native task creation.
+    original_logger = RubyLLM.config.logger
+    output = StringIO.new
+    RubyLLM.config.logger = Logger.new(output, level: Logger::DEBUG)
+    trace = TracePoint.new(:call) { raise Minitest::Assertion, "RubyLLM started handling an unsolicited MCP task" }
+    result = trace.enable(target: RubyLLM::MCP::Task.instance_method(:initialize), &block)
+    [ PRIVATE_MARKER, UNSOLICITED_TASK.fetch("taskId"), secret ].compact.each do |marker|
+      test.refute_includes output.string, marker
+    end
+    result
+  ensure
+    RubyLLM.config.logger = original_logger
   end
 
   def methods_requested
