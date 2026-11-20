@@ -1,5 +1,9 @@
 # RubyLLM 2.0: operator runbook
 
+For the subsequent 2.2 and MCP OAuth release, use the
+[MCP OAuth upgrade and rollback procedure](../DEPLOYMENT.md#rubyllm-22-and-mcp-oauth-upgrade).
+The patched bridge notes below apply only to this historical 2.0 build.
+
 **Code integration is verified with the known baseline exceptions; production
 rollout is not approved by these tests.** See [verification evidence](ruby-llm-2.md#task-8-final-integration-evidence).
 This is PostgreSQL rename mode, pinned to RubyLLM **2.0.0** and the locally patched
@@ -191,7 +195,7 @@ not `bin/setup`'s package installation/log cleanup. Full historical replay is
 `Model.save_to_database`. Do not replay it with 2.0 or add runtime legacy aliases;
 use schema-based fresh setup. Existing 1.16 databases run only pending migrations.
 
-Keep [MCP PATCHES.md](../../vendor/gems/ruby_llm-mcp/PATCHES.md) and its MIT license,
+Keep `vendor/gems/ruby_llm-mcp/PATCHES.md` from the historical 2.0 source and its MIT license,
 archive provenance, exact 2.0.0 target, and eleven-file narrow port inventory.
 The HTTP-resource validator fails closed until installed; Nosia installs its
 existing `UrlGuard` policy. HTTPX does not follow resource redirects by default.

@@ -184,25 +184,28 @@ nosia.yourdomain.com {
         X-Content-Type-Options "nosniff"
         # XSS Protection
         X-XSS-Protection "1; mode=block"
-        # Referrer Policy
-        Referrer-Policy "strict-origin-when-cross-origin"
+        # Referrer Policy (also safe for MCP OAuth responses)
+        Referrer-Policy "no-referrer"
         # Remove server identification
         -Server
     }
     
-    # Logging
-    log {
-        output file /data/access.log {
-            roll_size 100mb
-            roll_keep 5
-        }
-    }
+    # Enable access logs only after configuring the OAuth exclusions below.
 }
 ```
 
+If using MCP OAuth, keep the query string on requests to `/mcp/oauth/callback`
+and consent redirect `Location` values out of proxy, access, and tracing logs.
+If the logging system cannot reliably redact these values, exclude the OAuth
+requests and responses from logging there. Preserve `Referrer-Policy: no-referrer`
+and `Cache-Control: no-store` on OAuth responses. See the
+[MCP workspace deployment requirements](mcp-workspace.md#provider-and-deployment-requirements)
+for the exact public origin and existing encryption settings.
+
 ### 5. Production Docker Compose
 
-Create `docker-compose.prod.yml`:
+Create `docker-compose.prod.yml`. Supply the existing encryption keys through
+your deployment's secret mechanism. Do not put key values in the Compose file.
 
 ```yaml
 version: '3.8'
@@ -233,7 +236,11 @@ services:
     environment:
       - RAILS_ENV=production
       - DATABASE_URL=${DATABASE_URL}
+      - NOSIA_URL=${NOSIA_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
       - AI_BASE_URL=${AI_BASE_URL}
       - AI_API_KEY=${AI_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
@@ -271,7 +278,11 @@ services:
     environment:
       - RAILS_ENV=production
       - DATABASE_URL=${DATABASE_URL}
+      - NOSIA_URL=${NOSIA_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
       - AI_BASE_URL=${AI_BASE_URL}
       - AI_API_KEY=${AI_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
@@ -861,6 +872,46 @@ kubectl exec -it -n nosia deployment/nosia-web -- bin/rails console
 
 ---
 
+## RubyLLM 2.2 and MCP OAuth upgrade
+
+This is a maintenance upgrade, not a rolling restart. Rehearse with a
+representative database copy before scheduling it. If you are still on 1.x,
+first follow the separate [RubyLLM 2.0 operator runbook](upgrades/ruby-llm-2-deployment.md).
+
+1. Back up the deployment database and preserve matching application images,
+   attachment storage, configuration, and the existing Rails encryption keys.
+   Verify you can restore the backup with the old image. Include any separate
+   databases needed for recovery.
+2. Block new work, drain in-flight requests and jobs, and stop web and worker
+   processes (including schedules and retries) that touch RubyLLM rows. If
+   writes occurred since the backup, capture a consistent recovery point now.
+   Keep those writers stopped through migration and verification.
+3. Confirm the exact target database and run `bin/rails db:migrate` as a one-off
+   command **from the final image**, not by starting the web/worker supervisor.
+   Review all pending migrations before running it. The checked-in versions run
+   in order: `20261119000001` (RubyLLM 2.1), `20261119000002` (2.2),
+   `20261119000003` and `20261119000004` (OAuth and user binding), then
+   `20261120000001` (MCP connection revisions). Do not run generated migrations
+   or load `db/schema.rb` on the existing database.
+4. Confirm the migration versions and database connectivity. Check existing chats,
+   messages, tool results, usage history, MCP configuration and chat links against
+   the pre-upgrade data. Confirm the final image can decrypt existing MCP settings
+   with the deployment’s current keys without logging their contents. Boot the
+   final web image in maintenance without public traffic or workers, and verify
+   `/up` and authenticated access. Only after these checks pass, start the final
+   services and resume traffic and workers.
+
+If a check fails, keep writers stopped and diagnose before resuming. If rollback
+requires the old schema, restore the verified backup and matching image,
+configuration, keys, and storage. Do not run destructive generated `down`
+migrations, `db:rollback`, or old writers against the new schema. A restore drops
+all writes after the recovery point; account for those before resuming.
+
+See the [local verification results](reports/mcp-oauth-verification.md). They
+do not approve a production rollout.
+
+---
+
 ## Environment Variable Management
 
 ### Production Environment Variables
@@ -881,10 +932,10 @@ EMBEDDING_DIMENSIONS=768
 ```
 
 **MCP Configuration** (Optional):
-```bash
-# Enable MCP catalog servers (requires Node.js/npm in container)
-# Individual servers configured via web UI
-```
+
+Configure individual servers in the web workspace. OAuth uses public HTTPS
+Streamable HTTP, the exact public `NOSIA_URL` origin, and the existing Rails
+encryption keys. See [MCP workspace](mcp-workspace.md#connect-with-oauth).
 
 **Performance Tuning**:
 ```bash

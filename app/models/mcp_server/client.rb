@@ -46,6 +46,8 @@ class McpServer::Client
   end
 
   # Scopes every native call, including a tool call from a separate fiber.
+  # @param operation [Symbol] The request purpose used by the OAuth admission policy
+  # @return [Object] The block result
   # @raise [Error] A sanitized native request or configuration failure
   def within(operation: :use)
     @lock.synchronize do
@@ -76,6 +78,10 @@ class McpServer::Client
 
   def authorized? = within(operation: :status) { @native.authorized? }
 
+  # Starts native discovery and registration for a fresh consent attempt.
+  # @param redirect_uri [String] The callback on the configured Nosia origin
+  # @return [String] The URL to validate before sending the browser to consent
+  # @raise [McpAuthorization::Unavailable] Consent could not be started
   def authorization_url(redirect_uri:)
     within(operation: :consent) do
       @credential_store.require_unused_grant!
@@ -97,6 +103,7 @@ class McpServer::Client
     end
   end
 
+  # Forgets the local credential without requesting provider-side revocation.
   def deauthorize = within(operation: :retire) { @native.deauthorize }
 
   # @return [Array<McpServer::RemoteTool>] Tools visible to the model

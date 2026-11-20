@@ -55,6 +55,11 @@ class McpAuthorization < ApplicationRecord
     end
   end
 
+  # Scopes grants to an exact member and their current account membership.
+  # @param account_id [Integer] Account the connector belongs to
+  # @param mcp_server_id [Integer, Array<Integer>] Connector IDs within that account
+  # @param user_id [Integer] Member who owns the grants
+  # @return [ActiveRecord::Relation<McpAuthorization>]
   def self.for_member(account_id:, mcp_server_id:, user_id:)
     joins(:account_user).where(account_id:, mcp_server_id:, user_id:, account_users: { account_id:, user_id: })
   end
@@ -132,6 +137,7 @@ class McpAuthorization < ApplicationRecord
     end
   end
 
+  # Retires this grant and its stored credential locally.
   # Native OAuth takes its own per-key mutex before entering the store. Take the
   # grant lock there, not here, so retirement cannot deadlock with a refresh.
   def retire!
@@ -167,6 +173,9 @@ class McpAuthorization < ApplicationRecord
   end
 
   # Called only after the native exchange has unwound its transaction.
+  # @param fingerprint [String] Identity of the credential that failed
+  # @yieldparam stored [RubyLLM::ActiveRecord::MCPCredential] The current stored row
+  # @yieldreturn [String] Its fingerprint, compared before marking reconnection
   def mark_reconnect_required(fingerprint, &fingerprint_for)
     self.class.transaction do
       if (current = lock_identity)

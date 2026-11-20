@@ -500,6 +500,10 @@ docker compose down -v
 
 ### Upgrade
 
+**Upgrading an existing RubyLLM 2.0 installation to 2.2 with MCP OAuth?**
+Use the [MCP OAuth upgrade and rollback procedure](docs/DEPLOYMENT.md#rubyllm-22-and-mcp-oauth-upgrade)
+instead of the routine restart below.
+
 **Upgrading from RubyLLM 1.x to 2.0?** Follow the
 [RubyLLM 2.0 operator runbook](docs/upgrades/ruby-llm-2-deployment.md) and its
 [verification limits](docs/upgrades/ruby-llm-2.md) **instead of** the routine

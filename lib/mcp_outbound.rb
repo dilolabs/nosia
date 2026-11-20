@@ -41,6 +41,10 @@ module McpOutbound
   class << self
     # Call on the raw URL before a client can normalize away forbidden syntax.
     # This checks syntax only; socket creation must still validate DNS.
+    # @param url [String, URI::HTTP] The endpoint to validate
+    # @param https_only [Boolean] Whether to disallow plain HTTP
+    # @return [URI::HTTP] The parsed HTTP or HTTPS URI
+    # @raise [Blocked] The URL violates the outbound policy
     def endpoint!(url, https_only:)
       raw = url.to_s
       uri = URI.parse(raw)
@@ -58,6 +62,10 @@ module McpOutbound
       raise Blocked, "invalid URL", cause: nil
     end
 
+    # @param url [String, URI::HTTP] The endpoint to resolve
+    # @param https_only [Boolean] Whether to disallow plain HTTP
+    # @return [Array<(URI::HTTP, IPAddr)>] The URI and a validated address for a direct socket
+    # @raise [Blocked] The URL fails validation or its host has no public-only resolution
     def destination!(url, https_only:)
       uri = endpoint!(url, https_only: https_only)
       addresses = UrlGuard.resolve(uri.hostname).map { |ip| ip.ipv4_mapped? ? ip.native : ip }
@@ -67,6 +75,8 @@ module McpOutbound
       [ uri, addresses.first ]
     end
 
+    # @param scope [Scope] Policy applied only to this fiber for the block
+    # @return [Object] The block result
     def with(scope)
       previous = Fiber[:nosia_mcp_outbound_scope]
       entry = [ Fiber.current, scope ]

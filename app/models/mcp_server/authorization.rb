@@ -14,10 +14,13 @@ module McpServer::Authorization
 
   def oauth? = auth_mode == "oauth"
 
+  # @return [Boolean] Whether the mode and endpoint meet OAuth's configuration rules
   def oauth_configuration?
     oauth? && valid_oauth_endpoint?(transport_type, effective_endpoint)
   end
 
+  # @param user [User, nil] The acting member, not the ambient tenant
+  # @return [McpAuthorization, nil] A grant for this member and connector; it may need reconnecting
   def oauth_grant_for(user)
     return unless persisted? && user&.id
 
@@ -27,6 +30,10 @@ module McpServer::Authorization
     end
   end
 
+  # Finds or creates this member's consent identity without contacting the provider.
+  # @param user [User] The member initiating consent
+  # @return [McpAuthorization] The current or replacement grant
+  # @raise [McpAuthorization::Unavailable] The connector or membership is no longer valid
   def begin_oauth_grant_for!(user)
     self.class.transaction do
       Account.lock.find(account_id)
