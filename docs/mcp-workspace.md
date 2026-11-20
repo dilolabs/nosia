@@ -79,7 +79,10 @@ provider’s consent page has its own language settings.
   scheme and host, plus the port if non-default, without a path, query, or
   fragment. For `NOSIA_URL=https://nosia.example.org`, the exact callback is
   `https://nosia.example.org/mcp/oauth/callback`. A local-only or private origin
-  does not work for OAuth.
+  does not work for OAuth. Pass `NOSIA_URL` to the Rails `web` process. The
+  bundled `docker-compose.yml` passes it only to Caddy, so setting it in
+  `.env` alone is not enough. Add it to the `web` service’s environment as
+  shown in the [production Compose example](DEPLOYMENT.md#5-production-docker-compose).
 - Keep the existing Active Record encryption settings
   (`ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY`,
   `ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY`, and

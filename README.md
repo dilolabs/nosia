@@ -399,27 +399,17 @@ The Model Context Protocol is an open protocol that standardizes how application
 - **Use Prompts** - Leverage pre-configured prompt templates
 - **Extend Capabilities** - Add custom functionality without modifying core code
 
-#### Using MCP Servers
+#### Using Catalog Servers
 
-1. **Navigate to MCP Settings** in the web interface
-2. **Browse the MCP Catalog** - Pre-configured servers for popular services:
-   - **Productivity**: Infomaniak Calendar, kDrive file storage
-   - **Communication**: kChat messaging
-   - **And more** - Extensible catalog of integrations
+The bundled catalog entries, including Infomaniak Calendar and kChat, use
+STDIO with static credentials. They require local-process connections to be
+enabled on the deployment.
 
-3. **Activate an MCP Server**:
-   - Choose a server from the catalog, fill in its settings, and save.
-   - For a static connection, save any required API key or token, then use
-     **Test connection** on the server’s details page.
-   - For an OAuth connector, each member chooses **Authorize with OAuth** on the
-     server’s details page and completes consent. No separate test is required
-     after consent.
-   - Turn on **Enabled for conversations** to make the connector available to chats.
-
-4. **Add MCP to Chat**:
-   - Open or create a chat session
-   - Select which MCP servers to use
-   - The AI can now use tools from connected servers
+1. In the MCP workspace, open **Browse catalog** and choose a server.
+2. Enter the required settings and credentials, then save. On the server’s
+   details page, select **Test connection**.
+3. Turn on **Enabled for conversations**, then select the connector in the
+   chat’s **Tools** menu.
 
 #### Example: Using Calendar MCP
 
@@ -451,22 +441,20 @@ When MCP servers are enabled, the AI can:
 
 #### Custom MCP Servers
 
-Beyond the catalog, you can add custom MCP servers:
+**OAuth:** In the MCP workspace, select **Add custom server**, choose
+**Streamable HTTP** as the transport and **OAuth** as the authentication mode.
+Enter the compatible provider’s public HTTPS endpoint and save. On the
+connector’s details page, each member selects **Authorize with OAuth** and
+[completes their own consent](docs/mcp-workspace.md#connect-with-oauth).
+No separate connection test is required after consent.
 
-1. In the MCP workspace, select **Add custom server**.
-2. **Choose transport type**:
-   - **Streamable HTTP** for a remote endpoint, with static authentication or
-     OAuth. OAuth requires a public HTTPS endpoint and a compatible provider.
-   - **STDIO** for a local process, if enabled on the deployment.
+**Static credentials:** Select **Add custom server** and choose **Streamable
+HTTP** for a remote endpoint or **STDIO** for an enabled local process.
+Enter the endpoint or command and any required credentials, save, and use
+**Test connection** with the saved configuration.
 
-3. **Configure connection**:
-   - Enter the endpoint or command and save.
-   - For a static connection, enter any required credentials before saving, then
-     use **Test connection** with the saved configuration.
-   - For OAuth, save first, then [authorize as the signed-in member](docs/mcp-workspace.md#connect-with-oauth).
-
-4. **Use in chats** - Enable the connector for conversations and select it in
-   the chat’s **Tools** menu.
+For either mode, turn on **Enabled for conversations** and select the connector
+in the chat’s **Tools** menu.
 
 Legacy SSE is no longer offered for new connections. See how to
 [migrate a legacy SSE connector](docs/mcp-workspace.md#migrate-a-legacy-sse-connector).
