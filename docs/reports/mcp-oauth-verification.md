@@ -79,7 +79,7 @@ rerun counted four fixture errors after a diagnostic sharing the same scratch
 database caused lock contention. The successful pre-fix browser rerun used
 its own database. No schema was dumped.
 
-## Final follow-up verification
+## Chat compatibility and CSRF follow-up verification
 
 The fixes at `340f184` and `8b5f0e7` restore Nosia's chat deletion and
 message tool-call contracts and isolate the OAuth CSRF test's configuration.
@@ -87,6 +87,7 @@ Deleting a Nosia chat now removes its provider usage before RubyLLM nullifies
 the links, without deleting other chats' or unlinked usage. `Message#tool_calls`
 returns a Hash keyed by call ID, while RubyLLM's converted message keeps its
 native collection. Production CSRF and callback behavior did not change.
+The results in this section predate the unsolicited-task response fix.
 
 Host checks ran in an isolated network namespace with loopback only, using the
 same locked runtime, synthetic settings, and guarded disposable PostgreSQL
@@ -131,6 +132,67 @@ push, or reuse a database from the earlier run.
 Both smoke checks booted production-mode Puma, not the full supervisor or
 job workers. Rails still warned that image variants require the
 `image_processing` gem. No live provider was contacted.
+
+## Unsolicited MCP task response follow-up
+
+The per-client fix at `4b99bc4359f0fe6715108087d5cec784665d0899` rejects
+task responses before RubyLLM creates a task. The six regression cases
+cover direct workspace execution and chat tools over static and OAuth
+Streamable HTTP and enabled stdio. The HTTP tests use the real SDK transport
+with a controlled, socket-free adapter; the stdio tests use a controlled
+subprocess. Exact requests show no task polling, cancellation, or automatic
+retry. The workspace retains the sanitized nested tool error, and chat
+receives a generic error without interrupting the turn. Results and SDK
+logs omit task markers and fixture credentials. The focused suite also
+covered normal results, text fallback, and output schemas across catalog pages.
+
+Host checks used Ruby 4.0.10, Rails 8.1.4.1, and RubyLLM 2.2.3. They ran in
+loopback-only network namespaces with newly created PostgreSQL 18.7 scratch
+databases on the existing private socket. No existing database was dropped.
+Commands, exits, and redacted logs are in
+`/tmp/opencode/nosia-mcp-task-boundary/` (`status.tsv` is the index).
+
+| Check | Exit | Result |
+| --- | ---: | --- |
+| Task regression tests at `6ad28fd` with tests added, seed `54485` (`red-confirmed.log`) | 1 | All 6 failed on native task creation, with no errors or skips |
+| Same cases on the fix commit, seed `54485` (`green-on-commit.log`) | 0 | 6 tests, 52 assertions |
+| Focused MCP, OAuth chat/job and logger tests, seed `54485` (`focused-on-commit.log`) | 0 | 107 tests, 789 assertions |
+| `bin/rails test --seed 54485` (`full-suite-isolated.log`) | 0 | 1,501 tests, 30,689 assertions; no failures, errors, or skips |
+| Affected Chromium suite, seed `46524` (`browser-affected.log`) | Not recorded by wrapper | Rails reported 88 tests, 58,620 assertions; no failures, errors, or skips |
+| Chromium OAuth workspace confirmation, seed `46524` | 0 | 6 tests, 112 assertions; no failures, errors, or skips |
+| `bundle check`; `bin/rails zeitwerk:check` | 0 | Locked dependencies satisfied; eager load passed |
+| Standalone host packaging | 0 | 2 tests, 15 assertions |
+| RuboCop (Ruby 3.3 parser), changed Ruby files | 0 | 8 files, no offenses |
+| Repository-wide RuboCop (Ruby 3.3 parser) | 1 | 550 files, same 234 baseline offenses |
+| `bundle exec brakeman --no-pager` | 3 | 0 scan errors; same 2 warnings below, no suppressions |
+
+The broad Chromium 156 run finished and wrote its Rails summary. The log
+wrapper then errored while recording the exit status; a separate OAuth
+workspace confirmation completed with exit 0. The broad run used:
+
+```sh
+bin/rails test test/system/mcp_oauth_workspace_test.rb \
+  test/system/mcp_workspace_test.rb test/system/mcp_catalog_test.rb \
+  test/system/mcp_connection_tests_test.rb test/system/chat_composer_ui_test.rb \
+  test/system/chat_deletion_test.rb test/system/profile_management_test.rb \
+  --seed 46524
+```
+
+The new local image `nosia:mcp-task-boundary-check` was built from a Git
+archive of `4b99bc4359f0fe6715108087d5cec784665d0899` and is not the earlier
+`8b5f0e7` image. The builder resolved public base-image metadata and reused
+dependency layers. It produced
+`sha256:7ca56bd24501f63c3f5090d393b73b363abe77a00ff96534eb2e0207357eda89`.
+
+| Image check (`--network none`) | Exit | Result |
+| --- | ---: | --- |
+| Native MCP packaging | 0 | 1 test, 10 assertions |
+| Fresh scratch database (`db:prepare`) | 0 | Final schema and synthetic encryption configuration loaded; production-mode Puma `GET /up` → 200 |
+| Dedicated database seeded from the 2.0 schema (`db:migrate`) | 0 | All five migrations ran; synthetic chat, tool linkage, both usage ledgers, attachment metadata, and encrypted MCP settings were preserved; production-mode Puma `GET /up` → 200 |
+
+The image smoke checks did not exercise the full supervisor or job workers.
+The existing `image_processing` warning remained. No live provider was
+contacted and no image was pushed.
 
 ## Scanner findings
 
