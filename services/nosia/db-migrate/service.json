@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flisk.sh/schema.service.json",
+  "schemaVersion": 1,
+  "appName": "db-migrate",
+  "appType": "bring-your-own",
+  "stack": "nosia",
+  "port": 4000,
+  "buildContext": ".",
+  "dockerfile": "Dockerfile",
+  "exposeViaProxy": false,
+  "dependsOn": [
+    {
+      "name": "postgres-db",
+      "condition": "service_healthy"
+    }
+  ],
+  "env": {
+    "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY": "${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}",
+    "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT": "${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}",
+    "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY": "${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}",
+    "DATABASE_URL": "${DATABASE_URL}",
+    "EMBEDDING_DIMENSIONS": "${EMBEDDING_DIMENSIONS}",
+    "SECRET_KEY_BASE": "${SECRET_KEY_BASE}"
+  },
+  "restart": "no"
+}
