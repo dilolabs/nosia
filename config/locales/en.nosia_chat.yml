@@ -33,6 +33,8 @@ en:
       disclaimer: "NOSIA can make mistakes. Check important information."
       tools: "Tools"
       connected_tools: "Connected tools"
+      unavailable_tools: "Unavailable tools"
+      remove_unavailable_tool: "Remove %{name} from the chat"
       no_ready_servers: "No ready MCP servers"
       configure_server: "Configure an MCP Server"
       no_account: "You need access to an account to start a chat."

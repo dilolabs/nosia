@@ -32,10 +32,8 @@ class McpServer::Client::OauthScope < McpServer::Client::RequestScope
 
   def admit!(_env)
     raise McpOutbound::Blocked if @rejected_credential
-    if @operation == :use && @store.owned_data.to_h["access_token"].blank?
-      raise McpAuthorization::Unavailable
-    end
-    @store.admit_request!
+
+    @store.admit_request!(require_credential: [ :use, :close ].include?(@operation))
   end
 
   def capture(env)

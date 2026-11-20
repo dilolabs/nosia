@@ -3,17 +3,15 @@
   <% generating, stopped_at = Chat.uncached { Chat.where(id: chat.id, account_id: chat.account_id).pick(:generating, :stopped_at) } %>
   <% skills = JSON.parse(agent_skill_autocomplete_data(chat.account)) %>
   <% stop_form_id = dom_id(chat, :composer_stop) if generating %>
+  <% mcp_selection = chat.mcp_selection %>
   <%= form_with model: Message.new, url: [chat, chat.messages.new], class: "w-full",
         data: { chat_account_target: "form", generation_busy: generating, generation_stopped: stopped_at.present?, chat_followup: true,
           action: "submit->chat-account#guard" } do |form| %>
     <%= render "chats/composer", form: form, chat: chat, field: :content,
-      skills: skills, generating: generating, stop_form_id: stop_form_id, navigation: true %>
+      skills: skills, generating: generating, stop_form_id: stop_form_id, navigation: true, mcp_selection: mcp_selection %>
   <% end %>
   <%# Separate forms keep tool changes out of the unsent message form. %>
-  <% sessions = chat.chat_mcp_sessions.index_by(&:mcp_server_id) %>
-  <% ready_chat_mcp_servers(chat.account).each do |server| %>
-    <%= render "chats/mcp_form", chat: chat, server: server, session: sessions[server.id] %>
-  <% end %>
+  <%= render "chats/mcp_forms", chat: chat, selection: mcp_selection %>
   <% if generating %>
     <%= form_with url: stop_chat_path(chat), method: :post, id: stop_form_id,
       html: { hidden: true }, data: { turbo_frame: "_top" } do %>

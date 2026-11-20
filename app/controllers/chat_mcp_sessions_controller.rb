@@ -6,8 +6,8 @@ class ChatMcpSessionsController < ApplicationController
   def create
     raise ActiveRecord::RecordNotFound if params[:mcp_server_id].blank?
 
-    @mcp_server = @chat.selected_mcp_servers([ params[:mcp_server_id] ]).fetch(0)
-    @session = @chat.add_mcp_server(@mcp_server)
+    server = @chat.selected_mcp_servers([ params[:mcp_server_id] ]).fetch(0)
+    @chat.add_mcp_server(server)
 
     respond_to do |format|
       format.turbo_stream
@@ -16,11 +16,10 @@ class ChatMcpSessionsController < ApplicationController
   end
 
   def destroy
-    @session = @chat.chat_mcp_sessions.find(params[:id])
-    @mcp_server = ActsAsTenant.with_tenant(@chat.account) { @session.mcp_server }
-    raise ActiveRecord::RecordNotFound unless @mcp_server
-
-    @session.destroy
+    ActsAsTenant.with_tenant(@chat.account) do
+      session = @chat.chat_mcp_sessions.joins(:mcp_server).where(mcp_servers: { account_id: @chat.account_id }).find(params[:id])
+      session.destroy
+    end
 
     respond_to do |format|
       format.turbo_stream

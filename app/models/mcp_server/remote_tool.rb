@@ -26,7 +26,8 @@ class McpServer::RemoteTool < RubyLLM::Tool
       else unavailable
       end
     end
-  rescue McpServer::Client::Error
+  rescue McpServer::Client::Error => error
+    Rails.logger.warn("MCP tool unavailable error=#{error.class.name}")
     unavailable
   end
 

@@ -135,7 +135,7 @@ class ChatAccountTest < ActiveSupport::TestCase
     helper = ApplicationController.helpers
 
     ActsAsTenant.with_tenant(@first) do
-      assert_equal [ "Second tool" ], helper.ready_chat_mcp_servers(@second).map(&:name)
+      assert_equal [ "Second tool" ], chats(:picker_second_chat).mcp_selection.fetch(:servers).map(&:name)
       assert_equal [ "second-skill" ], JSON.parse(helper.agent_skill_autocomplete_data(@second)).map { |skill| skill.fetch("name") }
       assert_equal @first, ActsAsTenant.current_tenant
     end

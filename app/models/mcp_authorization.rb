@@ -59,6 +59,26 @@ class McpAuthorization < ApplicationRecord
     joins(:account_user).where(account_id:, mcp_server_id:, user_id:, account_users: { account_id:, user_id: })
   end
 
+  # Local eligibility only. Load only this owner's authorized grants and rows.
+  # @param account_id [Integer] Chat account
+  # @param user_id [Integer] Chat owner
+  # @param server_ids [Array<Integer>] Enabled OAuth connector IDs in the account
+  # @return [Hash{Integer => McpAuthorization}] Usable grants keyed by connector ID
+  def self.for_chat(account_id:, user_id:, server_ids:)
+    return {} if server_ids.empty?
+
+    grants = McpServer.unscoped do
+      for_member(account_id:, user_id:, mcp_server_id: server_ids).where(reconnect_required_at: nil)
+        .eager_load(:mcp_server).where(mcp_servers: { account_id:, auth_mode: "oauth", transport_type: "streamable", enabled: true }).to_a
+    end
+    grants.select! do |grant|
+      grant.matches_saved_connector?
+    rescue ActiveRecord::Encryption::Errors::Base
+      false
+    end
+    CredentialStore.chat_eligible(grants).index_by(&:mcp_server_id)
+  end
+
   def self.find_with_saved_oauth_connector
     # Callers explicitly scope the account even when Current's active account
     # differs from the grant's (e.g. a callback or retained client).
@@ -123,13 +143,15 @@ class McpAuthorization < ApplicationRecord
   end
 
   # No association cache or database row lock on the ordinary socket path.
-  def admit!
+  # @param chat [Boolean] Whether this operation requires a chat-enabled connector
+  # @raise [Unavailable, ReconnectRequired] The saved grant cannot authorize this operation
+  def admit!(chat: false)
     self.class.uncached do
       raise Unavailable unless persisted? && !has_changes_to_save?
 
       current = self.class.for_member(account_id:, mcp_server_id:, user_id:)
         .where(id:, account_user_id:).find_with_saved_oauth_connector
-      unless current&.matches_saved_connector? && current.endpoint == endpoint
+      unless current&.matches_saved_connector? && current.endpoint == endpoint && (!chat || current.mcp_server.enabled?)
         raise Unavailable
       end
       raise ReconnectRequired if current.reconnect_required_at

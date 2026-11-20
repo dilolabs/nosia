@@ -5,15 +5,23 @@ class McpServer::Client
   QUIET_LOGGER = Logger.new(File::NULL)
 
   # @param server [McpServer] An eligible remote connector
+  # @param grant [McpAuthorization, nil] Exact owner's grant for an OAuth connector
+  # @param credential_store [McpAuthorization::CredentialStore, nil] Override for local grant retirement
+  # @param chat_owner_id [Integer, nil] Chat-purpose admission for a persisted owner; nil for workspace
   # @raise [Error] Invalid connector settings
-  def initialize(server = nil, grant: nil, credential_store: nil)
-    @credential_store = credential_store || (McpAuthorization::CredentialStore.new(grant) if grant)
+  def initialize(server = nil, grant: nil, credential_store: nil, chat_owner_id: nil)
+    if grant && chat_owner_id && (chat_owner_id != grant.user_id || server&.id != grant.mcp_server_id || server.account_id != grant.account_id)
+      raise McpAuthorization::Unavailable
+    end
+
+    @chat_owner_id = chat_owner_id
+    @credential_store = credential_store || (McpAuthorization::CredentialStore.new(grant, chat: chat_owner_id.present?) if grant)
     @scope = if grant
       OauthScope.new(grant, @credential_store)
     elsif server.transport_type == "stdio"
-      RequestScope.new(https_only: false)
+      RequestScope.new(https_only: false, admission: stdio_chat_admission(server))
     else
-      StaticHttpScope.new(server)
+      StaticHttpScope.new(server, chat_owner_id:)
     end
     @lock = Mutex.new
     @prefix = "mcp_#{grant ? grant.mcp_server_id : server.id}"
@@ -45,7 +53,9 @@ class McpServer::Client
 
       McpOutbound.with(@scope) do
         if @credential_store
-          @credential_store.admit_client!
+          # Always let the SDK dispose of local state. The outbound scope
+          # independently denies a remote close if the grant is no longer usable.
+          @credential_store.admit_client! unless operation == :close
           @scope.during_operation(operation) { yield }
         else
           yield
@@ -144,9 +154,9 @@ class McpServer::Client
   end
 
   # @param text [String] Error text from an executed tool
-  # @return [Hash] Existing error wrapper with configured headers redacted
+  # @return [Hash] Generic chat/OAuth error, or a redacted legacy static workspace error
   def tool_error(text)
-    return execution_error(I18n.t("nosia.mcp_workspace.tool_call_rejected")) if @credential_store
+    return execution_error(I18n.t("nosia.mcp_workspace.tool_call_rejected")) if @credential_store || @chat_owner_id
 
     safe_text = (@headers || {}).values.grep(String).flat_map { |value| [ value, value.delete_prefix("Bearer ") ] }
       .reject(&:blank?).uniq.sort_by { |value| -value.length }.reduce(text.to_s) { |message, value| message.gsub(value, "[FILTERED]") }
@@ -156,7 +166,7 @@ class McpServer::Client
   # Closes the native session within its scope, without masking earlier errors.
   # @return [void]
   def close
-    within do
+    within(operation: :close) do
       @native.close
     ensure
       @closed = true
@@ -167,6 +177,20 @@ class McpServer::Client
   end
 
   private
+    def stdio_chat_admission(server)
+      return unless @chat_owner_id
+
+      id, account_id, revision = server.id, server.account_id, server.connection_revision
+      -> do
+        McpServer.uncached do
+          saved = McpServer.unscoped.find_by(id:, account_id:, connection_revision: revision, transport_type: "stdio", auth_mode: "static")
+          unless saved&.enabled? && saved.ready_for_tools? && AccountUser.exists?(account_id:, user_id: @chat_owner_id)
+            raise McpOutbound::Blocked
+          end
+        end
+      end
+    end
+
     def context
       RubyLLM.context do |config|
         config.faraday_adapter = McpOutbound::Adapter

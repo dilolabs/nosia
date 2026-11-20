@@ -14,4 +14,10 @@ class McpServer::Client::Stdio < RubyLLM::MCP::Stdio
     @scope.capture_stdio_request(message.fetch(:method))
     super
   end
+
+  private
+    def write(message)
+      @scope.admit!(nil)
+      super
+    end
 end

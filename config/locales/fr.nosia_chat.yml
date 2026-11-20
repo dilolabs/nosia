@@ -33,6 +33,8 @@ fr:
       disclaimer: "NOSIA peut faire des erreurs. Vérifiez les informations importantes."
       tools: "Outils"
       connected_tools: "Outils connectés"
+      unavailable_tools: "Outils indisponibles"
+      remove_unavailable_tool: "Retirer %{name} de la conversation"
       no_ready_servers: "Aucun serveur MCP prêt"
       configure_server: "Configurer un serveur MCP"
       no_account: "Vous devez avoir accès à un compte pour démarrer une conversation."

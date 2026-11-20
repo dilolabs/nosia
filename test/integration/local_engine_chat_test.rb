@@ -6,6 +6,7 @@ class LocalEngineChatTest < ActiveSupport::TestCase
   def setup
     @user = User.create!(email: "int@example.com", password: "testpassword123")
     @account = Account.create!(name: "Int Account", owner: @user)
+    @account.account_users.grant_to(@user)
     ActsAsTenant.current_tenant = @account
 
     stubs = Faraday::Adapter::Test::Stubs.new

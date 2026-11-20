@@ -7,6 +7,7 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
   include McpOauthFixtures
   include McpOutboundTls
   include OrbiteBrowserChecks
+  include ActionView::RecordIdentifier
 
   test "keyboard selects OAuth and an ordinary save leaves authorization as a separate action" do
     sign_in(@alice)
@@ -96,7 +97,73 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
     end
   end
 
+  [ :en, :fr ].each do |locale|
+    test "new and saved tool controls preserve unavailable links in #{locale}" do
+      previous_queue_adapter = ActiveJob::Base.queue_adapter
+      ActiveJob::Base.queue_adapter = :test
+      @server.update!(auth_mode: "oauth", status: "error")
+      chat = @team.chats.create!(user: @alice, model: ENV.fetch("LLM_MODEL"), provider: :openai, assume_model_exists: true)
+      @wire.install(self) do
+        grant = @server.begin_oauth_grant_for!(@alice)
+        @wire.authorize(grant)
+        sign_in(@alice)
+        orbite_select_language("FR") if locale == :fr
+        assert_selector "html[lang=#{locale}]"
+
+        visit new_chat_path(account_id: @team.id)
+        open_chat_tools
+        find("input[type=checkbox][value='#{@server.id}']").check
+        assert_selector "#mcp-selected-count", exact_text: "1"
+        find("lexxy-editor .lexxy-editor__content").send_keys("A new chat with tools")
+        find("button.n-composer-send").click
+        assert_selector "[data-chat-reconnect-generating-value=true]"
+        created = @alice.chats.find_by!(id: URI(page.current_url).path.split("/").last)
+        assert_equal @team, created.account
+        assert_equal [ @server.id ], created.chat_mcp_sessions.pluck(:mcp_server_id)
+
+        visit chat_path(chat)
+        open_chat_tools
+        find("input[type=checkbox][value='#{@server.id}']").check
+        assert_selector "#mcp-selected-count", exact_text: "1"
+        link = chat.chat_mcp_sessions.find_by!(mcp_server: @server)
+        grant.retire!
+
+        visit chat_path(chat)
+        open_chat_tools
+        assert_selector "#mcp-selected-count", exact_text: "0"
+        assert_no_selector "input[type=checkbox][value='#{@server.id}']"
+        assert_text(locale == :fr ? "Outils indisponibles" : "Unavailable tools")
+
+        reconnected = @server.begin_oauth_grant_for!(@alice)
+        @wire.authorize(reconnected)
+        visit chat_path(chat)
+        open_chat_tools
+        assert_selector "#mcp-selected-count", exact_text: "1"
+        assert_selector "input[type=checkbox][value='#{@server.id}']:checked"
+        assert chat.chat_mcp_sessions.exists?(link.id)
+        reconnected.retire!
+
+        visit chat_path(chat)
+        open_chat_tools
+        within("##{dom_id(@server, :chat_mcp_option)}") do
+          find_button(locale == :fr ? "Retirer" : "Remove").click
+        end
+        assert_no_text @server.name
+        assert_no_selector "#chat-mcp-unavailable"
+        assert_selector "#mcp-selected-count", exact_text: "0"
+        assert_not chat.chat_mcp_sessions.exists?(link.id)
+      end
+    ensure
+      ActiveJob::Base.queue_adapter = previous_queue_adapter
+    end
+  end
+
   private
+    def open_chat_tools
+      find("details[data-composer-tools] > summary").click
+      assert_selector "details[data-composer-tools][open]"
+    end
+
     def sign_in(user)
       visit root_path
       fill_in "email", with: user.email

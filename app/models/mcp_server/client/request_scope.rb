@@ -1,6 +1,15 @@
 # Tracks the provenance of native errors during a direct tool call without
 # keeping request arguments, credentials, or response bodies.
 class McpServer::Client::RequestScope < McpOutbound::Scope
+  def initialize(https_only:, admission: nil)
+    super(https_only:)
+    @admission = admission
+  end
+
+  def admit!(_env)
+    @admission&.call
+  end
+
   # @return [Object] The result of the native operation
   def while_calling_tool
     @calling_tool = true

@@ -74,7 +74,7 @@ class NativeMcpOAuthWire < NativeMcpWire
         return [ 401, { "WWW-Authenticate" => challenge }, "" ]
       end
 
-      rpc = JSON.parse(env.body)
+      rpc = env.body ? JSON.parse(env.body) : {}
       before_reply&.call(rpc["method"], nil)
       if (response = mcp_rejection&.call(rpc, presented))
         @oauth_requests << { path: "/mcp", verb: env.method, headers: env.request_headers.dup }

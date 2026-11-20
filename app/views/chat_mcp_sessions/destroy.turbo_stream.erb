@@ -1,3 +1,1 @@
-<%= turbo_stream.replace dom_id(@mcp_server, :chat_mcp_form), partial: "chats/mcp_form", locals: { chat: @chat, server: @mcp_server, session: nil } %>
-<%= turbo_stream.replace dom_id(@mcp_server, :chat_mcp_option), method: :morph, partial: "chats/mcp_option", locals: { chat: @chat, server: @mcp_server, session: nil } %>
-<%= turbo_stream.update "mcp-selected-count", @chat.chat_mcp_sessions.count %>
+<%= render "chat_mcp_sessions/replace_selector", chat: @chat, selection: @chat.mcp_selection %>

@@ -1,0 +1,10 @@
+<%# locals: (chat:, selection:) %>
+<div id="chat-mcp-forms" hidden>
+  <% sessions = selection.fetch(:sessions) %>
+  <% selection.fetch(:servers).each do |server| %>
+    <%= render "chats/mcp_form", chat: chat, server: server, session: sessions[server.id] %>
+  <% end %>
+  <% selection.fetch(:unavailable).each_value do |session| %>
+    <%= render "chats/mcp_form", chat: chat, server: session.mcp_server, session: session %>
+  <% end %>
+</div>
