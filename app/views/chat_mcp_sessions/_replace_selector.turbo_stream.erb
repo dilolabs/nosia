@@ -1,4 +1,4 @@
 <%# locals: (chat:, selection:) %>
-<%= turbo_stream.replace "chat-mcp-selector", method: :morph, partial: "chats/mcp_selector", locals: { chat: chat, selection: selection } %>
+<%= turbo_stream.update "chat-mcp-selector", method: :morph, partial: "chats/mcp_selector", locals: { chat: chat, selection: selection } %>
 <%= turbo_stream.replace "chat-mcp-forms", partial: "chats/mcp_forms", locals: { chat: chat, selection: selection } %>
 <%= turbo_stream.update "mcp-selected-count", selection.fetch(:count) %>

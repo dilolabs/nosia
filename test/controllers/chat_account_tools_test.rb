@@ -80,7 +80,8 @@ class ChatAccountToolsTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     session = chat.chat_mcp_sessions.find_by!(mcp_server: tool)
-    assert_select "turbo-stream[action=replace][method=morph][target=chat-mcp-selector]" do
+    assert_select "turbo-stream[action=update][method=morph][target=chat-mcp-selector]" do
+      assert_select "template .n-composer-tools-panel", count: 0
       assert_select "template label[id=?] input[type=checkbox][checked]", dom_id(tool, :chat_mcp_option)
     end
     assert_select "turbo-stream[target=chat-mcp-forms] template form[id=?][action=?]",
@@ -96,7 +97,7 @@ class ChatAccountToolsTest < ActionDispatch::IntegrationTest
     delete chat_mcp_session_url(chat, session), as: :turbo_stream
 
     assert_response :success
-    assert_select "turbo-stream[action=replace][method=morph][target=chat-mcp-selector]" do
+    assert_select "turbo-stream[action=update][method=morph][target=chat-mcp-selector]" do
       assert_select "template label[id=?] input[type=checkbox]:not([checked])", dom_id(tool, :chat_mcp_option)
     end
     assert_select "turbo-stream[target=chat-mcp-forms] template form[id=?][action=?]",

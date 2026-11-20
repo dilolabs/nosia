@@ -106,6 +106,7 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
       @wire.install(self) do
         grant = @server.begin_oauth_grant_for!(@alice)
         @wire.authorize(grant)
+        request_counts = [ @wire.requests.size, @wire.oauth_requests.size ]
         sign_in(@alice)
         orbite_select_language("FR") if locale == :fr
         assert_selector "html[lang=#{locale}]"
@@ -122,10 +123,33 @@ class McpOauthWorkspaceTest < ApplicationSystemTestCase
         assert_equal [ @server.id ], created.chat_mcp_sessions.pluck(:mcp_server_id)
 
         visit chat_path(chat)
-        open_chat_tools
-        find("input[type=checkbox][value='#{@server.id}']").check
+        find("details[data-composer-tools] > summary").send_keys(:enter)
+        assert_selector "details[data-composer-tools][open] .n-composer-tools-panel"
+        page.driver.browser.action.send_keys(:tab).perform
+        checkbox = "##{dom_id(@server, :chat_mcp_checkbox)}"
+        form = "##{dom_id(@server, :chat_mcp_form)}"
+        assert_selector "#{checkbox}:focus-visible"
+
+        page.driver.browser.action.send_keys(:space).perform
         assert_selector "#mcp-selected-count", exact_text: "1"
         link = chat.chat_mcp_sessions.find_by!(mcp_server: @server)
+        assert_selector "details[data-composer-tools][open] .n-composer-tools-panel"
+        assert_selector "#{checkbox}:checked:not(:disabled):focus-visible"
+        assert_selector "#chat-mcp-forms[hidden] form#{form}[hidden][action='#{chat_mcp_session_path(chat, link)}']", visible: :hidden
+        assert_selector "#{form} input[name=_method][value=delete]", visible: :all
+
+        page.driver.browser.action.send_keys(:space).perform
+        assert_selector "#mcp-selected-count", exact_text: "0"
+        assert_selector "details[data-composer-tools][open] .n-composer-tools-panel"
+        assert_selector "#{checkbox}:not(:checked):not(:disabled):focus-visible"
+        assert_selector "#chat-mcp-forms[hidden] form#{form}[hidden][action='#{chat_mcp_sessions_path(chat, mcp_server_id: @server.id)}']", visible: :hidden
+        assert_no_selector "#{form} input[name=_method]", visible: :all
+        assert_not chat.chat_mcp_sessions.exists?(link.id)
+
+        page.driver.browser.action.send_keys(:space).perform
+        assert_selector "#mcp-selected-count", exact_text: "1"
+        link = chat.chat_mcp_sessions.find_by!(mcp_server: @server)
+        assert_equal request_counts, [ @wire.requests.size, @wire.oauth_requests.size ]
         grant.retire!
 
         visit chat_path(chat)

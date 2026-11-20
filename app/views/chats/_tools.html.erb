@@ -2,6 +2,8 @@
 <% if chat.persisted? || selection.fetch(:servers).any? %>
   <details class="n-composer-tools" data-composer-tools data-action="toggle->composer-chrome#toolsToggled">
     <summary class="n-composer-control n-composer-tools-trigger"><%= t("nosia.chat.tools") %> <span id="mcp-selected-count" class="n-composer-count"><%= selection.fetch(:count) %></span></summary>
-    <%= render "chats/mcp_selector", chat: chat, selection: selection %>
+    <div id="chat-mcp-selector" class="n-composer-tools-panel" data-controller="mcp-selection">
+      <%= render "chats/mcp_selector", chat: chat, selection: selection %>
+    </div>
   </details>
 <% end %>
