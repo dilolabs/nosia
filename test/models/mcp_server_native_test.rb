@@ -76,6 +76,49 @@ class McpServerNativeTest < ActiveSupport::TestCase
     assert_equal attributes, @server.reload.attributes
   end
 
+  test "name and notes changes during a static test do not strand readiness in connecting" do
+    @server.update_columns(status: "ready")
+    original_reply = @wire.method(:reply)
+    server_id = @server.id
+    with_singleton_replacement(@wire, :reply, ->(env) {
+      if JSON.parse(env.body)["method"] == "tools/list"
+        McpServer.find(server_id).update!(name: "New label", notes: "Edited during test")
+      end
+      original_reply.call(env)
+    }) do
+      @wire.install(self) { assert @server.test_connection! }
+    end
+
+    assert @server.reload.status_ready?
+    assert_equal "New label", @server.name
+    assert_equal "Edited during test", @server.notes
+    assert_equal "lookup", @server.tools_cache.sole.fetch("name")
+  end
+
+  test "a newer static test wins even if the clock is unchanged and the older result arrives last" do
+    server_id = @server.id
+    old_wire = @wire
+    latest_wire = NativeMcpWire.new
+    latest_wire.tools = [ NativeMcpWire::TOOL.merge("name" => "latest") ]
+    original_reply = old_wire.method(:reply)
+    install_for = self
+    travel_to(Time.current) do
+      @server.update_columns(metadata: { tools_cache: [ { name: "latest", description: NativeMcpWire::TOOL.fetch("description") } ],
+        last_test_at: Time.current.iso8601 })
+      with_singleton_replacement(old_wire, :reply, ->(env) {
+        if JSON.parse(env.body)["method"] == "tools/list"
+          latest_wire.install(install_for) do
+            raise "Expected latest test to complete" unless McpServer.find(server_id).test_connection!
+          end
+        end
+        original_reply.call(env)
+      }) do
+        old_wire.install(self) { refute @server.test_connection! }
+      end
+    end
+    assert_equal "latest", @server.reload.tools_cache.sole.fetch("name")
+  end
+
   test "legacy initialize can stream over Streamable HTTP and closes its session after tool execution" do
     @wire.legacy = @wire.stream = true
     @wire.install(self) do
@@ -459,6 +502,7 @@ class McpServerNativeTest < ActiveSupport::TestCase
       Tempfile.create("mcp-stdio-closed") do |closed|
         @server.update!(transport_type: "stdio", connection_config: { command: RbConfig.ruby,
           args: [ peer.path, "one argument ; unchanged" ], env: { "FIXTURE_SETTING" => "from encrypted env", "CLOSED_PATH" => closed.path } })
+        @server.update_columns(status: "ready")
         assert_equal({ success: true, result: "one argument ; unchanged / from encrypted env" }, @server.reload.execute_tool("lookup"))
         assert_equal "closed", closed.read
       end
@@ -656,6 +700,7 @@ class McpServerNativeTest < ActiveSupport::TestCase
       Tempfile.create("mcp-stdio-requests") do |trace|
         @server.update!(transport_type: "stdio", connection_config: { command: RbConfig.ruby,
           args: [ Rails.root.join("test/support/native_mcp_stdio_peer.rb").to_s, mode, trace.path ] })
+        @server.update_columns(status: "ready")
         yield trace.path
       end
     ensure

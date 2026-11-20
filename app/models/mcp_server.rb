@@ -43,7 +43,7 @@ class McpServer < ApplicationRecord
   encrypts :auth_config, :connection_config
 
   STDIO_EXECUTABLE = %r{\A[a-zA-Z0-9_./+-]+\z}
-  STATIC_DIAGNOSTICS_REVISION = %w[updated_at transport_type endpoint auth_config connection_config metadata].freeze
+  STATIC_CONNECTION_FIELDS = %w[connection_revision transport_type endpoint auth_config connection_config].freeze
 
   # Spawning local processes from user-supplied commands is opt-in per
   # deployment: multi-tenant hosts keep MCP_STDIO_ENABLED unset.
@@ -92,25 +92,19 @@ class McpServer < ApplicationRecord
   # @return [Boolean] Whether the connection succeeded
   def test_connection!
     return false if oauth? || legacy_sse? || stdio_disabled?
-    return test_local_connection! if local?
 
     start_time = Time.current
-    return false unless write_static_diagnostics(status: "connecting", last_error: nil)
+    attempt = begin_static_connection_test
+    return false unless attempt
+    return test_local_connection(attempt, start_time) if local?
 
     tools = with_client(&:tools)
     return false unless tools
 
-    write_static_diagnostics(
-      status: "ready",
-      last_connected_at: Time.current,
-      latency_ms: ((Time.current - start_time) * 1000).to_i,
-      last_error: nil,
-      metadata: (metadata || {}).merge("tools_cache" => tools.map { |tool| { name: tool.server_name, description: tool.description } },
-        "last_test_at" => Time.current.iso8601)
-    )
+    details = { "tools_cache" => tools.map { |tool| { name: tool.server_name, description: tool.description } } }
+    record_static_test(attempt, successful_connection_diagnostics(start_time), details)
   rescue Client::Error
-    write_static_diagnostics(status: "error", last_error: I18n.t("nosia.mcp_workspace.remote_failure"),
-      metadata: (metadata || {}).merge("last_test_at" => Time.current.iso8601))
+    record_static_test(attempt, status: "error", last_error: I18n.t("nosia.mcp_workspace.remote_failure"))
     false
   end
 
@@ -167,30 +161,13 @@ class McpServer < ApplicationRecord
         end
       end
     elsif !legacy_sse?
-      write_static_diagnostics(status: "disconnected")
+      with_saved_static_connection do |saved|
+        write_static_diagnostics(saved, status: "disconnected", connection_test_attempt: saved.connection_test_attempt + 1)
+      end
     end
   end
 
   private
-
-  # Lock only the connector and only while checking and writing diagnostics.
-  # Configuration edits can acquire the account lock first; never take it here.
-  # The timestamp also rejects a saved change that was undone during the test.
-  def write_static_diagnostics(values)
-    self.class.transaction do
-      saved = self.class.unscoped.lock.find_by(id:, account_id:, auth_mode: "static")
-      next false unless saved && saved.slice(*STATIC_DIAGNOSTICS_REVISION) == slice(*STATIC_DIAGNOSTICS_REVISION)
-
-      changes = values.merge(updated_at: Time.current)
-      if saved.update_columns(changes)
-        assign_attributes(saved.reload.slice(*changes.keys))
-        clear_attribute_changes(changes.keys)
-        true
-      else
-        false
-      end
-    end
-  end
 
   def execute_oauth_tool(tool_name, arguments, user)
     result = with_authorized_oauth_client(user) { |connection| connection.call(tool_name, arguments.to_h.transform_keys(&:to_s)) }
@@ -255,29 +232,61 @@ class McpServer < ApplicationRecord
     (auth_config || {}).with_indifferent_access
   end
 
-  def test_local_connection!
-    start_time = Time.current
-    return false unless write_static_diagnostics(status: "connecting", last_error: nil)
-
+  def test_local_connection(attempt, start_time)
     registration = Engines::Registry[metadata["engine"]]
     raise "Unknown engine: #{metadata["engine"]}" unless registration
 
     registration.health_check.call(auth_config_for_tools)
-    latency = ((Time.current - start_time) * 1000).to_i
-    write_static_diagnostics(
-      status: "ready",
-      last_connected_at: Time.current,
-      latency_ms: latency,
-      last_error: nil,
-      metadata: (metadata || {}).merge("last_test_at" => Time.current.iso8601)
-    )
+    record_static_test(attempt, successful_connection_diagnostics(start_time))
   rescue => e
-    write_static_diagnostics(
-      status: "error",
-      last_error: e.message,
-      metadata: (metadata || {}).merge("last_test_at" => Time.current.iso8601)
-    )
+    record_static_test(attempt, status: "error", last_error: e.message)
     false
+  end
+
+  def successful_connection_diagnostics(start_time)
+    { status: "ready", last_connected_at: Time.current, last_error: nil,
+      latency_ms: ((Time.current - start_time) * 1000).to_i }
+  end
+
+  def begin_static_connection_test
+    with_saved_static_connection do |saved|
+      attempt = saved.connection_test_attempt + 1
+      attempt if saved.update_columns(connection_test_attempt: attempt)
+    end
+  end
+
+  def record_static_test(attempt, diagnostics, details = {})
+    with_saved_static_connection do |saved|
+      next false unless saved.connection_test_attempt == attempt
+
+      metadata = saved.metadata.to_h.merge(details).merge("last_test_at" => Time.current.iso8601)
+      write_static_diagnostics(saved, diagnostics.merge(metadata:))
+    end
+  end
+
+  # Hold only the connector lock, for a short read and write. Configuration
+  # edits can hold the account lock first; never acquire it here or call peers.
+  def with_saved_static_connection
+    self.class.transaction do
+      saved = self.class.unscoped.lock.find_by(id:, account_id:, auth_mode: "static")
+      if saved && saved.slice(*STATIC_CONNECTION_FIELDS) == slice(*STATIC_CONNECTION_FIELDS) &&
+          saved.metadata&.[]("engine") == metadata&.[]("engine")
+        yield saved
+      else
+        false
+      end
+    end
+  end
+
+  def write_static_diagnostics(saved, diagnostics)
+    changes = diagnostics.merge(updated_at: Time.current)
+    if saved.update_columns(changes)
+      assign_attributes(saved.reload.slice(*changes.keys))
+      clear_attribute_changes(changes.keys)
+      true
+    else
+      false
+    end
   end
 
   def encrypt_secrets

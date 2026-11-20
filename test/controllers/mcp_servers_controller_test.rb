@@ -185,6 +185,7 @@ class McpServersControllerTest < ActionDispatch::IntegrationTest
     result = { "isError" => true, "content" => [ { "type" => "text", "text" => "Rejected #{NativeMcpWire::PRIVATE_MARKER}" } ] }
     with_remote_tool_server(result) do |server, _wire|
       server.update!(token: NativeMcpWire::PRIVATE_MARKER)
+      server.update_columns(status: "ready")
       post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
 
       assert_response :success

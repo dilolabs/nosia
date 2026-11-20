@@ -242,7 +242,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
   end
 
   test "saving a ready connector does not probe on the browser redirect" do
-    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, status: "ready")
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    @second_server.update_columns(status: "ready")
     path = account_mcp_server_path(@second, @second_server)
     wire = NativeMcpWire.new
 

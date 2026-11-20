@@ -10,9 +10,10 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
   CONSENT_PATH = "/fixture-private-consent-location"
 
   setup do
-    @server.update!(auth_mode: "oauth", status: "ready", last_error: "shared-private-diagnostic",
-      latency_ms: 123_456, metadata: { tools_cache: [ { name: "shared-private-tool" } ] },
+    @server.update!(auth_mode: "oauth",
       token: "fixture-private-static-token", headers: { "X-Static" => "fixture-private-static-header" })
+    @server.update_columns(status: "ready", last_error: "shared-private-diagnostic", latency_ms: 123_456,
+      metadata: { tools_cache: [ { name: "shared-private-tool" } ] })
     @other = oauth_fixture("accounts", :oauth_other)
     @other.update!(created_at: 1.day.ago)
     @alice_browser = authenticated_browser(@alice)
@@ -450,6 +451,51 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "old OAuth forms cannot overwrite a new endpoint or retire grants on either workspace route" do
+    bob = authenticated_browser(@bob)
+    [ account_mcp_server_path(@team, @server), mcp_server_path(@server) ].each do |path|
+      @server.update!(endpoint: "https://mcp.example.test/before")
+      bob.get "#{path}/edit"
+      assert_equal 200, bob.response.status
+      form = Nokogiri::HTML5(bob.response.body)
+      old_url = form.at_css("#mcp_server_endpoint")["value"]
+      original_revision = form.at_css("input[name='mcp_server[editing_connection_revision]']")&.[]("value")
+      @server.update!(endpoint: NativeMcpOAuthWire::URL)
+
+      @wire.install(self) do
+        fresh_grant = @server.begin_oauth_grant_for!(@bob)
+        @wire.authorize(fresh_grant)
+        before = @server.reload.attributes
+        count = @wire.oauth_requests.size
+        bob.patch path, params: { mcp_server: { editing_auth_mode: "oauth", editing_connection_revision: original_revision,
+          endpoint: old_url, auth_mode: "oauth", transport_type: "streamable", notes: "Only notes were edited" } }
+        assert_equal 422, bob.response.status
+        assert original_revision.present?
+        refute_includes original_revision, "fixture-private-static-token"
+        summary = Nokogiri::HTML5(bob.response.body).at_css("[data-form-errors-target=summary]")
+        assert_includes summary.text, "Reload the page"
+        assert_equal before, @server.reload.attributes
+        assert_equal fresh_grant, @server.oauth_grant_for(@bob)
+        assert fresh_grant.authorized?
+        assert_equal count, @wire.oauth_requests.size
+      end
+    end
+  end
+
+  test "a static form opened before a credential replacement cannot overwrite the newer credential" do
+    @server.update!(auth_mode: "static")
+    bob = authenticated_browser(@bob)
+    bob.get "#{detail_path}/edit"
+    old_revision = Nokogiri::HTML5(bob.response.body).at_css("input[name='mcp_server[editing_connection_revision]']")&.[]("value")
+    @server.update!(token: "fixture-newest-token")
+    bob.patch detail_path, params: { mcp_server: { editing_auth_mode: "static", editing_connection_revision: old_revision,
+      configuration_values: { token: "fixture-stale-token" } } }
+    assert_equal 422, bob.response.status
+    refute_includes bob.response.body, "fixture-stale-token"
+    refute_includes bob.response.body, "fixture-newest-token"
+    assert_equal "fixture-newest-token", @server.reload.token
+  end
+
   test "ready OAuth can atomically switch to static with explicit replacement and removal" do
     @server.update!(api_key: "fixture-obsolete-key", headers: { "Authorization" => "Bearer fixture-private-static-token", "X-API-Key" => "fixture-obsolete-key" })
     @wire.install(self) do
@@ -571,6 +617,36 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
     assert_equal detail_path, location_path
     @alice_browser.get account_mcp_server_path(@team, other_server)
     refute Nokogiri::HTML5(@alice_browser.response.body).at_css("#connection-test-result")
+  end
+
+  test "OAuth connection test feedback is discarded after the tested grant is replaced" do
+    bob = authenticated_browser(@bob)
+    @wire.install(self) do
+      callback(start(browser: bob), browser: bob)
+      tested = @server.oauth_grant_for(@bob)
+      bob.post account_mcp_server_connection_test_path(@team, @server)
+      assert_equal detail_path, location_path(bob)
+
+      tested.retire!
+      replacement = @server.begin_oauth_grant_for!(@bob)
+      @wire.authorize(replacement)
+      bob.follow_redirect!
+      assert_includes bob.response.body, "Authorized"
+      refute Nokogiri::HTML5(bob.response.body).at_css("#connection-test-result")
+    end
+  end
+
+  test "OAuth connection test without a grant does not describe a new grant on its redirect" do
+    bob = authenticated_browser(@bob)
+    @wire.install(self) do
+      bob.post account_mcp_server_connection_test_path(@team, @server)
+      assert_equal detail_path, location_path(bob)
+      @wire.authorize(@server.begin_oauth_grant_for!(@bob))
+
+      bob.follow_redirect!
+      assert_includes bob.response.body, "Authorized"
+      refute Nokogiri::HTML5(bob.response.body).at_css("#connection-test-result")
+    end
   end
 
   { success: :stay_oauth, failure: :stay_oauth, restored: :back_to_static, credentials: :replace_credentials }.each do |outcome, change|

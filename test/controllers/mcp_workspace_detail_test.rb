@@ -85,7 +85,8 @@ class McpWorkspaceDetailTest < ActionDispatch::IntegrationTest
   end
 
   test "real prompt argument objects render metadata without fetching messages" do
-    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, status: "ready")
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    @second_server.update_columns(status: "ready")
     wire = NativeMcpWire.new
     wire.install(self) do
       get account_mcp_server_path(@second, @second_server)

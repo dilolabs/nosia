@@ -25,11 +25,13 @@ class McpServers::ConnectionTestsController < ApplicationController
 
   private
     def render_oauth_test
-      reason = oauth_test_failure
+      grant = @mcp_server.oauth_grant_for(Current.user)
+      reason = oauth_test_failure(grant)
       respond_to do |format|
         format.html do
           redirect_within_oauth_workspace(account_mcp_server_path(@account, @mcp_server),
-            mcp_oauth_test: { "server_id" => @mcp_server.id, "session_id" => Current.session.id, "reason" => (reason || :success).to_s })
+            mcp_oauth_test: { "server_id" => @mcp_server.id, "session_id" => Current.session.id,
+              "connection_revision" => @mcp_server.connection_revision, "grant_id" => grant&.id, "reason" => (reason || :success).to_s })
         end
         format.json do
           state = mcp_oauth_state(@mcp_server)
@@ -42,8 +44,10 @@ class McpServers::ConnectionTestsController < ApplicationController
       end
     end
 
-    def oauth_test_failure
-      @mcp_server.with_authorized_oauth_client(Current.user, &:tools)
+    def oauth_test_failure(grant)
+      return :authorization_needed unless grant
+
+      grant.with_authorized_client(&:tools)
       nil
     rescue McpAuthorization::Unavailable, McpAuthorization::InsufficientScope => error
       McpAuthorization.failure_reason(error)

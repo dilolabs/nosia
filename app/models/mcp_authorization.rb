@@ -99,6 +99,19 @@ class McpAuthorization < ApplicationRecord
     connection&.close
   end
 
+  # @yieldparam connection [McpServer::Client] The connection for this exact grant
+  # @return [Object] The operation result
+  # @raise [Unavailable] The grant is missing usable credentials or was retired
+  def with_authorized_client
+    raise ReconnectRequired if reconnect_required_at
+
+    with_client do |connection|
+      raise AuthorizationRequired unless connection.authorized?
+
+      yield connection
+    end
+  end
+
   # Native OAuth takes its own per-key mutex before entering the store. Take the
   # grant lock there, not here, so retirement cannot deadlock with a refresh.
   def retire!

@@ -49,6 +49,54 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
     assert_equal config, @second_server.auth_config
   end
 
+  { endpoint: { endpoint: "https://mcp.example.test/new" }, transport: { transport_type: "stdio", command: "fixture" },
+    mode: { auth_mode: "static" }, credentials: {} }.each do |change, attributes|
+    test "#{change} saves invalidate connection diagnostics but retain unrelated metadata and encrypted credentials" do
+      stdio = ENV["MCP_STDIO_ENABLED"]
+      ENV["MCP_STDIO_ENABLED"] = "true"
+      @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL,
+        auth_mode: change == :mode ? "oauth" : "static", token: "retained-token", api_key: "retained-key")
+      @second_server.update_columns(status: "ready", last_connected_at: Time.current, latency_ms: 42, last_error: "old",
+        metadata: { catalog_id: "preserved", tools_cache: [], prompts_cache: [], resources_cache: [],
+          capabilities: {}, server_info: {}, last_test_at: Time.current.iso8601 })
+      values = change == :credentials ? { token: "replacement" } : {}
+
+      assert @second_server.save_workspace(attributes, values:)
+      assert @second_server.reload.status_disconnected?
+      refute @second_server.ready_for_tools?
+      assert_nil @second_server.last_connected_at
+      assert_nil @second_server.latency_ms
+      assert_nil @second_server.last_error
+      assert_equal({ "catalog_id" => "preserved" }, @second_server.metadata)
+      assert_equal change == :credentials ? "replacement" : "retained-token", @second_server.token
+      assert_equal "retained-key", @second_server.api_key
+    ensure
+      ENV["MCP_STDIO_ENABLED"] = stdio
+    end
+  end
+
+  test "name and notes edits preserve the connection diagnostics and readiness" do
+    @second_server.update_columns(status: "ready", last_connected_at: Time.current, latency_ms: 42, last_error: "old",
+      metadata: @second_server.metadata.merge("last_test_at" => "fixture"))
+    before = @second_server.reload.slice(:status, :last_connected_at, :latency_ms, :last_error, :metadata)
+
+    assert @second_server.save_workspace({ name: "Renamed", notes: "Kept readiness" }, values: {})
+    assert_equal before, @second_server.reload.slice(*before.keys)
+  end
+
+  test "a configuration save clears diagnostics measured after the editor loaded" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    editor = @second.mcp_servers.find(@second_server.id)
+    assert editor.status_disconnected?
+    @second_server.update_columns(status: "ready", last_connected_at: Time.current, latency_ms: 42, metadata: { tools_cache: [ "latest" ] })
+
+    assert editor.save_workspace({ endpoint: "https://other.example.test/mcp" }, values: {})
+    assert @second_server.reload.status_disconnected?
+    assert_nil @second_server.last_connected_at
+    assert_nil @second_server.latency_ms
+    assert_nil @second_server.tools_cache
+  end
+
   test "blank keeps saved secrets and replacement preserves other configuration" do
     @second_server.update!(connection_config: { env: { "UNEDITED" => "keep" } })
     assert @second_server.save_workspace({ notes: "Updated" }, values: { "api_key" => "", "team" => "New team" })

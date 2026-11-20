@@ -3,6 +3,7 @@ module McpServer::Authorization
 
   CONNECTION_IDENTITY_FIELDS = %w[auth_mode transport_type endpoint connection_config account_id].freeze
   CONNECTION_CONFIGURATION_FIELDS = (CONNECTION_IDENTITY_FIELDS + %w[auth_config]).freeze
+  CONNECTION_DIAGNOSTIC_METADATA = %w[last_test_at tools_cache prompts_cache resources_cache capabilities server_info].freeze
 
   included do
     validates :auth_mode, inclusion: { in: %w[static oauth] }
@@ -52,16 +53,11 @@ module McpServer::Authorization
   # @yieldparam connection [McpServer::Client] The acting member's usable client
   # @return [Object] The result of the operation
   # @raise [McpAuthorization::Unavailable] No matching usable authorization
-  def with_authorized_oauth_client(user)
+  def with_authorized_oauth_client(user, &operation)
     grant = oauth_grant_for(user)
     raise McpAuthorization::AuthorizationRequired unless grant
-    raise McpAuthorization::ReconnectRequired if grant.reconnect_required_at
 
-    grant.with_client do |connection|
-      raise McpAuthorization::AuthorizationRequired unless connection.authorized?
-
-      yield connection
-    end
+    grant.with_authorized_client(&operation)
   end
 
   private
@@ -88,7 +84,8 @@ module McpServer::Authorization
     end
 
     def guard_connection_configuration_update
-      return unless @workspace_editing_auth_mode || CONNECTION_CONFIGURATION_FIELDS.any? { |name| will_save_change_to_attribute?(name) }
+      return unless @workspace_editing_connection_revision || @workspace_editing_auth_mode ||
+        CONNECTION_CONFIGURATION_FIELDS.any? { |name| will_save_change_to_attribute?(name) }
 
       previous_account = account_id_in_database
       Account.where(id: [ previous_account, account_id ]).order(:id).lock.load
@@ -106,6 +103,9 @@ module McpServer::Authorization
         throw :abort
       end
       retire_oauth_authorizations if resulting_identity != saved_identity
+      if resulting_identity != saved_identity || connection_credentials_changed?(saved)
+        invalidate_connection_diagnostics(saved)
+      end
     end
 
     def stale_connection_configuration?(saved, saved_identity)
@@ -113,9 +113,28 @@ module McpServer::Authorization
       # mode: an unchanged value is omitted from Rails' partial UPDATE.
       loaded_endpoint = connection_config_in_database&.[]("url") || endpoint_in_database
       loaded_identity = [ auth_mode_in_database, transport_type_in_database, loaded_endpoint, account_id_in_database ]
-      (@workspace_editing_auth_mode && @workspace_editing_auth_mode != saved.auth_mode) || loaded_identity != saved_identity ||
+      (@workspace_editing_connection_revision && @workspace_editing_connection_revision != saved.connection_revision.to_s) ||
+        (@workspace_editing_auth_mode && @workspace_editing_auth_mode != saved.auth_mode) ||
+        connection_revision_in_database != saved.connection_revision || loaded_identity != saved_identity ||
         (will_save_change_to_auth_config? && auth_config_in_database != saved.auth_config) ||
         (will_save_change_to_connection_config? && connection_config_in_database != saved.connection_config)
+    end
+
+    def connection_credentials_changed?(saved)
+      (will_save_change_to_auth_config? && auth_config != saved.auth_config) ||
+        (will_save_change_to_connection_config? && connection_config.to_h.except("url") != saved.connection_config.to_h.except("url"))
+    end
+
+    def invalidate_connection_diagnostics(saved)
+      current_metadata = will_save_change_to_metadata? ? metadata : saved.metadata
+      self.connection_revision = saved.connection_revision + 1
+      { status: "disconnected", last_connected_at: nil, last_error: nil, latency_ms: nil,
+        metadata: current_metadata&.except(*CONNECTION_DIAGNOSTIC_METADATA) }.each do |name, value|
+        # Another request may have written diagnostics since this instance
+        # was loaded. Do not let partial updates omit these reset values.
+        attribute_will_change!(name.to_s)
+        self[name] = value
+      end
     end
 
     def oauth_identity_after_update(saved)

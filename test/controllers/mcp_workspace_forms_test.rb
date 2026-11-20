@@ -8,7 +8,8 @@ class McpWorkspaceFormsTest < ActionDispatch::IntegrationTest
   setup { sign_in_picker_user }
 
   test "saving a ready connector follows the detail redirect without probing and a later GET discovers" do
-    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL, status: "ready")
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    @second_server.update_columns(status: "ready")
     path = account_mcp_server_path(@second, @second_server)
     wire = NativeMcpWire.new
 

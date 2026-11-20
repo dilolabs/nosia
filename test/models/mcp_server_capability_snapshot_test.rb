@@ -20,7 +20,8 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
   end
 
   test "ready remote servers with nil metadata keep independent discovery outcomes" do
-    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", status: "ready", metadata: nil)
+    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", metadata: nil)
+    @second_server.update_columns(status: "ready")
     assert_nil @second_server.reload.metadata
     client = Struct.new(:tools, :resources).new([], [])
     client.define_singleton_method(:close) { }
@@ -60,7 +61,8 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
   end
 
   test "remote discovery runs once per kind and keeps independent failures distinct" do
-    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", status: "ready")
+    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp")
+    @second_server.update_columns(status: "ready")
     calls = Hash.new(0)
     client = Object.new
     client.define_singleton_method(:tools) { calls[:tools] += 1; [] }
@@ -90,7 +92,8 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
   end
 
   test "transport changes invalidate the snapshot independently" do
-    @second_server.update!(status: "ready", endpoint: "https://mcp.example.org/mcp")
+    @second_server.update!(endpoint: "https://mcp.example.org/mcp")
+    @second_server.update_columns(status: "ready")
     snapshot = @second_server.capability_snapshot
     client = Struct.new(:tools, :prompts, :resources).new([], [], [])
     client.define_singleton_method(:close) { }
@@ -98,10 +101,12 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
 
     @second_server.update!(transport_type: "streamable")
     refreshed = @second_server.capability_snapshot
+    assert_equal [ :not_loaded ], refreshed.values.map(&:state).uniq
 
     refute_same snapshot, refreshed
-    assert_equal [ :loaded ], refreshed.values.map(&:state).uniq
-    assert_empty refreshed.fetch(:tools).items
+    @second_server.update_columns(status: "ready")
+    assert_equal [ :loaded ], @second_server.capability_snapshot.values.map(&:state).uniq
+    assert_empty @second_server.capability_snapshot.fetch(:tools).items
   end
 
   test "engine changes invalidate the snapshot independently" do

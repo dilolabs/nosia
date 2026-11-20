@@ -37,10 +37,12 @@ module McpServer::Configuration
   # @param values [Hash] Whitelisted declared configuration inputs
   # @param removals [Array<String>] Explicit saved-secret removals
   # @param editing_auth_mode [String, nil] Optional saved mode from the rendered editor
+  # @param editing_connection_revision [String, nil] Optional configuration version from the rendered editor, not a credential fingerprint
   # @return [Boolean] Whether this complete edit was valid and saved
-  def save_workspace(attributes, values:, removals: [], editing_auth_mode: nil)
+  def save_workspace(attributes, values:, removals: [], editing_auth_mode: nil, editing_connection_revision: nil)
     attrs = attributes.to_h.stringify_keys.slice(*WORKSPACE_ATTRIBUTES)
     @workspace_editing_auth_mode = editing_auth_mode
+    @workspace_editing_connection_revision = editing_connection_revision
     @workspace_configuration_errors = []
     if persisted? && local? && attrs.key?("transport_type") && attrs["transport_type"] != "local"
       @workspace_configuration_errors << [ :transport_type, I18n.t("nosia.mcp_workspace.local_transport_fixed") ]
@@ -78,6 +80,7 @@ module McpServer::Configuration
   ensure
     @workspace_configuration_errors = nil
     @workspace_editing_auth_mode = nil
+    @workspace_editing_connection_revision = nil
   end
 
   private

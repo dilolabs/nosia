@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_19_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_20_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -240,6 +240,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_000004) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "auth_mode", default: "static", null: false
+    t.bigint "connection_revision", default: 0, null: false
+    t.bigint "connection_test_attempt", default: 0, null: false
     t.index ["account_id", "name"], name: "index_mcp_servers_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_mcp_servers_on_account_id"
     t.index ["enabled"], name: "index_mcp_servers_on_enabled"
