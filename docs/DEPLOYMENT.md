@@ -198,9 +198,10 @@ If using MCP OAuth, keep the query string on requests to `/mcp/oauth/callback`
 and consent redirect `Location` values out of proxy, access, and tracing logs.
 Wherever request or response headers or bodies are captured, including outbound
 MCP and provider traffic, also exclude OAuth tokens (including access and
-refresh tokens), client secrets, and signing material. If the logging system
-cannot reliably redact these values, disable capture of the affected requests
-and responses. Preserve `Referrer-Policy: no-referrer` and
+refresh tokens), client secrets, and signing material. Exclude authorization
+codes and PKCE code verifiers from outbound OAuth token exchange body logs.
+If the logging system cannot reliably redact these values, disable capture of
+the affected requests and responses. Preserve `Referrer-Policy: no-referrer` and
 `Cache-Control: no-store` on OAuth responses. See the
 [MCP workspace deployment requirements](mcp-workspace.md#provider-and-deployment-requirements)
 for the exact public origin and existing encryption settings.

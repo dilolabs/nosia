@@ -90,8 +90,10 @@ provider’s consent page has its own language settings.
 - Keep callback query strings and OAuth consent redirect `Location` values out
   of reverse-proxy, access, and observability logs. Wherever request or
   response headers or bodies are captured, exclude OAuth tokens (including
-  access and refresh tokens), client secrets, and signing material. If those
-  values cannot be reliably redacted, disable the corresponding capture.
+  access and refresh tokens), client secrets, and signing material. Exclude
+  authorization codes and PKCE code verifiers from outbound OAuth token
+  exchange body logs. If those values cannot be reliably redacted, disable
+  the corresponding capture.
   Rails-side filtering does not sanitize upstream logs. Preserve
   `Cache-Control: no-store` and `Referrer-Policy: no-referrer` on OAuth
   responses through the proxy.
