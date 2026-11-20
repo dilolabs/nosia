@@ -226,8 +226,8 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
   end
 
   test "oauth launch requires a CSRF token and rejects cross origin native forms" do
-    old = ApplicationController.allow_forgery_protection
-    ApplicationController.allow_forgery_protection = true
+    old = ActionController::Base.allow_forgery_protection
+    ActionController::Base.allow_forgery_protection = true
     @wire.install(self) do
       @alice_browser.get authorization_path
       assert_equal 404, @alice_browser.response.status
@@ -248,7 +248,7 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
       assert_equal NativeMcpOAuthWire::HOST, URI(@alice_browser.response.location).host
     end
   ensure
-    ApplicationController.allow_forgery_protection = old
+    ActionController::Base.allow_forgery_protection = old
   end
 
   test "anonymous callbacks never persist or reflect callback data" do
