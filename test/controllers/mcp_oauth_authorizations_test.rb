@@ -496,6 +496,43 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
     assert_equal "fixture-newest-token", @server.reload.token
   end
 
+  test "two old static forms cannot overwrite a raw endpoint edit that preserves the configured override" do
+    @server.update!(auth_mode: "static", url: NativeMcpWire::URL, endpoint: "https://mcp.example.test/before")
+    @server.update_columns(status: "ready", latency_ms: 23, last_connected_at: Time.current,
+      metadata: { tools_cache: [ { name: "saved" } ] })
+    static_connection = @server.reload.slice(:status, :latency_ms, :last_connected_at, :metadata, :connection_test_attempt)
+    first = authenticated_browser(@bob)
+    second = authenticated_browser(@bob)
+    scoped = account_mcp_server_path(@team, @server)
+    legacy = mcp_server_path(@server)
+
+    @wire.install(self) do
+      [ [ scoped, legacy ], [ legacy, scoped ] ].each_with_index do |(first_path, second_path), index|
+        forms = [ [ first, first_path ], [ second, second_path ] ].map do |browser, path|
+          browser.get "#{path}/edit"
+          page = Nokogiri::HTML5(browser.response.body)
+          page.at_css("input[name='mcp_server[editing_connection_revision]']")["value"]
+        end
+        assert_equal forms.first, forms.last
+        raw = "https://mcp.example.test/raw-#{index}"
+        first.patch first_path, params: { mcp_server: { editing_connection_revision: forms.first, endpoint: raw } }
+        assert_equal 302, first.response.status
+        first.follow_redirect!
+        assert_equal raw, @server.reload.endpoint
+        assert_equal NativeMcpWire::URL, @server.effective_endpoint
+        assert_equal static_connection, @server.slice(*static_connection.keys)
+
+        second.patch second_path, params: { mcp_server: { editing_connection_revision: forms.last, endpoint: "https://mcp.example.test/stale" } }
+        assert_equal 422, second.response.status
+        assert_includes second.response.body, "Reload the page"
+        assert_equal raw, @server.reload.endpoint
+        assert_equal static_connection, @server.slice(*static_connection.keys)
+      end
+      assert_empty @wire.requests
+      assert_empty @wire.oauth_requests
+    end
+  end
+
   test "ready OAuth can atomically switch to static with explicit replacement and removal" do
     @server.update!(api_key: "fixture-obsolete-key", headers: { "Authorization" => "Bearer fixture-private-static-token", "X-API-Key" => "fixture-obsolete-key" })
     @wire.install(self) do

@@ -95,6 +95,27 @@ class McpServerNativeTest < ActiveSupport::TestCase
     assert_equal "lookup", @server.tools_cache.sole.fetch("name")
   end
 
+  test "editing the raw endpoint behind a static override does not supersede an in-flight test" do
+    @server.update!(url: NativeMcpWire::URL)
+    before = @server.connection_revision
+    original_reply = @wire.method(:reply)
+    server_id = @server.id
+    with_singleton_replacement(@wire, :reply, ->(env) {
+      if JSON.parse(env.body)["method"] == "tools/list"
+        McpServer.find(server_id).save_workspace({ endpoint: "https://mcp.example.test/new-label" }, values: {})
+      end
+      original_reply.call(env)
+    }) do
+      @wire.install(self) { assert @server.test_connection! }
+    end
+
+    assert_equal "https://mcp.example.test/new-label", @server.reload.endpoint
+    assert_equal NativeMcpWire::URL, @server.effective_endpoint
+    assert_equal before, @server.connection_revision
+    assert @server.status_ready?
+    assert_equal "lookup", @server.tools_cache.sole.fetch("name")
+  end
+
   test "a newer static test wins even if the clock is unchanged and the older result arrives last" do
     server_id = @server.id
     old_wire = @wire

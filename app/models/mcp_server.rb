@@ -43,7 +43,7 @@ class McpServer < ApplicationRecord
   encrypts :auth_config, :connection_config
 
   STDIO_EXECUTABLE = %r{\A[a-zA-Z0-9_./+-]+\z}
-  STATIC_CONNECTION_FIELDS = %w[connection_revision transport_type endpoint auth_config connection_config].freeze
+  STATIC_CONNECTION_FIELDS = %w[connection_revision transport_type effective_endpoint auth_config].freeze
 
   # Spawning local processes from user-supplied commands is opt-in per
   # deployment: multi-tenant hosts keep MCP_STDIO_ENABLED unset.
@@ -270,6 +270,7 @@ class McpServer < ApplicationRecord
     self.class.transaction do
       saved = self.class.unscoped.lock.find_by(id:, account_id:, auth_mode: "static")
       if saved && saved.slice(*STATIC_CONNECTION_FIELDS) == slice(*STATIC_CONNECTION_FIELDS) &&
+          saved.connection_config.to_h.except("url") == connection_config.to_h.except("url") &&
           saved.metadata&.[]("engine") == metadata&.[]("engine")
         yield saved
       else

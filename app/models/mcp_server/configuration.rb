@@ -32,12 +32,21 @@ module McpServer::Configuration
   # @return [Boolean] Whether the value must never be repopulated
   def secret_configuration_field?(field) = %w[secret password].include?(field[:type].to_s)
 
+  # @return [String] Opaque revision of what the form displays. Editing the
+  # raw endpoint can stale a form even when an override keeps the live URL.
+  # Only the HMAC is sent to the browser; an endpoint can contain a secret.
+  def workspace_connection_revision
+    snapshot = [ account_id_in_database, id, connection_revision_in_database, endpoint_in_database ]
+    key = Rails.application.key_generator.generate_key("MCP workspace form revision")
+    OpenSSL::HMAC.hexdigest("SHA256", key, snapshot.to_json)
+  end
+
   # Saves declared edits and retires matching header copies when credentials change.
   # @param attributes [Hash] Whitelisted ordinary model attributes
   # @param values [Hash] Whitelisted declared configuration inputs
   # @param removals [Array<String>] Explicit saved-secret removals
   # @param editing_auth_mode [String, nil] Optional saved mode from the rendered editor
-  # @param editing_connection_revision [String, nil] Optional configuration version from the rendered editor, not a credential fingerprint
+  # @param editing_connection_revision [String, nil] Opaque revision from the rendered editor
   # @return [Boolean] Whether this complete edit was valid and saved
   def save_workspace(attributes, values:, removals: [], editing_auth_mode: nil, editing_connection_revision: nil)
     attrs = attributes.to_h.stringify_keys.slice(*WORKSPACE_ATTRIBUTES)
@@ -48,6 +57,7 @@ module McpServer::Configuration
       @workspace_configuration_errors << [ :transport_type, I18n.t("nosia.mcp_workspace.local_transport_fixed") ]
       attrs.delete("transport_type")
     end
+    filter_workspace_transport_fields(attrs)
     if attrs["args"].is_a?(String)
       attrs["args"] = attrs["args"] == Array(args).join("\n") ? args : (attrs["args"].empty? ? [] : attrs["args"].lines(chomp: true))
     end
@@ -84,6 +94,17 @@ module McpServer::Configuration
   end
 
   private
+    def filter_workspace_transport_fields(attributes)
+      case attributes.fetch("transport_type", transport_type)
+      when "streamable", "sse"
+        attributes.except!("command", "args")
+      when "stdio"
+        attributes.delete("endpoint")
+      else
+        attributes.except!("endpoint", "command", "args")
+      end
+    end
+
     def remove_workspace_credential_header(key, value)
       return if value.blank? || local?
 

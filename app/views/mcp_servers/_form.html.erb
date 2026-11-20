@@ -2,7 +2,7 @@
 <%= form_with model: mcp_form_model(mcp_server), class: "n-mcp-form-sections", data: { mcp_form: true, controller: "mcp-form form-errors html-form mcp-secrets", action: "change->mcp-form#toggleFields click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML turbo:before-cache@document->mcp-secrets#clear" } do |f| %>
   <%= render "mcp_workspace/errors", record: mcp_server %>
   <% if mcp_server.persisted? %>
-    <%= f.hidden_field :editing_connection_revision, value: @editing_connection_revision || mcp_server.connection_revision_in_database %>
+    <%= f.hidden_field :editing_connection_revision, value: @editing_connection_revision || mcp_server.workspace_connection_revision %>
   <% end %>
   <% if mcp_server.persisted? && !mcp_server.local? %>
     <%= f.hidden_field :editing_auth_mode, value: @editing_auth_mode || mcp_server.auth_mode_in_database %>

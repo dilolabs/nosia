@@ -113,9 +113,10 @@ module McpServer::Authorization
       # mode: an unchanged value is omitted from Rails' partial UPDATE.
       loaded_endpoint = connection_config_in_database&.[]("url") || endpoint_in_database
       loaded_identity = [ auth_mode_in_database, transport_type_in_database, loaded_endpoint, account_id_in_database ]
-      (@workspace_editing_connection_revision && @workspace_editing_connection_revision != saved.connection_revision.to_s) ||
+      (@workspace_editing_connection_revision && !ActiveSupport::SecurityUtils.secure_compare(@workspace_editing_connection_revision, saved.workspace_connection_revision)) ||
         (@workspace_editing_auth_mode && @workspace_editing_auth_mode != saved.auth_mode) ||
         connection_revision_in_database != saved.connection_revision || loaded_identity != saved_identity ||
+        (will_save_change_to_endpoint? && endpoint_in_database != saved.endpoint) ||
         (will_save_change_to_auth_config? && auth_config_in_database != saved.auth_config) ||
         (will_save_change_to_connection_config? && connection_config_in_database != saved.connection_config)
     end
@@ -127,6 +128,7 @@ module McpServer::Authorization
 
     def invalidate_connection_diagnostics(saved)
       current_metadata = will_save_change_to_metadata? ? metadata : saved.metadata
+      # This counter represents the live connection, not every form field.
       self.connection_revision = saved.connection_revision + 1
       { status: "disconnected", last_connected_at: nil, last_error: nil, latency_ms: nil,
         metadata: current_metadata&.except(*CONNECTION_DIAGNOSTIC_METADATA) }.each do |name, value|

@@ -84,6 +84,33 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
     assert_equal before, @second_server.reload.slice(*before.keys)
   end
 
+  test "workspace edits apply only the destination transport fields and preserve the dormant settings" do
+    stdio = ENV["MCP_STDIO_ENABLED"]
+    ENV["MCP_STDIO_ENABLED"] = "true"
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL,
+      command: "retained-process", args: [ "retained-argument" ])
+    @second_server.update_columns(status: "ready")
+
+    assert @second_server.save_workspace({ command: "", args: "new-argument", notes: "HTTP only" }, values: {})
+    assert @second_server.reload.status_ready?
+    assert_equal "retained-process", @second_server.command
+    assert_equal [ "retained-argument" ], @second_server.args
+
+    assert @second_server.save_workspace({ transport_type: "stdio", command: "fixture-process", args: "new-argument", endpoint: "" }, values: {})
+    assert_equal "fixture-process", @second_server.reload.command
+    assert_equal [ "new-argument" ], @second_server.args
+    assert_equal NativeMcpWire::URL, @second_server.endpoint
+    assert @second_server.status_disconnected?
+  ensure
+    ENV["MCP_STDIO_ENABLED"] = stdio
+  end
+
+  test "local workspace edits cannot write remote transport fields" do
+    before = @second_server.slice(:endpoint, :connection_config)
+    assert @second_server.save_workspace({ transport_type: "local", endpoint: NativeMcpWire::URL, command: "new-command", args: "ignored" }, values: {})
+    assert_equal before, @second_server.reload.slice(*before.keys)
+  end
+
   test "a configuration save clears diagnostics measured after the editor loaded" do
     @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
     editor = @second.mcp_servers.find(@second_server.id)

@@ -262,6 +262,31 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     end
   end
 
+  test "a no-JavaScript notes-only save preserves a ready HTTP connector and its diagnostics" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    @second_server.update_columns(status: "ready", latency_ms: 23, last_connected_at: Time.current,
+      metadata: { tools_cache: [ { name: "saved" } ] })
+    before = @second_server.reload.slice(:connection_config, :connection_revision, :status, :latency_ms, :last_connected_at, :metadata)
+    browser = page.driver.browser
+    wire = NativeMcpWire.new
+    wire.install(self) do
+      browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+      visit edit_account_mcp_server_path(@second, @second_server)
+      assert_selector "#mcp_server_command:not([disabled])"
+      assert_equal "", find("#mcp_server_command").value
+      find("summary", exact_text: I18n.t("nosia.mcp_workspace.organization")).send_keys(:enter)
+      fill_in "mcp_server_notes", with: "Changed only notes"
+      click_button "Save"
+      assert_current_path account_mcp_server_path(@second, @second_server)
+
+      assert_equal "Changed only notes", @second_server.reload.notes
+      assert_equal before, @second_server.slice(*before.keys)
+      assert_empty wire.requests
+    end
+  ensure
+    browser&.execute_cdp("Emulation.setScriptExecutionDisabled", value: false)
+  end
+
   test "catalog server errors retain public fields while snapshot and history clear secrets" do
     @second_server.update!(metadata: { engine: "workspace-demo" })
     path = account_mcp_catalog_path(@second, "workspace-demo")
