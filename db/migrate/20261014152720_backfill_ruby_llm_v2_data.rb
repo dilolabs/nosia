@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'generators/ruby_llm/upgrade/legacy_content_sql'
+require_relative "support/ruby_llm_v2_legacy_content_sql"
 
 class BackfillRubyLlmV2Data < ActiveRecord::Migration[8.0]
   disable_ddl_transaction!
@@ -57,7 +57,7 @@ class BackfillRubyLlmV2Data < ActiveRecord::Migration[8.0]
       raw_content = message_value(:raw_content)
       content = message_value(:content)
       structured_content = "#{content_raw}::jsonb"
-      rendered_content = RubyLLM::Generators::LegacyContentSQL.new(connection).render(content: content, raw: content_raw)
+      rendered_content = NosiaMigration::RubyLlmV2LegacyContentSql.new(connection).render(content: content, raw: content_raw)
       execute <<~SQL
         UPDATE #{quote_table(:messages)} AS legacy_messages
            SET #{quote_column(:raw_content)} = COALESCE(#{raw_content}, #{structured_content}),
@@ -145,7 +145,7 @@ class BackfillRubyLlmV2Data < ActiveRecord::Migration[8.0]
 
     # Blank raw JSON keeps the original plaintext, including NULL. Nonblank raw
     # must still render exactly, and the raw payload itself must be preserved.
-    rendered_content = RubyLLM::Generators::LegacyContentSQL.new(connection).render(
+    rendered_content = NosiaMigration::RubyLlmV2LegacyContentSql.new(connection).render(
       content: quote_column(:content), raw: quote_column(:content_raw)
     )
     missing = migration_record(:messages)

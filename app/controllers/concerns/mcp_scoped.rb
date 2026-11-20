@@ -3,6 +3,7 @@ module McpScoped
   extend ActiveSupport::Concern
   include AccountScoped
   include McpWorkspaceHelper
+  include McpOauthFlow
 
   included { around_action :with_mcp_account }
 
@@ -30,5 +31,9 @@ module McpScoped
     def set_mcp_server
       key = request.path_parameters.key?(:mcp_server_id) ? :mcp_server_id : :id
       @mcp_server = @account.mcp_servers.find(mcp_path_id(key))
+    end
+
+    def protect_oauth_response
+      set_mcp_oauth_privacy_headers if @mcp_server.oauth?
     end
 end

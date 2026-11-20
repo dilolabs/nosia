@@ -110,7 +110,7 @@ class Chat::RequestOptionsTest < ActiveSupport::TestCase
       @chat.define_singleton_method(:with_temperature) { |value| calls[:temperatures] << value; self }
       @chat.define_singleton_method(:with_instructions) { |text, **options| calls[:instructions] << [ text, options ]; self }
       @chat.define_singleton_method(:system_prompt) { "Baseline %{documents}" }
-      @chat.define_singleton_method(:mcp_tools) { [] }
+      @chat.define_singleton_method(:with_mcp_tools) { |&turn| turn.call }
       @chat.define_singleton_method(:similarity_search) { |_| chunks }
       @chat.define_singleton_method(:broadcast_thinking_phase) { |*| }
       @chat.define_singleton_method(:answer_relevance) { |*args, **options| true }

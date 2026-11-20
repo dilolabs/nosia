@@ -1,6 +1,12 @@
 <%# locals: (mcp_server:) %>
-<%= form_with model: mcp_form_model(mcp_server), class: "n-mcp-form-sections", data: { mcp_form: true, controller: "mcp-form form-errors html-form mcp-secrets", action: "click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML turbo:before-cache@document->mcp-secrets#clear" } do |f| %>
+<%= form_with model: mcp_form_model(mcp_server), class: "n-mcp-form-sections", data: { mcp_form: true, controller: "mcp-form form-errors html-form mcp-secrets", action: "change->mcp-form#toggleFields click->form-errors#focusField invalid->form-errors#revealInvalid:capture turbo:before-fetch-request->html-form#requestHTML turbo:before-cache@document->mcp-secrets#clear" } do |f| %>
   <%= render "mcp_workspace/errors", record: mcp_server %>
+  <% if mcp_server.persisted? %>
+    <%= f.hidden_field :editing_connection_revision, value: @editing_connection_revision || mcp_server.workspace_connection_revision %>
+  <% end %>
+  <% if mcp_server.persisted? && !mcp_server.local? %>
+    <%= f.hidden_field :editing_auth_mode, value: @editing_auth_mode || mcp_server.auth_mode_in_database %>
+  <% end %>
   <section class="n-workspace-panel space-y-4">
     <h2 class="n-workspace-section-title"><%= t("nosia.mcp.configuration") %></h2>
     <%= render "mcp_workspace/field", form: f, attribute: :name, label: t("nosia.mcp.name"), required: true %>
@@ -8,13 +14,19 @@
       <%= f.hidden_field :transport_type, value: "local" %>
       <p class="n-workspace-help"><%= t("nosia.mcp_workspace.local_transport_fixed") %></p>
     <% else %>
-      <% choices = %w[streamable sse stdio].map { |value| [ t("nosia.mcp.transport.#{value}"), value, { disabled: value == "stdio" && !McpServer.stdio_enabled? && mcp_server.transport_type != "stdio" } ] } %>
+      <% transports = mcp_server.saved_legacy_sse? ? %w[streamable sse stdio] : %w[streamable stdio] %>
+      <% choices = transports.map { |value| [ t("nosia.mcp.transport.#{value}"), value, { disabled: value == "stdio" && !McpServer.stdio_enabled? && mcp_server.transport_type != "stdio" } ] } %>
       <%= render "mcp_workspace/field", form: f, attribute: :transport_type, label: t("nosia.mcp.connection_type"), type: :select, choices: choices, required: true %>
       <% unless McpServer.stdio_enabled? %>
         <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
       <% end %>
       <div data-mcp-form-target="httpFields">
         <%= render "mcp_workspace/field", form: f, attribute: :endpoint, label: t("nosia.mcp.url"), conditional_required: true %>
+      </div>
+      <div>
+        <%= render "mcp_workspace/field", form: f, attribute: :auth_mode, label: mcp_oauth_text(:mode),
+          type: :select, choices: [[mcp_oauth_text(:static), "static"], [mcp_oauth_text(:oauth), "oauth"]] %>
+        <p class="n-workspace-help"><%= mcp_oauth_text(:mode_help) %></p>
       </div>
       <div class="space-y-4" data-mcp-form-target="stdioFields">
         <%= render "mcp_workspace/field", form: f, attribute: :command, label: t("nosia.mcp.command") %>
@@ -23,10 +35,18 @@
     <% end %>
   </section>
 
-  <% fields = mcp_server.workspace_configuration_fields %>
+  <% fields = mcp_server.workspace_configuration_fields(auth_mode: "static") %>
   <% engine = mcp_server.metadata&.[]("engine") if mcp_server.local? %>
-  <% if fields.any? %>
-    <%= tag.section class: "n-workspace-panel space-y-4", data: (mcp_server.local? ? {} : { mcp_form_target: "httpFields" }) do %>
+  <% if mcp_server.oauth? && fields.any? %>
+    <details class="n-workspace-panel" data-mcp-form-target="staticFields">
+      <summary><%= mcp_oauth_text(:static_credentials) %></summary>
+      <div class="space-y-4">
+        <p class="n-workspace-help"><%= mcp_oauth_text(:static_credentials_help) %></p>
+        <%= render "mcp_catalog/fields", fields: fields, values: {}, record: mcp_server, catalog: false %>
+      </div>
+    </details>
+  <% elsif fields.any? %>
+    <%= tag.section class: "n-workspace-panel space-y-4", data: (mcp_server.local? ? {} : { mcp_form_target: "staticFields" }) do %>
       <h2 class="n-workspace-section-title"><%= t(mcp_server.local? ? "nosia.mcp_workspace.authentication" : "nosia.mcp.authentication") %></h2>
       <%= render "mcp_catalog/fields", fields: fields, values: mcp_server.workspace_public_values, record: mcp_server, catalog: false, template: (McpCatalog.find(engine) if mcp_server.local?) %>
     <% end %>

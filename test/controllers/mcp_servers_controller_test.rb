@@ -1,6 +1,10 @@
 require "test_helper"
+require_relative "../support/chat_account_fixtures"
+require_relative "../support/native_mcp_wire"
 
 class McpServersControllerTest < ActionDispatch::IntegrationTest
+  include ChatAccountFixtures
+
   class EndpointTool < MCP::Tool
     tool_name "endpoint_demo"
     description "keyword endpoint regression"
@@ -8,20 +12,6 @@ class McpServersControllerTest < ActionDispatch::IntegrationTest
 
     def self.call(query:, options: {}, server_context:)
       MCP::Tool::Response.new([ { type: "text", text: "#{query} page=#{options['page']} authorized=#{server_context[:api_key] == 'fake-key'}" } ])
-    end
-  end
-
-  class RemoteAdapter
-    attr_reader :calls
-
-    def initialize(result)
-      @result = result
-      @calls = []
-    end
-
-    def execute_tool(**arguments)
-      @calls << arguments
-      RubyLLM::MCP::Result.new({ "result" => @result })
     end
   end
 
@@ -135,14 +125,14 @@ class McpServersControllerTest < ActionDispatch::IntegrationTest
       if mode == "structured"
         result["structuredContent"] = { "count" => 3 }
       end
-      with_remote_tool_server(result) do |server, adapter|
+      with_remote_tool_server(result) do |server, wire|
         # The model/LLM boundary must keep real attachments, not JSON hashes.
-        model_result = server.execute_tool("remote_binary", { "query" => "opaque query" })
+        model_result = server.execute_tool("lookup", { "query" => "opaque query" })
         assert_equal true, model_result.fetch(:success)
         attachments = model_result.fetch(:result).grep(RubyLLM::Attachment)
         assert_equal [ png, audio ], attachments.map(&:content)
 
-        post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "remote_binary", arguments: { query: "opaque query" } }
+        post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup", arguments: { query: "opaque query" } }
         assert_response :success
         body = response.parsed_body
         assert_equal true, body.fetch("success")
@@ -155,54 +145,116 @@ class McpServersControllerTest < ActionDispatch::IntegrationTest
         assert_equal [ "image", "audio" ], content.drop(1).map { |file| file.fetch("type") }
         assert_equal [ "image/png", "audio/wav" ], content.drop(1).map { |file| file.fetch("mimeType") }
         assert_equal [ png, audio ], content.drop(1).map { |file| Base64.strict_decode64(file.fetch("data")) }
+        assert_equal %w[image.png audio], content.drop(1).pluck("filename")
         content.drop(1).each do |file|
-          assert_equal "mcp-attachment", file.fetch("filename")
           assert_equal %w[data filename mimeType type], file.keys.sort
         end
         assert_not_includes response.body, "StringIO"
-        assert_equal [ { name: "remote_binary", parameters: { query: "opaque query" } } ] * 2, adapter.calls
+        assert_equal %w[server/discover tools/list tools/call] * 2, wire.methods_requested
+        assert_equal "lookup", wire.last_tool_call.fetch("name")
+        assert_equal({ "query" => "opaque query" }, wire.last_tool_call.fetch("arguments"))
       end
     end
   end
 
   test "execute_tool keeps remote error hash semantics in JSON" do
-    with_remote_tool_server({ "content" => [ { "type" => "text", "text" => "failed" } ], "isError" => true }) do |server, _adapter|
-      post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "remote_binary", arguments: { query: "opaque" } }
+    with_remote_tool_server({ "content" => [ { "type" => "text", "text" => "failed" } ], "isError" => true }) do |server, _wire|
+      post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup", arguments: { query: "opaque" } }
       assert_response :success
       assert_equal({ "success" => true, "result" => { "error" => "Tool execution error: failed" } }, response.parsed_body)
     end
   end
 
+  [ 200, 201 ].product([ false, true ]).each do |status, stream|
+    test "execute_tool keeps a sanitized nested error for HTTP #{status} JSON-RPC errors#{' in SSE' if stream}" do
+      with_remote_tool_server({}) do |server, wire|
+        wire.fail_method = "tools/call"
+        wire.failure_status = status
+        wire.stream = stream
+        post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
+
+        assert_response :success
+        assert_equal({ "success" => true, "result" => { "error" => "Tool execution error: The MCP server rejected the tool call" } }, response.parsed_body)
+        refute_includes response.body, NativeMcpWire::PRIVATE_MARKER
+        assert_equal %w[server/discover tools/list tools/call], wire.methods_requested
+      end
+    end
+  end
+
+  test "execute_tool redacts configured secrets from native isError tool results" do
+    result = { "isError" => true, "content" => [ { "type" => "text", "text" => "Rejected #{NativeMcpWire::PRIVATE_MARKER}" } ] }
+    with_remote_tool_server(result) do |server, _wire|
+      server.update!(token: NativeMcpWire::PRIVATE_MARKER)
+      server.update_columns(status: "ready")
+      post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
+
+      assert_response :success
+      assert_equal({ "success" => true, "result" => { "error" => "Tool execution error: Rejected [FILTERED]" } }, response.parsed_body)
+      refute_includes response.body, NativeMcpWire::PRIVATE_MARKER
+    end
+  end
+
+  test "execute_tool uses structured JSON when no attachments accompany it" do
+    with_remote_tool_server({ "content" => [ { "type" => "text", "text" => "less authoritative" } ], "structuredContent" => { "count" => 3 } }) do |server, _wire|
+      post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
+      assert_response :success
+      assert_equal({ "success" => true, "result" => '{"count":3}' }, response.parsed_body)
+    end
+  end
+
+  test "execute_tool falls back to a neutral filename for a binary attachment without one" do
+    with_remote_tool_server({ "content" => [] }) do |server, _wire|
+      client = Object.new
+      client.define_singleton_method(:call) do |*|
+        RubyLLM::Attachment.new(StringIO.new("fixture bytes"), filename: "", mime_type: "application/pdf")
+      end
+      client.define_singleton_method(:close) { }
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { client }) do
+        post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "lookup" }
+      end
+      assert_response :success
+      assert_equal({ "type" => "pdf", "data" => Base64.strict_encode64("fixture bytes"),
+        "mimeType" => "application/pdf", "filename" => "mcp-attachment" }, response.parsed_body.fetch("result"))
+    end
+  end
+
   test "execute_tool never introspects unsupported IO values for JSON" do
-    with_remote_tool_server({ "content" => [] }) do |server, _adapter, client|
+    with_remote_tool_server({ "content" => [] }) do |server, _wire|
       io = StringIO.new("not JSON content")
       serialized = false
       io.define_singleton_method(:as_json) { |*| serialized = true; { internals: "must not be serialized" } }
-      tool = RubyLLM::Tool.new
-      tool.define_singleton_method(:name) { "unsupported_io" }
-      tool.define_singleton_method(:execute) { { nested: [ io ] } }
-      client.tools << tool
-
-      assert_raises(TypeError) do
-        post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "unsupported_io", arguments: {} }
+      client = Object.new
+      client.define_singleton_method(:call) { |*| { nested: [ io ] } }
+      client.define_singleton_method(:close) { }
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { client }) do
+        assert_raises(TypeError) do
+          post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "unsupported_io", arguments: {} }
+        end
       end
       assert_not serialized
     end
   end
 
+  test "execute_tool rejects unsupported object keys without converting them to strings" do
+    with_remote_tool_server({ "content" => [] }) do |server, _wire|
+      key = Object.new
+      key.define_singleton_method(:to_s) { raise Minitest::Assertion, "JSON inspected an unsupported key" }
+      client = Object.new
+      client.define_singleton_method(:call) { |*| { key => true } }
+      client.define_singleton_method(:close) { }
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { client }) do
+        assert_raises(TypeError) do
+          post execute_tool_mcp_server_url(server), as: :json, params: { tool_name: "unsupported_key" }
+        end
+      end
+    end
+  end
+
   private
     def with_remote_tool_server(result)
-      stub_url_resolver([ "93.184.216.34" ])
-      server = @account.mcp_servers.create!(name: "Remote binary", transport_type: "streamable", status: "ready", endpoint: "https://mcp.example.com/mcp")
-      adapter = RemoteAdapter.new(result)
-      tool = RubyLLM::MCP::Tool.new(adapter, { "name" => "remote_binary", "inputSchema" => {
-        "type" => "object", "properties" => { "query" => { "type" => "string" } }, "required" => [ "query" ]
-      } })
-      client = Struct.new(:tools).new([ tool ])
-      original_client = RubyLLM::MCP.method(:client)
-      RubyLLM::MCP.define_singleton_method(:client) { |**_| client }
-      yield server, adapter, client
-    ensure
-      RubyLLM::MCP.define_singleton_method(:client, original_client) if original_client
+      server = @account.mcp_servers.create!(name: "Remote binary", transport_type: "streamable", status: "ready", endpoint: NativeMcpWire::URL)
+      wire = NativeMcpWire.new
+      wire.tool_result = result
+      wire.install(self) { yield server, wire }
     end
 end

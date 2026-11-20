@@ -80,10 +80,12 @@ class ChatAccountToolsTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     session = chat.chat_mcp_sessions.find_by!(mcp_server: tool)
-    assert_select "turbo-stream[action=replace][method=morph][target=?]", dom_id(tool, :chat_mcp_option) do
-      assert_select "template input[type=checkbox][checked]"
+    assert_select "turbo-stream[action=update][method=morph][target=chat-mcp-selector]" do
+      assert_select "template .n-composer-tools-panel", count: 0
+      assert_select "template label[id=?] input[type=checkbox][checked]", dom_id(tool, :chat_mcp_option)
     end
-    assert_select "turbo-stream[target=?] template form[action=?]", dom_id(tool, :chat_mcp_form), chat_mcp_session_path(chat, session)
+    assert_select "turbo-stream[target=chat-mcp-forms] template form[id=?][action=?]",
+      dom_id(tool, :chat_mcp_form), chat_mcp_session_path(chat, session)
     assert_select "turbo-stream[action=update][target=mcp-selected-count] template", text: "1"
   end
 
@@ -95,10 +97,11 @@ class ChatAccountToolsTest < ActionDispatch::IntegrationTest
     delete chat_mcp_session_url(chat, session), as: :turbo_stream
 
     assert_response :success
-    assert_select "turbo-stream[action=replace][method=morph][target=?]", dom_id(tool, :chat_mcp_option) do
-      assert_select "template input[type=checkbox]:not([checked])"
+    assert_select "turbo-stream[action=update][method=morph][target=chat-mcp-selector]" do
+      assert_select "template label[id=?] input[type=checkbox]:not([checked])", dom_id(tool, :chat_mcp_option)
     end
-    assert_select "turbo-stream[target=?] template form[action=?]", dom_id(tool, :chat_mcp_form), chat_mcp_sessions_path(chat, mcp_server_id: tool.id)
+    assert_select "turbo-stream[target=chat-mcp-forms] template form[id=?][action=?]",
+      dom_id(tool, :chat_mcp_form), chat_mcp_sessions_path(chat, mcp_server_id: tool.id)
     assert_select "turbo-stream[action=update][target=mcp-selected-count] template", text: "0"
     assert_not chat.chat_mcp_sessions.exists?(session.id)
   end

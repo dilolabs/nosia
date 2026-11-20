@@ -1,0 +1,5 @@
+<% %w[alice bob].each do |name| %>
+oauth_<%= name %>:
+  email: <%= User.type_for_attribute("email").serialize("oauth-#{name}@example.test").to_json %>
+  password_digest: <%= BCrypt::Password.create("fixture-password", cost: BCrypt::Engine::MIN_COST).to_json %>
+<% end %>

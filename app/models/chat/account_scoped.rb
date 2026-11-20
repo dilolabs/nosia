@@ -23,13 +23,13 @@ module Chat::AccountScoped
   def selected_mcp_servers(ids)
     requested = normalized_source_ids(ids)
 
-    ActsAsTenant.with_tenant(account) do
-      servers = account.mcp_servers.where(id: requested).to_a
-      if servers.map { |server| server.id.to_s }.sort != requested.sort
-        raise ActiveRecord::RecordNotFound
-      end
-      servers
+    # Static submissions historically accepted enabled, untested connectors;
+    # only ready static connectors appear in the selector or a model turn.
+    servers = chat_mcp_connections(ids: requested, include_unready_static: true).keys
+    if servers.map { |server| server.id.to_s }.sort != requested.sort
+      raise ActiveRecord::RecordNotFound
     end
+    servers
   end
 
   private

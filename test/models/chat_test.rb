@@ -141,8 +141,13 @@ class ChatTest < ActiveSupport::TestCase
     caller.attachments.attach(io: StringIO.new("saved"), filename: "saved.txt", content_type: "text/plain")
     attachment_id = caller.attachments.first.id
     call = caller.ruby_llm_tool_calls.create!(tool_call_id: "call_destroy", name: "search", arguments: {}, result: result)
+    @chat.ruby_llm_usages.load
     provider_usage = caller.ruby_llm_usages.create!(chat: @chat, operation: "chat", provider: "openai", model: "test-model", status: "succeeded", input_tokens: 8)
+    chat_only_usage = RubyLLM::ActiveRecord::Usage.create!(chat: @chat, operation: "chat", provider: "openai", model: "test-model", status: "failed")
     usage = TokenUsage.create!(account: @account, chat: @chat, source: caller, kind: :completion, input_tokens: 8, output_tokens: 0)
+    other_chat = @account.chats.create!(user: @chat.user, model: "test-model", provider: :openai, assume_model_exists: true)
+    other_usage = other_chat.ruby_llm_usages.create!(operation: "chat", provider: "openai", model: "test-model", status: "succeeded")
+    unlinked_usage = RubyLLM::ActiveRecord::Usage.create!(operation: "embedding", provider: "openai", model: "test-embedding", status: "succeeded")
 
     @chat.destroy!
 
@@ -150,8 +155,11 @@ class ChatTest < ActiveSupport::TestCase
     assert_not Message.exists?(result.id)
     assert_not RubyLLM::ActiveRecord::ToolCall.exists?(call.id)
     assert_not RubyLLM::ActiveRecord::Usage.exists?(provider_usage.id)
+    assert_not RubyLLM::ActiveRecord::Usage.exists?(chat_only_usage.id)
     assert_not TokenUsage.exists?(usage.id)
     assert_not ActiveStorage::Attachment.exists?(attachment_id)
+    assert_equal other_chat, other_usage.reload.chat
+    assert_nil unlinked_usage.reload.chat
   end
 
   # finish_generation! runs inside ChatResponseJob, which has no Current.session

@@ -399,24 +399,17 @@ The Model Context Protocol is an open protocol that standardizes how application
 - **Use Prompts** - Leverage pre-configured prompt templates
 - **Extend Capabilities** - Add custom functionality without modifying core code
 
-#### Using MCP Servers
+#### Using Catalog Servers
 
-1. **Navigate to MCP Settings** in the web interface
-2. **Browse the MCP Catalog** - Pre-configured servers for popular services:
-   - **Productivity**: Infomaniak Calendar, kDrive file storage
-   - **Communication**: kChat messaging
-   - **And more** - Extensible catalog of integrations
+The bundled catalog entries, including Infomaniak Calendar and kChat, use
+STDIO with static credentials. They require local-process connections to be
+enabled on the deployment.
 
-3. **Activate an MCP Server**:
-   - Click on a server from the catalog
-   - Provide required configuration (API keys, tokens)
-   - Test the connection
-   - Enable it for your chats
-
-4. **Add MCP to Chat**:
-   - Open or create a chat session
-   - Select which MCP servers to use
-   - The AI can now use tools from connected servers
+1. In the MCP workspace, open **Browse catalog** and choose a server.
+2. Enter the required settings and credentials, then save. On the server’s
+   details page, select **Test connection**.
+3. Turn on **Enabled for conversations**, then select the connector in the
+   chat’s **Tools** menu.
 
 #### Example: Using Calendar MCP
 
@@ -448,22 +441,23 @@ When MCP servers are enabled, the AI can:
 
 #### Custom MCP Servers
 
-Beyond the catalog, you can add custom MCP servers:
+**OAuth:** In the MCP workspace, select **Add custom server**, choose
+**Streamable HTTP** as the transport and **OAuth** as the authentication mode.
+Enter the compatible provider’s public HTTPS endpoint and save. On the
+connector’s details page, each member selects **Authorize with OAuth** and
+[completes their own consent](docs/mcp-workspace.md#connect-with-oauth).
+No separate connection test is required after consent.
 
-1. **Navigate to MCP Settings** → **Custom Servers**
-2. **Choose transport type**:
-   - **stdio** - Local processes (NPX, Python scripts)
-   - **SSE** - Server-sent events over HTTP
-   - **HTTP** - Standard HTTP endpoints
+**Static credentials:** Select **Add custom server** and choose **Streamable
+HTTP** for a remote endpoint or **STDIO** for an enabled local process.
+Enter the endpoint or command and any required credentials, save, and use
+**Test connection** with the saved configuration.
 
-3. **Configure connection**:
-   - Provide endpoint or command
-   - Add authentication credentials
-   - Test connection
+For either mode, turn on **Enabled for conversations** and select the connector
+in the chat’s **Tools** menu.
 
-4. **Use in chats** - Enable the custom server for your conversations
-
-**Test connection** uses the saved server configuration. Save any edits first. While the test runs, the button shows a busy state; the server page then displays the result, response time, or error details with troubleshooting guidance.
+Legacy SSE is no longer offered for new connections. See how to
+[migrate a legacy SSE connector](docs/mcp-workspace.md#migrate-a-legacy-sse-connector).
 
 For more details on MCP integration, see the [MCP Documentation](https://modelcontextprotocol.io/).
 
@@ -499,6 +493,10 @@ docker compose down -v
 ```
 
 ### Upgrade
+
+**Upgrading an existing RubyLLM 2.0 installation to 2.2 with MCP OAuth?**
+Use the [MCP OAuth upgrade and rollback procedure](docs/DEPLOYMENT.md#rubyllm-22-and-mcp-oauth-upgrade)
+instead of the routine restart below.
 
 **Upgrading from RubyLLM 1.x to 2.0?** Follow the
 [RubyLLM 2.0 operator runbook](docs/upgrades/ruby-llm-2-deployment.md) and its

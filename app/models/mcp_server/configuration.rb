@@ -2,15 +2,23 @@
 module McpServer::Configuration
   extend ActiveSupport::Concern
 
+  WORKSPACE_ATTRIBUTES = %w[name transport_type endpoint enabled notes tags command args auth_mode].freeze
+
   included { validate :validate_workspace_configuration }
 
+  # @param auth_mode [String] Saved or proposed mode
+  # @param transport_type [String] Saved or proposed transport
   # @return [Array<Hash>] Declared fields; never inferred from encrypted keys
-  def workspace_configuration_fields
-    if local?
+  def workspace_configuration_fields(auth_mode: self.auth_mode, transport_type: self.transport_type)
+    return [] unless auth_mode == "static"
+
+    if transport_type == "local"
       Array(Engines::Registry[metadata&.[]("engine")]&.required_config).map(&:deep_symbolize_keys)
-    else
+    elsif %w[streamable sse stdio].include?(transport_type)
       [ { name: "token", label: I18n.t("nosia.mcp.bearer_token"), type: "secret" },
         { name: "api_key", label: I18n.t("nosia.mcp.api_key"), type: "secret" } ]
+    else
+      []
     end
   end
 
@@ -24,22 +32,41 @@ module McpServer::Configuration
   # @return [Boolean] Whether the value must never be repopulated
   def secret_configuration_field?(field) = %w[secret password].include?(field[:type].to_s)
 
+  # @return [String] Opaque revision of what the form displays. Editing the
+  # raw endpoint can stale a form even when an override keeps the live URL.
+  # Only the HMAC is sent to the browser; an endpoint can contain a secret.
+  def workspace_connection_revision
+    snapshot = [ account_id_in_database, id, connection_revision_in_database, endpoint_in_database ]
+    key = Rails.application.key_generator.generate_key("MCP workspace form revision")
+    OpenSSL::HMAC.hexdigest("SHA256", key, snapshot.to_json)
+  end
+
   # Saves declared edits and retires matching header copies when credentials change.
   # @param attributes [Hash] Whitelisted ordinary model attributes
   # @param values [Hash] Whitelisted declared configuration inputs
   # @param removals [Array<String>] Explicit saved-secret removals
+  # @param editing_auth_mode [String, nil] Optional saved mode from the rendered editor
+  # @param editing_connection_revision [String, nil] Opaque revision from the rendered editor
   # @return [Boolean] Whether this complete edit was valid and saved
-  def save_workspace(attributes, values:, removals: [])
-    attrs = attributes.to_h.stringify_keys
+  def save_workspace(attributes, values:, removals: [], editing_auth_mode: nil, editing_connection_revision: nil)
+    attrs = attributes.to_h.stringify_keys.slice(*WORKSPACE_ATTRIBUTES)
+    @workspace_editing_auth_mode = editing_auth_mode
+    @workspace_editing_connection_revision = editing_connection_revision
     @workspace_configuration_errors = []
     if persisted? && local? && attrs.key?("transport_type") && attrs["transport_type"] != "local"
       @workspace_configuration_errors << [ :transport_type, I18n.t("nosia.mcp_workspace.local_transport_fixed") ]
       attrs.delete("transport_type")
     end
+    filter_workspace_transport_fields(attrs)
     if attrs["args"].is_a?(String)
       attrs["args"] = attrs["args"] == Array(args).join("\n") ? args : (attrs["args"].empty? ? [] : attrs["args"].lines(chomp: true))
     end
+    if (oauth? || attrs["auth_mode"] == "oauth") && attrs.key?("endpoint") && attrs["endpoint"] != endpoint && url
+      self.url = nil
+    end
     assign_attributes(attrs)
+    return save if oauth?
+
     config = (auth_config || {}).deep_dup
     incoming = values.stringify_keys
     @workspace_public_values = {}
@@ -62,9 +89,22 @@ module McpServer::Configuration
     save
   ensure
     @workspace_configuration_errors = nil
+    @workspace_editing_auth_mode = nil
+    @workspace_editing_connection_revision = nil
   end
 
   private
+    def filter_workspace_transport_fields(attributes)
+      case attributes.fetch("transport_type", transport_type)
+      when "streamable", "sse"
+        attributes.except!("command", "args")
+      when "stdio"
+        attributes.delete("endpoint")
+      else
+        attributes.except!("endpoint", "command", "args")
+      end
+    end
+
     def remove_workspace_credential_header(key, value)
       return if value.blank? || local?
 
@@ -72,8 +112,8 @@ module McpServer::Configuration
       when "token" then [ "Authorization", "Bearer #{value}" ]
       when "api_key" then [ "X-API-Key", value ]
       end
-      if header && headers&.[](header) == expected
-        self.headers = headers.except(header)
+      if header && headers
+        self.headers = headers.reject { |key, value| key.to_s.casecmp?(header) && value == expected }
       end
     end
 

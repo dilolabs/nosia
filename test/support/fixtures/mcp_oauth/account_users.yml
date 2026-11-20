@@ -1,0 +1,9 @@
+oauth_team_alice:
+  account: oauth_team
+  user: oauth_alice
+oauth_team_bob:
+  account: oauth_team
+  user: oauth_bob
+oauth_other_alice:
+  account: oauth_other
+  user: oauth_alice

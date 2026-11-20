@@ -1,0 +1,6 @@
+oauth_team:
+  name: OAuth team
+  owner: oauth_alice
+oauth_other:
+  name: Other OAuth team
+  owner: oauth_alice

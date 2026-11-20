@@ -1,12 +1,21 @@
-<%# locals: (chat:, servers:, sessions:) %>
-<div class="n-composer-tools-panel" data-controller="mcp-selection">
-  <p class="n-composer-tools-heading"><%= t("nosia.chat.connected_tools") %></p>
-  <% if servers.any? %>
-    <% servers.each do |server| %>
-      <%= render "chats/mcp_option", chat: chat, server: server, session: sessions[server.id] %>
-    <% end %>
-  <% else %>
-    <p class="n-composer-tools-heading"><%= t("nosia.chat.no_ready_servers") %></p>
-    <%= link_to t("nosia.chat.configure_server"), account_mcp_servers_path(chat.account), class: "n-composer-control" %>
+<%# locals: (chat:, selection:) %>
+<% servers = selection.fetch(:servers) %>
+<% sessions = selection.fetch(:sessions) %>
+<% unavailable = selection.fetch(:unavailable) %>
+<p class="n-composer-tools-heading"><%= t("nosia.chat.connected_tools") %></p>
+<% if servers.any? %>
+  <% servers.each do |server| %>
+    <%= render "chats/mcp_option", chat: chat, server: server, session: sessions[server.id] %>
   <% end %>
-</div>
+<% else %>
+  <p class="n-composer-tools-heading"><%= t("nosia.chat.no_ready_servers") %></p>
+  <%= link_to t("nosia.chat.configure_server"), account_mcp_servers_path(chat.account), class: "n-composer-control" %>
+<% end %>
+<% if unavailable.any? %>
+  <div id="chat-mcp-unavailable">
+    <p class="n-composer-tools-heading"><%= t("nosia.chat.unavailable_tools") %></p>
+    <% unavailable.each_value do |session| %>
+      <%= render "chats/mcp_option", chat: chat, server: session.mcp_server, session: session, unavailable: true %>
+    <% end %>
+  </div>
+<% end %>

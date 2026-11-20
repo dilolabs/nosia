@@ -1,6 +1,7 @@
 class McpServer < ApplicationRecord
   include Configuration
   include CapabilitySnapshot
+  include Authorization
 
   acts_as_tenant :account
   belongs_to :account
@@ -9,9 +10,11 @@ class McpServer < ApplicationRecord
   # Validations
   validates :name, presence: true, uniqueness: { scope: :account_id }
   validates :transport_type, presence: true, inclusion: { in: %w[stdio streamable sse local] }
-  validates :endpoint, presence: true, if: -> { %w[streamable sse].include?(transport_type) }
-  validate :endpoint_must_be_publicly_routable, if: -> { %w[streamable sse].include?(transport_type) }
+  validates :endpoint, presence: true, if: -> { transport_type == "streamable" && !oauth? }
+  validate :supported_transport
+  validate :validate_streamable_endpoint, if: -> { transport_type == "streamable" }
   validate :stdio_transport_enabled_for_deployment, if: -> { transport_type == "stdio" }
+  validate :validate_stdio_executable, if: -> { transport_type == "stdio" }
 
   # Enums
   enum :status, {
@@ -24,7 +27,7 @@ class McpServer < ApplicationRecord
 
   # Scopes
   scope :enabled, -> { where(enabled: true) }
-  scope :ready, -> { where(status: "ready") }
+  scope :ready, -> { where(status: "ready", transport_type: stdio_enabled? ? %w[streamable local stdio] : %w[streamable local]) }
   scope :with_errors, -> { where(status: "error") }
 
   # Store accessors for JSONB fields
@@ -34,13 +37,13 @@ class McpServer < ApplicationRecord
 
   # Callbacks
   before_validation :set_default_status
+  before_validation :retire_legacy_sse_override
 
   # Encrypt sensitive fields
   encrypts :auth_config, :connection_config
 
-  def local?
-    transport_type == "local"
-  end
+  STDIO_EXECUTABLE = %r{\A[a-zA-Z0-9_./+-]+\z}
+  STATIC_CONNECTION_FIELDS = %w[connection_revision transport_type effective_endpoint auth_config].freeze
 
   # Spawning local processes from user-supplied commands is opt-in per
   # deployment: multi-tenant hosts keep MCP_STDIO_ENABLED unset.
@@ -48,170 +51,169 @@ class McpServer < ApplicationRecord
     ActiveModel::Type::Boolean.new.cast(ENV["MCP_STDIO_ENABLED"])
   end
 
-  # @return [RubyLLM::MCP::Client, nil] Client unless local or blocked by deployment
-  def client
-    return nil if local? || (transport_type == "stdio" && !self.class.stdio_enabled?)
+  def local? = transport_type == "local"
+  def legacy_sse? = transport_type == "sse"
+  def saved_legacy_sse? = attribute_in_database("transport_type") == "sse" && persisted?
+  def stdio_executable? = command.is_a?(String) && STDIO_EXECUTABLE.match?(command)
+  def effective_endpoint = url || endpoint
 
-    @client ||= begin
-      config = build_client_config
-      RubyLLM::MCP.client(
-        name: name,
-        transport_type: transport_type.to_sym,
-        config: config
-      )
+  def ready_for_tools? = !oauth? && status_ready? && !legacy_sse? && !stdio_disabled?
+
+  # @return [Hash] A fresh set of headers with explicit static credentials taking precedence
+  def static_headers
+    saved = (headers || {}).deep_dup
+    header, value = if token.present?
+      [ "Authorization", "Bearer #{token}" ]
+    elsif api_key.present?
+      [ "X-API-Key", api_key ]
     end
-  rescue => e
-    Rails.logger.error "Failed to create MCP client for #{name}: #{e.message}"
-    nil
+    if header
+      saved.reject! { |key, _| key.to_s.casecmp?(header) }
+      saved[header] = value
+    end
+    saved
+  end
+
+  # @return [McpServer::Client, nil] A fresh client, owned and closed by the caller
+  def client
+    Client.new(self) if auth_mode == "static" && %w[streamable stdio].include?(transport_type) && !stdio_disabled?
+  end
+
+  # Runs one workspace operation and closes its connection, even on failure.
+  # @yieldparam connection [McpServer::Client]
+  def with_client
+    connection = client
+    yield connection if connection
+  ensure
+    connection&.close
   end
 
   # Tests the saved connection without running deployment-disabled processes.
   # @return [Boolean] Whether the connection succeeded
   def test_connection!
-    return false if transport_type == "stdio" && !self.class.stdio_enabled?
-    return test_local_connection! if local?
+    return false if oauth? || legacy_sse? || stdio_disabled?
 
     start_time = Time.current
-    update!(status: "connecting", last_error: nil)
+    attempt = begin_static_connection_test
+    return false unless attempt
+    return test_local_connection(attempt, start_time) if local?
 
-    begin
-      # Initialize client
-      mcp_client = client
-      return false unless mcp_client
+    tools = with_client(&:tools)
+    return false unless tools
 
-      # List tools to verify connection
-      tools = mcp_client.tools
-
-      latency = ((Time.current - start_time) * 1000).to_i
-
-      update!(
-        status: "ready",
-        last_connected_at: Time.current,
-        latency_ms: latency,
-        last_error: nil,
-        metadata: metadata.merge(
-          tools_cache: tools.map { |t| { name: t.name, description: t.description } },
-          last_test_at: Time.current.iso8601
-        )
-      )
-
-      true
-    rescue => e
-      update!(
-        status: "error",
-        last_error: e.message,
-        metadata: metadata.merge(last_test_at: Time.current.iso8601)
-      )
-      false
-    end
+    details = { "tools_cache" => tools.map { |tool| { name: tool.server_name, description: tool.description } } }
+    record_static_test(attempt, successful_connection_diagnostics(start_time), details)
+  rescue Client::Error
+    record_static_test(attempt, status: "error", last_error: I18n.t("nosia.mcp_workspace.remote_failure"))
+    false
   end
 
-  # Get available tools
+  # Lists tool metadata. To invoke a remote tool, use #execute_tool or #with_client.
   def tools
-    return [] unless status_ready?
+    return [] unless ready_for_tools?
 
     return local_tools if local?
 
-    begin
-      client&.tools || []
-    rescue => e
-      Rails.logger.error "Failed to fetch tools from #{name}: #{e.message}"
-      []
-    end
+    capability_snapshot.fetch(:tools).items
   end
 
-  # Get available prompts
+  # Lists prompt metadata without fetching messages.
   def prompts
-    return [] unless status_ready?
-
-    begin
-      client&.prompts || []
-    rescue => e
-      Rails.logger.error "Failed to fetch prompts from #{name}: #{e.message}"
-      []
-    end
+    capability_snapshot.fetch(:prompts).items
   end
 
-  # Get available resources
+  # Lists resource metadata without reading contents.
   def resources
-    return [] unless status_ready?
-
-    begin
-      client&.resources || []
-    rescue => e
-      Rails.logger.error "Failed to fetch resources from #{name}: #{e.message}"
-      []
-    end
+    capability_snapshot.fetch(:resources).items
   end
 
   # Execute a ready server's tool through RubyLLM's keyword interface.
   # @param tool_name [String] registered tool name
   # @param arguments [Hash] JSON object, never attachment paths or model attributes
+  # @param user [User, nil] Explicit acting member for OAuth
   # @return [Hash] success/result or the existing error wrapper
-  def execute_tool(tool_name, arguments = {})
-    return { error: I18n.t("nosia.mcp.not_ready") } unless status_ready?
+  # @raise [McpServer::Client::Error] Sanitized OAuth failure; caller localizes by type
+  def execute_tool(tool_name, arguments = {}, user: nil)
+    return execute_oauth_tool(tool_name, arguments, user) if oauth?
+    return { error: I18n.t("nosia.mcp.not_ready") } unless ready_for_tools?
 
-    begin
-      tool = tools.find { |t| t.name == tool_name }
-      return { error: I18n.t("nosia.mcp.tool_not_found", name: tool_name) } unless tool
+    arguments = arguments.to_h.transform_keys(&:to_s)
+    result = if local?
+      tool = local_tools.find { |entry| entry.name == tool_name }
+      tool ? tool.call(**arguments) : :missing_tool
+    else
+      with_client { |connection| connection.call(tool_name, arguments) }
+    end
+    tool_execution_result(tool_name, result)
+  rescue Client::Error
+    raise if oauth?
 
-      result = tool.call(**arguments.to_h.transform_keys(&:to_s))
-      { success: true, result: result }
-    rescue => e
-      { error: e.message }
+    { error: I18n.t("nosia.mcp_workspace.remote_failure") }
+  end
+
+  # The legacy action must not retire another member's authorization.
+  def disconnect!(user: nil)
+    if oauth?
+      if user
+        Account.transaction do
+          Account.lock.find(account_id)
+          oauth_grant_for(user)&.retire!
+        end
+      end
+    elsif !legacy_sse?
+      with_saved_static_connection do |saved|
+        write_static_diagnostics(saved, status: "disconnected", connection_test_attempt: saved.connection_test_attempt + 1)
+      end
     end
   end
 
-  # Disconnect client
-  def disconnect!
-    @client = nil
-    update!(status: "disconnected")
+  private
+
+  def execute_oauth_tool(tool_name, arguments, user)
+    result = with_authorized_oauth_client(user) { |connection| connection.call(tool_name, arguments.to_h.transform_keys(&:to_s)) }
+    tool_execution_result(tool_name, result)
   end
 
-  private
+  def tool_execution_result(tool_name, result)
+    if result == :missing_tool
+      { error: I18n.t("nosia.mcp.tool_not_found", name: tool_name) }
+    else
+      { success: true, result: result }
+    end
+  end
 
   def set_default_status
     self.status ||= "disconnected"
   end
 
-  def endpoint_must_be_publicly_routable
+  def supported_transport
+    errors.add(:transport_type, :inclusion) if legacy_sse? && !saved_legacy_sse?
+  end
+
+  def retire_legacy_sse_override
+    if saved_legacy_sse? && transport_type == "streamable"
+      self.url = nil
+      self.status = "disconnected"
+    end
+  end
+
+  def validate_streamable_endpoint
     return if endpoint.blank?
 
-    candidate = endpoint.match?(%r{\Ahttps?://}i) ? endpoint : "https://#{endpoint}"
-    errors.add(:endpoint, :public_host_required) unless UrlGuard.safe?(candidate)
+    parsed = McpOutbound.endpoint!(effective_endpoint, https_only: false)
+    McpOutbound.check_literal!(parsed)
+  rescue McpOutbound::Blocked
+    errors.add(:endpoint, :public_host_required)
   end
+
+  def stdio_disabled? = transport_type == "stdio" && !self.class.stdio_enabled?
 
   def stdio_transport_enabled_for_deployment
-    unless self.class.stdio_enabled?
-      errors.add(:transport_type, :stdio_disabled)
-    end
+    errors.add(:transport_type, :stdio_disabled) if stdio_disabled?
   end
 
-  def build_client_config
-    case transport_type
-    when "stdio"
-      {
-        command: command || connection_config["command"],
-        args: args || connection_config["args"] || [],
-        env: env || connection_config["env"] || {}
-      }
-    when "streamable", "sse"
-      config = {
-        url: url || endpoint,
-        headers: headers || connection_config["headers"] || {}
-      }
-
-      # Add auth headers if present
-      if token.present?
-        config[:headers]["Authorization"] = "Bearer #{token}"
-      elsif api_key.present?
-        config[:headers]["X-API-Key"] = api_key
-      end
-
-      config
-    else
-      {}
-    end
+  def validate_stdio_executable
+    errors.add(:command, :invalid) unless stdio_executable?
   end
 
   def local_tools
@@ -230,30 +232,62 @@ class McpServer < ApplicationRecord
     (auth_config || {}).with_indifferent_access
   end
 
-  def test_local_connection!
-    start_time = Time.current
-    update!(status: "connecting", last_error: nil)
-
+  def test_local_connection(attempt, start_time)
     registration = Engines::Registry[metadata["engine"]]
     raise "Unknown engine: #{metadata["engine"]}" unless registration
 
     registration.health_check.call(auth_config_for_tools)
-    latency = ((Time.current - start_time) * 1000).to_i
-    update!(
-      status: "ready",
-      last_connected_at: Time.current,
-      latency_ms: latency,
-      last_error: nil,
-      metadata: metadata.merge(last_test_at: Time.current.iso8601)
-    )
-    true
+    record_static_test(attempt, successful_connection_diagnostics(start_time))
   rescue => e
-    update!(
-      status: "error",
-      last_error: e.message,
-      metadata: metadata.merge(last_test_at: Time.current.iso8601)
-    )
+    record_static_test(attempt, status: "error", last_error: e.message)
     false
+  end
+
+  def successful_connection_diagnostics(start_time)
+    { status: "ready", last_connected_at: Time.current, last_error: nil,
+      latency_ms: ((Time.current - start_time) * 1000).to_i }
+  end
+
+  def begin_static_connection_test
+    with_saved_static_connection do |saved|
+      attempt = saved.connection_test_attempt + 1
+      attempt if saved.update_columns(connection_test_attempt: attempt)
+    end
+  end
+
+  def record_static_test(attempt, diagnostics, details = {})
+    with_saved_static_connection do |saved|
+      next false unless saved.connection_test_attempt == attempt
+
+      metadata = saved.metadata.to_h.merge(details).merge("last_test_at" => Time.current.iso8601)
+      write_static_diagnostics(saved, diagnostics.merge(metadata:))
+    end
+  end
+
+  # Hold only the connector lock, for a short read and write. Configuration
+  # edits can hold the account lock first; never acquire it here or call peers.
+  def with_saved_static_connection
+    self.class.transaction do
+      saved = self.class.unscoped.lock.find_by(id:, account_id:, auth_mode: "static")
+      if saved && saved.slice(*STATIC_CONNECTION_FIELDS) == slice(*STATIC_CONNECTION_FIELDS) &&
+          saved.connection_config.to_h.except("url") == connection_config.to_h.except("url") &&
+          saved.metadata&.[]("engine") == metadata&.[]("engine")
+        yield saved
+      else
+        false
+      end
+    end
+  end
+
+  def write_static_diagnostics(saved, diagnostics)
+    changes = diagnostics.merge(updated_at: Time.current)
+    if saved.update_columns(changes)
+      assign_attributes(saved.reload.slice(*changes.keys))
+      clear_attribute_changes(changes.keys)
+      true
+    else
+      false
+    end
   end
 
   def encrypt_secrets

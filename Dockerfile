@@ -35,7 +35,6 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install application gems
 COPY Gemfile Gemfile.lock ./
-COPY vendor ./vendor
 
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git

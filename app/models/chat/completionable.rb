@@ -17,12 +17,6 @@ module Chat::Completionable
     self.with_provider_options(max_tokens: options[:max_tokens], top_p: options[:top_p], top_k: options[:top_k])
     self.with_temperature(options[:temperature])
 
-    # Add MCP tools if available
-    mcp_tools_list = mcp_tools
-    if mcp_tools_list.any?
-      self.with_tools(*mcp_tools_list)
-    end
-
     # Phase 1: Searching for context (phase broadcast now lives in similarity_search,
     # so both the chat path and the agent-skills path get the Searching -> Retrieving
     # sequence consistently).
@@ -64,18 +58,20 @@ module Chat::Completionable
     if block_given?
       # API/SSE path: yield raw chunks to the caller, no turbo broadcasts.
       # (No stop support: the API has no stop endpoint.)
-      self.complete { |chunk| yield chunk }
+      with_mcp_tools { self.complete { |chunk| yield chunk } }
     else
       # Chat UI path: coalesce deltas and re-render the full buffer as markdown.
       message = nil
       begin
-        self.complete do |chunk|
-          raise Chat::GenerationStopped if self.generation_stopped?
+        with_mcp_tools do
+          self.complete do |chunk|
+            raise Chat::GenerationStopped if self.generation_stopped?
 
-          message ||= self.messages.last
-          if chunk.content && message
-            stream_buffer << chunk.content
-            message.broadcast_streamed_content(stream_buffer.text) if stream_buffer.flush?
+            message ||= self.messages.last
+            if chunk.content && message
+              stream_buffer << chunk.content
+              message.broadcast_streamed_content(stream_buffer.text) if stream_buffer.flush?
+            end
           end
         end
       rescue Chat::GenerationStopped

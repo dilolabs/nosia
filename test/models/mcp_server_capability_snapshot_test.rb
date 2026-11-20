@@ -20,9 +20,11 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
   end
 
   test "ready remote servers with nil metadata keep independent discovery outcomes" do
-    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", status: "ready", metadata: nil)
+    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", metadata: nil)
+    @second_server.update_columns(status: "ready")
     assert_nil @second_server.reload.metadata
     client = Struct.new(:tools, :resources).new([], [])
+    client.define_singleton_method(:close) { }
     client.define_singleton_method(:prompts) { raise "private diagnostic" }
     @second_server.define_singleton_method(:client) { client }
 
@@ -59,12 +61,14 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
   end
 
   test "remote discovery runs once per kind and keeps independent failures distinct" do
-    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", status: "ready")
+    @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp")
+    @second_server.update_columns(status: "ready")
     calls = Hash.new(0)
     client = Object.new
     client.define_singleton_method(:tools) { calls[:tools] += 1; [] }
     client.define_singleton_method(:prompts) { calls[:prompts] += 1; raise "private diagnostic" }
     client.define_singleton_method(:resources) { calls[:resources] += 1; [] }
+    client.define_singleton_method(:close) { calls[:close] += 1 }
     @second_server.define_singleton_method(:client) { client }
     snapshot = @second_server.capability_snapshot
     assert_same snapshot, @second_server.capability_snapshot
@@ -72,7 +76,7 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
     assert_empty snapshot.fetch(:tools).items
     assert_equal :unavailable, snapshot.fetch(:prompts).state
     assert_equal :loaded, snapshot.fetch(:resources).state
-    assert_equal({ tools: 1, prompts: 1, resources: 1 }, calls)
+    assert_equal({ tools: 1, prompts: 1, resources: 1, close: 1 }, calls)
     refute snapshot.fetch(:prompts).to_h.values.join.include?("private diagnostic")
   end
 
@@ -88,17 +92,21 @@ class McpServerCapabilitySnapshotTest < ActiveSupport::TestCase
   end
 
   test "transport changes invalidate the snapshot independently" do
-    @second_server.update!(status: "ready", endpoint: "https://mcp.example.org/mcp")
+    @second_server.update!(endpoint: "https://mcp.example.org/mcp")
+    @second_server.update_columns(status: "ready")
     snapshot = @second_server.capability_snapshot
     client = Struct.new(:tools, :prompts, :resources).new([], [], [])
+    client.define_singleton_method(:close) { }
     @second_server.define_singleton_method(:client) { client }
 
     @second_server.update!(transport_type: "streamable")
     refreshed = @second_server.capability_snapshot
+    assert_equal [ :not_loaded ], refreshed.values.map(&:state).uniq
 
     refute_same snapshot, refreshed
-    assert_equal [ :loaded ], refreshed.values.map(&:state).uniq
-    assert_empty refreshed.fetch(:tools).items
+    @second_server.update_columns(status: "ready")
+    assert_equal [ :loaded ], @second_server.capability_snapshot.values.map(&:state).uniq
+    assert_empty @second_server.capability_snapshot.fetch(:tools).items
   end
 
   test "engine changes invalidate the snapshot independently" do

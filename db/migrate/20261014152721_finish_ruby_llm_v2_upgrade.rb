@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'generators/ruby_llm/upgrade/legacy_content_sql'
+require_relative "support/ruby_llm_v2_legacy_content_sql"
 
 class FinishRubyLlmV2Upgrade < ActiveRecord::Migration[8.0]
   disable_ddl_transaction!
@@ -106,7 +106,7 @@ class FinishRubyLlmV2Upgrade < ActiveRecord::Migration[8.0]
 
     # Blank raw JSON keeps the original plaintext, including NULL. Nonblank raw
     # must still render exactly, and the raw payload itself must be preserved.
-    rendered_content = RubyLLM::Generators::LegacyContentSQL.new(connection).render(
+    rendered_content = NosiaMigration::RubyLlmV2LegacyContentSql.new(connection).render(
       content: quote_column(:content), raw: quote_column(:content_raw)
     )
     missing = migration_record(:messages)

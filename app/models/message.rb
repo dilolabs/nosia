@@ -53,6 +53,12 @@ class Message < ApplicationRecord
     "attachment"
   end
 
+  # Keeps Nosia's Hash API; RubyLLM rewraps it in a Collection in #to_llm.
+  # @return [Hash{String => RubyLLM::ToolCall}] Calls keyed by ID in persisted order
+  def tool_calls
+    super.to_h
+  end
+
   # Re-render the full accumulated buffer to HTML and replace the content div.
   # One broadcast per flush (coalesced), formatted markdown instead of raw text.
   def broadcast_streamed_content(text)

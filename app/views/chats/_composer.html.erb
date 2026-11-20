@@ -1,4 +1,4 @@
-<%# locals: (form:, chat:, field:, skills:, generating:, stop_form_id:, navigation: false) %>
+<%# locals: (form:, chat:, field:, skills:, generating:, stop_form_id:, navigation: false, mcp_selection: nil) %>
 <% editor_id = form.field_id(field) %>
 <% validation_id = "#{editor_id}_validation" %>
 <% source_errors_id = "#{editor_id}_sources" %>
@@ -49,7 +49,7 @@
         </details>
       <% end %>
       <%= render "chats/account", chat: chat, form: form %>
-      <%= render "chats/tools", chat: chat %>
+      <%= render "chats/tools", chat: chat, selection: mcp_selection || chat.mcp_selection %>
       <% if generating %>
         <%= form.button type: :submit, form: stop_form_id, class: "n-composer-send n-composer-stop",
               aria: { label: t("nosia.chat.stop") }, title: t("nosia.chat.stop") do %>

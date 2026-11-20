@@ -1,4 +1,5 @@
 require "application_system_test_case"
+require_relative "../support/native_mcp_wire"
 require_relative "../support/orbite_browser_checks"
 require_relative "../support/mcp_workspace_fixtures"
 require_relative "../support/mcp_browser_checks"
@@ -202,7 +203,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     before = [ Chat.count, Prompt.count ]
     @health_check = ->(_) { flunk "Saving must not test a connection" }
     assert_no_enqueued_jobs do
-      with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { flunk "Saving must not create an MCP client" }) do
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { raise Minitest::Assertion, "Saving must not create an MCP client" }) do
         visit new_account_mcp_server_path(@second)
         fill_in "mcp_server_name", with: "Browser custom"
         fill_in "mcp_server_endpoint", with: "https://mcp.example.org/mcp"
@@ -238,6 +239,52 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     end
     assert_equal before, [ Chat.count, Prompt.count ]
     assert_equal @first, @user.reload.first_account
+  end
+
+  test "saving a ready connector does not probe on the browser redirect" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    @second_server.update_columns(status: "ready")
+    path = account_mcp_server_path(@second, @second_server)
+    wire = NativeMcpWire.new
+
+    wire.install(self) do
+      visit edit_account_mcp_server_path(@second, @second_server)
+      fill_in "mcp_server_name", with: "Ready edited"
+      click_button "Save"
+      assert_current_path path
+      assert_selector "[data-mcp-screen=detail] h1", text: "Ready edited"
+      assert_empty wire.methods_requested, "Following the Save redirect must not discover capabilities"
+      assert_selector "[data-tab-key=tools]", text: /—/
+
+      visit path
+      assert_selector "[data-mcp-capability=tools] h3", text: "lookup", visible: :all
+      assert_equal %w[server/discover tools/list prompts/list resources/list], wire.methods_requested
+    end
+  end
+
+  test "a no-JavaScript notes-only save preserves a ready HTTP connector and its diagnostics" do
+    @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    @second_server.update_columns(status: "ready", latency_ms: 23, last_connected_at: Time.current,
+      metadata: { tools_cache: [ { name: "saved" } ] })
+    before = @second_server.reload.slice(:connection_config, :connection_revision, :status, :latency_ms, :last_connected_at, :metadata)
+    browser = page.driver.browser
+    wire = NativeMcpWire.new
+    wire.install(self) do
+      browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+      visit edit_account_mcp_server_path(@second, @second_server)
+      assert_selector "#mcp_server_command:not([disabled])"
+      assert_equal "", find("#mcp_server_command").value
+      find("summary", exact_text: I18n.t("nosia.mcp_workspace.organization")).send_keys(:enter)
+      fill_in "mcp_server_notes", with: "Changed only notes"
+      click_button "Save"
+      assert_current_path account_mcp_server_path(@second, @second_server)
+
+      assert_equal "Changed only notes", @second_server.reload.notes
+      assert_equal before, @second_server.slice(*before.keys)
+      assert_empty wire.requests
+    end
+  ensure
+    browser&.execute_cdp("Emulation.setScriptExecutionDisabled", value: false)
   end
 
   test "catalog server errors retain public fields while snapshot and history clear secrets" do
@@ -312,7 +359,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     before = [ McpServer.count, Chat.count, Prompt.count ]
     @health_check = ->(_) { flunk "Catalog GET must not test a connection" }
     assert_no_enqueued_jobs do
-      with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { flunk "Catalog GET must not create an MCP client" }) do
+      with_singleton_replacement(McpServer::Client, :new, ->(*) { raise Minitest::Assertion, "Catalog GET must not create an MCP client" }) do
         McpCatalog.all.each do |entry|
           visit account_mcp_catalog_index_path(@second)
           mcp_tab_to("[data-mcp-entry='#{entry.fetch(:id)}'] h3 a")
@@ -336,7 +383,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "#mcp_server_endpoint[disabled]", visible: :all
     fill_in "mcp_server_command", with: "must-not-execute"
     fill_in "mcp_server_args", with: "--one\ntwo words"
-    select I18n.t("nosia.mcp.transport.sse"), from: "mcp_server_transport_type"
+    assert_no_selector "select#mcp_server_transport_type option[value=sse]", visible: :all
+    select I18n.t("nosia.mcp.transport.streamable"), from: "mcp_server_transport_type"
     assert_field "mcp_server_endpoint", disabled: false
     assert_no_selector "#mcp_server_command"
     assert_selector "#mcp_server_command[disabled]", visible: :all
@@ -575,7 +623,8 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
     assert_selector "#mcp_server_configuration_values_token[disabled]", visible: :all
     refute page.evaluate_script("document.querySelector('#mcp_server_endpoint').required")
 
-    select I18n.t("nosia.mcp.transport.sse"), from: "mcp_server_transport_type"
+    assert_no_selector "select#mcp_server_transport_type option[value=sse]", visible: :all
+    select I18n.t("nosia.mcp.transport.streamable"), from: "mcp_server_transport_type"
     assert_field "mcp_server_configuration_values_token", with: "unsaved-http-secret", disabled: false
     assert_field "mcp_server_endpoint", disabled: false
     assert_selector "#mcp_server_args[disabled]", visible: :all

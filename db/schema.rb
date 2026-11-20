@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_20_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -154,8 +154,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.string "thinking_phase"
     t.datetime "stopped_at"
     t.boolean "cancelled", default: false, null: false
+    t.string "claim_token"
+    t.datetime "claimed_until"
     t.index ["account_id"], name: "index_chats_on_account_id"
     t.index ["chat_id"], name: "index_chats_on_chat_id"
+    t.index ["claimed_until"], name: "index_chats_on_claimed_until", where: "(claim_token IS NOT NULL)"
     t.index ["ruby_llm_model_id"], name: "index_chats_on_ruby_llm_model_id"
     t.index ["user_id"], name: "index_chats_on_user_id"
   end
@@ -204,6 +207,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.index ["author_id"], name: "index_documents_on_author_id"
   end
 
+  create_table "mcp_authorizations", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "mcp_server_id", null: false
+    t.bigint "account_user_id", null: false
+    t.text "endpoint", null: false
+    t.datetime "reconnect_required_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["account_id"], name: "index_mcp_authorizations_on_account_id"
+    t.index ["account_user_id"], name: "index_mcp_authorizations_on_account_user_id"
+    t.index ["mcp_server_id", "account_user_id"], name: "index_mcp_authorizations_on_mcp_server_id_and_account_user_id", unique: true
+    t.index ["user_id"], name: "index_mcp_authorizations_on_user_id"
+  end
+
   create_table "mcp_servers", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "name", null: false
@@ -221,6 +239,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "auth_mode", default: "static", null: false
+    t.bigint "connection_revision", default: 0, null: false
+    t.bigint "connection_test_attempt", default: 0, null: false
     t.index ["account_id", "name"], name: "index_mcp_servers_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_mcp_servers_on_account_id"
     t.index ["enabled"], name: "index_mcp_servers_on_enabled"
@@ -257,6 +278,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.jsonb "server_tool_calls"
     t.jsonb "raw_content"
     t.jsonb "raw_reasoning"
+    t.string "cache_ttl"
+    t.string "phase"
+    t.text "continuation"
     t.index ["chat_id"], name: "index_messages_on_chat_id"
     t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["model_id"], name: "index_messages_on_model_id"
@@ -319,6 +343,34 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.index ["status"], name: "index_ruby_llm_batches_on_status"
   end
 
+  create_table "ruby_llm_chat_files", force: :cascade do |t|
+    t.string "chat_type", null: false
+    t.bigint "chat_id", null: false
+    t.string "owner_type"
+    t.bigint "owner_id"
+    t.string "path", null: false
+    t.string "content_type"
+    t.bigint "byte_size"
+    t.string "digest"
+    t.text "text"
+    t.string "read_digest"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_type", "chat_id", "path"], name: "index_ruby_llm_chat_files_on_chat_type_and_chat_id_and_path"
+    t.index ["owner_type", "owner_id"], name: "index_ruby_llm_chat_files_on_owner_type_and_owner_id"
+  end
+
+  create_table "ruby_llm_mcp_credentials", force: :cascade do |t|
+    t.string "owner_type"
+    t.bigint "owner_id"
+    t.string "key", null: false
+    t.text "data"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_ruby_llm_mcp_credentials_on_key", unique: true
+    t.index ["owner_type", "owner_id"], name: "index_ruby_llm_mcp_credentials_on_owner"
+  end
+
   create_table "ruby_llm_models", force: :cascade do |t|
     t.string "model_id", null: false
     t.string "name", null: false
@@ -342,6 +394,30 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.index ["provider"], name: "index_ruby_llm_models_on_provider"
   end
 
+  create_table "ruby_llm_provider_files", force: :cascade do |t|
+    t.string "blob_key", null: false
+    t.string "provider", null: false
+    t.string "account", null: false
+    t.text "file_id", null: false
+    t.datetime "expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["blob_key", "provider", "account"], name: "index_ruby_llm_provider_files_uniqueness", unique: true
+  end
+
+  create_table "ruby_llm_queued_messages", force: :cascade do |t|
+    t.string "chat_type", null: false
+    t.bigint "chat_id", null: false
+    t.string "sender_type"
+    t.bigint "sender_id"
+    t.text "content"
+    t.boolean "steer", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_type", "chat_id"], name: "index_ruby_llm_queued_messages_on_chat_type_and_chat_id"
+    t.index ["sender_type", "sender_id"], name: "index_ruby_llm_queued_messages_on_sender_type_and_sender_id"
+  end
+
   create_table "ruby_llm_tool_calls", force: :cascade do |t|
     t.string "tool_call_id", null: false
     t.string "name", null: false
@@ -355,6 +431,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.bigint "result_id"
     t.string "approval"
     t.boolean "remote", default: false, null: false
+    t.jsonb "mcp_state"
+    t.jsonb "mcp_result"
+    t.string "provider_call_id"
+    t.string "namespace"
+    t.datetime "claimed_until"
     t.index ["message_type", "message_id"], name: "index_ruby_llm_tool_calls_on_message_type_and_message_id"
     t.index ["name"], name: "index_ruby_llm_tool_calls_on_name"
     t.index ["result_type", "result_id"], name: "index_ruby_llm_tool_calls_on_result_type_and_result_id"
@@ -362,8 +443,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
   end
 
   create_table "ruby_llm_usages", force: :cascade do |t|
-    t.string "chat_type", null: false
-    t.bigint "chat_id", null: false
+    t.string "chat_type"
+    t.bigint "chat_id"
     t.string "message_type"
     t.bigint "message_id"
     t.string "operation", null: false
@@ -383,10 +464,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
     t.decimal "total_cost", precision: 16, scale: 10
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "server_tool_use"
+    t.string "owner_type"
+    t.bigint "owner_id"
+    t.string "workflow_id"
+    t.string "workflow_name"
+    t.string "workflow_step_id"
+    t.string "workflow_step_name"
+    t.integer "characters"
+    t.decimal "audio_seconds", precision: 16, scale: 6
+    t.integer "search_units"
+    t.decimal "characters_cost", precision: 16, scale: 10
+    t.decimal "audio_seconds_cost", precision: 16, scale: 10
+    t.decimal "search_units_cost", precision: 16, scale: 10
     t.index ["chat_type", "chat_id"], name: "index_ruby_llm_usages_on_chat_type_and_chat_id"
     t.index ["message_type", "message_id"], name: "index_ruby_llm_usages_on_message_type_and_message_id"
+    t.index ["owner_type", "owner_id"], name: "index_ruby_llm_usages_on_owner"
     t.index ["status"], name: "index_ruby_llm_usages_on_status"
-    t.check_constraint "operation::text = ANY (ARRAY['chat'::character varying, 'embedding'::character varying, 'moderation'::character varying, 'image'::character varying, 'speech'::character varying, 'transcription'::character varying, 'ocr'::character varying, 'rerank'::character varying]::text[])"
+    t.index ["workflow_id"], name: "index_ruby_llm_usages_on_workflow_id"
+    t.check_constraint "operation::text = ANY (ARRAY['chat'::text, 'embedding'::text, 'moderation'::text, 'image'::text, 'speech'::text, 'transcription'::text, 'ocr'::text, 'rerank'::text, 'judgment'::text, 'video'::text, 'research'::text, 'code_execution'::text])"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'succeeded'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])"
   end
 
@@ -607,6 +703,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_14_152721) do
   add_foreign_key "credentials", "users"
   add_foreign_key "documents", "accounts"
   add_foreign_key "documents", "authors"
+  add_foreign_key "mcp_authorizations", "account_users"
+  add_foreign_key "mcp_authorizations", "accounts"
+  add_foreign_key "mcp_authorizations", "mcp_servers"
+  add_foreign_key "mcp_authorizations", "users"
   add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "messages", "chats"
   add_foreign_key "messages", "ruby_llm_models", column: "model_id"

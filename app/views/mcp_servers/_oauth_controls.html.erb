@@ -1,0 +1,14 @@
+<%# locals: (server:, state:, show_test: false) %>
+<% path = account_mcp_server_oauth_authorization_path(server.account_id, server) %>
+<% if state != "authorized" %>
+  <%= button_to mcp_oauth_text(state == "reconnect_required" ? :reconnect : :authorize), path,
+    method: :post, form: { data: { turbo: false } }, class: "n-workspace-button n-workspace-primary" %>
+<% elsif show_test %>
+  <%= button_to t("nosia.mcp.test_connection_short"), mcp_test_path(server), method: :post,
+    class: "n-workspace-button n-mcp-operation-button n-workspace-primary",
+    data: { turbo_submits_with: t("nosia.mcp.testing_connection") }, form: { data: { mcp_operation: true } } %>
+<% end %>
+<% if state != "authorization_required" %>
+  <%= button_to mcp_oauth_text(state == "reconnect_required" ? :clear : :disconnect), path,
+    method: :delete, class: "n-workspace-button n-mcp-operation-button", form: { data: { mcp_operation: true } } %>
+<% end %>

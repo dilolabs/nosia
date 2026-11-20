@@ -1,8 +1,7 @@
-# Materializes chat tool choices within the explicitly selected account.
 module ChatsHelper
-  # @param account [Account]
-  # @return [Array<McpServer>] Ready, enabled tools from this account only
-  def ready_chat_mcp_servers(account)
-    ActsAsTenant.with_tenant(account) { account.mcp_servers.enabled.ready.order(:name).to_a }
+  # @param server [McpServer] Tool this option represents
+  # @return [String] Accessible label for removing a saved, unavailable tool
+  def remove_unavailable_mcp_label(server)
+    t("nosia.chat.remove_unavailable_tool", name: server.name)
   end
 end

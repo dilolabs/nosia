@@ -1,3 +1,4 @@
+<% content_for :head, tag.meta(name: "turbo-cache-control", content: "no-cache") %>
 <div class="n-workspace n-mcp-workspace" data-mcp-workspace data-mcp-screen="servers" data-controller="mcp-busy" data-action="turbo:submit-start->mcp-busy#start turbo:submit-end->mcp-busy#finish">
   <%= render "mcp_workspace/header", title: t("nosia.mcp.title"), actions: capture {
     concat link_to(t("nosia.mcp_workspace.custom_add"), mcp_new_path, class: "n-workspace-button")
@@ -5,11 +6,19 @@
   } %>
   <%= render "mcp_workspace/feedback" %>
   <%= form_with url: mcp_index_path, method: :get, class: "n-mcp-filters" do %>
-    <% { status: McpServer.statuses.keys, enabled: %w[true false], transport_type: %w[streamable sse stdio local] }.each do |key, values| %>
+    <% { status: McpServer.statuses.keys + McpWorkspaceHelper::OAUTH_STATES, enabled: %w[true false], transport_type: %w[streamable sse stdio local] }.each do |key, values| %>
       <div>
         <%= label_tag key, t(key == :enabled ? "nosia.mcp_workspace.availability" : (key == :status ? "nosia.mcp_workspace.connection_status" : "nosia.mcp.transport_type")), class: "n-mcp-label" %>
         <%= select_tag key, options_for_select([[t("nosia.mcp_workspace.all"), ""]] + values.map { |value|
-          label = key == :enabled ? t(value == "true" ? "nosia.mcp_workspace.enabled" : "nosia.mcp_workspace.disabled") : t("nosia.mcp.#{key == :status ? 'status' : 'transport'}.#{value}#{key == :transport_type ? '_short' : ''}")
+          label = if key == :enabled
+            t(value == "true" ? "nosia.mcp_workspace.enabled" : "nosia.mcp_workspace.disabled")
+          elsif key == :transport_type
+            t("nosia.mcp.transport.#{value}_short")
+          elsif McpWorkspaceHelper::OAUTH_STATES.include?(value)
+            mcp_oauth_text(value)
+          else
+            t("nosia.mcp.status.#{value}")
+          end
           [label, value]
         }, params[key]), class: "n-mcp-input" %>
       </div>

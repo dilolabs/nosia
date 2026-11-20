@@ -30,8 +30,8 @@ module ActiveSupport
     # runs the real coalescing loop with canned chunks (no LLM, no embeddings).
     StreamChunk = Struct.new(:content)
 
-    def stub_chat_for_streaming(chat, chunks:)
-      chat.define_singleton_method(:mcp_tools) { [] }
+    def stub_chat_for_streaming(chat, chunks:, stub_mcp: true)
+      chat.define_singleton_method(:with_mcp_tools) { |&turn| turn.call } if stub_mcp
       chat.define_singleton_method(:with_model) { |*| }
       chat.define_singleton_method(:with_provider_options) { |*| }
       chat.define_singleton_method(:with_temperature) { |*| }

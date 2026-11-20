@@ -164,19 +164,17 @@ class Api::V1::CompletionsControllerTest < ActionDispatch::IntegrationTest
         env.request.on_data.call("data: [DONE]\n\n", 14, env)
         [ 200, { "content-type" => "text/event-stream" }, "" ]
       end
-      connection_class = RubyLLM::Transport::Connection
-      original_connection = connection_class.method(:new)
-      connection_class.define_singleton_method(:new) do |*args, **kwargs|
-        connection = original_connection.call(*args, **kwargs)
-        connection.connection.builder.adapter(:test, stubs)
-        connection
+      adapter = Class.new(Faraday::Adapter::Test) do
+        define_method(:initialize) { |app, **| super(app, stubs, &nil) }
       end
+      context = RubyLLM.context { |config| config.faraday_adapter = adapter }
 
       chunk = Struct.new(:id, :title, :context, :augmented_context, :source).new(1, "Private document", "API_RAG_SECRET", "API_RAG_SECRET", "private")
       original = Chat.method(:new)
       Chat.define_singleton_method(:new) do |*args, **kwargs, &block|
         chat = original.call(*args, **kwargs, &block)
-        chat.define_singleton_method(:mcp_tools) { [] }
+        chat.with_context(context)
+        chat.define_singleton_method(:with_mcp_tools) { |&turn| turn.call }
         chat.define_singleton_method(:similarity_search) { |_| [ chunk ] }
         chat.define_singleton_method(:answer_relevance) { |*args, **options| true }
         chat.define_singleton_method(:broadcast_thinking_phase) { |*| }
@@ -185,7 +183,6 @@ class Api::V1::CompletionsControllerTest < ActionDispatch::IntegrationTest
       yield requests
     ensure
       Chat.define_singleton_method(:new, original) if original
-      connection_class.define_singleton_method(:new, original_connection) if original_connection
     end
 
     def assert_provider_request(requests)

@@ -1,4 +1,16 @@
 en:
+  activerecord:
+    attributes:
+      mcp_server:
+        auth_mode: Authentication mode
+    errors:
+      models:
+        mcp_server:
+          attributes:
+            base:
+              workspace_configuration_changed: This connector’s configuration changed while you were editing. Reload the page before trying again.
+            auth_mode:
+              oauth_transport_required: requires a public HTTPS Streamable HTTP endpoint
   nosia:
     mcp_workspace:
       description: Manage the tools and resources available to your assistants.
@@ -45,5 +57,40 @@ en:
       local_transport_fixed: Built-in integrations keep their registered local transport.
       missing_registration: This integration’s configuration definition is unavailable. Existing settings are preserved.
       stdio_unavailable: Local process connections are disabled on this deployment.
+      legacy_sse_migration: Switch to Streamable HTTP and enter the new endpoint provided by your MCP server. Legacy SSE connections are no longer supported.
+      legacy_sse_unavailable: Legacy SSE unavailable
+      remote_failure: Could not connect to the MCP server
+      tool_call_rejected: The MCP server rejected the tool call
+      invalid_structured_output: Structured output is not valid
+      invalid_attachment_data: Invalid attachment data
       credential_conflict: Choose either a replacement or removal, not both.
       optional: Optional
+      oauth:
+        mode: Authentication mode
+        static: None, bearer token, or API key
+        static_credentials: Static credentials
+        static_credentials_help: These fields apply only when you choose the static authentication mode. You can replace or remove saved credentials in the same edit.
+        oauth: OAuth
+        mode_help: OAuth requires a public HTTPS Streamable HTTP endpoint. Save first, then authorize from the server details.
+        authorization_required: Authorization required
+        authorized: Authorized
+        reconnect_required: Reconnect required
+        authorize: Authorize with OAuth
+        reconnect: Reconnect with OAuth
+        disconnect: Disconnect my authorization
+        clear: Clear my authorization
+        disconnected: Your authorization was disconnected.
+        use_authorize: Use the OAuth controls on the server details to manage your authorization.
+        authorization_needed: Authorize this connector before using it.
+        reconnect_needed: Reconnect your authorization to use this connector.
+        insufficient_scope: The provider did not grant enough access for this operation.
+        unavailable: Could not authenticate to the MCP server. Try again, or disconnect and authorize again.
+        invalid_configuration: OAuth is available only for public HTTPS Streamable HTTP connectors.
+        invalid_origin: Set NOSIA_URL to a public HTTPS origin before using OAuth.
+        unsafe_consent: The provider’s consent page must use a public HTTPS address.
+        registration_unsupported: This provider does not register apps automatically. Use a connector that supports dynamic client registration, or ask the provider about enabling it.
+        already_authorized: Disconnect your current authorization before starting again.
+        failed: Could not complete authorization. Start again.
+        declined: Authorization was declined. You can try again.
+        expired: This authorization attempt expired. Start again.
+        invalid_attempt: This authorization attempt is invalid or no longer active. Start again.

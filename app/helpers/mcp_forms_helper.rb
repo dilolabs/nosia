@@ -37,7 +37,7 @@ module McpFormsHelper
         { message: "#{mcp_configuration_label(field, template: template)} #{message}", target: mcp_field_id(error.attribute) }
       else
         attribute = error.attribute.to_s
-        editable = %w[name transport_type endpoint command args tags notes enabled].include?(attribute)
+        editable = %w[name transport_type endpoint command args tags notes enabled auth_mode].include?(attribute)
         { message: error.full_message, target: editable && !catalog ? mcp_field_id(attribute) : nil }
       end
     end

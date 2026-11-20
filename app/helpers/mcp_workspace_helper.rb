@@ -1,5 +1,17 @@
 # Builds display and navigation context for scoped and legacy MCP pages.
 module McpWorkspaceHelper
+  OAUTH_STATES = %w[authorization_required authorized reconnect_required].freeze
+
+  # @param server [McpServer] Authorized record
+  # @return [String] Acting member's local OAuth state (no outbound request)
+  def mcp_oauth_state(server)
+    server.oauth_grant_for(Current.user)&.workspace_state || "authorization_required"
+  end
+
+  # @param key [String, Symbol] App-defined OAuth state or outcome
+  # @return [String] Localized copy without provider-supplied text
+  def mcp_oauth_text(key) = I18n.t("nosia.mcp_workspace.oauth.#{key}")
+
   # @return [Boolean] Whether the controller owns an MCP workspace shell
   def mcp_workspace_page?
     %w[mcp_servers mcp_catalog].include?(controller_path) || controller_path.start_with?("mcp_servers/")
@@ -77,8 +89,9 @@ module McpWorkspaceHelper
   # @param server [McpServer] Authorized record
   # @return [String] Credential-free endpoint/command label
   def mcp_endpoint_label(server)
-    if server.endpoint.present?
-      uri = URI.parse(server.endpoint.match?(%r{\Ahttps?://}i) ? server.endpoint : "https://#{server.endpoint}")
+    endpoint = server.oauth? ? server.effective_endpoint : server.endpoint
+    if endpoint.present?
+      uri = URI.parse(endpoint.match?(%r{\Ahttps?://}i) ? endpoint : "https://#{endpoint}")
       "#{uri.host}#{uri.path}"
     elsif server.command.present?
       File.basename(server.command.to_s.split.first.to_s)

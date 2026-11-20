@@ -1,4 +1,5 @@
 require "test_helper"
+require_relative "../support/native_mcp_wire"
 require_relative "../support/chat_account_fixtures"
 
 class LocalizedPagesTest < ActionDispatch::IntegrationTest
@@ -348,12 +349,11 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   test "French MCP connection feedback preserves machine statuses latency and diagnostics" do
     sign_in_picker_user
     server = mcp_servers(:picker_first_tool)
-    server.update_columns(transport_type: "streamable", endpoint: "https://mcp.example.invalid/mcp")
-    stub_url_resolver([ "93.184.216.34" ])
-    client = Struct.new(:tools).new([])
+    server.update_columns(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    wire = NativeMcpWire.new
     headers = { "Accept-Language" => "fr" }
 
-    with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { client }) do
+    wire.install(self) do
       post test_connection_mcp_server_url(server), headers: headers, as: :json
       assert_response :success
       assert_equal %w[latency message status success], response.parsed_body.keys.sort
@@ -370,32 +370,33 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       assert_redirected_to mcp_server_url(server)
       assert_equal "Déconnecté du serveur MCP.", flash[:notice]
 
-      client.define_singleton_method(:tools) { raise "Original provider failure" }
+      wire.fail_method = "tools/list"
       post test_connection_mcp_server_url(server), headers: headers, as: :json
       assert_response :unprocessable_entity
-      assert_equal({ "success" => false, "status" => "error", "error" => "Original provider failure", "message" => "Échec de la connexion" }, response.parsed_body)
+      assert_equal({ "success" => false, "status" => "error", "error" => "Impossible de se connecter au serveur MCP", "message" => "Échec de la connexion" }, response.parsed_body)
+      refute_includes response.body, NativeMcpWire::PRIVATE_MARKER
 
       post connect_mcp_server_url(server), headers: headers
       assert_redirected_to mcp_server_url(server)
       assert_equal "Échec de la connexion", flash[:alert]
-      refute_includes flash[:alert], "Original provider failure"
+      refute_includes flash[:alert], NativeMcpWire::PRIVATE_MARKER
     end
-  ensure
-    unstub_url_resolver
   end
 
   test "French MCP detail leaves runtime descriptions schemas and results escaped and untranslated" do
     sign_in_picker_user
     server = mcp_servers(:picker_first_tool)
-    server.update_columns(transport_type: "streamable", endpoint: "https://mcp.example.invalid/mcp")
-    tool = Struct.new(:name, :description, :parameters_schema).new("runtime_tool", "<script>Original tool description</script>", { "query" => "Original schema" })
-    tool.define_singleton_method(:call) { |**| "Original tool result" }
-    prompt = Struct.new(:name, :description, :arguments).new("runtime_prompt", "Original prompt description", [ { name: "query", description: "Original variable", required: true } ])
-    resource = Struct.new(:uri, :description, :mime_type).new("file:///original", "Original resource description", "text/plain")
-    client = Struct.new(:tools, :prompts, :resources).new([ tool ], [ prompt ], [ resource ])
+    server.update_columns(transport_type: "streamable", endpoint: NativeMcpWire::URL)
+    wire = NativeMcpWire.new
+    wire.tools = [ { "name" => "runtime_tool", "description" => "<script>Original tool description</script>",
+      "inputSchema" => { "type" => "object", "properties" => { "query" => { "type" => "string", "description" => "Original schema" } } } } ]
+    wire.prompts = [ { "name" => "runtime_prompt", "description" => "Original prompt description",
+      "arguments" => [ { "name" => "query", "description" => "Original variable", "required" => true } ] } ]
+    wire.resources = [ { "uri" => "file:///original", "description" => "Original resource description", "mimeType" => "text/plain" } ]
+    wire.tool_result = { "content" => [ { "type" => "text", "text" => "Original tool result" } ] }
     headers = { "Accept-Language" => "fr" }
 
-    with_singleton_replacement(RubyLLM::MCP, :client, ->(**) { client }) do
+    wire.install(self) do
       get mcp_server_url(server), headers: headers
       assert_response :success
       assert_select "p", text: "<script>Original tool description</script>"
@@ -412,10 +413,11 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_equal({ "success" => true, "result" => "Original tool result" }, response.parsed_body)
 
-      tool.define_singleton_method(:call) { |**| raise "Original runtime diagnostic" }
+      wire.fail_method = "tools/call"
       post execute_tool_mcp_server_url(server), params: { tool_name: "runtime_tool", arguments: {} }, headers: headers, as: :json
       assert_response :success
-      assert_equal({ "error" => "Original runtime diagnostic" }, response.parsed_body)
+      assert_equal({ "success" => true, "result" => { "error" => "Tool execution error: Le serveur MCP a refusé l’appel de l’outil" } }, response.parsed_body)
+      refute_includes response.body, NativeMcpWire::PRIVATE_MARKER
     end
   end
 

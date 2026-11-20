@@ -41,6 +41,12 @@ class Website::CrawlableTest < ActiveSupport::TestCase
   test "crawl_url! still crawls public hosts" do
     stub_url_resolver([ "93.184.216.34" ])
     stub_connection(status: 200, body: "<h1>Title</h1>")
+    robots_stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+      stub.get("/robots.txt") { [ 200, {}, "User-agent: *\nAllow: /\n" ] }
+    end
+    robots_connection = Faraday.new { |builder| builder.adapter :test, robots_stubs }
+    @website.define_singleton_method(:robots_connection) { robots_connection }
+
     vector = Array.new(Chunk.columns_hash.fetch("embedding").limit, 0.1)
     result = Struct.new(:vectors, :tokens).new(vector, RubyLLM::Tokens.new(input: 0))
     original_embed = RubyLLM.method(:embed)
@@ -48,6 +54,7 @@ class Website::CrawlableTest < ActiveSupport::TestCase
 
     @website.crawl_url!
 
+    robots_stubs.verify_stubbed_calls
     assert @website.reload.indexed?
     assert_equal 1, @website.chunks.count
     assert_equal vector, @website.chunks.first.embedding

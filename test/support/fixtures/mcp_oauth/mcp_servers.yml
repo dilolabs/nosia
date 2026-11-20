@@ -1,0 +1,8 @@
+<% { oauth_team: "oauth_team", oauth_team_duplicate: "oauth_team", oauth_other: "oauth_other" }.each do |name, account| %>
+<%= name %>:
+  account: <%= account %>
+  name: <%= name %>
+  transport_type: streamable
+  endpoint: https://mcp.example.test/mcp
+  enabled: true
+<% end %>

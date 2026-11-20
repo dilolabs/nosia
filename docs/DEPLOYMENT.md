@@ -184,25 +184,32 @@ nosia.yourdomain.com {
         X-Content-Type-Options "nosniff"
         # XSS Protection
         X-XSS-Protection "1; mode=block"
-        # Referrer Policy
-        Referrer-Policy "strict-origin-when-cross-origin"
+        # Referrer Policy (also safe for MCP OAuth responses)
+        Referrer-Policy "no-referrer"
         # Remove server identification
         -Server
     }
     
-    # Logging
-    log {
-        output file /data/access.log {
-            roll_size 100mb
-            roll_keep 5
-        }
-    }
+    # Enable access logs only after configuring the OAuth exclusions below.
 }
 ```
 
+If using MCP OAuth, keep the query string on requests to `/mcp/oauth/callback`
+and consent redirect `Location` values out of proxy, access, and tracing logs.
+Wherever request or response headers or bodies are captured, including outbound
+MCP and provider traffic, also exclude OAuth tokens (including access and
+refresh tokens), client secrets, and signing material. Exclude authorization
+codes and PKCE code verifiers from outbound OAuth token exchange body logs.
+If the logging system cannot reliably redact these values, disable capture of
+the affected requests and responses. Preserve `Referrer-Policy: no-referrer` and
+`Cache-Control: no-store` on OAuth responses. See the
+[MCP workspace deployment requirements](mcp-workspace.md#provider-and-deployment-requirements)
+for the exact public origin and existing encryption settings.
+
 ### 5. Production Docker Compose
 
-Create `docker-compose.prod.yml`:
+Create `docker-compose.prod.yml`. Supply the existing encryption keys through
+your deployment's secret mechanism. Do not put key values in the Compose file.
 
 ```yaml
 version: '3.8'
@@ -233,7 +240,11 @@ services:
     environment:
       - RAILS_ENV=production
       - DATABASE_URL=${DATABASE_URL}
+      - NOSIA_URL=${NOSIA_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
       - AI_BASE_URL=${AI_BASE_URL}
       - AI_API_KEY=${AI_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
@@ -271,7 +282,11 @@ services:
     environment:
       - RAILS_ENV=production
       - DATABASE_URL=${DATABASE_URL}
+      - NOSIA_URL=${NOSIA_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
       - AI_BASE_URL=${AI_BASE_URL}
       - AI_API_KEY=${AI_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
@@ -861,6 +876,144 @@ kubectl exec -it -n nosia deployment/nosia-web -- bin/rails console
 
 ---
 
+## RubyLLM 2.2 and MCP OAuth upgrade
+
+This is a maintenance upgrade, not a rolling restart. Rehearse with a
+representative database copy before scheduling it. If you are still on 1.x,
+first follow the separate [RubyLLM 2.0 operator runbook](upgrades/ruby-llm-2-deployment.md).
+
+1. Back up the deployment database and preserve matching application images,
+   attachment storage, configuration, and the existing Rails encryption keys.
+   Rehearse [restoring to a new database](#restore-a-custom-archive) and testing
+   it with the old image. Include any separate databases needed for recovery.
+2. Block new work, drain in-flight requests and jobs, and stop web and worker
+   processes (including schedules and retries) that touch RubyLLM rows. If
+   writes occurred since the backup, capture a consistent recovery point now.
+   Keep those writers stopped through migration and verification.
+3. Use the [one-off migration commands](#run-migrations-without-starting-services)
+   from the final image. The checked-in versions run in order:
+   `20261119000001` (RubyLLM 2.1), `20261119000002` (2.2),
+   `20261119000003` and `20261119000004` (OAuth and user binding), then
+   `20261120000001` (MCP connection revisions). Do not run generated migrations
+   or load `db/schema.rb` on the existing database.
+4. Confirm the migration versions and database connectivity. Check existing chats,
+   messages, tool results, usage history, MCP configuration and chat links against
+   the pre-upgrade data. Confirm the final image can decrypt existing MCP settings
+   with the deployment’s current keys without logging their contents. Use the
+   [web-only smoke check](#smoke-test-the-web-image-without-workers) to verify
+   `/up` and authenticated access. Only after these checks pass, start the final
+   services and resume traffic and workers.
+
+If a check fails, keep writers stopped and diagnose before resuming. If rollback
+requires the old schema, restore the verified backup into a **new recovery
+database** using the [custom archive procedure](#restore-a-custom-archive). Boot
+the matching old image with private settings pointing to the restored database,
+the existing encryption keys, and matching restored storage. Verify the old
+image with the web-only smoke check, including authenticated access and restored
+data, before switching traffic or starting workers. Configure normal web and
+worker launches to use the verified recovery database and old image; do not
+restart containers that still target the upgraded database or run the final
+image’s Compose `db-migrate` service against the recovery database. Do not run
+generated `down` migrations, `db:rollback`, or old writers against the new
+schema. The recovery database does not include writes after the chosen
+recovery point; account for those before switching.
+
+See the [local verification results](reports/mcp-oauth-verification.md). They
+do not approve a production rollout.
+
+### Run migrations without starting services
+
+Run these Docker commands from a maintenance host. Set `FINAL_IMAGE` to the
+reviewed final image by digest, `MAINTENANCE_NETWORK` to a restricted Docker
+network that can reach the reviewed database, and `TARGET_DB` to its exact
+database name. Set `FINAL_ENV_FILE` to a private, permission-restricted
+`docker run --env-file` file containing the reviewed `DATABASE_URL`, Rails
+secrets (including the existing encryption keys), and other required settings.
+Verify the server and role in that configuration and any separate database
+targets; the script checks the connected primary database name but does not
+identify the server. Do not print or copy the env file into logs.
+
+```bash
+run_migration_task() {
+  docker run --rm --network "${MAINTENANCE_NETWORK:?}" \
+    --env-file "${FINAL_ENV_FILE:?}" -e RAILS_ENV=production -e "EXPECTED_DB=${TARGET_DB:?}" \
+    --entrypoint /bin/sh "${FINAL_IMAGE:?}" -eu -c '
+      bin/rails runner "
+        db = ApplicationRecord.connection.select_value(%q[SELECT current_database()])
+        abort %q[Unexpected primary database] unless db == ENV.fetch(%q[EXPECTED_DB])
+        puts db
+      "
+      exec bin/rails "$1"
+    ' sh "$1"
+}
+run_migration_task db:migrate:status
+```
+
+Review every pending migration. While affected writers remain stopped, run:
+
+```bash
+run_migration_task db:migrate && run_migration_task db:migrate:status
+```
+
+The entrypoint override invokes only the requested Rails tasks. It does not
+run `bin/boot`, `bin/start-app` (which runs `db:prepare`), the Compose
+`db-migrate` service, or Solid Queue.
+
+### Smoke-test the web image without workers
+
+Use the reviewed maintenance network and a matching local storage copy. For
+object storage, use an isolated bucket in the private env file and omit the
+storage bind mount below. Verify the settings before boot. Run only one smoke
+container at a time; its port is published to host loopback, not to the public
+proxy.
+
+```bash
+smoke_web() {
+  docker run --rm --name nosia-mcp-smoke --network "${MAINTENANCE_NETWORK:?}" \
+    --env-file "${2:?}" -e RAILS_ENV=production -e "EXPECTED_DB=${3:?}" -e PORT=3000 \
+    --mount "type=bind,source=${4:?},target=/rails/storage,readonly" \
+    -p 127.0.0.1:13000:3000 --entrypoint /bin/sh "${1:?}" -eu -c '
+      bin/rails runner "
+        db = ApplicationRecord.connection.select_value(%q[SELECT current_database()])
+        abort %q[Unexpected primary database] unless db == ENV.fetch(%q[EXPECTED_DB])
+        puts db
+      "
+      exec bin/rails server -b 0.0.0.0 -p 3000
+    '
+}
+```
+
+For the upgraded image, set `SMOKE_STORAGE_DIR` to the absolute path of the
+matching storage copy and run:
+
+```bash
+smoke_web "$FINAL_IMAGE" "$FINAL_ENV_FILE" "$TARGET_DB" "$SMOKE_STORAGE_DIR"
+```
+
+For recovery or a restore rehearsal, use the matching `OLD_IMAGE` pinned by
+digest. Set `RECOVERY_ENV_FILE` to the private settings for the restored
+database and existing keys, and `RECOVERY_STORAGE_DIR` to the absolute path
+of the matching restored storage. Run this instead:
+
+```bash
+smoke_web "$OLD_IMAGE" "$RECOVERY_ENV_FILE" "$RECOVERY_DB" "$RECOVERY_STORAGE_DIR"
+```
+
+In a second terminal, once Puma is listening:
+
+```bash
+status=$(docker exec nosia-mcp-smoke curl --fail --silent --show-error \
+  --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/up)
+test "$status" = 200
+```
+
+Confirm an HTTP 200 and check authenticated read-only access through a private
+HTTPS endpoint or tunnel; do not test against live providers during the
+rehearsal. Stop the foreground smoke container before starting normal services.
+This boots Rails/Puma only; it does not migrate or start queue workers.
+
+---
+
 ## Environment Variable Management
 
 ### Production Environment Variables
@@ -881,10 +1034,10 @@ EMBEDDING_DIMENSIONS=768
 ```
 
 **MCP Configuration** (Optional):
-```bash
-# Enable MCP catalog servers (requires Node.js/npm in container)
-# Individual servers configured via web UI
-```
+
+Configure individual servers in the web workspace. OAuth uses public HTTPS
+Streamable HTTP, the exact public `NOSIA_URL` origin, and the existing Rails
+encryption keys. See [MCP workspace](mcp-workspace.md#connect-with-oauth).
 
 **Performance Tuning**:
 ```bash
@@ -1110,7 +1263,8 @@ Create backup script (`/opt/nosia/scripts/backup-db.sh`):
 
 ```bash
 #!/bin/bash
-set -e
+set -euo pipefail
+umask 077
 
 # Configuration
 BACKUP_DIR="/opt/nosia/backups"
@@ -1131,7 +1285,9 @@ docker compose exec -T "$DB_CONTAINER" pg_dump \
   -d "$DB_NAME" \
   --format=custom \
   --compress=9 \
-  | gzip > "$BACKUP_FILE"
+  | gzip > "$BACKUP_FILE.partial"
+gzip -t -- "$BACKUP_FILE.partial"
+mv -- "$BACKUP_FILE.partial" "$BACKUP_FILE"
 
 # Verify backup
 if [ -f "$BACKUP_FILE" ] && [ -s "$BACKUP_FILE" ]; then
@@ -1188,19 +1344,65 @@ services:
       - ./backups/wal:/backups/wal
 ```
 
-**3. Restore from Backup**:
+### Restore a custom archive
+
+The daily backup’s `.sql.gz` suffix is historical: its contents are a
+gzip-wrapped **custom** `pg_dump` archive, not SQL. Unwrap it with `gzip`
+and use `pg_restore`, not `psql`.
+
+Use a reviewed Compose file and project with a running `postgres-db` service on
+the intended PostgreSQL cluster. For a rehearsal, use an isolated cluster and
+storage copy. Keep writers and public ingress stopped for production recovery.
+Provision the PostgreSQL roles from the backup and ensure required extensions
+such as pgvector are available. Use a restore role with permission to create
+the database and restore the archived ownership and grants. Match the source
+encoding, locale, and database-level settings; review any `createdb` flags
+needed for those settings. Supply credentials through the deployment's secret
+mechanism. Do not use the source database as the restore target.
+
+Set `RESTORE_COMPOSE_FILE`, `RESTORE_PROJECT`, `DB_USER` (the restore role),
+`DB_OWNER` (the source database’s owner), `SOURCE_DB`, and the absolute
+`BACKUP_FILE` (the verified archive for the recovery point). Choose a new
+`RECOVERY_DB` such as `nosia_recovery_20261120_1030` for recovery or
+`nosia_rehearsal_20261120_1030` for a rehearsal.
 
 ```bash
-# Stop application
-docker compose stop web solidq
+#!/bin/bash
+set -euo pipefail
+: "${RESTORE_COMPOSE_FILE:?}" "${RESTORE_PROJECT:?}" "${DB_USER:?}" "${DB_OWNER:?}" \
+  "${SOURCE_DB:?}" "${RECOVERY_DB:?}" "${BACKUP_FILE:?}"
+if [[ ! "$RECOVERY_DB" =~ ^nosia_(recovery|rehearsal)_[a-z0-9_]+$ ||
+      ${#RECOVERY_DB} -gt 63 || "$RECOVERY_DB" == "$SOURCE_DB" ]]; then
+  echo "Choose a new nosia_recovery_* or nosia_rehearsal_* database." >&2
+  exit 1
+fi
 
-# Restore database
-gunzip -c /opt/nosia/backups/nosia-db-20240101-020000.sql.gz | \
-  docker compose exec -T postgres-db psql -U nosia -d nosia_production
+compose=(docker compose -f "$RESTORE_COMPOSE_FILE" -p "$RESTORE_PROJECT")
+pg() { "${compose[@]}" exec -T postgres-db "$@"; }
+sql() { pg psql -X -w -v ON_ERROR_STOP=1 -U "$DB_USER" "$@"; }
 
-# Restart application
-docker compose start web solidq
+gzip -t -- "$BACKUP_FILE"
+container_id=$("${compose[@]}" ps -q postgres-db)
+test -n "$container_id"
+printf 'PostgreSQL service container: %s\n' "$container_id"
+sql -d postgres -c 'SELECT current_database(), current_user, version();'
+read -r -p "After checking the cluster and archive, enter the new database name: " confirmed
+test "$confirmed" = "$RECOVERY_DB"
+
+# A pre-existing name is an error. Do not clean, drop, or reuse it.
+pg createdb -w -U "$DB_USER" --maintenance-db=postgres --template=template0 \
+  --owner="$DB_OWNER" "$RECOVERY_DB"
+test "$(sql -d "$RECOVERY_DB" -Atc 'SELECT current_database();')" = "$RECOVERY_DB"
+gzip -dc -- "$BACKUP_FILE" | pg pg_restore -w -U "$DB_USER" \
+  --dbname="$RECOVERY_DB" --exit-on-error --single-transaction
+sql -d "$RECOVERY_DB" -c 'SELECT current_database(), count(*) FROM accounts;'
 ```
+
+If any command fails, stop and investigate; do not point the application at
+that database. After a successful restore, compare the expected records with
+the backup’s recovery point, check matching attachments, and smoke-test the
+matching image and encryption settings before routing traffic or starting
+workers. Keep the original database intact.
 
 ### File Storage Backups
 
@@ -1243,25 +1445,11 @@ Enable versioning and lifecycle policies on S3 bucket.
 
 ### Backup Testing
 
-**Regularly test restoration**:
-
-```bash
-#!/bin/bash
-# test-restore.sh
-
-# Create test database
-docker compose exec postgres-db psql -U nosia -c "CREATE DATABASE nosia_test_restore;"
-
-# Restore to test database
-gunzip -c /opt/nosia/backups/latest-backup.sql.gz | \
-  docker compose exec -T postgres-db psql -U nosia -d nosia_test_restore
-
-# Verify data
-docker compose exec postgres-db psql -U nosia -d nosia_test_restore -c "SELECT COUNT(*) FROM accounts;"
-
-# Cleanup
-docker compose exec postgres-db psql -U nosia -c "DROP DATABASE nosia_test_restore;"
-```
+Regularly follow the [custom archive procedure](#restore-a-custom-archive) with
+a fresh `nosia_rehearsal_*` database in an isolated environment. Verify data
+and attachments with the [web-only smoke check](#smoke-test-the-web-image-without-workers)
+using the image that matches the backup. The rehearsal does not switch traffic
+or drop the source or restored database.
 
 ### Disaster Recovery Plan
 

@@ -55,17 +55,16 @@ class McpServerTest < ActiveSupport::TestCase
     assert_not_empty server.errors[:endpoint]
   end
 
-  test "sse endpoints on public hosts are accepted" do
-    stub_url_resolver([ "93.184.216.34" ])
-
+  test "a new server cannot select legacy SSE even with a public endpoint" do
     server = @account.mcp_servers.new(
       name: "public", transport_type: "sse", endpoint: "https://mcp.example.com/sse"
     )
 
-    assert server.valid?
+    refute server.valid?
+    assert_not_empty server.errors[:transport_type]
   end
 
-  test "scheme-less endpoints are validated as https" do
+  test "scheme-less endpoints are rejected before constructing a client" do
     stub_url_resolver([ "10.1.2.3" ])
 
     server = @account.mcp_servers.new(
@@ -76,41 +75,13 @@ class McpServerTest < ActiveSupport::TestCase
     assert_not_empty server.errors[:endpoint]
   end
 
-  test "remote execution keeps hash arguments and recoverable error contracts" do
-    server = @account.mcp_servers.new(name: "remote", transport_type: "sse", status: "ready")
-    server.define_singleton_method(:tools) { [ KeywordTool.new ] }
+  test "local execution keeps hash arguments and recoverable error contracts" do
+    server = @account.mcp_servers.new(name: "local", transport_type: "local", status: "ready")
+    server.define_singleton_method(:local_tools) { [ KeywordTool.new ] }
     assert_equal({ success: true, result: { query: "file:///not-a-source", options: { "limit" => 2 } } },
       server.execute_tool("keyword", { "query" => "file:///not-a-source", "options" => { "limit" => 2 } }))
     assert_equal({ success: true, result: { error: "Invalid tool arguments: missing keyword: query" } }, server.execute_tool("keyword"))
     assert_equal({ error: "Tool not found: missing" }, server.execute_tool("missing"))
-  end
-
-  test "client config preserves stdio command args env and HTTP URL headers and auth" do
-    previous_stdio_env = ENV["MCP_STDIO_ENABLED"]
-    original_client = RubyLLM::MCP.method(:client)
-    calls = []
-    RubyLLM::MCP.define_singleton_method(:client) { |**options| calls << options; Object.new }
-    begin
-      ENV["MCP_STDIO_ENABLED"] = "true"
-      server = @account.mcp_servers.new(name: "stdio", transport_type: "stdio", connection_config: {
-        command: "ruby", args: [ "server.rb" ], env: { "TOOL_MODE" => "test" }
-      })
-      assert server.client
-      assert_equal({ command: "ruby", args: [ "server.rb" ], env: { "TOOL_MODE" => "test" } }, calls.last.fetch(:config))
-      %w[sse streamable].each do |type|
-        server = @account.mcp_servers.new(name: type, transport_type: type, endpoint: "https://mcp.example.com/mcp",
-          connection_config: { headers: { "X-Custom" => "kept" } }, auth_config: { token: "fake-token" })
-        assert server.client
-        assert_equal type.to_sym, calls.last.fetch(:transport_type)
-        assert_equal({ url: "https://mcp.example.com/mcp", headers: { "X-Custom" => "kept", "Authorization" => "Bearer fake-token" } }, calls.last.fetch(:config))
-      end
-      server = @account.mcp_servers.new(name: "key", transport_type: "streamable", endpoint: "https://mcp.example.com/mcp", auth_config: { api_key: "fake-key" })
-      assert server.client
-      assert_equal "fake-key", calls.last.dig(:config, :headers, "X-API-Key")
-    ensure
-      ENV["MCP_STDIO_ENABLED"] = previous_stdio_env
-      RubyLLM::MCP.define_singleton_method(:client, original_client)
-    end
   end
 end
 
@@ -120,9 +91,8 @@ class LocalizedMcpServerValidationTest < ActiveSupport::TestCase
   teardown { unstub_url_resolver }
 
   test "French public host validation retains the SSRF rule" do
-    stub_url_resolver([ "127.0.0.1" ])
     server = mcp_servers(:picker_second_tool)
-    server.assign_attributes(transport_type: "streamable", endpoint: "http://internal.example.invalid/mcp")
+    server.assign_attributes(transport_type: "streamable", endpoint: "http://127.0.0.1/mcp")
 
     I18n.with_locale(:fr) do
       refute server.valid?
