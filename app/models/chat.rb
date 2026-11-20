@@ -23,6 +23,8 @@ class Chat < ApplicationRecord
   has_many :chats, dependent: :destroy
   has_many :token_usages, dependent: :destroy
 
+  before_destroy :destroy_provider_usage, prepend: true
+
   scope :root, -> { where(chat_id: nil) }
 
   # @param chats [Array<Chat>] Already-authorized, bounded rows
@@ -169,4 +171,10 @@ class Chat < ApplicationRecord
     # "Preparing" / the streaming placeholder) recovers here without a manual reload.
     broadcast_localized_to :refresh, self, :messages
   end
+
+  private
+    def destroy_provider_usage
+      # Nosia deletes chat-owned usage before RubyLLM nullifies the chat link.
+      ruby_llm_usages.reset.destroy_all
+    end
 end

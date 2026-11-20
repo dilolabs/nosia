@@ -78,10 +78,17 @@ class MessageTest < ActiveSupport::TestCase
     excluded = @chat.messages.create!(role: :tool, content: "Internal")
     excluded.ruby_llm_tool_calls.create!(tool_call_id: "call_internal", name: "search", arguments: {})
 
-    assert_kind_of Hash, caller.tool_calls
-    assert_equal %w[call_more call_search], caller.tool_calls.keys.sort
+    calls = caller.reload.tool_calls
+    assert_kind_of Hash, calls
+    assert_equal %w[call_search call_more], calls.keys
+    assert_equal calls.keys, calls.values.map(&:id)
+    assert_equal %w[search search], calls.values.map(&:name)
     assert_equal first_call.tool_call_id, result.parent_tool_call.id
     assert_equal [ result ], caller.tool_results
+    native_caller, native_result = @chat.to_llm.messages
+    assert_kind_of RubyLLM::ToolCall::Collection, native_caller.tool_calls
+    assert_equal calls.transform_values(&:to_h), native_caller.to_h.fetch(:tool_calls)
+    assert_equal "call_search", native_result.to_h.fetch(:tool_call_id)
     assert_equal [ caller.id, result.id ], @chat.messages.without_tool_calls.map(&:id)
     assert_equal [ caller.id ], @chat.messages.for_user.map(&:id)
   end
