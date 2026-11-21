@@ -11,6 +11,7 @@ export default class extends Controller {
 
   connect() {
     this.serial = 0
+    this.autosavePaused = false
     this.historyEntry = window.history.state?.turbo
     this.workspace = this.element.closest(".n-notes")
     window.addEventListener("popstate", this.#beforeRestore, true)
@@ -63,7 +64,7 @@ export default class extends Controller {
     this.content = content
     this.#markDirty()
     this.editTime = performance.now()
-    if (!this.request && !this.conflict && !this.retryRequired) {
+    if (!this.autosavePaused && !this.request && !this.conflict && !this.retryRequired) {
       this.#showStatus(this.messagesValue.unsaved)
       this.#schedule()
     }
@@ -74,6 +75,7 @@ export default class extends Controller {
 
     event.preventDefault()
     clearTimeout(this.timer)
+    this.autosavePaused = false
     this.#save()
   }
 
@@ -104,17 +106,47 @@ export default class extends Controller {
   loadSaved() {
     if (!this.savedLocation) return
 
-    this.#discard()
+    this.#pauseAutosave()
+    this.skipUnloadWarning = true
     // A Turbo morph of the same URL could preserve this conflicted controller.
     window.location.replace(this.savedLocation)
   }
 
   beforeVisit(event) {
-    if (!this.#allowLeaving()) event.preventDefault()
+    const submission = this.approvedSubmission
+    this.approvedSubmission = null
+    // Turbo proposes the redirect after submit-end; only that response can
+    // reuse approval given to the original form submission.
+    const response = submission?.result?.fetchResponse
+    if (submission === Turbo.navigator.formSubmission && response?.succeeded && response.location.href === event.detail.url) return
+
+    if (!this.#approveDeparture()) event.preventDefault()
   }
 
-  beforeOtherSubmit(event) {
-    if (event.target !== this.element && !this.#allowLeaving()) event.preventDefault()
+  otherSubmitStarted(event) {
+    const { formSubmission } = event.detail
+    if (event.target === this.element || !this.dirty || formSubmission.delegate !== Turbo.navigator) return
+
+    // Turbo has already asked for its action-specific confirmation, but
+    // hasn't sent the request yet. Stopping here aborts that request.
+    if (this.#approveDeparture()) this.approvedSubmission = formSubmission
+    else formSubmission.stop()
+  }
+
+  otherSubmitEnded(event) {
+    if (event.detail.formSubmission === this.approvedSubmission && !event.detail.success) this.approvedSubmission = null
+  }
+
+  beforeRender(event) {
+    if (this.dirty && this.autosavePaused && event.detail.renderMethod === "morph") {
+      // A same-note redirect (e.g. pinning) must not keep discarded Lexxy text
+      // on a reused form. Remove only the old editor when rendering proceeds.
+      const render = event.detail.render
+      event.detail.render = (currentBody, newBody) => {
+        this.element.remove()
+        return render(currentBody, newBody)
+      }
+    }
   }
 
   #readContent() {
@@ -151,7 +183,7 @@ export default class extends Controller {
   }
 
   async #save() {
-    if (!this.dirty || this.request || this.conflict) return
+    if (!this.dirty || this.autosavePaused || this.request || this.conflict) return
 
     const snapshot = this.firstPost || this.#snapshot()
     if (!snapshot) return
@@ -272,22 +304,30 @@ export default class extends Controller {
     this.retryTarget.hidden = !retry
   }
 
-  #allowLeaving() {
+  #approveDeparture() {
     if (!this.dirty) return true
     if (!window.confirm(this.messagesValue.discard_draft)) return false
 
-    this.#discard()
+    this.#pauseAutosave()
     return true
   }
 
-  #discard() {
+  #pauseAutosave() {
+    // Approval stops background writes, not the dirty warning. If we never
+    // leave the page, the draft must still be available for an explicit save.
+    this.autosavePaused = true
     clearTimeout(this.timer)
     this.request?.abort()
     this.request = null
-    this.#markClean()
+    if (!this.conflict) this.#showStatus(this.messagesValue.unsaved)
   }
 
   #beforeUnload = (event) => {
+    if (this.skipUnloadWarning) {
+      this.skipUnloadWarning = false
+      return
+    }
+
     event.preventDefault()
     event.returnValue = true
   }
@@ -302,7 +342,7 @@ export default class extends Controller {
       this.#replaceLocation()
     } else if (this.dirty && Number.isInteger(next?.restorationIndex) && this.historyEntry) {
       const offset = this.historyEntry.restorationIndex - next.restorationIndex
-      if (offset && !this.#allowLeaving()) {
+      if (offset && !this.#approveDeparture()) {
         this.#cancelRestore(event)
         this.returningTo = true
         window.history.go(offset)

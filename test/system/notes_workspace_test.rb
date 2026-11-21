@@ -333,6 +333,160 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_text "Field notes"
   end
 
+  test "cancelling either folder trash confirmation leaves the dirty note protected and saveable" do
+    folder = @note.note_folder
+    visit account_note_path(@account, @note, folder_id: folder.id)
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS)
+      window.ordinaryFetch = window.fetch
+      window.fetch = (url, options) => options?.method === "PATCH" ?
+        Promise.reject(new TypeError("Simulated connection outage")) : window.ordinaryFetch(url, options)
+      window.ordinaryConfirm = window.confirm
+      window.confirmations = []
+      window.confirm = message => {
+        window.confirmations.push(message)
+        return !message.includes("all its folders and notes")
+      }
+    JS
+    fill_in "Title (optional)", with: "Keep the draft after cancelling"
+    assert_save_status "Could not save"
+
+    within "#notes-list" do
+      find("summary", text: "Trash folder").click
+      click_on "Trash folder"
+    end
+    assert_field "Title (optional)", with: "Keep the draft after cancelling"
+    refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))"),
+      "cancelling folder trash must not clear the dirty draft"
+    assert_match(/all its folders and notes/, page.evaluate_script("window.confirmations").sole)
+
+    page.execute_script(<<~JS)
+      window.confirmations = []
+      window.confirm = message => {
+        window.confirmations.push(message)
+        return !message.includes("unsaved changes")
+      }
+    JS
+    within("#notes-list") { click_on "Trash folder" }
+    assert_button "Trash folder"
+    action, discard = page.evaluate_script("window.confirmations")
+    assert_match(/all its folders and notes/, action)
+    assert_match(/unsaved changes/i, discard)
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+
+    page.execute_script("window.confirm = window.ordinaryConfirm; window.fetch = window.ordinaryFetch")
+    dismiss_confirm(/unsaved changes/i) { click_on "Back to list" }
+    click_on "Save note"
+    assert_save_status "Saved"
+    assert_equal [ "Keep the draft after cancelling", 2 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "an approved departure that fails keeps the draft dirty but does not restart autosave" do
+    folder = @note.note_folder
+    visit account_note_path(@account, @note, folder_id: folder.id)
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS, account_note_folder_trashing_path(@account, folder))
+      const trashPath = arguments[0]
+      window.ordinaryFetch = window.fetch
+      window.noteWrites = 0
+      window.fetch = (url, options) => {
+        if (options?.method === "PATCH" && ++window.noteWrites === 1) {
+          return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => {
+            window.abortedSave = true
+            reject(new DOMException("Aborted", "AbortError"))
+          }, { once: true }))
+        }
+        if (new URL(url, location.origin).pathname === trashPath) {
+          window.trashAttempted = true
+          return Promise.reject(new TypeError("Simulated connection outage"))
+        }
+        return window.ordinaryFetch(url, options)
+      }
+      window.ordinaryConfirm = window.confirm
+      window.confirm = () => true
+    JS
+    fill_in "Title (optional)", with: "Draft during departure"
+    assert_save_status "Saving"
+    within "#notes-list" do
+      find("summary", text: "Trash folder").click
+      click_on "Trash folder"
+      assert_button "Trash folder"
+    end
+    assert page.evaluate_script("window.abortedSave && window.trashAttempted")
+    assert_field "Title (optional)", with: "Draft during departure"
+    refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))"),
+      "the failed departure left the editor mounted, so the draft must still be protected"
+
+    find(".lexxy-editor__content").send_keys(:end, " still here")
+    page.evaluate_async_script("const done = arguments[0]; setTimeout(done, 750)")
+    assert_equal 1, page.evaluate_script("window.noteWrites")
+    assert_equal [ "Field notes", "Interview outline", 1 ], @note.reload.values_at(:title, :body_text, :content_revision)
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+
+    page.execute_script("window.confirm = window.ordinaryConfirm")
+    dismiss_confirm(/unsaved changes/i) { click_on "Back to list" }
+    click_on "Save note"
+    assert_save_status "Saved"
+    assert_equal [ "Draft during departure", "Interview outline still here", 2 ], @note.reload.values_at(:title, :body_text, :content_revision)
+  end
+
+  test "confirming folder trash and draft discard follows the redirect without another prompt" do
+    folder = @note.note_folder
+    visit account_note_path(@account, @note, folder_id: folder.id)
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS)
+      const ordinaryFetch = window.fetch
+      window.fetch = (url, options) => options?.method === "PATCH" ?
+        Promise.reject(new TypeError("Simulated connection outage")) : ordinaryFetch(url, options)
+      window.confirmations = []
+      window.confirm = message => {
+        window.confirmations.push(message)
+        return window.confirmations.length <= 2
+      }
+    JS
+    fill_in "Title (optional)", with: "Do not save this draft"
+    assert_save_status "Could not save"
+    within "#notes-list" do
+      find("summary", text: "Trash folder").click
+      click_on "Trash folder"
+    end
+
+    assert_current_path account_notes_workspace_path(@account, view: "trash")
+    action, discard = page.evaluate_script("window.confirmations")
+    assert_equal 2, page.evaluate_script("window.confirmations.length")
+    assert_match(/all its folders and notes/, action)
+    assert_match(/unsaved changes/i, discard)
+    assert NoteFolderTrashing.exists?(note_folder_id: folder.id)
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "confirmed discard followed by a same-note action opens a fresh editor" do
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    visit editor_path
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS)
+      const ordinaryFetch = window.fetch
+      window.fetch = (url, options) => options?.method === "PATCH" ?
+        Promise.reject(new TypeError("Simulated connection outage")) : ordinaryFetch(url, options)
+      window.originalNoteForm = document.querySelector(".n-notes-form")
+      window.pinWarnings = 0
+      window.confirm = () => ++window.pinWarnings === 1
+    JS
+    find(".lexxy-editor__content").send_keys(:end, " discarded")
+    assert_save_status "Could not save"
+
+    find(".n-notes-editor-actions summary").click
+    click_on "Pin in folder"
+
+    assert_current_path editor_path
+    assert_selector "[data-note-id='#{@note.id}']", text: "Pinned"
+    assert_selector ".lexxy-editor__content", exact_text: "Interview outline"
+    refute page.evaluate_script("window.originalNoteForm === document.querySelector('.n-notes-form')")
+    assert_equal 1, page.evaluate_script("window.pinWarnings")
+    assert_equal [ "Interview outline", 1 ], @note.reload.values_at(:body_text, :content_revision)
+  end
+
   test "the ordinary HTML note form works when Lexxy is present but autosave is not" do
     visit account_note_path(@account, @note)
     editor = find("lexxy-editor[connected] .lexxy-editor__content")

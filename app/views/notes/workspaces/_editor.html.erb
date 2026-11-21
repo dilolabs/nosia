@@ -8,7 +8,8 @@
       controller: "note-autosave", note_autosave_messages_value: messages, note_autosave_recovered_value: note.errors.any?,
       action: "lexxy:initialize->note-autosave#hydrate input->note-autosave#changed lexxy:change->note-autosave#changed " \
               "submit->note-autosave#saveNow keydown->note-autosave#keyboardSave keydown.esc->note-autosave#closeFormatting " \
-              "turbo:before-visit@document->note-autosave#beforeVisit submit@document->note-autosave#beforeOtherSubmit:capture"
+              "turbo:before-visit@document->note-autosave#beforeVisit turbo:before-render@document->note-autosave#beforeRender " \
+              "turbo:submit-start@document->note-autosave#otherSubmitStarted turbo:submit-end@document->note-autosave#otherSubmitEnded"
     } do |form| %>
   <%= render "notes/workspaces/errors", record: note %>
   <%= form.hidden_field :draft_key %>
