@@ -4,19 +4,18 @@ require_relative "../../support/note_retrieval_fixtures"
 class Chat::NoteRetrievalTest < ActiveSupport::TestCase
   include NoteRetrievalFixtures
   uses_transaction :test_a_branch_trashed_after_ranking_never_reaches_the_relevance_provider,
-    :test_trashing_a_shared_branch_during_final_assembly_excludes_both_previously_ranked_Notes
+    :test_trashing_a_shared_branch_during_final_assembly_excludes_both_previously_ranked_Notes,
+    :test_a_committed_branch_trash_is_seen_by_the_next_provider_transport_attempt
 
   setup do
-    @chat = chats(:picker_second_chat)
+    @chat ||= chats(:picker_second_chat)
     @chat.messages.create!(role: :user, content: "Question")
-    @original_provider_model_ids = note_test_provider_models.ids if self.class.uses_transaction?(name)
   end
 
   teardown do
-    if self.class.uses_transaction?(name)
-      Account.where(id: [ @first.id, @second.id, @foreign.id ]).destroy_all
-      User.where(id: [ @user.id, users(:picker_outsider).id ]).destroy_all
-      note_test_provider_models.where.not(id: @original_provider_model_ids).delete_all
+    if @race_models
+      [ @first, @second, @foreign, @user, @outsider ].compact.each(&:destroy!)
+      RubyLLM::ActiveRecord::Model.where(provider: "openai", model_id: @race_models.values).delete_all
     end
   end
 
@@ -96,7 +95,7 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
   end
 
   test "a branch trashed after ranking never reaches the relevance provider" do
-    ENV["GUARD_MODEL"] = "synthetic-notes-guard"
+    ENV["GUARD_MODEL"] = @race_models.fetch(:guard)
     folder = @second.note_folders.create!(name: "Previously active")
     @second_note.move_to(folder)
     indexed_note(@second, "UNAFFECTED_NOTE_MARKER")
@@ -136,7 +135,7 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
   end
 
   test "trashing a shared branch during final assembly excludes both previously ranked Notes" do
-    ENV["GUARD_MODEL"] = "synthetic-notes-guard"
+    ENV["GUARD_MODEL"] = @race_models.fetch(:guard)
     folder = @second.note_folders.create!(name: "Shared branch")
     @second_note.move_to(folder)
     indexed_note(@second, "SHARED_BRANCH_MARKER", folder:, vector: other_vector)
@@ -163,6 +162,29 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
         assert_not_includes provider_text(completion), marker
       end
       assert_includes provider_text(completion), "SECOND_TEXT_MARKER"
+      assert_equal [ @second_text.id ], @chat.messages.assistant.last.similar_chunk_ids.map(&:to_i)
+    end
+  end
+
+  test "a committed branch trash is seen by the next provider transport attempt" do
+    folder = @second.note_folders.create!(name: "Race branch")
+    @second_note.move_to(folder)
+    failed = false
+    fail_once = ->(_request) do
+      next if failed
+
+      failed = true
+      trash_on_another_connection(folder)
+      raise Faraday::ConnectionFailed, "Synthetic pre-delivery failure"
+    end
+
+    with_note_provider(after_request: fail_once) do |requests|
+      complete_web_turn
+
+      assert_equal 2, requests.size
+      assert_includes provider_text(requests.first(1)), "SECOND_NOTE_MARKER"
+      assert_not_includes provider_text(requests.last(1)), "SECOND_NOTE_MARKER"
+      assert_includes provider_text(requests.last(1)), "SECOND_TEXT_MARKER"
       assert_equal [ @second_text.id ], @chat.messages.assistant.last.similar_chunk_ids.map(&:to_i)
     end
   end
@@ -220,8 +242,32 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
   end
 
   private
-    def note_test_provider_models
-      RubyLLM::ActiveRecord::Model.where(model_id: [ ENV["LLM_MODEL"], "synthetic-notes-guard" ], provider: "openai")
+    def set_up_picker_accounts
+      return super unless self.class.uses_transaction?(name)
+
+      # These examples commit with a second connection. Never load a shared
+      # fixture set outside its usual rollback or remove its model/users.
+      key = SecureRandom.hex(6)
+      @race_models = { completion: "synthetic-completion-#{key}", guard: "synthetic-guard-#{key}" }
+      @race_models.each_value do |model_id|
+        RubyLLM::ActiveRecord::Model.create!(model_id:, provider: "openai", name: model_id)
+      end
+      @user = User.create!(email: "notes-owner-#{key}@example.com", password: ChatAccountFixtures::PASSWORD)
+      @outsider = User.create!(email: "notes-outsider-#{key}@example.com", password: ChatAccountFixtures::PASSWORD)
+      @first = isolated_account(@user, "First account")
+      @second = isolated_account(@user, "Research account")
+      @foreign = isolated_account(@outsider, "Foreign account")
+      @isolated_texts = { first: @first.texts.create!(data: "First Text"), second: @second.texts.create!(data: "Second Text") }
+      @chat = @second.chats.create!(user: @user, model: @race_models.fetch(:completion), provider: :openai, assume_model_exists: true)
+      model = @race_models.fetch(:completion)
+      @chat.define_singleton_method(:default_options) { super().merge(model:) }
+    end
+
+    def isolated_account(user, name)
+      Account.create!(owner: user, name:).tap do |account|
+        account.account_users.grant_to(user)
+        account.prompts.create!(name: "system_prompt", content: "Synthetic prompt %{documents}")
+      end
     end
 
     def trash_on_another_connection(folder)

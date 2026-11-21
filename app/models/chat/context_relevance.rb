@@ -13,9 +13,11 @@ module Chat::ContextRelevance
     chat.with_instructions(Prompts.context_relevance_guard)
     if block_given?
       chat.before_request do |payload|
-        context = yield
-        if context
-          payload.fetch(:messages).last[:content] = context_relevance_input(context, question)
+        Nosia::NoteProviderRequest.refresh_each_attempt(payload) do |attempt|
+          context = yield
+          if context
+            attempt.fetch(:messages).last[:content] = context_relevance_input(context, question)
+          end
         end
       end
       response = chat.ask(context_relevance_input(nil, question))
@@ -24,7 +26,7 @@ module Chat::ContextRelevance
     end
     (!block_given? || context.present?) && response.content.to_s.strip == "0"
   rescue => e
-    Rails.logger.error("Error determining context relevance: #{e.message}")
+    Rails.logger.error("Error determining context relevance: #{block_given? ? e.class.name : e.message}")
     false
   end
 

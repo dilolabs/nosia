@@ -116,7 +116,7 @@ module Chat::Completionable
   end
 
   def with_note_context_hook(callback)
-    before_request { |payload| callback&.call(payload) }
+    before_request { |payload| Nosia::NoteProviderRequest.refresh_each_attempt(payload, &callback) if callback }
     yield
   ensure
     # The SDK memoizes callbacks on the chat object; leave this one inert after the turn.

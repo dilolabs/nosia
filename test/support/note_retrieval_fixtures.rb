@@ -14,8 +14,8 @@ module NoteRetrievalFixtures
       @first_chunk = @first_note.chunks.sole
       @second_chunk = @second_note.chunks.sole
       @foreign_chunk = @foreign_note.chunks.sole
-      @first_text = insert_picker_chunk(@first, texts(:picker_first_text), "FIRST_TEXT_MARKER", other_vector)
-      @second_text = insert_picker_chunk(@second, texts(:picker_second_text), "SECOND_TEXT_MARKER", other_vector)
+      @first_text = insert_picker_chunk(@first, @isolated_texts&.fetch(:first) || texts(:picker_first_text), "FIRST_TEXT_MARKER", other_vector)
+      @second_text = insert_picker_chunk(@second, @isolated_texts&.fetch(:second) || texts(:picker_second_text), "SECOND_TEXT_MARKER", other_vector)
       @first.prompts.find_by!(name: "system_prompt").update!(content: "First account %{documents}")
       @second.prompts.find_by!(name: "system_prompt").update!(content: "Research account %{documents}")
     end
@@ -54,7 +54,7 @@ module NoteRetrievalFixtures
       [ 0.8, 0.6 ] + query_vector.drop(2)
     end
 
-    def with_note_provider(after_request: nil, tools_on_first_completion: false)
+    def with_note_provider(after_request: nil, tools_on_first_completion: false, stream_content: "Synthetic answer")
       requests = []
       stubs = Faraday::Adapter::Test::Stubs.new
       stubs.post("/v1/chat/completions") do |env|
@@ -68,7 +68,7 @@ module NoteRetrievalFixtures
               function: { name: "test_note_change", arguments: "{}" } } ] } ]
             frames = deltas.map { |delta| provider_frame(request, delta, finish: "tool_calls") }
           else
-            frames = [ provider_frame(request, { role: "assistant", content: "Synthetic answer" }, finish: "stop") ]
+            frames = [ provider_frame(request, { role: "assistant", content: stream_content }, finish: "stop") ]
           end
           frames.each do |frame|
             data = "data: #{frame.to_json}\n\n"
@@ -87,11 +87,14 @@ module NoteRetrievalFixtures
         define_method(:initialize) { |app, **| super(app, stubs, &nil) }
       end
       original_adapter = RubyLLM.config.faraday_adapter
+      original_retry_interval = RubyLLM.config.retry_interval
       RubyLLM.config.faraday_adapter = adapter
+      RubyLLM.config.retry_interval = 0
       embedding = RubyLLM::Embedding.new(vectors: query_vector, model: ENV.fetch("EMBEDDING_MODEL"), input_tokens: 3)
       with_singleton_replacement(RubyLLM, :embed, ->(*, **) { embedding }) { yield requests }
     ensure
       RubyLLM.config.faraday_adapter = original_adapter
+      RubyLLM.config.retry_interval = original_retry_interval
     end
 
     def provider_frame(request, delta, finish:)
@@ -101,5 +104,17 @@ module NoteRetrievalFixtures
 
     def provider_text(requests)
       requests.flat_map { |request| request.fetch("messages") }.pluck("content").join("\n")
+    end
+
+    def with_provider_debug_log
+      config = RubyLLM.config
+      original = [ config.logger, config.log_bodies, config.log_stream_debug ]
+      output = StringIO.new
+      config.logger = Logger.new(output)
+      config.log_bodies = true
+      config.log_stream_debug = true
+      yield output
+    ensure
+      config.logger, config.log_bodies, config.log_stream_debug = original
     end
 end

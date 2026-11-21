@@ -11,18 +11,9 @@ module ChatAccountFixtures
       @prior_tenant = ActsAsTenant.current_tenant
       @prior_adapter = ActiveJob::Base.queue_adapter
       ActsAsTenant.current_tenant = nil
-      ActiveRecord::FixtureSet.reset_cache
-      @picker_fixtures = ActiveRecord::FixtureSet.create_fixtures(
-        Rails.root.join("test/support/fixtures/chat_accounts").to_s,
-        %w[users accounts account_users ruby_llm_models chats websites texts mcp_servers agent_skills prompts],
-        { "ruby_llm_models" => "RubyLLM::ActiveRecord::Model" }
-      ).index_by(&:name)
-      @user = users(:picker_owner)
-      @first = accounts(:picker_first)
-      @second = accounts(:picker_second)
-      @foreign = accounts(:picker_foreign)
       ActiveJob::Base.queue_adapter = :test
       clear_enqueued_jobs
+      set_up_picker_accounts
     end
 
     teardown do
@@ -70,4 +61,18 @@ module ChatAccountFixtures
     } ])
     account.chunks.find(result.rows.first.first)
   end
+
+  private
+    def set_up_picker_accounts
+      ActiveRecord::FixtureSet.reset_cache
+      @picker_fixtures = ActiveRecord::FixtureSet.create_fixtures(
+        Rails.root.join("test/support/fixtures/chat_accounts").to_s,
+        %w[users accounts account_users ruby_llm_models chats websites texts mcp_servers agent_skills prompts],
+        { "ruby_llm_models" => "RubyLLM::ActiveRecord::Model" }
+      ).index_by(&:name)
+      @user = users(:picker_owner)
+      @first = accounts(:picker_first)
+      @second = accounts(:picker_second)
+      @foreign = accounts(:picker_foreign)
+    end
 end
