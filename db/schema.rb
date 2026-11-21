@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_21_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -304,6 +304,48 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_000001) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "parent_id"], name: "index_note_folders_on_account_id_and_parent_id"
     t.index ["account_id", "system_key"], name: "index_note_folders_on_account_id_and_system_key", unique: true, where: "(system_key IS NOT NULL)"
+  end
+
+  create_table "note_taggings", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_id", null: false
+    t.bigint "note_tag_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_id", "note_tag_id"], name: "index_note_taggings_on_note_id_and_note_tag_id", unique: true
+    t.index ["note_tag_id", "note_id"], name: "index_note_taggings_on_note_tag_id_and_note_id"
+  end
+
+  create_table "note_tags", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.text "key", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "key"], name: "index_note_tags_on_account_id_and_key", unique: true
+  end
+
+  create_table "note_trashings", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_id"], name: "index_note_trashings_on_note_id", unique: true
+  end
+
+  create_table "notes", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_folder_id", null: false
+    t.uuid "draft_key", null: false
+    t.text "title", default: "", null: false
+    t.text "body_html", default: "", null: false
+    t.text "body_text", default: "", null: false
+    t.integer "content_revision", null: false
+    t.datetime "content_updated_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "content_updated_at", "id"], name: "index_notes_on_account_id_and_content_updated_at_and_id"
+    t.index ["account_id", "draft_key"], name: "index_notes_on_account_id_and_draft_key", unique: true
+    t.index ["account_id", "note_folder_id", "content_updated_at", "id"], name: "idx_on_account_id_note_folder_id_content_updated_at_4ffd20809f"
   end
 
   create_table "passwordless_sessions", force: :cascade do |t|

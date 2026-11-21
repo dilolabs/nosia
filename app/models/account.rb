@@ -17,7 +17,9 @@ class Account < ApplicationRecord
   has_many :chunks, dependent: :destroy
   has_many :documents, dependent: :destroy
   has_many :mcp_servers, dependent: :destroy
+  has_many :notes, dependent: :destroy
   has_many :note_folders, dependent: :destroy
+  has_many :note_tags, dependent: :destroy
   has_many :prompts, dependent: :destroy
   has_many :qnas, dependent: :destroy
   has_many :texts, dependent: :destroy
@@ -109,7 +111,9 @@ class Account < ApplicationRecord
   private
     def prepare_dependent_cleanup
       Account.lock.find(id)
+      notes.reload
       note_folders.reload
+      note_tags.reload
       McpAuthorization.uncached { McpAuthorization.where(account_id: id).find_each(&:retire!) }
     end
 end
