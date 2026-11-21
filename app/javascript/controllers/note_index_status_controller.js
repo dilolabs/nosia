@@ -35,17 +35,13 @@ export default class extends Controller {
 
   suspend() {
     this.stop()
-    if (this.retry) {
-      this.retry.controller.abort()
-      this.#finishRetry()
-    }
+    this.#cancelRetry()
   }
 
   saved({ detail: html }) {
     const frame = this.#frameFrom(html)
     if (!frame || !this.#apply(frame, { fromSave: true })) return
 
-    this.#cancelPoll()
     this.schedule()
   }
 
@@ -66,7 +62,7 @@ export default class extends Controller {
     const result = await this.#requestRetry(form.action, body, retry.controller.signal)
     if (this.retry !== retry || !this.element.isConnected) return
 
-    this.#finishRetry()
+    this.#finishRetry(retry)
     if (generation !== this.element.dataset.generation) return
 
     if (!result) {
@@ -104,8 +100,18 @@ export default class extends Controller {
     }
   }
 
-  #finishRetry() {
-    this.retry.button?.removeAttribute("aria-disabled")
+  #cancelRetry() {
+    const retry = this.retry
+    if (retry) {
+      retry.controller.abort()
+      this.#finishRetry(retry)
+    }
+  }
+
+  #finishRetry(retry) {
+    if (this.retry !== retry) return
+
+    retry.button?.removeAttribute("aria-disabled")
     this.element.removeAttribute("aria-busy")
     this.retry = null
   }
@@ -161,15 +167,19 @@ export default class extends Controller {
 
     const message = frame.querySelector("[data-note-index-status]")
     const state = message.dataset.noteIndexStatus
-    const generationChanged = current.generation !== generation
+    const generationAdvanced = BigInt(generation) > BigInt(current.generation)
     const focused = this.actionsTarget.contains(document.activeElement)
+    if (generationAdvanced) {
+      this.#cancelRetry()
+      if (fromSave) this.#cancelPoll()
+    }
     if (firstSave) this.element.id = frame.id
     Object.assign(current, { statusUrl, revision, generation, updatedAt })
     this.messageTarget.dataset.noteIndexStatus = state
     if (this.messageTarget.textContent !== message.textContent) this.messageTarget.textContent = message.textContent
     const outcome = frame.querySelector('[data-note-index-status-target="outcome"]').textContent
     if (this.outcomeTarget.textContent !== outcome) this.outcomeTarget.textContent = outcome
-    if (Boolean(this.actionsTarget.firstElementChild) !== (state === "failed") || (state === "failed" && generationChanged)) {
+    if (Boolean(this.actionsTarget.firstElementChild) !== (state === "failed") || (state === "failed" && generationAdvanced)) {
       this.actionsTarget.replaceChildren(...frame.querySelector('[data-note-index-status-target="actions"]').children)
       if (focused) (this.actionsTarget.querySelector("button") || this.messageTarget).focus({ preventScroll: true })
     }

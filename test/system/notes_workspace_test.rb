@@ -289,6 +289,55 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     Note::IndexJob.skip_callback(:enqueue, :before, fail_enqueue) if fail_enqueue
   end
 
+  test "a newly failed generation can retry before an older retry response returns" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector ".n-notes-index-status [data-note-index-status='failed']"
+    fail_enqueue = -> { raise SolidQueue::Job::EnqueueError, "Synthetic queue outage" }
+    Note::IndexJob.set_callback(:enqueue, :before, fail_enqueue)
+    hold_index_retry(@note)
+    click_button "Retry indexing"
+    assert_equal 200, retrieve_held_retry_status(2)
+
+    fill_in "Title (optional)", with: "Field notes  "
+    assert_save_status "Saved"
+    assert_equal [ 1, 2 ], @note.reload.values_at(:content_revision, :embedding_generation)
+    refute page.evaluate_script("window.heldIndexRetries[2].signal.aborted")
+
+    fill_in "Title (optional)", with: "Saved generation three"
+    assert_save_status "Saved"
+    assert_selector ".n-notes-index-status[data-generation='3'] [data-note-index-status='failed']", wait: 8
+    assert_equal [ 2, 3, "failed" ], @note.reload.values_at(:content_revision, :embedding_generation, :embedding_status)
+    Note::IndexJob.skip_callback(:enqueue, :before, fail_enqueue)
+    fail_enqueue = nil
+
+    watch_dirty_departure("My unsaved follow-up")
+    retry_button = ".n-notes-index-status button"
+    orbite_tab_to(retry_button)
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector "#{retry_button}:focus[aria-disabled='true']"
+    assert_equal 200, retrieve_held_retry_status(3)
+    assert page.evaluate_script("window.heldIndexRetries[2].signal.aborted")
+    refute page.evaluate_script("window.heldIndexRetries[3].signal.aborted")
+
+    release_index_retry(2)
+    assert_selector ".n-notes-index-status[aria-busy='true']", wait: 0
+    assert_selector "#{retry_button}:focus[aria-disabled='true']", wait: 0
+    assert_no_text "Indexing retry failed to start. Try again.", wait: 0
+
+    release_index_retry(3)
+    assert_selector ".n-notes-index-status [data-note-index-status='pending']:focus"
+    assert_no_selector ".n-notes-index-status[aria-busy='true']"
+    assert_field "Title (optional)", with: "My unsaved follow-up"
+    assert_save_status "Could not save"
+    assert_equal [ "Saved generation three", 2, 3, "pending" ],
+      @note.reload.values_at(:title, :content_revision, :embedding_generation, :embedding_status)
+    assert_equal 0, page.evaluate_script("window.departureConfirmations")
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+  ensure
+    Note::IndexJob.skip_callback(:enqueue, :before, fail_enqueue) if fail_enqueue
+  end
+
   test "a delayed retry from a previous note cannot claim a new editor or its retry form" do
     @note.update!(embedding_status: :failed, embedding_generation: 2)
     visit account_note_path(@account, @note)
@@ -462,6 +511,36 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector ".n-notes-index-status [data-note-index-status='failed']", wait: 8
     assert_save_status "Saved"
     assert_poll_count_stays(2)
+  end
+
+  test "a same-generation save leaves a pending index poll in flight" do
+    @note.update!(embedding_status: :pending, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector ".n-notes-index-status [data-note-index-status='pending']"
+    page.execute_script(<<~JS)
+      const ordinaryFetch = window.fetch
+      window.fetch = async (url, options) => {
+        const response = await ordinaryFetch(url, options)
+        if (!new URL(url, location.origin).pathname.endsWith("/index_status") || window.releaseSameGenerationPoll) return response
+
+        window.sameGenerationPoll = options.signal
+        const body = await response.text()
+        return new Promise(resolve => {
+          window.releaseSameGenerationPoll = () => resolve(new Response(body, { status: response.status, headers: response.headers }))
+        })
+      }
+    JS
+    Selenium::WebDriver::Wait.new(timeout: 8).until { page.evaluate_script("Boolean(window.releaseSameGenerationPoll)") }
+
+    fill_in "Title (optional)", with: "Field notes  "
+    assert_save_status "Saved"
+    assert_equal [ 1, 2 ], @note.reload.values_at(:content_revision, :embedding_generation)
+    refute page.evaluate_script("window.sameGenerationPoll.aborted")
+
+    page.execute_script("window.releaseSameGenerationPoll()")
+    @note.mark_index_failed(2)
+    assert_selector ".n-notes-index-status [data-note-index-status='failed']", wait: 8
+    assert_save_status "Saved"
   end
 
   test "an indexing status error stops the poll without replacing the editor or save feedback" do
@@ -1523,6 +1602,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       page.execute_script(<<~JS, account_note_index_retry_path(@account, note))
         const retryUrl = new URL(arguments[0], location.origin).href
         const ordinaryFetch = window.fetch
+        window.heldIndexRetries = {}
         window.fetch = async (url, options) => {
           const response = await ordinaryFetch(url, options)
           if (new URL(url, location.origin).href !== retryUrl || options?.method?.toUpperCase() !== "POST") return response
@@ -1530,7 +1610,8 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
           // Capture the real response before disconnect can abort its body.
           const body = await response.text()
           return new Promise(resolve => {
-            window.heldIndexRetry = { status: response.status, signal: options.signal, release: () => {
+            const generation = options.body.get("expected_generation")
+            window.heldIndexRetries[generation] = window.heldIndexRetry = { status: response.status, signal: options.signal, release: () => {
               resolve(new Response(body, { status: response.status, headers: response.headers }))
             } }
           })
@@ -1538,14 +1619,14 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       JS
     end
 
-    def retrieve_held_retry_status
+    def retrieve_held_retry_status(generation = nil)
       Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
-        page.evaluate_script("window.heldIndexRetry?.status")
+        page.evaluate_script("(arguments[0] ? window.heldIndexRetries[arguments[0]] : window.heldIndexRetry)?.status", generation)
       end
     end
 
-    def release_index_retry
-      page.execute_script("window.heldIndexRetry.release()")
+    def release_index_retry(generation = nil)
+      page.execute_script("(arguments[0] ? window.heldIndexRetries[arguments[0]] : window.heldIndexRetry).release()", generation)
       orbite_settle
     end
 
