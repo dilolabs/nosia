@@ -94,6 +94,28 @@ class NotesTrashTest < ActiveSupport::TestCase
     assert_equal @root, @child.reload.parent
   end
 
+  test "direct marker creation cannot convert inherited note trash into a direct marker" do
+    @child.trash
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { NoteTrashing.create!(note: @note, account: @account) }
+
+    assert error.record.errors.added?(:note, :invalid)
+    refute NoteTrashing.exists?(note_id: @note.id)
+    @child.restore
+    assert Note.active_in(@account.id).exists?(@note.id)
+  end
+
+  test "direct marker creation cannot convert inherited folder trash into a direct marker" do
+    @child.trash
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { NoteFolderTrashing.create!(note_folder: @leaf, account: @account) }
+
+    assert error.record.errors.added?(:note_folder, :invalid)
+    refute NoteFolderTrashing.exists?(note_folder_id: @leaf.id)
+    @child.restore
+    assert NoteFolder.active_in(@account.id).exists?(@leaf.id)
+  end
+
   test "the owner can purge a directly trashed note under a trashed ancestor without deleting its sibling" do
     sibling = draft_in(@leaf)
     member = users(:picker_outsider)
@@ -572,6 +594,31 @@ class NotesLifecycleConcurrencyTest < ActiveSupport::TestCase
 
     assert NoteTrashing.exists?(note_marker.id)
     assert NoteFolderTrashing.exists?(folder_marker.id)
+  end
+
+  test "direct marker creation rechecks cached visibility under the account lock even when validation is skipped" do
+    leaf = note_folders(:interviews)
+    note_marker = NoteTrashing.new(note: @note, account: @account)
+    folder_marker = NoteFolderTrashing.new(note_folder: leaf, account: @account)
+
+    Note.cache do
+      active_notes = Note.active_in(@account.id)
+      active_folders = NoteFolder.active_in(@account.id)
+      assert note_marker.valid?
+      assert folder_marker.valid?
+      assert active_notes.exists?(@note.id)
+      assert active_folders.exists?(leaf.id)
+      in_another_session { NoteFolder.find(@folder.id).trash }
+      assert active_notes.exists?(@note.id), "the creating session still has the old note visibility cached"
+      assert active_folders.exists?(leaf.id), "the creating session still has the old folder visibility cached"
+
+      assert_raises(ActiveRecord::RecordInvalid) { note_marker.save!(validate: false) }
+      assert_raises(ActiveRecord::RecordInvalid) { folder_marker.save!(validate: false) }
+    end
+
+    @folder.restore
+    assert Note.active_in(@account.id).exists?(@note.id)
+    assert NoteFolder.active_in(@account.id).exists?(leaf.id)
   end
 
   test "direct pin creation and dirty removal lock the original account without touching a replacement" do

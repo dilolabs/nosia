@@ -3,15 +3,15 @@ class NoteTrashing < ApplicationRecord
   belongs_to :note, inverse_of: :trashing
   belongs_to :account, default: -> { note&.account }
 
-  validate :account_matches_note, if: :new_record?
+  validate :note_can_be_marked, if: :new_record?
   validate :stable_identity, if: :persisted?
   before_create :lock_and_check_note
   before_update :check_stable_identity
   before_destroy :lock_and_check_removal, if: :persisted?, prepend: true
 
   private
-    def account_matches_note
-      unless Note.uncached { Note.exists?(id: note_id, account_id:) }
+    def note_can_be_marked
+      unless Note.uncached { Note.active_in(account_id).exists?(id: note_id) }
         errors.add(:note, :invalid)
       end
     end
@@ -23,7 +23,7 @@ class NoteTrashing < ApplicationRecord
 
     def lock_and_check_note
       if Account.lock.exists?(id: account_id)
-        account_matches_note
+        note_can_be_marked
       else
         errors.add(:account, :invalid)
       end

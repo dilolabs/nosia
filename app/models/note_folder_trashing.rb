@@ -23,6 +23,9 @@ class NoteFolderTrashing < ApplicationRecord
       Account.lock.find(account_id)
       # Do not trust either a loaded association or an earlier validation.
       folder_can_be_marked
+      if errors.empty? && !NoteFolder.uncached { NoteFolder.active_in(account_id).exists?(id: note_folder_id) }
+        errors.add(:note_folder, :invalid)
+      end
       raise ActiveRecord::RecordInvalid, self if errors.any?
     end
 
