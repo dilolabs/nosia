@@ -11,8 +11,8 @@ module Chunk::Searchable
       end
       embedding_result = RubyLLM.embed(query_text, context:, model: ENV["EMBEDDING_MODEL"], dimensions: ENV["EMBEDDING_DIMENSIONS"].to_i, provider: :openai, assume_model_exists: true)
       Chunk::Searchable.record_query_embedding_usage(embedding_result, chat:)
-      eligible = if note_access&.allowed?(chat)
-        with_visible_notes(account_id: chat.account_id_in_database, include_notes: true).skip_query_cache!
+      eligible = if note_access && chat&.persisted?
+        note_access.searchable_chunks(chat, scope: self).skip_query_cache!
       else
         without_notes
       end

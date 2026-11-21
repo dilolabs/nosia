@@ -43,9 +43,15 @@ class Note < ApplicationRecord
     active_in(account_id).embedding_ready.where("notes.indexed_generation = notes.embedding_generation")
   end
 
+  # @param title [String, nil] A title read from a saved Note.
   # @return [String] The saved title, or the localized label for an untitled Note.
-  def display_title
+  def self.display_title_for(title)
     title.presence || I18n.t("nosia.notes.untitled")
+  end
+
+  # @return [String] The title to show in a citation.
+  def display_title
+    self.class.display_title_for(title)
   end
 
   # Pins an active note in its current folder. Repeated pinning is a no-op.

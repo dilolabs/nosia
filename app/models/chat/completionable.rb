@@ -124,13 +124,15 @@ module Chat::Completionable
   end
 
   def current_passages(chunks, source_passages, note_access:, augmented:)
-    chunks.each_with_object({}) do |chunk, passages|
-      if chunk.try(:note_chunk?)
-        note, text = note_access.current_excerpt(self, chunk, augmented:)
-        passages[chunk.id] = document_passage(title: note.display_title, text:) if note
-      else
-        passages[chunk.id] = source_passages.fetch(chunk.id)
-      end
+    note_candidates = chunks.select { |chunk| chunk.try(:note_chunk?) }
+    note_passages = note_access.current_excerpts(self, note_candidates, augmented:).transform_values do |title, text|
+      document_passage(title:, text:)
+    end
+    included = note_candidates.select { |candidate| note_passages.key?(candidate.id) }
+    note_passages.slice!(*note_access.current_candidate_ids(self, included))
+    passages = source_passages.merge(note_passages)
+    chunks.each_with_object({}) do |chunk, ordered|
+      ordered[chunk.id] = passages.fetch(chunk.id) if passages.key?(chunk.id)
     end
   end
 

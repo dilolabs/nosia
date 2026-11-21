@@ -3,11 +3,21 @@ require_relative "../../support/note_retrieval_fixtures"
 
 class Chat::NoteRetrievalTest < ActiveSupport::TestCase
   include NoteRetrievalFixtures
-  uses_transaction :test_a_branch_trashed_after_ranking_never_reaches_the_relevance_provider
+  uses_transaction :test_a_branch_trashed_after_ranking_never_reaches_the_relevance_provider,
+    :test_trashing_a_shared_branch_during_final_assembly_excludes_both_previously_ranked_Notes
 
   setup do
     @chat = chats(:picker_second_chat)
     @chat.messages.create!(role: :user, content: "Question")
+    @original_provider_model_ids = note_test_provider_models.ids if self.class.uses_transaction?(name)
+  end
+
+  teardown do
+    if self.class.uses_transaction?(name)
+      Account.where(id: [ @first.id, @second.id, @foreign.id ]).destroy_all
+      User.where(id: [ @user.id, users(:picker_outsider).id ]).destroy_all
+      note_test_provider_models.where.not(id: @original_provider_model_ids).delete_all
+    end
   end
 
   test "ordinary web job guards and cites Notes in its saved account" do
@@ -87,17 +97,14 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
 
   test "a branch trashed after ranking never reaches the relevance provider" do
     ENV["GUARD_MODEL"] = "synthetic-notes-guard"
-    provider_models = RubyLLM::ActiveRecord::Model.where(model_id: [ ENV["LLM_MODEL"], ENV["GUARD_MODEL"] ], provider: "openai")
-    original_model_ids = provider_models.ids
     folder = @second.note_folders.create!(name: "Previously active")
     @second_note.move_to(folder)
     indexed_note(@second, "UNAFFECTED_NOTE_MARKER")
     broadcast = @chat.method(:broadcast_thinking_phase)
+    trash_folder = method(:trash_on_another_connection)
     @chat.define_singleton_method(:broadcast_thinking_phase) do |phase|
       broadcast.call(phase)
-      if phase == "retrieving"
-        Thread.new { NoteFolder.with_connection { NoteFolder.find(folder.id).trash } }.value
-      end
+      trash_folder.call(folder) if phase == "retrieving"
     end
 
     with_note_provider do |requests|
@@ -107,10 +114,6 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
       assert_includes provider_text(requests), "UNAFFECTED_NOTE_MARKER"
       assert_not_includes provider_text(requests), "SECOND_NOTE_MARKER"
     end
-  ensure
-    Account.where(id: [ @first.id, @second.id, @foreign.id ]).destroy_all
-    User.where(id: [ @user.id, users(:picker_outsider).id ]).destroy_all
-    provider_models.where.not(id: original_model_ids).delete_all
   end
 
   test "an edit during tool discovery does not send a previously guarded excerpt to completion" do
@@ -129,6 +132,38 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
       assert_includes provider_text(requests.select { |request| request["stream"] }), "SECOND_TEXT_MARKER"
       assert_not_includes provider_text(requests.select { |request| request["stream"] }), "SECOND_NOTE_MARKER"
       assert_equal [ @second_text.id ], @chat.messages.assistant.last.similar_chunks.ids
+    end
+  end
+
+  test "trashing a shared branch during final assembly excludes both previously ranked Notes" do
+    ENV["GUARD_MODEL"] = "synthetic-notes-guard"
+    folder = @second.note_folders.create!(name: "Shared branch")
+    @second_note.move_to(folder)
+    indexed_note(@second, "SHARED_BRANCH_MARKER", folder:, vector: other_vector)
+    final_assembly = trashed = false
+    broadcast = @chat.method(:broadcast_thinking_phase)
+    @chat.define_singleton_method(:broadcast_thinking_phase) do |phase|
+      broadcast.call(phase)
+      final_assembly = true if phase == "generating"
+    end
+    trash_after_first_eligible_read = ->(sql) do
+      next unless final_assembly && !trashed && sql.include?("vector_norm(chunks.embedding)")
+
+      trashed = true
+      trash_on_another_connection(folder)
+    end
+
+    with_note_provider do |requests|
+      with_note_sql_barrier(after: trash_after_first_eligible_read) { complete_web_turn }
+
+      assert trashed, "expected a branch change between excerpt loading and completion"
+      guard, completion = requests.partition { |request| !request["stream"] }
+      %w[SECOND_NOTE_MARKER SHARED_BRANCH_MARKER].each do |marker|
+        assert_includes provider_text(guard), marker
+        assert_not_includes provider_text(completion), marker
+      end
+      assert_includes provider_text(completion), "SECOND_TEXT_MARKER"
+      assert_equal [ @second_text.id ], @chat.messages.assistant.last.similar_chunk_ids.map(&:to_i)
     end
   end
 
@@ -185,6 +220,14 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
   end
 
   private
+    def note_test_provider_models
+      RubyLLM::ActiveRecord::Model.where(model_id: [ ENV["LLM_MODEL"], "synthetic-notes-guard" ], provider: "openai")
+    end
+
+    def trash_on_another_connection(folder)
+      Thread.new { NoteFolder.with_connection { NoteFolder.find(folder.id).trash } }.value
+    end
+
     def complete_web_turn
       find_chat = Chat.method(:find)
       chat = @chat

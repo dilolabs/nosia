@@ -50,6 +50,29 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
         assert_equal [ @first_text.id ], last_answer.similar_chunks.ids
       end
     end
+
+    test "membership revoked at ranking leaves the top result available to Text (stream: #{stream})" do
+      ENV["RETRIEVAL_FETCH_K"] = "1"
+      membership = @first.account_users.find_by!(user: @user)
+      revoked = false
+      revoke_before_rank = ->(sql) do
+        next if revoked || !sql.include?("AS neighbor_distance")
+
+        revoked = true
+        AccountUser.find(membership.id).destroy!
+      end
+
+      with_note_provider do |requests|
+        with_note_sql_barrier(before: revoke_before_rank) { post_completion(stream:) }
+
+        assert revoked, "expected membership revocation immediately before ranking SQL"
+        assert ApiToken.exists?(@token.id), "test covers legacy access through a retained token"
+        assert_completion_response(stream)
+        assert_includes provider_text(requests), "FIRST_TEXT_MARKER"
+        assert_no_note_context(requests)
+        assert_equal [ @first_text.id ], last_answer.similar_chunks.ids
+      end
+    end
   end
 
   test "token revoked by a separate write during the guard does not send Notes in the completion" do

@@ -43,21 +43,6 @@ class Chunk < ApplicationRecord
     chunkable_type == "Note"
   end
 
-  # Builds the positional window on an already scoped, current Note relation.
-  # @param scope [ActiveRecord::Relation<Chunk>] The same Note and generation as this row.
-  # @param augmented [Boolean] Whether to include neighboring positions.
-  # @return [ActiveRecord::Relation<Chunk>] Fresh passages in order, including the center if still visible.
-  def note_passages(scope, augmented:)
-    position = metadata.fetch("position")
-    if augmented
-      scope.where("chunks.metadata -> 'position' BETWEEN CAST(? AS jsonb) AND CAST(? AS jsonb)",
-        (position - 2).to_s, (position + 2).to_s)
-        .order(Arel.sql("chunks.metadata -> 'position' ASC, chunks.id ASC"))
-    else
-      scope.where(id:)
-    end
-  end
-
   def title
     case chunkable_type
     when "Document"

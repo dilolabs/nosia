@@ -26,6 +26,13 @@ module NoteRetrievalFixtures
   end
 
   private
+    def with_note_sql_barrier(before: nil, after: nil, &test)
+      subscriber = Object.new
+      subscriber.define_singleton_method(:start) { |_name, _id, payload| before&.call(payload.fetch(:sql)) }
+      subscriber.define_singleton_method(:finish) { |_name, _id, payload| after&.call(payload.fetch(:sql)) }
+      ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record", &test)
+    end
+
     def query_vector
       @vector ||= [ 1.0 ] + Array.new(Chunk.embedding_dimensions - 1, 0.0)
     end
