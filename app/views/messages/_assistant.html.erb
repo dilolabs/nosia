@@ -15,14 +15,15 @@
         class: "n-workspace-button n-workspace-primary" %>
     <% end %>
 
-    <% if message.similar_chunks.any? %>
+    <% similar_chunks = message.similar_chunks.to_a %>
+    <% if similar_chunks.any? %>
       <details id="<%= dom_id(message, :sources) %>" data-chat-detail class="n-chat-details">
         <summary id="<%= dom_id(message, :sources_summary) %>">
-          <% source_count = message.similar_chunks.count %>
+          <% source_count = similar_chunks.size %>
           <%= t("nosia.chat.sources", count: source_count, formatted_count: number_with_delimiter(source_count)) %>
         </summary>
         <%= tag.div id: dom_id(message, :search_content) do %>
-          <%= render "messages/search_content", message: message %>
+          <%= render "messages/search_content", message: message, similar_chunks: similar_chunks %>
         <% end %>
       </details>
     <% end %>

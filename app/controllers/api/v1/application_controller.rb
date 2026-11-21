@@ -36,6 +36,7 @@ module Api
             return
           end
 
+          @api_token = api_token
           @user = api_token.user
           @account = if params[:user].present?
             @user.accounts.create_with(name: params[:user], owner: @user)

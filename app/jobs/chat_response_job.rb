@@ -33,10 +33,11 @@ class ChatResponseJob < ApplicationJob
       []
     end
 
+    note_access = Chat::NoteRetrieval.web
     if Rails.application.config.agent_skills.enabled
-      result = chat.complete_with_agent_skills(content, user_message: user_message, excluded_sources: excluded)
+      result = chat.complete_with_agent_skills(content, user_message: user_message, excluded_sources: excluded, note_access:)
     else
-      result = chat.complete_with_nosia(content, user_message: user_message, excluded_sources: excluded)
+      result = chat.complete_with_nosia(content, user_message: user_message, excluded_sources: excluded, note_access:)
     end
     Rails.logger.info "=== ChatResponseJob completed. Result: #{result&.id} ==="
   ensure

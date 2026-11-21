@@ -175,7 +175,7 @@ class Api::V1::CompletionsControllerTest < ActionDispatch::IntegrationTest
         chat = original.call(*args, **kwargs, &block)
         chat.with_context(context)
         chat.define_singleton_method(:with_mcp_tools) { |&turn| turn.call }
-        chat.define_singleton_method(:similarity_search) { |_| [ chunk ] }
+        chat.define_singleton_method(:similarity_search) { |_, note_access: nil| [ chunk ] }
         chat.define_singleton_method(:answer_relevance) { |*args, **options| true }
         chat.define_singleton_method(:broadcast_thinking_phase) { |*| }
         chat

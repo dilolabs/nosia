@@ -37,6 +37,17 @@ class Note < ApplicationRecord
     where(account_id:, note_folder_id: NoteFolder.active_in(account_id).select(:id)).where.missing(:trashing)
   end
 
+  # @param account_id [Integer] Account whose active published notes should be searched.
+  # @return [ActiveRecord::Relation<Note>] Active notes with up-to-date embeddings.
+  def self.indexed_in(account_id)
+    active_in(account_id).embedding_ready.where("notes.indexed_generation = notes.embedding_generation")
+  end
+
+  # @return [String] The saved title, or the localized label for an untitled Note.
+  def display_title
+    title.presence || I18n.t("nosia.notes.untitled")
+  end
+
   # Pins an active note in its current folder. Repeated pinning is a no-op.
   # @return [Note] The pinned note.
   # @raise [Note::Unavailable] If the note is missing or inactive.

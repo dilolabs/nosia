@@ -7,6 +7,7 @@ fr:
         notes: Notes
     notes:
       title: Notes
+      title_singular: Note
       no_account: Vous devez avoir accès à un compte pour utiliser Notes.
       account: "Compte : %{name}"
       switch_account: Changer de compte pour Notes

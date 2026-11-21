@@ -166,11 +166,12 @@ class ChatAccountCitationsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "saved citation IDs cannot expose published note chunks" do
+  test "saved citation IDs cannot expose old note generations" do
     chat = chats(:picker_second_chat)
     width = Chunk.columns_hash.fetch("embedding").limit
     vector = [ 1.0 ] + Array.new(width - 1, 0.0)
     note_chunk = published_note_chunk(@second, vector)
+    note_chunk.update!(metadata: note_chunk.metadata.merge("note_generation" => 0))
     own = insert_picker_chunk(@second, texts(:picker_second_text), "Text source evidence", vector)
     message = chat.messages.create!(role: :assistant, content: "Cited answer", similar_chunk_ids: [ note_chunk.id.to_s, own.id.to_s ])
 
@@ -185,9 +186,10 @@ class ChatAccountCitationsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "direct citation lookup also hides note chunks without a chat context" do
+  test "direct citation lookup also hides trashed note chunks without a chat context" do
     width = Chunk.columns_hash.fetch("embedding").limit
     chunk = published_note_chunk(@first, [ 1.0 ] + Array.new(width - 1, 0.0))
+    chunk.chunkable.trash
 
     get chunk_url(chunk)
     assert_response :not_found

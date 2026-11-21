@@ -1,12 +1,15 @@
-<% if message.similar_chunks.any? %>
+<% if similar_chunks.any? %>
   <div class="space-y-2">
-    <% message.similar_chunks.each_with_index do |chunk, index| %>
-      <%= link_to chunk_path(chunk, chat_id: message.chat_id), class: "n-chat-source", target: "_blank", rel: "noopener" do %>
+    <% similar_chunks.each_with_index do |chunk, index| %>
+      <% path = chunk.note_chunk? ? account_note_path(chunk.account_id, chunk.chunkable_id) : chunk_path(chunk, chat_id: message.chat_id) %>
+      <%= link_to path, class: "n-chat-source", target: "_blank", rel: "noopener" do %>
         <div class="flex min-w-0 items-start gap-3">
           <span aria-hidden="true"><%= index + 1 %></span>
           <div class="min-w-0">
             <p class="font-medium"><%= chunk.title %></p>
-            <% if chunk.respond_to?(:document) && chunk.document.present? %>
+            <% if chunk.note_chunk? %>
+              <p class="n-workspace-help"><%= t("nosia.notes.title_singular") %></p>
+            <% elsif chunk.respond_to?(:document) && chunk.document.present? %>
               <p class="n-workspace-help"><%= chunk.document.name rescue t("nosia.chat.document") %></p>
             <% end %>
           </div>

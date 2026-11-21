@@ -4,17 +4,19 @@ module Chunk::Searchable
   included do
     has_neighbors :embedding
 
-    # Keep stored note vectors out of legacy retrieval until Notes eligibility is supported.
-    scope :without_notes, -> { where.not(chunkable_type: "Note").or(where(chunkable_type: nil)) }
-
-    scope :search_by_similarity, ->(query_text, limit: ENV["RETRIEVAL_FETCH_K"].to_i || 5, chat: nil) {
+    scope :search_by_similarity, ->(query_text, limit: ENV["RETRIEVAL_FETCH_K"].to_i || 5, chat: nil, note_access: nil) {
       context = RubyLLM.context do |config|
         config.openai_api_base = ENV["EMBEDDING_BASE_URL"] || ENV["AI_BASE_URL"]
         config.openai_api_key = ENV["AI_API_KEY"]
       end
       embedding_result = RubyLLM.embed(query_text, context:, model: ENV["EMBEDDING_MODEL"], dimensions: ENV["EMBEDDING_DIMENSIONS"].to_i, provider: :openai, assume_model_exists: true)
       Chunk::Searchable.record_query_embedding_usage(embedding_result, chat:)
-      without_notes.nearest_neighbors(:embedding, embedding_result.vectors, distance: :cosine).limit(limit)
+      eligible = if note_access&.allowed?(chat)
+        with_visible_notes(account_id: chat.account_id_in_database, include_notes: true).skip_query_cache!
+      else
+        without_notes
+      end
+      eligible.nearest_neighbors(:embedding, embedding_result.vectors, distance: :cosine).limit(limit)
     }
   end
 
