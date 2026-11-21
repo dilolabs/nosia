@@ -17,8 +17,7 @@ class NoteFolder < ApplicationRecord
   # @return [NoteFolder] The updated folder.
   # @raise [ActiveRecord::RecordInvalid] If the move is not allowed.
   def change_location!(parent:)
-    account.with_lock do
-      reload
+    with_locked_folder do
       if general?
         errors.add(:parent, :invalid)
         raise ActiveRecord::RecordInvalid, self
@@ -26,7 +25,6 @@ class NoteFolder < ApplicationRecord
 
       update!(parent:)
     end
-    self
   end
 
   # @return [Boolean] Whether this is the account's permanent General folder.
@@ -35,7 +33,23 @@ class NoteFolder < ApplicationRecord
   end
 
   private
+    def with_locked_folder
+      self.class.transaction(requires_new: true) do
+        reject_trash_change unless persisted? && id == id_in_database
+
+        locked_account = Account.lock.find(account_id_in_database)
+        self.class.uncached do
+          reload
+          reject_trash_change unless account_id == locked_account.id
+
+          yield locked_account
+        end
+      end
+      self
+    end
+
     def stable_identity
+      errors.add(:id, :invalid) if will_save_change_to_id?
       errors.add(:account_id, :invalid) if will_save_change_to_account_id?
       errors.add(:system_key, :invalid) if will_save_change_to_system_key?
       errors.add(:name, :invalid) if general? && will_save_change_to_name?

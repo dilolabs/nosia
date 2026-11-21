@@ -7,7 +7,7 @@ class NoteFolderTrashing < ApplicationRecord
   validate :stable_identity, if: :persisted?
   before_create :lock_and_check_folder
   before_update :check_stable_identity
-  before_destroy :lock_original_account, if: :persisted?, prepend: true
+  before_destroy :lock_and_check_removal, if: :persisted?, prepend: true
 
   private
     def folder_can_be_marked
@@ -36,8 +36,27 @@ class NoteFolderTrashing < ApplicationRecord
       raise ActiveRecord::RecordInvalid, self if errors.any?
     end
 
-    def lock_original_account
-      # A destroy must lock the original account even if a rejected update left it dirty.
-      Account.lock.find(account_id_in_database)
+    def lock_and_check_removal
+      owner_id = account_id_in_database
+      Account.lock.find(owner_id)
+
+      self.class.uncached do
+        marker = self.class.find_by(id: id_in_database, account_id: owner_id, note_folder_id: note_folder_id_in_database)
+        unless marker && (dependent_cleanup? || parent_active?(marker))
+          errors.add(:note_folder, :invalid)
+          raise ActiveRecord::RecordInvalid, self
+        end
+      end
+    end
+
+    def dependent_cleanup?
+      # Rails also sets this reflection when replacing an association.
+      destroyed_by_association == NoteFolder.reflect_on_association(:trashing) &&
+        association(:note_folder).target&.send(:destroying_trashing?, self)
+    end
+
+    def parent_active?(marker)
+      folder = NoteFolder.find_by(id: marker.note_folder_id, account_id: marker.account_id)
+      folder && (folder.parent_id.nil? || NoteFolder.active_in(marker.account_id).exists?(id: folder.parent_id))
     end
 end

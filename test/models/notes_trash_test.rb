@@ -133,6 +133,154 @@ class NotesTrashTest < ActiveSupport::TestCase
     assert NoteFolder.active_in(@account.id).exists?(sibling.id)
   end
 
+  test "purge rejects a dirty note ID without deleting either record" do
+    outside = draft_in(note_folders(:private))
+    sibling = draft_in(@leaf)
+    [ @note, outside, sibling ].each(&:trash)
+
+    [ outside, sibling ].each do |other|
+      receiver = Note.find(@note.id)
+      receiver.id = other.id
+      assert_raises(Note::Unavailable) { receiver.purge(by: @owner) }
+    end
+
+    assert_equal [ @note.id, outside.id, sibling.id ].sort,
+      NoteTrashing.where(note_id: [ @note.id, outside.id, sibling.id ]).pluck(:note_id).sort
+    assert_equal 3, Note.where(id: [ @note.id, outside.id, sibling.id ]).count
+  end
+
+  test "purge rejects a dirty folder ID without deleting either branch" do
+    outside = note_folders(:private)
+    [ @leaf, outside, @destination ].each(&:trash)
+
+    [ outside, @destination ].each do |other|
+      receiver = NoteFolder.find(@leaf.id)
+      receiver.id = other.id
+      assert_raises(ActiveRecord::RecordInvalid) { receiver.purge(by: @owner) }
+    end
+
+    assert_equal [ @leaf.id, outside.id, @destination.id ].sort,
+      NoteFolderTrashing.where(note_folder_id: [ @leaf.id, outside.id, @destination.id ]).pluck(:note_folder_id).sort
+    assert_equal 3, NoteFolder.where(id: [ @leaf.id, outside.id, @destination.id ]).count
+    assert Note.exists?(@note.id)
+  end
+
+  test "a dirty note ID cannot redirect an edit or an ordinary move" do
+    outside = notes(:second_team_note)
+    receiver = Note.find(@note.id)
+    receiver.id = outside.id
+
+    assert_raises(Note::Unavailable) do
+      receiver.edit_content!(expected_revision: outside.content_revision, title: "Not saved", body_html: "")
+    end
+    assert_equal "Research 100%", outside.reload.title
+
+    pinned = draft_in(@leaf).pin_in_folder
+    receiver = Note.find(@note.id)
+    receiver.id = pinned.id
+    assert_raises(ActiveRecord::RecordInvalid) { receiver.update!(note_folder: @destination) }
+    assert pinned.reload.pin
+    assert_equal @leaf, pinned.note_folder
+  end
+
+  test "a dirty folder ID cannot redirect a move" do
+    other = note_folders(:private)
+    @leaf.id = other.id
+
+    assert_raises(ActiveRecord::RecordInvalid) { @leaf.change_location!(parent: other.account.general_note_folder) }
+    assert_nil other.reload.parent_id
+  end
+
+  test "purge rejects a persisted row that no longer belongs to the locked account" do
+    receiver = @note.trash
+    folder = @leaf.trash
+    other_account = accounts(:picker_foreign)
+    # Model writes reject changing accounts; simulate an out-of-band change.
+    Note.where(id: receiver.id).update_all(account_id: other_account.id)
+    NoteFolder.where(id: folder.id).update_all(account_id: other_account.id)
+
+    assert_raises(Note::Unavailable) { receiver.purge(by: @owner) }
+    assert_raises(ActiveRecord::RecordInvalid) { folder.purge(by: @owner) }
+    assert Note.exists?(receiver.id)
+    assert NoteFolder.exists?(folder.id)
+  end
+
+  test "ordinary destruction does not clean up dependents through a dirty target ID" do
+    pinned = draft_in(note_folders(:second_team)).pin_in_folder.trash
+    outside = note_folders(:private).trash
+    @note.id = pinned.id
+    @leaf.id = outside.id
+
+    assert_raises(ActiveRecord::RecordInvalid) { @note.destroy! }
+    assert_raises(ActiveRecord::RecordInvalid) { @leaf.destroy! }
+    assert pinned.reload.trashing
+    assert pinned.pin
+    assert outside.reload.trashing
+  end
+
+  test "restore does not destroy a marker from a different persisted account" do
+    other_account = accounts(:picker_foreign)
+    note_marker = @note.trash.trashing
+    note_marker.update_columns(account_id: other_account.id)
+    assert_raises(Note::Unavailable) { @note.restore }
+    assert NoteTrashing.exists?(note_marker.id)
+
+    folder_marker = @leaf.trash.trashing
+    folder_marker.update_columns(account_id: other_account.id)
+    assert_raises(ActiveRecord::RecordInvalid) { @leaf.restore }
+    assert NoteFolderTrashing.exists?(folder_marker.id)
+  end
+
+  test "notes and folders expose the trash marker for reading but not for replacement" do
+    @note.trash
+    @leaf.trash
+    @child.trash
+
+    [ @note, @leaf ].each do |target|
+      marker = target.trashing
+      %i[build_trashing create_trashing create_trashing! trashing=].each do |mutation|
+        refute_respond_to target, mutation
+      end
+      assert_raises(NoMethodError) { target.build_trashing }
+      assert_equal marker, target.reload.trashing
+    end
+  end
+
+  test "association replacement is not dependent cleanup under a trashed ancestor" do
+    @note.trash
+    @leaf.trash
+    @child.trash
+
+    [ @note, @leaf ].each do |target|
+      marker = target.trashing
+      assert_raises(ActiveRecord::RecordInvalid) { target.association(:trashing).build }
+      marker.mark_for_destruction
+      assert_raises(ActiveRecord::RecordInvalid) { target.association(:trashing).build }
+      assert_equal marker, target.reload.trashing
+    end
+  end
+
+  test "direct removal cannot restore markers under a trashed ancestor, even with dirty associations" do
+    @note.trash
+    note_marker = @note.trashing
+    @leaf.trash
+    folder_marker = @leaf.trashing
+    @child.trash
+
+    note_marker.note = draft_in(@destination)
+    folder_marker.note_folder = @destination
+    assert_raises(ActiveRecord::RecordInvalid) { note_marker.destroy! }
+    assert_raises(ActiveRecord::RecordInvalid) { folder_marker.destroy! }
+
+    @child.restore
+    assert_equal folder_marker, @leaf.reload.trashing
+    assert_equal note_marker, @note.reload.trashing
+    @leaf.restore
+    refute Note.active_in(@account.id).exists?(@note.id)
+    @note.restore
+    assert Note.active_in(@account.id).exists?(@note.id)
+  end
+
   test "General remains a permanent root and may contain notes and folders" do
     general = @account.general_note_folder
     general.update!(name: general.name)
@@ -402,6 +550,28 @@ class NotesLifecycleConcurrencyTest < ActiveSupport::TestCase
     assert_equal pin_id, @note.reload.pin.id
     assert_equal note_folders(:interviews), @note.note_folder
     assert_equal @account, destination.reload.account
+  end
+
+  test "direct marker removal ignores cached parent visibility from before the account lock" do
+    @note.trash
+    note_marker = @note.trashing
+    sibling = note_folders(:reading).trash
+    folder_marker = sibling.trashing
+
+    NoteFolder.cache do
+      active = NoteFolder.active_in(@account.id)
+      assert active.exists?(@note.note_folder_id)
+      assert active.exists?(sibling.parent_id)
+      in_another_session { NoteFolder.find(sibling.parent_id).trash }
+      assert active.exists?(@note.note_folder_id)
+      assert active.exists?(sibling.parent_id)
+
+      assert_raises(ActiveRecord::RecordInvalid) { note_marker.destroy! }
+      assert_raises(ActiveRecord::RecordInvalid) { folder_marker.destroy! }
+    end
+
+    assert NoteTrashing.exists?(note_marker.id)
+    assert NoteFolderTrashing.exists?(folder_marker.id)
   end
 
   test "direct pin creation and dirty removal lock the original account without touching a replacement" do

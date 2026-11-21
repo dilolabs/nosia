@@ -7,7 +7,7 @@ class NoteTrashing < ApplicationRecord
   validate :stable_identity, if: :persisted?
   before_create :lock_and_check_note
   before_update :check_stable_identity
-  before_destroy :lock_original_account, if: :persisted?, prepend: true
+  before_destroy :lock_and_check_removal, if: :persisted?, prepend: true
 
   private
     def account_matches_note
@@ -35,8 +35,27 @@ class NoteTrashing < ApplicationRecord
       raise ActiveRecord::RecordInvalid, self if errors.any?
     end
 
-    def lock_original_account
-      # A rejected reassignment can leave a dirty target and account in memory.
-      Account.lock.find(account_id_in_database)
+    def lock_and_check_removal
+      owner_id = account_id_in_database
+      Account.lock.find(owner_id)
+
+      self.class.uncached do
+        marker = self.class.find_by(id: id_in_database, account_id: owner_id, note_id: note_id_in_database)
+        unless marker && (dependent_cleanup? || parent_active?(marker))
+          errors.add(:note, :invalid)
+          raise ActiveRecord::RecordInvalid, self
+        end
+      end
+    end
+
+    def dependent_cleanup?
+      # Rails also sets this reflection when replacing an association.
+      destroyed_by_association == Note.reflect_on_association(:trashing) &&
+        association(:note).target&.send(:destroying_trashing?, self)
+    end
+
+    def parent_active?(marker)
+      Note.where(id: marker.note_id, account_id: marker.account_id,
+        note_folder_id: NoteFolder.active_in(marker.account_id).select(:id)).exists?
     end
 end

@@ -85,7 +85,7 @@ class NoteTest < ActiveSupport::TestCase
   end
 
   test "a new draft only saves into an active folder owned by the account" do
-    note_folders(:sessions).create_trashing!
+    note_folders(:sessions).trash
 
     assert_no_difference -> { @account.notes.count } do
       assert_raises(ActiveRecord::RecordInvalid) { save_draft(folder: note_folders(:private)) }
@@ -101,7 +101,7 @@ class NoteTest < ActiveSupport::TestCase
   end
 
   test "a note covered by branch trash cannot be edited or replayed" do
-    note_folders(:sessions).create_trashing!
+    note_folders(:sessions).trash
 
     assert_raises(Note::Unavailable) do
       @note.edit_content!(expected_revision: 1, title: "Hidden", body_html: "")
@@ -114,7 +114,7 @@ class NoteTest < ActiveSupport::TestCase
   end
 
   test "a directly trashed note cannot be edited or replayed" do
-    @note.create_trashing!
+    @note.trash
 
     assert_raises(Note::Unavailable) do
       @note.edit_content!(expected_revision: 1, title: "Hidden", body_html: "")
@@ -297,7 +297,7 @@ class NoteTest < ActiveSupport::TestCase
 
   test "an ordinary folder assignment cannot hide a note in a trashed branch" do
     note = save_draft
-    note_folders(:sessions).create_trashing!
+    note_folders(:sessions).trash
 
     assert_raises(ActiveRecord::RecordInvalid) { note.update!(note_folder: note_folders(:interviews)) }
     assert_equal @folder, note.reload.note_folder
@@ -305,7 +305,7 @@ class NoteTest < ActiveSupport::TestCase
   end
 
   test "an ordinary folder assignment cannot restore a note from a trashed branch" do
-    note_folders(:sessions).create_trashing!
+    note_folders(:sessions).trash
 
     assert_raises(ActiveRecord::RecordInvalid) { @note.update!(note_folder: @folder) }
     assert_equal note_folders(:interviews), @note.reload.note_folder
@@ -313,7 +313,7 @@ class NoteTest < ActiveSupport::TestCase
   end
 
   test "an ordinary folder assignment requires the note itself to be active" do
-    @note.create_trashing!
+    @note.trash
 
     assert_raises(ActiveRecord::RecordInvalid) { @note.update!(note_folder: @folder) }
     assert_equal note_folders(:interviews), @note.reload.note_folder
@@ -321,7 +321,7 @@ class NoteTest < ActiveSupport::TestCase
 
   test "validated creation cannot attach a note to a trashed folder" do
     destination = note_folders(:sessions)
-    destination.create_trashing!
+    destination.trash
     draft = @account.notes.build(note_folder: destination, draft_key: SecureRandom.uuid,
       title: "Draft", content_revision: 1, content_updated_at: Time.current)
 
@@ -369,7 +369,7 @@ class NoteTest < ActiveSupport::TestCase
     foreign.account = @account
     assert_raises(ActiveRecord::RecordInvalid) { NoteTrashing.create!(note: foreign, account: @account) }
 
-    marker = @note.create_trashing!
+    marker = NoteTrashing.create!(note: @note)
     assert_raises(ActiveRecord::RecordInvalid) { marker.update!(note: save_draft) }
     assert_raises(ActiveRecord::RecordInvalid) do
       marker.update!(note_id: foreign.id, account_id: foreign.account_id_in_database)
@@ -531,7 +531,7 @@ class NoteLockingTest < ActiveSupport::TestCase
         note = Note.save_draft!(account:, folder: account.general_note_folder, draft_key: SecureRandom.uuid,
           title: "New", body_html: "<p>#new</p>")
         { note: note.id, folder: note.note_folder_id, tag: note.note_tags.sole.id,
-          tagging: note.note_taggings.sole.id, marker: note.create_trashing!.id }
+          tagging: note.note_taggings.sole.id, marker: note.trash.trashing.id }
       end
 
       @account.destroy!

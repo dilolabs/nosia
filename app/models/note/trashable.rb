@@ -3,7 +3,8 @@ module Note::Trashable
   extend ActiveSupport::Concern
 
   included do
-    has_one :trashing, class_name: "NoteTrashing", inverse_of: :note, dependent: :destroy
+    has_one :trashing, class_name: "NoteTrashing", inverse_of: :note, dependent: :destroy, autosave: false
+    private :build_trashing, :create_trashing, :create_trashing!, :trashing=
   end
 
   # Moves an active note to Trash. An existing direct marker makes this a no-op.
@@ -49,7 +50,7 @@ module Note::Trashable
   private
     def restorable_trashing
       marker = trashing
-      unless marker && NoteFolder.active_in(account_id).exists?(id: note_folder_id)
+      unless marker&.account_id == account_id && NoteFolder.active_in(account_id).exists?(id: note_folder_id)
         raise Note::Unavailable
       end
 

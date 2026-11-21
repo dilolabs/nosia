@@ -20,7 +20,7 @@ class Note < ApplicationRecord
   validate :folder_in_active_tree, if: -> { new_record? || will_save_change_to_note_folder_id? }
 
   before_update :clear_pin_on_folder_change, if: :will_save_change_to_note_folder_id?
-  before_destroy :refresh_dependent_state, prepend: true
+  around_destroy :destroy_with_fresh_dependents, prepend: true
 
   # Matches a case-insensitive, literal substring of the saved title or plain text.
   # @param input [String] Search text.
@@ -74,19 +74,22 @@ class Note < ApplicationRecord
   private
     def with_locked_note
       self.class.transaction(requires_new: true) do
-        locked_account = Account.lock.find_by(id: account_id_in_database) if persisted?
+        raise Note::Unavailable unless persisted? && id == id_in_database
+
+        locked_account = Account.lock.find_by(id: account_id_in_database)
         raise Note::Unavailable unless locked_account
 
         self.class.uncached do
-          reload_for_lifecycle
+          reload_for_lifecycle(locked_account.id)
           yield locked_account
         end
       end
       self
     end
 
-    def reload_for_lifecycle
+    def reload_for_lifecycle(locked_account_id)
       reload
+      raise Note::Unavailable unless account_id == locked_account_id
     rescue ActiveRecord::RecordNotFound
       raise Note::Unavailable
     end
@@ -96,6 +99,7 @@ class Note < ApplicationRecord
     end
 
     def stable_identity
+      errors.add(:id, :invalid) if will_save_change_to_id?
       errors.add(:account_id, :invalid) if will_save_change_to_account_id?
       errors.add(:draft_key, :invalid) if will_save_change_to_draft_key?
     end
@@ -134,15 +138,37 @@ class Note < ApplicationRecord
       end
     end
 
-    def refresh_dependent_state
-      return unless persisted?
+    def destroy_with_fresh_dependents
+      return yield unless persisted?
 
-      Account.lock.find(account_id_in_database)
+      if id != id_in_database
+        errors.add(:id, :invalid)
+        raise ActiveRecord::RecordInvalid, self
+      end
+
+      owner_id = account_id_in_database
+      Account.lock.find(owner_id)
       self.class.uncached do
+        unless self.class.exists?(id:, account_id: owner_id)
+          errors.add(:account, :invalid)
+          raise ActiveRecord::RecordInvalid, self
+        end
+
         association(:pin).reset
         association(:trashing).reset
-        pin
-        trashing
+        if [ pin, trashing ].compact.any? { |state| state.account_id != owner_id }
+          errors.add(:base, :invalid)
+          raise ActiveRecord::RecordInvalid, self
+        end
+
+        @trashing_for_cleanup = trashing
+        yield
       end
+    ensure
+      @trashing_for_cleanup = nil
+    end
+
+    def destroying_trashing?(marker)
+      @trashing_for_cleanup.equal?(marker)
     end
 end

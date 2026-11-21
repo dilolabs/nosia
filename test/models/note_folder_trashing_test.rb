@@ -30,7 +30,7 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
   end
 
   test "direct marker destruction holds the move's account lock until commit" do
-    marker = @folder.create_trashing!
+    marker = NoteFolderTrashing.create!(note_folder: @folder)
 
     NoteFolderTrashing.transaction do
       marker.destroy!
@@ -43,7 +43,7 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
 
   test "marker mutations also work under the caller's account lock" do
     @account.with_lock do
-      @folder.create_trashing!.destroy!
+      NoteFolderTrashing.create!(note_folder: @folder).destroy!
     end
 
     assert NoteFolder.active_in(@account.id).exists?(@folder.id)
@@ -126,7 +126,7 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
   end
 
   test "a marker cannot be reassigned to another folder in the same account" do
-    marker = @folder.create_trashing!
+    marker = NoteFolderTrashing.create!(note_folder: @folder)
     destination = note_folders(:reading)
 
     error = assert_raises(ActiveRecord::RecordInvalid) { marker.update!(note_folder: destination) }
@@ -139,7 +139,7 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
   end
 
   test "a marker cannot change accounts even when reassigned to a matching folder" do
-    marker = @folder.create_trashing!
+    marker = NoteFolderTrashing.create!(note_folder: @folder)
     destination = note_folders(:second_team)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -152,7 +152,7 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
   end
 
   test "destroying a dirty marker locks its original account without touching the foreign folder" do
-    marker = @folder.create_trashing!
+    marker = NoteFolderTrashing.create!(note_folder: @folder)
     destination = note_folders(:private)
     timestamp = Time.utc(2020, 1, 1)
     destination.update!(updated_at: timestamp)

@@ -70,7 +70,7 @@ class NoteFolderTest < ActiveSupport::TestCase
   test "a trash marker hides a branch but leaves its sibling active" do
     root = folder(:research)
     child = folder(:sessions)
-    child.create_trashing!
+    child.trash
 
     assert_equal [ root.id, folder(:reading).id ].sort, NoteFolder.active_in(@first.id).ids.sort
     assert_equal [ child.id, folder(:interviews).id ].sort, NoteFolder.branch_in(@first.id, root_id: child.id).ids.sort
@@ -80,15 +80,15 @@ class NoteFolderTest < ActiveSupport::TestCase
   test "a folder trash marker belongs to its folder's account" do
     child = folder(:sessions)
 
-    assert_raises(ActiveRecord::RecordInvalid) { child.create_trashing!(account: @foreign) }
-    assert_equal @first, child.create_trashing!.account
+    assert_raises(ActiveRecord::RecordInvalid) { NoteFolderTrashing.create!(note_folder: child, account: @foreign) }
+    assert_equal @first, child.trash.trashing.account
   end
 
   test "a move checks that its source and destination are still active" do
     child = folder(:sessions)
     leaf = folder(:interviews)
     sibling = folder(:reading)
-    child.create_trashing!
+    child.trash
 
     assert_raises(ActiveRecord::RecordInvalid) { leaf.change_location!(parent: nil) }
     assert_raises(ActiveRecord::RecordInvalid) { sibling.change_location!(parent: leaf) }
@@ -97,13 +97,13 @@ class NoteFolderTest < ActiveSupport::TestCase
   end
 
   test "a new folder cannot be created under a hidden parent" do
-    folder(:sessions).create_trashing!
+    folder(:sessions).trash
 
     assert_raises(ActiveRecord::RecordInvalid) { @first.note_folders.create!(name: "New", parent: folder(:interviews)) }
   end
 
   test "a hidden folder cannot be renamed" do
-    folder(:sessions).create_trashing!
+    folder(:sessions).trash
     leaf = folder(:interviews)
 
     assert_raises(ActiveRecord::RecordInvalid) { leaf.update!(name: "Calls") }

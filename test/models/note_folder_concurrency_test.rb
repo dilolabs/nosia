@@ -64,7 +64,7 @@ class NoteFolderConcurrencyTest < ActiveSupport::TestCase
       @account.note_folders.load
       marker = in_another_session do
         folder = NoteFolder.create!(account_id: @account.id, name: "Committed later")
-        folder.create_trashing!
+        folder.trash.trashing
       end
 
       @account.destroy!

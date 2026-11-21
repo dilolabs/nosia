@@ -3,7 +3,10 @@ module NoteFolder::Trashable
   extend ActiveSupport::Concern
 
   included do
-    has_one :trashing, class_name: "NoteFolderTrashing", inverse_of: :note_folder, dependent: :destroy
+    has_one :trashing, class_name: "NoteFolderTrashing", inverse_of: :note_folder, dependent: :destroy, autosave: false
+    private :build_trashing, :create_trashing, :create_trashing!, :trashing=
+
+    around_destroy :destroy_with_fresh_trashing, prepend: true
   end
 
   # Hides an active branch without marking its descendants. Repeated trash is a no-op.
@@ -11,7 +14,7 @@ module NoteFolder::Trashable
   # @raise [ActiveRecord::RecordInvalid] If the folder is General or only trashed by an ancestor.
   # @raise [ActiveRecord::RecordNotFound] If the saved folder or account no longer exists.
   def trash
-    with_locked_folder do
+    with_locked_trashable_folder do
       unless trashing
         reject_trash_change unless self.class.active_in(account_id).exists?(id:)
         create_trashing!
@@ -24,7 +27,7 @@ module NoteFolder::Trashable
   # @raise [ActiveRecord::RecordInvalid] If the folder has no direct marker, is General, or has an inactive parent.
   # @raise [ActiveRecord::RecordNotFound] If the saved folder or account no longer exists.
   def restore
-    with_locked_folder do
+    with_locked_trashable_folder do
       restorable_trashing.destroy!
       association(:trashing).reset
     end
@@ -37,7 +40,7 @@ module NoteFolder::Trashable
   # @raise [ActiveRecord::RecordInvalid] If the folder has no direct marker or is General.
   # @raise [ActiveRecord::RecordNotFound] If the saved folder or account no longer exists.
   def purge(by:)
-    with_locked_folder do |locked_account|
+    with_locked_trashable_folder do |locked_account|
       unless by.is_a?(User) && by.persisted? && by.id_in_database == locked_account.owner_id
         raise Note::PurgeForbidden
       end
@@ -48,17 +51,11 @@ module NoteFolder::Trashable
   end
 
   private
-    def with_locked_folder
-      self.class.transaction(requires_new: true) do
-        reject_trash_change unless persisted?
-        locked_account = Account.lock.find(account_id_in_database)
-        self.class.uncached do
-          reload
-          reject_trash_change if general?
-          yield locked_account
-        end
+    def with_locked_trashable_folder
+      with_locked_folder do |locked_account|
+        reject_trash_change if general?
+        yield locked_account
       end
-      self
     end
 
     def reject_trash_change
@@ -68,7 +65,7 @@ module NoteFolder::Trashable
 
     def restorable_trashing
       marker = trashing
-      unless marker && (parent_id.nil? || self.class.active_in(account_id).exists?(id: parent_id))
+      unless marker&.account_id == account_id && (parent_id.nil? || self.class.active_in(account_id).exists?(id: parent_id))
         reject_trash_change
       end
 
@@ -84,5 +81,29 @@ module NoteFolder::Trashable
 
       Note.where(account_id:, note_folder_id: branch.map(&:id)).find_each(&:destroy!)
       breadth_first.reverse_each(&:destroy!)
+    end
+
+    def destroy_with_fresh_trashing
+      return yield unless persisted?
+
+      reject_trash_change unless id == id_in_database
+      owner_id = account_id_in_database
+      Account.lock.find(owner_id)
+      self.class.uncached do
+        reject_trash_change unless self.class.exists?(id:, account_id: owner_id)
+
+        association(:trashing).reset
+        marker = trashing
+        reject_trash_change if marker && marker.account_id != owner_id
+
+        @trashing_for_cleanup = marker
+        yield
+      end
+    ensure
+      @trashing_for_cleanup = nil
+    end
+
+    def destroying_trashing?(marker)
+      @trashing_for_cleanup.equal?(marker)
     end
 end

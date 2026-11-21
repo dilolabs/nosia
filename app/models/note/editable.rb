@@ -72,16 +72,11 @@ module Note::Editable
     errors.clear
     title, body = Note::Editable.canonical_content(self, title:, body_html:)
 
-    self.class.transaction(requires_new: true) do
-      raise Note::Unavailable unless Account.lock.exists?(id: account_id_in_database)
+    with_locked_note do
+      ensure_active_note
+      raise Note::EditConflict unless content_revision.eql?(expected_revision)
 
-      self.class.uncached do
-        reload
-        raise Note::Unavailable unless self.class.active_in(account_id).exists?(id:)
-        raise Note::EditConflict unless content_revision.eql?(expected_revision)
-
-        Note::Editable.persist_content(self, title:, body:)
-      end
+      Note::Editable.persist_content(self, title:, body:)
     end
   rescue ActiveRecord::RecordNotFound
     raise Note::Unavailable
