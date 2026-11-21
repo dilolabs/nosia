@@ -73,7 +73,7 @@ class Note < ApplicationRecord
   end
 
   private
-    def with_locked_note
+    def with_locked_note(lock_record: false)
       self.class.transaction(requires_new: true) do
         raise Note::Unavailable unless persisted? && id == id_in_database
 
@@ -81,15 +81,15 @@ class Note < ApplicationRecord
         raise Note::Unavailable unless locked_account
 
         self.class.uncached do
-          reload_for_lifecycle(locked_account.id)
+          reload_for_lifecycle(locked_account.id, lock_record:)
           yield locked_account
         end
       end
       self
     end
 
-    def reload_for_lifecycle(locked_account_id)
-      reload
+    def reload_for_lifecycle(locked_account_id, lock_record:)
+      reload(lock: lock_record)
       raise Note::Unavailable unless account_id == locked_account_id
     rescue ActiveRecord::RecordNotFound
       raise Note::Unavailable

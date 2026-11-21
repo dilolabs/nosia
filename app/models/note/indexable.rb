@@ -10,6 +10,39 @@ module Note::Indexable
       prefix: :embedding
   end
 
+  class_methods do
+    # Invalidates every nonempty note, including hidden notes, during the native
+    # embedding-space reset. Call in the same transaction, before locking chunks.
+    # @return [void]
+    def invalidate_embedding_space
+      in_batches do |batch|
+        ids = batch.pluck(:id, :title, :body_text).filter_map do |id, title, body_text|
+          id if Note::Indexable.embedding_input(title, body_text).present?
+        end
+        where(id: ids).update_all("embedding_generation = embedding_generation + 1, indexed_generation = NULL, embedding_status = 'pending'") if ids.any?
+      end
+    end
+
+    # Rebuilds active Note generations synchronously for offline native maintenance.
+    # @return [void]
+    # @raise [EmbeddingError] If any active generation remains incomplete.
+    def rebuild_active_embeddings
+      Account.find_each do |account|
+        active = active_in(account.id)
+        active.embedding_failed.update_all(embedding_status: "pending")
+        active.embedding_pending.find_each { |note| note.index_now(note.embedding_generation) }
+        if active.where(embedding_status: %w[pending failed]).exists?
+          raise EmbeddingError, "Incomplete note embedding reconstruction"
+        end
+      end
+    end
+  end
+
+  # @api private
+  def self.embedding_input(title, body_text)
+    [ title.strip, body_text.strip ].select { |text| text.match?(/[^\p{Space}\p{Cc}\p{Cf}]/u) }.join("\n\n")
+  end
+
   # Prepares vectors without locks, then replaces the published index if still current.
   # @param generation [Integer] The scheduled embedding generation.
   # @return [Note, nil] The note, or nil when it is already ineligible at the start.
@@ -24,7 +57,7 @@ module Note::Indexable
     return unless snapshot
 
     prepared = prepare_embeddings(snapshot.embedding_input)
-    with_locked_note do |locked_account|
+    with_locked_note(lock_record: true) do |locked_account|
       if indexable_generation?(generation)
         # SQL bind logging would include the text being written to chunks.
         self.class.logger.silence do
@@ -38,7 +71,7 @@ module Note::Indexable
   # @param generation [Integer] The exhausted generation.
   # @return [Note, nil] The note, or nil if it no longer exists.
   def mark_index_failed(generation)
-    with_locked_note do
+    with_locked_note(lock_record: true) do
       update!(embedding_status: :failed) if indexable_generation?(generation)
     end
   rescue Note::Unavailable
@@ -59,7 +92,7 @@ module Note::Indexable
 
   protected
     def embedding_input
-      [ title.strip, body_text.strip ].select { |text| text.match?(/[^\p{Space}\p{Cc}\p{Cf}]/u) }.join("\n\n")
+      Note::Indexable.embedding_input(title, body_text)
     end
 
   private

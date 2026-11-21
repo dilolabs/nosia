@@ -174,6 +174,36 @@ class NoteIndexJobTest < ActiveJob::TestCase
     assert_empty Chunk.where(chunkable: note)
   end
 
+  test "the final generation check locks the note row against a native reset" do
+    note = draft("Active generation")
+    fake_provider { embedding_result }
+    main_thread = Thread.current
+    checked_generation = Queue.new
+    allow_publish = Queue.new
+    pause_after_check = ->(_name, _started, _finished, _id, payload) do
+      if Thread.current != main_thread && payload[:name] == "Note Exists?"
+        checked_generation << true
+        allow_publish.pop
+      end
+    end
+
+    worker = nil
+    ActiveSupport::Notifications.subscribed(pause_after_check, "sql.active_record") do
+      worker = Thread.new { Note::IndexJob.perform_now(note.id, note.embedding_generation) }
+      Timeout.timeout(5) { checked_generation.pop }
+      assert_raises(ActiveRecord::LockWaitTimeout) { Note.lock("FOR UPDATE NOWAIT").find(note.id) }
+      allow_publish << true
+      assert worker.join(5), "indexing did not finish after the generation check"
+      worker.value
+    end
+    assert_equal "ready", note.reload.embedding_status
+  ensure
+    allow_publish&.push(true)
+    if worker&.alive?
+      worker.kill unless worker.join(5)
+    end
+  end
+
   test "a later provider failure leaves old chunks and usage intact through bounded retries" do
     note = draft("Original")
     index(note)
