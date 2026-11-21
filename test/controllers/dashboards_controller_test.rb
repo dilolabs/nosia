@@ -19,7 +19,7 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-dashboard]", count: 1
     assert_select ".n-dashboard-compose #chat-form[action='#{chats_path}']", count: 1
-    assert_select ".n-dashboard-shortcuts a", count: 8
+    assert_select ".n-dashboard-shortcuts a", count: 9
     assert_select ".n-dashboard-recent-list [data-conversation-id]", count: 5
     assert_select "[data-period-total][data-value='1057']"
     assert_select "[data-lifetime-total][data-value='1065']"
@@ -39,13 +39,13 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_select "select[name='chat[account_id]'] option[selected][value='#{@second.id}']"
     assert_select "input[name='chat[model]'][value='overview-test-model']"
     assert_select "[data-period-total][data-value='1057']"
-    expected = { accounts: accounts_path, sources: sources_path, usage: token_usage_path,
+    expected = { accounts: accounts_path, notes: account_notes_workspace_path(@first), sources: sources_path, usage: token_usage_path,
       profile: profile_path, skills: agent_skills_path, tokens: api_tokens_path,
       mcp: mcp_servers_path, prompts: system_prompts_path }
     expected.each do |key, path|
       assert_select ".n-dashboard-shortcuts a[data-dashboard-destination='#{key}'][href='#{path}']", count: 1
     end
-    %w[sources skills mcp].each do |key|
+    %w[notes sources skills mcp].each do |key|
       assert_select "[data-dashboard-destination='#{key}']", text: /#{Regexp.escape(@first.name)}/
     end
     assert_equal @first, @user.first_account
@@ -99,7 +99,8 @@ class DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-chat-no-account]", count: 1
     assert_select "lexxy-editor, [data-controller=dropzone]", count: 0
     assert_select "[data-period-total][data-value='0']"
-    assert_select ".n-dashboard-shortcuts a", count: 8
+    assert_select ".n-dashboard-shortcuts a", count: 9
+    assert_select "[data-dashboard-destination='notes'][href='#{notes_entry_path}']"
     %w[sources skills mcp].each do |key|
       assert_select "[data-dashboard-destination='#{key}'][href='#{accounts_path}']"
     end

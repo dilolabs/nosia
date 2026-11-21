@@ -9,7 +9,7 @@
      new_chat_path
    end %>
 <% [ [ root_path, "home", "home" ], [ new_chat_shortcut, "chats", "new_chat" ],
-     [ accounts_path, "folders", "accounts" ], [ sources_path, "file-search", "sources" ],
+     [ accounts_path, "folders", "accounts" ], [ notes_entry_path, "note", "notes" ], [ sources_path, "file-search", "sources" ],
      [ token_usage_path, "chart-bar", "token_usage" ], [ settings_path, "cog", "settings" ] ].each do |path, icon, key| %>
   <%= link_to path, class: "n-orbite-link", aria: { label: t("nosia.nav.#{key}") }, title: t("nosia.nav.#{key}") do %>
     <%= inline_svg "svg/#{icon}.svg", aria_hidden: true, class: "h-5 w-5" %>

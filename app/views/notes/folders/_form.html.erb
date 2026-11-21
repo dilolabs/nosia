@@ -1,0 +1,16 @@
+<%# locals: (account:, folder:, options:, folders:) %>
+<%= link_to t("nosia.notes.back_to_list"), account_notes_workspace_path(account, **options), class: "n-notes-button n-notes-back" %>
+<h2 id="notes-reader-heading"><%= t(folder.persisted? ? "nosia.notes.edit_folder" : "nosia.notes.new_folder") %></h2>
+<% if folder.general? %>
+  <p><%= t("nosia.notes.general_protected") %></p>
+<% else %>
+  <% action = folder.persisted? ? account_note_folder_path(account, folder, **options) : account_note_folders_path(account, **options) %>
+  <%= form_with model: folder, url: action, class: "n-notes-form" do |form| %>
+    <%= render "notes/workspaces/errors", record: folder %>
+    <%= form.label :name, t("nosia.notes.folder_name") %>
+    <%= form.text_field :name, required: true %>
+    <%= form.label :parent_id, t("nosia.notes.parent_folder") %>
+    <%= form.select :parent_id, notes_folder_choices(folders, except: folder), include_blank: t("nosia.notes.root_folder") %>
+    <%= form.submit t("nosia.notes.save_folder"), class: "n-notes-button n-notes-primary" %>
+  <% end %>
+<% end %>

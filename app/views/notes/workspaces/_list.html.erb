@@ -1,0 +1,45 @@
+<%# locals: (account:, notes:, options:, folder:, folders:, selected_note:, page:, more:) %>
+<section class="n-notes-list" data-notes-list aria-labelledby="notes-list-heading">
+  <h2 id="notes-list-heading"><%= notes_list_heading(options, folder, folders) %></h2>
+  <% if folder && !folder.general? %>
+    <div class="n-notes-actions">
+      <%= link_to t("nosia.notes.edit_folder"), edit_account_note_folder_path(account, folder, **options), class: "n-notes-button" %>
+      <details>
+        <summary><%= t("nosia.notes.trash_folder") %></summary>
+        <% confirmation = t("nosia.notes.confirm_trash_folder", name: notes_folder_name(folder)) %>
+        <p><%= confirmation %></p>
+        <%= button_to t("nosia.notes.trash_folder"), account_note_folder_trashing_path(account, folder), class: "n-notes-button",
+                      form: { data: { turbo_confirm: confirmation } } %>
+      </details>
+    </div>
+  <% end %>
+  <% if notes.any? %>
+    <ul>
+      <% notes.each do |note| %>
+        <li data-note-id="<%= note.id %>">
+          <%= link_to account_note_path(account, note, **options), aria: { current: ("page" if note == selected_note) } do %>
+            <strong><%= notes_title(note) %></strong>
+            <% if folder && note.pin %>
+              <span class="n-notes-meta"><%= t("nosia.notes.pinned") %></span>
+            <% end %>
+            <% unless folder %>
+              <span class="n-notes-meta"><%= notes_folder_path(folders[note.note_folder_id], folders) %></span>
+            <% end %>
+            <% if note.body_text.present? %>
+              <span class="n-notes-preview"><%= note.body_text.squish.truncate(115) %></span>
+            <% end %>
+            <time class="n-notes-meta" datetime="<%= note.content_updated_at.iso8601 %>"><%= l(note.content_updated_at.to_date, format: :long) %></time>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <p><%= t(options[:q] ? "nosia.notes.no_results" : "nosia.notes.no_notes") %></p>
+  <% end %>
+  <% if page > 1 || more %>
+    <nav class="n-notes-actions" aria-label="<%= t("nosia.notes.pages") %>">
+      <%= link_to t("nosia.notes.previous"), account_notes_workspace_path(account, **options.merge(page: page - 1)), class: "n-notes-button", data: { notes_previous: true } if page > 1 %>
+      <%= link_to t("nosia.notes.next"), account_notes_workspace_path(account, **options.merge(page: page + 1)), class: "n-notes-button", data: { notes_next: true } if more %>
+    </nav>
+  <% end %>
+</section>

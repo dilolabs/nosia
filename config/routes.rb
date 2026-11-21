@@ -33,12 +33,26 @@ Rails.application.routes.draw do
 
   # User routes
   constraints Authentication::Authenticated do
+    resource :notes_entry, path: "notes", only: :show, controller: "notes/entries"
     resources :accounts, only: [ :index, :show, :new, :edit, :create, :update ] do
       resources :account_users, only: [ :index, :create, :destroy ], module: :accounts
       resource :settings, only: [ :show ], module: :accounts
       resource :system_prompt, only: [ :show, :edit, :update ], module: :accounts
 
       resources :chats, only: :index, module: :accounts
+      scope module: :notes do
+        resource :notes_workspace, path: "notes", only: :show, controller: "workspaces"
+        resources :note_folders, path: "note-folders", controller: "folders", only: %i[ new create edit update ] do
+          resource :trashing, only: %i[ create destroy ], controller: "folder_trashings"
+          resource :purge, only: :destroy, controller: "folder_purges"
+        end
+        resources :notes, only: %i[ new create show update ] do
+          resource :movement, only: :create
+          resource :pin, only: %i[ create destroy ]
+          resource :trashing, only: %i[ create destroy ], controller: "note_trashings"
+          resource :purge, only: :destroy, controller: "note_purges"
+        end
+      end
       resources :sources, only: :index
       resource :token_usage, only: :show, controller: "token_usages"
       resources :agent_skills do

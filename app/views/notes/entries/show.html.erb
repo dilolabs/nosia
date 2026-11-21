@@ -1,0 +1,6 @@
+<% content_for :title, t("nosia.notes.title") %>
+<section class="n-notes" data-notes-no-account>
+  <h1><%= t("nosia.notes.title") %></h1>
+  <p><%= t("nosia.notes.no_account") %></p>
+  <%= link_to t("nosia.nav.accounts"), accounts_path, class: "n-notes-button" %>
+</section>

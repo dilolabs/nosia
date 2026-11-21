@@ -1,0 +1,67 @@
+en:
+  nosia:
+    nav:
+      notes: Notes
+    dashboard:
+      destinations:
+        notes: Notes
+    notes:
+      title: Notes
+      no_account: You need access to an account to use Notes.
+      account: "Account: %{name}"
+      switch_account: Switch Notes account
+      folders_and_tags: Folders and tags
+      close_folders: Close folders and tags
+      folders: Folders
+      subfolders: Subfolders
+      subfolders_of: "Subfolders of %{name}"
+      tags: Tags
+      all_notes: All Notes
+      general: General
+      general_protected: General is a permanent folder and cannot be renamed, moved, or trashed.
+      untitled: Untitled
+      no_notes: There are no notes in this list.
+      select_note: Select a note or start a new one.
+      search: Search
+      search_label: Search all notes in this account
+      search_results: Search results
+      no_results: No notes match this search.
+      pages: Note pages
+      previous: Previous
+      next: Next
+      back_to_list: Back to list
+      back_to_notes: Back to Notes
+      editor: Note editor
+      new_note: New note
+      note_title: Title (optional)
+      body: Note text
+      save_note: Save note
+      edit_tag_seed: Add a title or edit the text before saving this note.
+      new_folder: New folder
+      edit_folder: Edit folder
+      folder_name: Folder name
+      parent_folder: Parent folder
+      root_folder: No parent folder
+      save_folder: Save folder
+      note_actions: Note actions
+      pinned: Pinned
+      pin: Pin in folder
+      unpin: Unpin from folder
+      move_destination: Destination folder
+      move: Move note
+      trash: Trash
+      trash_note: Trash note
+      trash_folder: Trash folder
+      confirm_trash_folder: "Move “%{name}” and all its folders and notes to Trash?"
+      empty_trash: Trash is empty.
+      trash_help: Restoring a folder keeps any separately trashed items in Trash.
+      direct_trash: Trashed separately
+      inherited_trash: Inherited from folder
+      restore: Restore
+      restore_parent_first: Restore the parent folder first.
+      purge: Delete permanently…
+      confirm_purge: Confirm permanent deletion
+      confirm_purge_note: "Permanently delete “%{name}”? This cannot be undone."
+      confirm_purge_folder: "Permanently delete “%{name}” and all its folders and notes, including items trashed separately? This cannot be undone."
+      edit_conflict: This note changed after you opened it. Your changes were not saved.
+      unavailable: This change is not available. The item may have been moved to Trash or its parent may no longer be active.

@@ -1,0 +1,67 @@
+fr:
+  nosia:
+    nav:
+      notes: Notes
+    dashboard:
+      destinations:
+        notes: Notes
+    notes:
+      title: Notes
+      no_account: Vous devez avoir accès à un compte pour utiliser Notes.
+      account: "Compte : %{name}"
+      switch_account: Changer de compte pour Notes
+      folders_and_tags: Dossiers et mots-dièses
+      close_folders: Fermer les dossiers et les mots-dièses
+      folders: Dossiers
+      subfolders: Sous-dossiers
+      subfolders_of: "Sous-dossiers de %{name}"
+      tags: Mots-dièses
+      all_notes: Toutes les notes
+      general: Général
+      general_protected: Le dossier Général est permanent. Il ne peut être renommé, déplacé ni mis à la corbeille.
+      untitled: Sans titre
+      no_notes: Cette liste ne contient aucune note.
+      select_note: Sélectionnez une note ou créez-en une.
+      search: Rechercher
+      search_label: Rechercher dans toutes les notes du compte
+      search_results: Résultats de recherche
+      no_results: Aucune note ne correspond à cette recherche.
+      pages: Pages de notes
+      previous: Précédente
+      next: Suivante
+      back_to_list: Retour à la liste
+      back_to_notes: Retour aux notes
+      editor: Éditeur de note
+      new_note: Nouvelle note
+      note_title: Titre (facultatif)
+      body: Texte de la note
+      save_note: Enregistrer la note
+      edit_tag_seed: Ajoutez un titre ou modifiez le texte avant d’enregistrer cette note.
+      new_folder: Nouveau dossier
+      edit_folder: Modifier le dossier
+      folder_name: Nom du dossier
+      parent_folder: Dossier parent
+      root_folder: Aucun dossier parent
+      save_folder: Enregistrer le dossier
+      note_actions: Actions de la note
+      pinned: Épinglée
+      pin: Épingler dans le dossier
+      unpin: Désépingler du dossier
+      move_destination: Dossier de destination
+      move: Déplacer la note
+      trash: Corbeille
+      trash_note: Mettre la note à la corbeille
+      trash_folder: Mettre le dossier à la corbeille
+      confirm_trash_folder: "Mettre « %{name} » et tous ses dossiers et notes à la corbeille ?"
+      empty_trash: La corbeille est vide.
+      trash_help: La restauration d’un dossier laisse dans la corbeille les éléments qui y ont été placés séparément.
+      direct_trash: Mis à la corbeille séparément
+      inherited_trash: Dans un dossier mis à la corbeille
+      restore: Restaurer
+      restore_parent_first: Restaurez d’abord le dossier parent.
+      purge: Supprimer définitivement…
+      confirm_purge: Confirmer la suppression définitive
+      confirm_purge_note: "Supprimer définitivement « %{name} » ? Cette action est irréversible."
+      confirm_purge_folder: "Supprimer définitivement « %{name} » et tous ses dossiers et notes, y compris les éléments mis à la corbeille séparément ? Cette action est irréversible."
+      edit_conflict: Cette note a été modifiée depuis son ouverture. Vos changements n’ont pas été enregistrés.
+      unavailable: Cette modification est impossible. L’élément est peut-être dans la corbeille ou son dossier parent n’est plus actif.

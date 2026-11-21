@@ -1,0 +1,23 @@
+<%# locals: (account:, folder:, folders:, paths:, notes:, direct_folder_ids:, direct_note_ids:, restorable:) %>
+<% direct = direct_folder_ids.include?(folder.id) %>
+<li data-notes-trash-folder="<%= folder.id %>">
+  <details>
+    <summary><strong><%= notes_folder_name(folder) %></strong> · <%= t(direct ? "nosia.notes.direct_trash" : "nosia.notes.inherited_trash") %></summary>
+    <p class="n-notes-meta"><%= notes_folder_path(folder, paths) %></p>
+    <% if direct %>
+      <%= render "notes/workspaces/trash_actions", restorable:,
+                 restore_path: account_note_folder_trashing_path(account, folder), purge_path: account_note_folder_purge_path(account, folder),
+                 confirmation: t("nosia.notes.confirm_purge_folder", name: notes_folder_name(folder)) %>
+    <% end %>
+    <% if folders.key?(folder.id) || notes.key?(folder.id) %>
+      <ul>
+        <% folders.fetch(folder.id, []).each do |child| %>
+          <%= render "notes/workspaces/trash_branch", account:, folder: child, folders:, paths:, notes:, direct_folder_ids:, direct_note_ids:, restorable: false %>
+        <% end %>
+        <% notes.fetch(folder.id, []).each do |note| %>
+          <%= render "notes/workspaces/trash_note", account:, note:, paths:, direct: direct_note_ids.include?(note.id), restorable: false %>
+        <% end %>
+      </ul>
+    <% end %>
+  </details>
+</li>

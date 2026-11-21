@@ -1,0 +1,16 @@
+<%# locals: (account:, memberships:) %>
+<div data-notes-accounts>
+  <% if memberships.size > 1 %>
+    <details>
+      <summary><%= t("nosia.notes.account", name: account.name) %></summary>
+      <ul aria-label="<%= t("nosia.notes.switch_account") %>">
+        <% memberships.each do |membership_account| %>
+          <li><%= link_to membership_account.name, account_notes_workspace_path(membership_account),
+                          aria: { current: ("true" if membership_account == account) } %></li>
+        <% end %>
+      </ul>
+    </details>
+  <% else %>
+    <p><%= t("nosia.notes.account", name: account.name) %></p>
+  <% end %>
+</div>

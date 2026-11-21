@@ -61,8 +61,8 @@ class DashboardSystemTest < ApplicationSystemTestCase
     assert_selector "[data-dropzone-account-id-value='#{@second.id}']"
   end
 
-  test "all eight shortcuts open their existing tools and usage details match the dashboard" do
-    paths = { accounts: accounts_path, sources: sources_path, usage: token_usage_path,
+  test "all shortcuts open their tools and usage details match the dashboard" do
+    paths = { accounts: accounts_path, notes: account_notes_workspace_path(@first), sources: sources_path, usage: token_usage_path,
       profile: profile_path, skills: agent_skills_path, tokens: api_tokens_path,
       mcp: mcp_servers_path, prompts: system_prompts_path }
 
