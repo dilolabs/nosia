@@ -170,6 +170,7 @@ class DashboardSystemTest < ApplicationSystemTestCase
 
     def verify_dashboard_keyboard
       find("lexxy-editor .lexxy-editor__content").click
+      shortcuts = %w[accounts notes sources usage profile skills tokens mcp prompts]
       seen = []
       120.times do
         page.send_keys(:tab)
@@ -190,9 +191,9 @@ class DashboardSystemTest < ApplicationSystemTestCase
         assert_operator state.fetch("outline"), :>=, 2
         assert state.fetch("visible"), "Focused shortcut is obscured: #{state.fetch('key')}"
         seen << state.fetch("key")
-        break if seen.uniq.length == 8
+        break if seen.uniq.length == shortcuts.length
       end
-      assert_equal %w[accounts sources usage profile skills tokens mcp prompts], seen.uniq
+      assert_equal shortcuts, seen.uniq
       page.send_keys([ :shift, :tab ])
       assert_equal "mcp", page.evaluate_script("document.activeElement.dataset.dashboardDestination")
     end

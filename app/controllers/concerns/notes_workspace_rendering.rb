@@ -12,9 +12,12 @@ module NotesWorkspaceRendering
     def list_options
       @list_options ||= begin
         options = {}
-        options[:folder_id] = context_folder.id if params.key?(:folder_id)
-        options[:tag] = selected_tag.key if params.key?(:tag)
-        options[:q] = query if query.present?
+        if (search = query).present?
+          options[:q] = search
+        else
+          options[:folder_id] = context_folder.id if params.key?(:folder_id)
+          options[:tag] = selected_tag.key if params.key?(:tag)
+        end
         options[:page] = page_number if page_number > 1
         options[:view] = params[:view] if LIST_VIEWS.include?(params[:view])
         options

@@ -37,6 +37,8 @@ fr:
       body: Texte de la note
       save_note: Enregistrer la note
       edit_tag_seed: Ajoutez un titre ou modifiez le texte avant d’enregistrer cette note.
+      hashtag_too_long: Un mot-dièse est trop long. Raccourcissez-le et enregistrez à nouveau la note.
+      invalid_note: La note n’a pas pu être enregistrée. Vérifiez son contenu et réessayez.
       new_folder: Nouveau dossier
       edit_folder: Modifier le dossier
       folder_name: Nom du dossier

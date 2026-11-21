@@ -13,8 +13,7 @@
                   data: { notes_navigation_target: "trigger", action: "notes-navigation#open" } %>
       <%= link_to t("nosia.notes.new_note"), new_account_note_path(@account, **list_options), class: "n-notes-button n-notes-primary" unless @screen == "trash" %>
     </div>
-    <%= form_with url: account_notes_workspace_path(@account), method: :get, class: "n-notes-search", role: "search" do |form| %>
-      <%= hidden_field_tag :folder_id, @list_options[:folder_id], id: nil if @list_options[:folder_id] %>
+    <%= form_with url: account_notes_workspace_path(@account), method: :get, class: "n-notes-search", html: { role: "search" } do |form| %>
       <%= form.label :q, t("nosia.notes.search_label"), class: "sr-only" %>
       <%= form.search_field :q, value: @list_options[:q], size: 24, maxlength: NotesWorkspaceRendering::MAX_QUERY_LENGTH,
                             placeholder: t("nosia.notes.search_label") %>

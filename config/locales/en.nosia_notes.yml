@@ -37,6 +37,8 @@ en:
       body: Note text
       save_note: Save note
       edit_tag_seed: Add a title or edit the text before saving this note.
+      hashtag_too_long: A hashtag is too long. Shorten it and save the note again.
+      invalid_note: The note could not be saved. Check its content and try again.
       new_folder: New folder
       edit_folder: Edit folder
       folder_name: Folder name

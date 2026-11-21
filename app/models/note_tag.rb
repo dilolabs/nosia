@@ -14,7 +14,7 @@ class NoteTag < ApplicationRecord
   private
     def indexable_key
       if key && key.bytesize > MAX_KEY_BYTES
-        errors.add(:key, :invalid)
+        errors.add(:key, :too_long, count: MAX_KEY_BYTES)
       end
     end
 

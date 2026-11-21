@@ -147,6 +147,50 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "search from an open folder page submits no folder or tag filter" do
+    origin = note_folders(:reading)
+    get workspace, params: { folder_id: origin.id }
+    assert_response :success
+    assert_select "form.n-notes-search" do |forms|
+      assert_equal workspace, forms.first["action"]
+      assert_select "input[name=folder_id], input[name=tag]", count: 0
+    end
+  end
+
+  test "account-wide search ignores a trashed originating folder and tag" do
+    origin = note_folders(:reading)
+    save_note(origin, title: "Outline in a hidden folder", body: "<p>#retired</p>")
+    origin.trash
+
+    get workspace, params: { q: "outline", folder_id: origin.id, tag: "retired" }
+    assert_response :success
+    assert_equal [ @note.id ], listed_ids
+    assert_select "[data-note-id] a[href='#{account_note_path(@account, @note, q: "outline")}']"
+
+    get workspace, params: { q: "  ", folder_id: origin.id }
+    assert_response :not_found
+    get workspace, params: { tag: "retired" }
+    assert_response :not_found
+
+    get workspace(@foreign), params: { q: "outline", folder_id: origin.id, account_id: @account.id }
+    assert_response :not_found
+  end
+
+  test "an active note opened from a stale search keeps only query and page in Back" do
+    origin = note_folders(:reading).trash
+    context = { q: "outline", page: 2, folder_id: origin.id, tag: "no-longer-active" }
+    get note_url(@note), params: context
+    assert_response :success
+    assert_select "lexxy-editor[value='<p>Interview outline</p>']"
+    assert_select "[data-notes-back][href='#{account_notes_workspace_path(@account, q: "outline", page: 2)}']"
+    assert_select "form.n-notes-form[action='#{account_note_path(@account, @note, q: "outline", page: 2)}']"
+
+    get note_url(notes(:second_team_note)), params: context
+    assert_response :not_found
+    get note_url(@note, @other), params: context.merge(account_id: @account.id)
+    assert_response :not_found
+  end
+
   test "pagination retains context, caps input, and offers a next link only for an extra row" do
     31.times { |i| save_note(@folder, title: "Page note #{i}") }
     get workspace, params: { folder_id: @folder.id, q: "Page note" }
@@ -194,6 +238,68 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_response 422
     assert_select "input[name='note[expected_revision]'][value='1']"
     assert_equal "Another editor", @note.reload.title
+  end
+
+  test "a rejected long hashtag preserves the edit form and a correction updates the same note" do
+    long_tag = "é" * (NoteTag::MAX_KEY_BYTES / 2 + 1)
+    title = "Edited outline"
+    body = "<p>Keep this ##{long_tag}<script>discard_me</script></p>"
+    action = account_note_path(@account, @note, q: "outline", page: 2)
+    draft = { title:, body_html: body, expected_revision: 1 }
+    assert_no_difference [ "Note.count", "NoteTag.count" ] do
+      patch action, params: { note: draft }, headers: { "Accept-Language" => "fr" }
+    end
+    assert_response 422
+    assert_select ".n-notes-errors", text: /Un mot-dièse est trop long/
+    assert_select "form.n-notes-form[action='#{action}']" do
+      assert_select "input[name=_method][value=patch]"
+      assert_select "input[name='note[expected_revision]'][value='1']"
+      assert_select "input[name='note[title]'][value='#{title}']"
+      assert_select "lexxy-editor[name='note[body_html]'][value='<p>Keep this ##{long_tag}</p>']"
+    end
+    refute_includes response.body, "discard_me"
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+
+    assert_no_difference "Note.count" do
+      patch action, params: { note: draft.merge(body_html: "<p>Keep this #short</p>") }
+    end
+    assert_response :see_other
+    assert_equal [ title, 2 ], @note.reload.values_at(:title, :content_revision)
+    assert_equal [ "short" ], @note.note_tags.pluck(:key)
+
+    patch action, params: { note: draft }
+    assert_response :conflict
+    assert_equal [ title, 2 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "a rejected long hashtag preserves the new draft key and destination for resubmission" do
+    long_tag = "x" * (NoteTag::MAX_KEY_BYTES + 1)
+    title = "New outline"
+    key = SecureRandom.uuid
+    action = account_notes_path(@account, folder_id: @folder.id)
+    draft = { draft_key: key, title:, body_html: "<p>New ##{long_tag}<img src=x></p>" }
+    assert_no_difference [ "Note.count", "NoteTag.count" ] do
+      post action, params: { note: draft }
+    end
+    assert_response 422
+    assert_select ".n-notes-errors", text: /A hashtag is too long/
+    assert_select "form.n-notes-form[action='#{action}']" do
+      assert_select "input[name=_method]", count: 0
+      assert_select "input[name='note[draft_key]'][value='#{key}']"
+      assert_select "input[name='note[title]'][value='#{title}']"
+      assert_select "lexxy-editor[name='note[body_html]'][value='<p>New ##{long_tag}</p>']"
+    end
+
+    corrected = { note: draft.merge(body_html: "<p>New #short</p>") }
+    assert_difference "Note.count", 1 do
+      post action, params: corrected
+      assert_response :see_other
+      post action, params: corrected
+      assert_response :see_other
+    end
+    saved = @account.notes.find_by!(draft_key: key)
+    assert_equal [ title, @folder.id, 1 ], saved.values_at(:title, :note_folder_id, :content_revision)
+    assert_equal [ "short" ], saved.note_tags.pluck(:key)
   end
 
   test "mutations use authorized targets and destinations, not submitted account or note IDs" do

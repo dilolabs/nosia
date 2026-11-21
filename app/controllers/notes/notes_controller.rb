@@ -83,10 +83,21 @@ class Notes::NotesController < ApplicationController
       nil
     end
 
-    def render_note_errors(note)
-      @note = note
+    def render_note_errors(record)
+      @note = record.is_a?(Note) ? record : note_for_validation_error(record)
       @form_title = note_params[:title].to_s
       @form_body_html = submitted_body&.html
       render_workspace(screen: "editor", status: :unprocessable_entity)
+    end
+
+    def note_for_validation_error(record)
+      note = @note || @account.notes.build(draft_key: note_params[:draft_key])
+      message = if record.is_a?(NoteTag) && record.errors.of_kind?(:key, :too_long)
+        "hashtag_too_long"
+      else
+        "invalid_note"
+      end
+      note.errors.add(:base, I18n.t("nosia.notes.#{message}"))
+      note
     end
 end
