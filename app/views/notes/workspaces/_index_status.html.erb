@@ -1,5 +1,6 @@
 <%# locals: (account:, note:, retry_failed: false) %>
-<%= turbo_frame_tag "note-index-status", class: "n-notes-index-status",
+<% frame_id = dom_id(note, :index_status) %>
+<%= turbo_frame_tag frame_id, class: "n-notes-index-status",
       data: { controller: "note-index-status",
               status_url: note.persisted? ? account_note_index_status_path(account, note) : nil,
               revision: note.content_revision || 0, generation: note.embedding_generation, updated_at: note.updated_at&.utc&.iso8601(6),
@@ -18,7 +19,7 @@
   <div data-note-index-status-target="actions">
     <% if note.embedding_failed? %>
       <%= button_to t("nosia.notes.retry_index"), account_note_index_retry_path(account, note), class: "n-notes-button",
-                    form: { data: { turbo_frame: "note-index-status" } } %>
+                    form: { data: { turbo_frame: frame_id } } %>
     <% end %>
   </div>
 <% end %>

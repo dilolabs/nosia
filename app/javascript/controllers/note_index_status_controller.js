@@ -35,7 +35,7 @@ export default class extends Controller {
 
   saved({ detail: html }) {
     const frame = this.#frameFrom(html)
-    if (!frame || !this.#apply(frame)) return
+    if (!frame || !this.#apply(frame, { fromSave: true })) return
 
     this.#cancelPoll()
     this.schedule()
@@ -70,7 +70,7 @@ export default class extends Controller {
 
   renderRetry(event) {
     event.detail.render = (_current, frame) => {
-      if (this.#apply(frame)) this.schedule()
+      if (frame.dataset.generation === this.element.dataset.generation && this.#apply(frame)) this.schedule()
       this.#restoreRetryFocus()
     }
   }
@@ -120,22 +120,27 @@ export default class extends Controller {
   #frameFrom(html) {
     const template = document.createElement("template")
     template.innerHTML = html || ""
-    return template.content.querySelector("turbo-frame#note-index-status")
+    return template.content.querySelector("turbo-frame.n-notes-index-status")
   }
 
-  #apply(frame) {
+  #apply(frame, { fromSave = false } = {}) {
     const { statusUrl, revision, generation, updatedAt } = frame.dataset
     const current = this.element.dataset
+    // Only this editor's first save can turn its blank frame into a persisted one.
+    const firstSave = !current.statusUrl && fromSave
+    if (!this.element.isConnected || !statusUrl) return false
+    if (!firstSave && (current.statusUrl !== statusUrl || this.element.id !== frame.id)) return false
+
     // A poll or retry may have started before a newer save was acknowledged.
     // On the same revision, indexing itself can have updated the saved state.
-    if (!statusUrl || (current.statusUrl && current.statusUrl !== statusUrl) ||
-        BigInt(revision) < BigInt(current.revision) ||
+    if (BigInt(revision) < BigInt(current.revision) ||
         BigInt(generation) < BigInt(current.generation) ||
         (revision === current.revision && generation === current.generation && updatedAt < current.updatedAt)) return false
 
     const message = frame.querySelector("[data-note-index-status]")
     const state = message.dataset.noteIndexStatus
     const focused = this.actionsTarget.contains(document.activeElement)
+    if (firstSave) this.element.id = frame.id
     Object.assign(current, { statusUrl, revision, generation, updatedAt })
     this.messageTarget.dataset.noteIndexStatus = state
     if (this.messageTarget.textContent !== message.textContent) this.messageTarget.textContent = message.textContent

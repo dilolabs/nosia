@@ -15,7 +15,7 @@ class Notes::IndexRetriesController < ApplicationController
       [ note, generation ]
     end
 
-    destination = if turbo_frame_request_id == "note-index-status"
+    destination = if turbo_frame_request_id == ActionView::RecordIdentifier.dom_id(note, :index_status)
       account_note_index_status_path(@account, note, retry_failed: failed_retry_generation(note.id, generation))
     else
       account_note_path(@account, note)

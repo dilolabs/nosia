@@ -209,7 +209,7 @@ export default class extends Controller {
     this.#replaceLocation()
     this.#refreshWorkspace(result.workspace)
     const frame = form.nextElementSibling
-    if (frame?.id === "note-index-status") this.dispatch("saved", { target: frame, detail: result.index_status })
+    if (frame?.matches("turbo-frame.n-notes-index-status")) this.dispatch("saved", { target: frame, detail: result.index_status })
 
     if (this.serial === serial) {
       this.#markClean()

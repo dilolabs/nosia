@@ -24,7 +24,7 @@ class NotesIndexStatusesTest < ActionDispatch::IntegrationTest
       get index_status_path, headers: headers
       assert_response :success
       assert_includes response.headers.fetch("Cache-Control"), "no-store"
-      assert_select "turbo-frame#note-index-status [role='status'][data-note-index-status='failed']", text: "Indexing failed"
+      assert_select "turbo-frame##{frame_id} [role='status'][data-note-index-status='failed']", text: "Indexing failed"
       assert_select "form[action='#{index_retry_path}'] button", text: "Retry indexing"
       assert_select "lexxy-editor", count: 0
       refute_includes response.body, @note.title
@@ -32,6 +32,21 @@ class NotesIndexStatusesTest < ActionDispatch::IntegrationTest
     end
     assert_equal index_status_path, account_note_index_status_path(@account, @note)
     assert_equal index_retry_path, account_note_index_retry_path(@account, @note)
+  end
+
+  test "each authorized note status renders and targets its own Turbo frame" do
+    [ [ @account, @note ], [ accounts(:picker_second), notes(:second_team_note) ] ].each do |account, note|
+      note.update!(embedding_status: :failed, embedding_generation: 2)
+      frame = ActionView::RecordIdentifier.dom_id(note, :index_status)
+      status_path = account_note_index_status_path(account, note)
+      retry_path = account_note_index_retry_path(account, note)
+
+      get status_path, headers: { "Turbo-Frame" => frame }
+      assert_response :success
+      assert_select "turbo-frame##{frame} form[action='#{retry_path}'][data-turbo-frame='#{frame}']"
+      post retry_path, headers: { "Turbo-Frame" => frame }
+      assert_redirected_to status_path
+    end
   end
 
   test "empty pending ready and failed have different localized announcements" do
@@ -73,7 +88,7 @@ class NotesIndexStatusesTest < ActionDispatch::IntegrationTest
     assert_redirected_to index_status_path
     follow_redirect!(headers: frame_headers)
     assert_response :success
-    assert_select "turbo-frame#note-index-status [data-note-index-status='pending']"
+    assert_select "turbo-frame##{frame_id} [data-note-index-status='pending']"
     assert_select "lexxy-editor, .n-notes-form", count: 0
   end
 
@@ -139,7 +154,11 @@ class NotesIndexStatusesTest < ActionDispatch::IntegrationTest
     end
 
     def frame_headers
-      { "Turbo-Frame" => "note-index-status" }
+      { "Turbo-Frame" => frame_id }
+    end
+
+    def frame_id
+      ActionView::RecordIdentifier.dom_id(@note, :index_status)
     end
 
     def assert_inaccessible(account: @account)
