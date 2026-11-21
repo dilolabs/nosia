@@ -12,7 +12,7 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
 
   teardown do
     if @folder
-      accounts.each(&:destroy!)
+      Account.where(id: accounts.map(&:id)).destroy_all
       users.each(&:destroy!)
     end
   end
@@ -47,6 +47,82 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
     end
 
     assert NoteFolder.active_in(@account.id).exists?(@folder.id)
+  end
+
+  test "a same-account direct marker cannot hide General" do
+    general = @account.general_note_folder
+
+    assert_no_difference "NoteFolderTrashing.count" do
+      assert_raises(ActiveRecord::RecordInvalid) do
+        NoteFolderTrashing.create!(account: @account, note_folder: general)
+      end
+    end
+
+    marker = NoteFolderTrashing.create!(account: @account, note_folder: @folder)
+    active = NoteFolder.active_in(@account.id)
+    assert active.exists?(general.id)
+    refute active.exists?(@folder.id)
+
+    @account.destroy!
+
+    refute NoteFolder.exists?(general.id)
+    refute NoteFolderTrashing.exists?(marker.id)
+  end
+
+  test "a dirty folder instance cannot disguise General from direct marker creation" do
+    general = @account.general_note_folder
+    general.system_key = nil
+    refute general.general?
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { NoteFolderTrashing.create!(note_folder: general) }
+
+    assert error.record.errors.added?(:note_folder, :invalid)
+    assert general.reload.general?
+    assert NoteFolder.active_in(@account.id).exists?(general.id)
+  end
+
+  test "direct creation rechecks persisted General identity even with stale cached reads and skipped validation" do
+    root = note_folders(:research)
+    marker = NoteFolderTrashing.new(account: @account, note_folder: root)
+    worker = nil
+
+    NoteFolder.cache do
+      refute NoteFolder.find_by(id: root.id).general?
+      assert marker.valid?
+
+      worker = Thread.new do
+        ApplicationRecord.with_connection do
+          Account.find(@account.id).with_lock do
+            # Simulate a persisted system identity unknown to the creating session.
+            NoteFolder.find(root.id).update_columns(system_key: NoteFolder::GENERAL_SYSTEM_KEY)
+          end
+        end
+      end
+      assert worker.join(5), "the second database session did not finish"
+      assert worker.value
+      refute NoteFolder.find_by(id: root.id).general?, "the creating session still has the old identity cached"
+
+      assert_raises(ActiveRecord::RecordInvalid) { marker.save!(validate: false) }
+    end
+
+    assert root.reload.general?
+    assert NoteFolder.active_in(@account.id).exists?(root.id)
+  ensure
+    if worker&.alive?
+      worker.kill
+      worker.join(5)
+    end
+  end
+
+  test "a persisted marker cannot be reassigned to General even if validation is skipped" do
+    marker = NoteFolderTrashing.create!(note_folder: @folder)
+    general = @account.general_note_folder
+    marker.note_folder = general
+
+    assert_raises(ActiveRecord::RecordInvalid) { marker.save!(validate: false) }
+
+    assert_equal @folder, marker.reload.note_folder
+    assert NoteFolder.active_in(@account.id).exists?(general.id)
   end
 
   test "a marker cannot be reassigned to another folder in the same account" do

@@ -3,16 +3,27 @@ class NoteFolderTrashing < ApplicationRecord
   belongs_to :note_folder, inverse_of: :trashing
   belongs_to :account, default: -> { note_folder&.account }
 
-  validate :account_matches_folder
+  validate :folder_can_be_marked, if: :new_record?
   validate :stable_identity, if: :persisted?
-  before_create :lock_folder_account
-  before_destroy :lock_folder_account, if: :persisted?, prepend: true
+  before_create :lock_and_check_folder
+  before_update :check_stable_identity
+  before_destroy :lock_original_account, if: :persisted?, prepend: true
 
   private
-    def account_matches_folder
-      if note_folder && account_id != note_folder.account_id
+    def folder_can_be_marked
+      folder = NoteFolder.uncached { NoteFolder.find_by(id: note_folder_id) }
+      if !folder || folder.general?
+        errors.add(:note_folder, :invalid)
+      elsif account_id != folder.account_id
         errors.add(:account, :invalid)
       end
+    end
+
+    def lock_and_check_folder
+      Account.lock.find(account_id)
+      # Do not trust either a loaded association or an earlier validation.
+      folder_can_be_marked
+      raise ActiveRecord::RecordInvalid, self if errors.any?
     end
 
     def stable_identity
@@ -20,8 +31,13 @@ class NoteFolderTrashing < ApplicationRecord
       errors.add(:account_id, :invalid) if will_save_change_to_account_id?
     end
 
-    def lock_folder_account
+    def check_stable_identity
+      stable_identity
+      raise ActiveRecord::RecordInvalid, self if errors.any?
+    end
+
+    def lock_original_account
       # A destroy must lock the original account even if a rejected update left it dirty.
-      Account.lock.find(new_record? ? account_id : account_id_in_database)
+      Account.lock.find(account_id_in_database)
     end
 end
