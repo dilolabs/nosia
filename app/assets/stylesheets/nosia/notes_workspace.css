@@ -8,7 +8,7 @@
 .n-notes h2 { font-size: 1.0625rem; font-weight: 650; }
 .n-notes ul { list-style: none; }
 .n-notes summary { min-block-size: 2.75rem; padding-block: .625rem; cursor: pointer; }
-.n-notes :is(a, button, input, select, summary, lexxy-editor):focus-visible {
+.n-notes :is(a, button, input, select, textarea, summary, .lexxy-editor__content):focus-visible {
   outline: 2px solid var(--orbite-accent);
   outline-offset: -2px;
 }
@@ -32,7 +32,7 @@
 .n-notes-search { flex: 1 1 16rem; min-inline-size: 0; }
 .n-notes-search input[type="search"] { flex: 1 1 8rem; min-inline-size: 0; }
 
-.n-notes :is(input[type="search"], input[type="text"], select) {
+.n-notes :is(input[type="search"], input[type="text"], select, textarea) {
   max-inline-size: 100%;
   min-block-size: 2.75rem;
   padding: .375rem .5rem;
@@ -52,6 +52,7 @@
 }
 
 .n-notes .n-notes-button:hover { background: var(--orbite-bubble); }
+.n-notes .n-notes-button[hidden], .n-notes-copy[hidden] { display: none; }
 .n-notes .n-notes-primary { border-color: var(--orbite-accent); color: var(--orbite-accent); font-weight: 650; }
 
 .n-notes-workspace {
@@ -65,10 +66,16 @@
 .n-notes-form { max-inline-size: 48rem; }
 .n-notes-form > :is(input, select) { justify-self: start; }
 .n-notes-form input#note_title { inline-size: 100%; }
-.n-notes-form lexxy-editor { min-inline-size: 0; min-block-size: 15rem; }
+.n-notes-form lexxy-editor { min-inline-size: 0; }
+.n-notes-form lexxy-editor:not([connected]),
+.n-notes-form:not([data-formatting-open]) lexxy-toolbar { display: none; }
+.n-notes-form lexxy-toolbar { flex-wrap: wrap; }
+.n-notes-form .lexxy-editor__content { min-block-size: 15rem; }
+.n-notes-formatting { justify-self: start; }
 .n-notes-form :is(.lexxy-editor__content, pre) { overflow-wrap: anywhere; }
 .n-notes-form pre { overflow: auto; }
-.n-notes-reader > :is(p, details, h2) { margin-block-end: .5rem; }
+.n-notes-reader > :is(p, h2), .n-notes-editor-heading > :is(p, details, h2) { margin-block-end: .5rem; }
+.n-notes-form p[role="status"]:empty { margin: 0; }
 .n-notes-editor-actions { border-block-end: 1px solid var(--orbite-line); padding-block-end: .375rem; }
 .n-notes-errors { border-inline-start: 2px solid var(--orbite-accent); padding-inline-start: .5rem; }
 

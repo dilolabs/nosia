@@ -36,6 +36,17 @@ fr:
       note_title: Titre (facultatif)
       body: Texte de la note
       save_note: Enregistrer la note
+      formatting: Mise en forme
+      saving: Enregistrement…
+      saved: Enregistrée
+      unsaved: Modifications non enregistrées
+      save_failed: Impossible d’enregistrer vos modifications. Réessayez.
+      retry: Réessayer
+      copy_draft: Copier le brouillon
+      draft_copied: Brouillon copié.
+      copy_manually: Votre brouillon est sélectionné. Copiez-le avec votre navigateur ou votre clavier.
+      load_saved: Charger la version enregistrée
+      discard_draft: Vous avez des modifications non enregistrées. Quitter cette note et abandonner le brouillon ?
       edit_tag_seed: Ajoutez un titre ou modifiez le texte avant d’enregistrer cette note.
       hashtag_too_long: Un mot-dièse est trop long. Raccourcissez-le et enregistrez à nouveau la note.
       invalid_note: La note n’a pas pu être enregistrée. Vérifiez son contenu et réessayez.

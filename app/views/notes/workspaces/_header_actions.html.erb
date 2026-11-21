@@ -1,0 +1,8 @@
+<%# locals: (account:, options:, screen:) %>
+<div id="notes-header-actions" class="n-notes-actions">
+  <%= link_to t("nosia.notes.folders_and_tags"), account_notes_workspace_path(account, **options.merge(view: "folders")),
+              class: "n-notes-button n-notes-folder-trigger",
+              data: { notes_navigation_target: "trigger", action: "notes-navigation#open" } %>
+  <%= link_to t("nosia.notes.new_note"), new_account_note_path(account, **options),
+              class: "n-notes-button n-notes-primary" unless screen == "trash" %>
+</div>

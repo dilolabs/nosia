@@ -1,31 +1,38 @@
 <%# locals: (account:, note:, options:, folders:, form_title:, form_body_html:, form_revision:, seed_tag:) %>
-<%= link_to t("nosia.notes.back_to_list"), account_notes_workspace_path(account, **options), class: "n-notes-button n-notes-back", data: { notes_back: true } %>
-<h2 id="notes-reader-heading"><%= t(note.persisted? ? "nosia.notes.editor" : "nosia.notes.new_note") %></h2>
-<% if note.persisted? %>
-  <p class="n-notes-meta"><%= notes_folder_path(folders[note.note_folder_id], folders) %></p>
-  <details class="n-notes-editor-actions">
-    <summary><%= t("nosia.notes.note_actions") %></summary>
-    <div class="n-notes-actions">
-      <%= button_to t(note.pin ? "nosia.notes.unpin" : "nosia.notes.pin"), account_note_pin_path(account, note, **options),
-                    method: note.pin ? :delete : :post, class: "n-notes-button" %>
-      <%= button_to t("nosia.notes.trash_note"), account_note_trashing_path(account, note), class: "n-notes-button" %>
-    </div>
-    <%= render "notes/notes/move", account:, note:, options:, folders: %>
-  </details>
-<% end %>
-
+<%= render "notes/workspaces/editor_heading", account:, note:, options:, folders: %>
 <% action = note.persisted? ? account_note_path(account, note, **options) : account_notes_path(account, **options) %>
-<%= form_with model: note, url: action, class: "n-notes-form" do |form| %>
+<% messages = %i[ saving saved unsaved save_failed discard_draft unavailable draft_copied copy_manually ].to_h do |key|
+     [ key, t("nosia.notes.#{key}") ]
+   end %>
+<%= form_with model: note, url: action, class: "n-notes-form", data: {
+      controller: "note-autosave", note_autosave_messages_value: messages, note_autosave_recovered_value: note.errors.any?,
+      action: "lexxy:initialize->note-autosave#hydrate input->note-autosave#changed lexxy:change->note-autosave#changed " \
+              "submit->note-autosave#saveNow keydown->note-autosave#keyboardSave keydown.esc->note-autosave#closeFormatting " \
+              "turbo:before-visit@document->note-autosave#beforeVisit submit@document->note-autosave#beforeOtherSubmit:capture"
+    } do |form| %>
   <%= render "notes/workspaces/errors", record: note %>
   <%= form.hidden_field :draft_key %>
-  <%= form.hidden_field :expected_revision, value: form_revision || 0 %>
-  <%= form.hidden_field :seed_tag, value: seed_tag if note.new_record? && seed_tag.present? && !options[:tag] %>
+  <%= form.hidden_field :expected_revision, value: form_revision || 0, data: { note_autosave_target: "revision" } %>
+  <%= form.hidden_field :seed_tag, value: seed_tag if note.new_record? && seed_tag.present? %>
   <%= form.label :title, t("nosia.notes.note_title") %>
-  <%= form.text_field :title, value: form_title || note.title %>
+  <%= form.text_field :title, value: form_title || note.title, data: { note_autosave_target: "title" } %>
   <%= form.label :body_html, t("nosia.notes.body"), for: "notes-body" %>
+  <button type="button" class="n-notes-button n-notes-formatting" hidden aria-expanded="false" aria-controls="notes-formatting"
+          data-note-autosave-target="formatting" data-action="note-autosave#toggleFormatting"><%= t("nosia.notes.formatting") %></button>
   <%# Lexxy uses a form-associated element. Its HTML value is escaped in the attribute
       and comes only from Note's allowlist (also on a validation rerender). %>
   <%= form.lexxy_rich_text_area :body_html, id: "notes-body", attachments: "false",
-                                value: form_body_html || note.body_html.to_s %>
-  <%= form.submit t("nosia.notes.save_note"), class: "n-notes-button n-notes-primary" %>
+                                value: form_body_html || note.body_html.to_s, data: { note_autosave_target: "editor" } %>
+  <div class="n-notes-actions">
+    <%= form.submit t("nosia.notes.save_note"), class: "n-notes-button n-notes-primary" %>
+    <p role="status" aria-live="polite" class="n-notes-meta" data-note-autosave-target="status"></p>
+    <button type="button" class="n-notes-button" hidden data-note-autosave-target="retry"
+            data-action="note-autosave#saveNow"><%= t("nosia.notes.retry") %></button>
+    <button type="button" class="n-notes-button" hidden data-note-autosave-target="copy"
+            data-action="note-autosave#copyDraft"><%= t("nosia.notes.copy_draft") %></button>
+    <button type="button" class="n-notes-button" hidden data-note-autosave-target="load"
+            data-action="note-autosave#loadSaved"><%= t("nosia.notes.load_saved") %></button>
+  </div>
+  <p role="status" class="n-notes-meta" data-note-autosave-target="copyStatus"></p>
+  <textarea hidden readonly class="n-notes-copy" aria-label="<%= t("nosia.notes.copy_draft") %>" data-note-autosave-target="copyText"></textarea>
 <% end %>

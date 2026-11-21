@@ -33,6 +33,19 @@ class NotesMembershipRaceTest < ActionDispatch::IntegrationTest
     assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
   end
 
+  test "a JSON autosave queued behind membership revocation cannot change the note" do
+    revoke_ahead_of_write do
+      patch account_note_path(@account, @note), params: {
+        note: { title: "Forbidden autosave", body_html: "<p>#forbidden</p>", expected_revision: 1 }
+      }, headers: { "Accept" => "application/json" }
+    end
+
+    assert_response :not_found
+    assert_empty response.body
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+    assert_empty @note.note_tags
+  end
+
   test "trashing queued behind membership revocation cannot hide the note" do
     revoke_ahead_of_write { post account_note_trashing_path(@account, @note) }
 

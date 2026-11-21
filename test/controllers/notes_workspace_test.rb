@@ -398,6 +398,116 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_equal [ "short" ], saved.note_tags.pluck(:key)
   end
 
+  test "autosave creates once and updates using the acknowledged revision and authorized list context" do
+    context = { folder_id: @folder.id, view: "list" }
+    action = account_notes_path(@account, **context)
+    draft = { draft_key: SecureRandom.uuid, title: "New outline", body_html: "<p>Ideas #research</p>", expected_revision: 0 }
+
+    assert_difference "Note.count", 1 do
+      post action, params: { note: draft }, headers: json_headers
+      assert_response :created
+      saved = @account.notes.find_by!(draft_key: draft[:draft_key])
+      assert_equal @folder, saved.note_folder
+      assert_equal [ "research" ], saved.note_tags.pluck(:key)
+      canonical = account_note_path(@account, saved, **context)
+      assert_equal({ "id" => saved.id, "revision" => 1, "update_url" => canonical, "location" => canonical },
+        response.parsed_body.slice("id", "revision", "update_url", "location"))
+
+      post action, params: { note: draft }, headers: json_headers
+      assert_response :ok
+      assert_equal 1, response.parsed_body.fetch("revision")
+
+      patch canonical, params: { note: { title: "Revised outline", body_html: "", expected_revision: 1 } }, headers: json_headers
+      assert_response :ok
+      assert_equal({ "id" => saved.id, "revision" => 2, "update_url" => canonical, "location" => canonical },
+        response.parsed_body.slice("id", "revision", "update_url", "location"))
+      assert_equal [ "Revised outline", 2 ], saved.reload.values_at(:title, :content_revision)
+
+      post action, params: { note: draft }, headers: json_headers
+      assert_response :conflict
+      assert_equal "edit_conflict", response.parsed_body.fetch("code")
+      assert_equal canonical, response.parsed_body.fetch("location")
+    end
+  end
+
+  test "bad autosave revisions return a localized conflict and do not change content or tags" do
+    canonical = account_note_path(@account, @note, q: "outline")
+    [ "0", "1wrong", nil ].each do |revision|
+      assert_no_difference "NoteTag.count" do
+        patch canonical, params: { note: { title: "Unsaved", body_html: "<p>#unsaved</p>", expected_revision: revision } },
+          headers: json_headers.merge("Accept-Language" => "fr")
+      end
+      assert_response :conflict
+      assert_equal({ "code" => "edit_conflict", "message" => I18n.t("nosia.notes.edit_conflict", locale: :fr),
+        "location" => canonical }, response.parsed_body)
+      refute_includes response.body, @note.title
+      assert_equal [ "Field notes", "Interview outline", 1 ], @note.reload.values_at(:title, :body_text, :content_revision)
+    end
+  end
+
+  test "autosave distinguishes known unavailability from a missing or foreign scope" do
+    @note.trash
+    draft = { title: "Keep my draft", body_html: "", expected_revision: 1 }
+    patch note_url(@note), params: { note: draft }, headers: json_headers
+    assert_response :conflict
+    assert_equal({ "code" => "unavailable", "message" => I18n.t("nosia.notes.unavailable") }, response.parsed_body)
+
+    patch note_url(@note, @other), params: { note: draft }, headers: json_headers
+    assert_response :not_found
+    post account_notes_path(@account, folder_id: note_folders(:private).id),
+      params: { note: draft.merge(draft_key: SecureRandom.uuid) }, headers: json_headers
+    assert_response :not_found
+    post workspace(@foreign), params: { note: draft.merge(draft_key: SecureRandom.uuid) }, headers: json_headers
+    assert_response :not_found
+    refute_includes response.body, @note.title
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "autosave drops a retired tag without returning an unsafe list or update path" do
+    @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#retired</p>")
+    action = account_note_path(@account, @note, tag: "retired", page: 2, return_to: "https://example.test")
+    patch action, params: { note: { title: "Retagged", body_html: "<p>Outline</p>", expected_revision: 2 } }, headers: json_headers
+    assert_response :ok
+    canonical = account_note_path(@account, @note, folder_id: @folder.id)
+    assert_equal [ canonical, canonical ], response.parsed_body.values_at("update_url", "location")
+    refute_match(/retired|example\.test/, response.body)
+  end
+
+  test "autosave returns localized validation text without echoing the rejected draft and accepts a corrected POST" do
+    key = SecureRandom.uuid
+    draft = { draft_key: key, title: "Private local draft", body_html: "<p>##{'é' * (NoteTag::MAX_KEY_BYTES / 2 + 1)}</p>" }
+    assert_no_difference [ "Note.count", "NoteTag.count" ] do
+      post workspace, params: { note: draft }, headers: json_headers.merge("Accept-Language" => "fr")
+    end
+    assert_response 422
+    assert_equal({ "code" => "invalid", "message" => I18n.t("nosia.notes.hashtag_too_long", locale: :fr) }, response.parsed_body)
+    refute_includes response.body, draft[:title]
+
+    post workspace, params: { note: draft.merge(body_html: "<p>#short</p>") }, headers: json_headers
+    assert_response :created
+    assert_predicate @account.notes.find_by!(draft_key: key).note_folder, :general?
+  end
+
+  test "loading new editors generates distinct keys and neither blank nor seed-only JSON saves create a note" do
+    @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#research</p>")
+    keys = []
+    assert_no_difference "Note.count" do
+      [ { folder_id: @folder.id }, { tag: "research" } ].each do |context|
+        get new_account_note_path(@account, **context)
+        assert_response :success
+        assert_select ".n-notes-editor-heading .n-notes-meta", text: (context[:tag] ? "General" : "Research / Sessions / Interviews")
+        keys << css_select("input[name='note[draft_key]']").sole["value"]
+        post account_notes_path(@account, **context), params: {
+          note: { draft_key: keys.last, title: "", body_html: context[:tag] ? "<p>#research</p>" : "" }
+        }, headers: json_headers
+        assert_response 422
+        assert_equal "application/json", response.media_type
+        assert_equal "invalid", response.parsed_body.fetch("code")
+      end
+    end
+    assert_equal 2, keys.uniq.size
+  end
+
   test "mutations use authorized targets and destinations, not submitted account or note IDs" do
     outside = notes(:second_team_note)
     post "#{note_url(@note)}/movement", params: { note_folder_id: note_folders(:private).id }
@@ -524,6 +634,10 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def json_headers
+      { "Accept" => "application/json" }
+    end
+
     def sign_in(user)
       post "/login", params: { email: user.email, password: "picker-password-123" }
       assert_response :redirect

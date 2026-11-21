@@ -1,5 +1,5 @@
 <%# locals: (account:, folders:, groups:, tags:, options:, selected_folder:) %>
-<nav class="n-notes-sidebar" data-notes-sidebar data-notes-navigation-target="sidebar" aria-label="<%= t("nosia.notes.folders_and_tags") %>">
+<nav id="notes-sidebar" class="n-notes-sidebar" data-notes-sidebar data-notes-navigation-target="sidebar" aria-label="<%= t("nosia.notes.folders_and_tags") %>">
   <%= link_to t("nosia.notes.all_notes"), account_notes_workspace_path(account, view: "list"),
               aria: { current: ("page" unless options.values_at(:folder_id, :tag, :q).any? || options[:view] == "trash") } %>
   <div class="n-notes-actions">

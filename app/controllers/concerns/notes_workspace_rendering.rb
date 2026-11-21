@@ -110,10 +110,15 @@ module NotesWorkspaceRendering
     def render_workspace(screen: nil, status: :ok)
       discard_stale_list_filters unless reading_workspace?
       @membership_accounts = Current.user.accounts.order(:name, :id)
+      load_workspace(screen || workspace_screen)
+      render "notes/workspaces/show", formats: [ :html ], status:
+    end
+
+    def load_workspace(screen)
       @active_folder_map = active_folders.order(:name, :id).index_by(&:id)
       @folder_groups = @active_folder_map.values.group_by(&:parent_id)
       @tags = active_tags.order(:key, :id)
-      @screen = screen || workspace_screen
+      @screen = screen
       @selected_folder = @active_folder_map[real_folder_id]
 
       if @screen == "trash"
@@ -121,8 +126,6 @@ module NotesWorkspaceRendering
       else
         load_note_list
       end
-
-      render "notes/workspaces/show", formats: [ :html ], status:
     end
 
     def workspace_screen

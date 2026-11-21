@@ -36,6 +36,17 @@ en:
       note_title: Title (optional)
       body: Note text
       save_note: Save note
+      formatting: Formatting
+      saving: Saving…
+      saved: Saved
+      unsaved: Unsaved changes
+      save_failed: Could not save your changes. Try again.
+      retry: Retry
+      copy_draft: Copy draft
+      draft_copied: Draft copied.
+      copy_manually: Your draft is selected. Copy it using your browser or keyboard.
+      load_saved: Load saved version
+      discard_draft: You have unsaved changes. Leave this note and discard your draft?
       edit_tag_seed: Add a title or edit the text before saving this note.
       hashtag_too_long: A hashtag is too long. Shorten it and save the note again.
       invalid_note: The note could not be saved. Check its content and try again.

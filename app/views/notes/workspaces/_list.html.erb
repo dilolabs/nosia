@@ -1,5 +1,5 @@
 <%# locals: (account:, notes:, options:, folder:, folders:, selected_note:, page:, more:) %>
-<section class="n-notes-list" data-notes-list aria-labelledby="notes-list-heading">
+<section id="notes-list" class="n-notes-list" data-notes-list aria-labelledby="notes-list-heading">
   <h2 id="notes-list-heading"><%= notes_list_heading(options, folder, folders) %></h2>
   <% if folder && !folder.general? %>
     <div class="n-notes-actions">

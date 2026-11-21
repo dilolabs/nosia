@@ -1,0 +1,18 @@
+<%# locals: (account:, note:, options:, folders:) %>
+<div id="notes-editor-heading" class="n-notes-editor-heading">
+  <%= link_to t("nosia.notes.back_to_list"), account_notes_workspace_path(account, **options), class: "n-notes-button n-notes-back", data: { notes_back: true } %>
+  <h2 id="notes-reader-heading"><%= t(note.persisted? ? "nosia.notes.editor" : "nosia.notes.new_note") %></h2>
+  <% folder = folders[note.note_folder_id || options[:folder_id]] %>
+  <p class="n-notes-meta"><%= folder ? notes_folder_path(folder, folders) : t("nosia.notes.general") %></p>
+  <% if note.persisted? %>
+    <details class="n-notes-editor-actions">
+      <summary><%= t("nosia.notes.note_actions") %></summary>
+      <div class="n-notes-actions">
+        <%= button_to t(note.pin ? "nosia.notes.unpin" : "nosia.notes.pin"), account_note_pin_path(account, note, **options),
+                      method: note.pin ? :delete : :post, class: "n-notes-button" %>
+        <%= button_to t("nosia.notes.trash_note"), account_note_trashing_path(account, note), class: "n-notes-button" %>
+      </div>
+      <%= render "notes/notes/move", account:, note:, options:, folders: %>
+    </details>
+  <% end %>
+</div>

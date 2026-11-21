@@ -1,6 +1,5 @@
 <% content_for :title, t("nosia.notes.title") %>
 <% turbo_exempts_page_from_cache %>
-<% folders_url = account_notes_workspace_path(@account, **@list_options.merge(view: "folders")) %>
 <% list_options = @list_options.without(:view).merge(view: "list") if @list_options.empty? || @list_options[:view] == "folders" %>
 <% list_options ||= @list_options %>
 <div class="n-notes" data-controller="notes-navigation" data-notes-screen="<%= @screen %>"
@@ -9,11 +8,7 @@
   <header class="n-notes-header">
     <h1><%= t("nosia.notes.title") %></h1>
     <%= render "notes/workspaces/accounts", account: @account, memberships: @membership_accounts %>
-    <div class="n-notes-actions">
-      <%= link_to t("nosia.notes.folders_and_tags"), folders_url, class: "n-notes-button n-notes-folder-trigger",
-                  data: { notes_navigation_target: "trigger", action: "notes-navigation#open" } %>
-      <%= link_to t("nosia.notes.new_note"), new_account_note_path(@account, **list_options), class: "n-notes-button n-notes-primary" unless @screen == "trash" %>
-    </div>
+    <%= render "notes/workspaces/header_actions", account: @account, options: list_options, screen: @screen %>
     <%= form_with url: account_notes_workspace_path(@account), method: :get, class: "n-notes-search", html: { role: "search" } do |form| %>
       <%= form.label :q, t("nosia.notes.search_label"), class: "sr-only" %>
       <%= form.search_field :q, value: @list_options[:q], size: 24, maxlength: NotesWorkspaceRendering::MAX_QUERY_LENGTH,
