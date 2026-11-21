@@ -2,6 +2,9 @@
 module Note::Indexable
   extend ActiveSupport::Concern
 
+  EMBEDDABLE_CHARACTER = /[^\p{Space}\p{Cc}\p{Cf}]/u
+  private_constant :EMBEDDABLE_CHARACTER
+
   # A provider error or unusable response, with no remote text in the message.
   class EmbeddingError < StandardError; end
 
@@ -11,8 +14,8 @@ module Note::Indexable
   end
 
   class_methods do
-    # Invalidates every nonempty note, including hidden notes, during the native
-    # embedding-space reset. Call in the same transaction, before locking chunks.
+    # Invalidates every nonempty note, including hidden notes, during an
+    # embedding-space reset. Call in a transaction before locking chunks.
     # @return [void]
     def invalidate_embedding_space
       in_batches do |batch|
@@ -23,7 +26,7 @@ module Note::Indexable
       end
     end
 
-    # Rebuilds active Note generations synchronously for offline native maintenance.
+    # Rebuilds active Note generations synchronously for index maintenance.
     # @return [void]
     # @raise [EmbeddingError] If any active generation remains incomplete.
     def rebuild_active_embeddings
@@ -40,7 +43,7 @@ module Note::Indexable
 
   # @api private
   def self.embedding_input(title, body_text)
-    [ title.strip, body_text.strip ].select { |text| text.match?(/[^\p{Space}\p{Cc}\p{Cf}]/u) }.join("\n\n")
+    [ title.strip, body_text.strip ].grep(EMBEDDABLE_CHARACTER).join("\n\n")
   end
 
   # Prepares vectors without locks, then replaces the published index if still current.
@@ -117,8 +120,21 @@ module Note::Indexable
     def index_later(generation)
       note_id = id
       ActiveRecord.after_all_transactions_commit do
+        unless enqueue_index_job(note_id, generation)
+          Rails.logger.warn("Could not enqueue Note indexing")
+          self.class.find_by(id: note_id)&.mark_index_failed(generation)
+        end
+      end
+    end
+
+    def enqueue_index_job(note_id, generation)
+      # Active Job would otherwise log the adapter's raw exception before the
+      # failure can be converted into recoverable Note state.
+      Note::IndexJob.logger.silence(Logger::UNKNOWN) do
         Note::IndexJob.set(wait: 30.seconds).perform_later(note_id, generation)
       end
+    rescue ActiveJob::EnqueueError, SolidQueue::Job::EnqueueError
+      false
     end
 
     def prepare_embeddings(input)
@@ -126,16 +142,22 @@ module Note::Indexable
         chunk_size: ENV.fetch("CHUNK_SIZE", "512").to_i,
         chunk_overlap: ENV.fetch("CHUNK_OVERLAP", "128").to_i
       )
-      parts = splitter.chunks(input)
-      raise EmbeddingError, "Note has no embeddable chunks" if parts.empty?
+      texts = splitter.chunks(input).pluck(:text).grep(EMBEDDABLE_CHARACTER)
+      raise EmbeddingError, "Note has no embeddable chunks" if texts.empty?
 
-      parts.map do |part|
-        text = part.fetch(:text)
+      texts.map do |text|
         result = embed_part(text)
         unless result.respond_to?(:vectors) && result.respond_to?(:tokens) && usable_vector?(result.vectors)
           raise EmbeddingError, "Embedding provider returned an unusable result"
         end
-        [ text, result ]
+        [ text, result.vectors, valid_input_tokens(result) ]
+      end
+    end
+
+    def valid_input_tokens(result)
+      count = result.tokens&.input
+      if count.is_a?(Integer) && count.positive? && TokenUsage.type_for_attribute("input_tokens").serializable?(count)
+        count
       end
     end
 
@@ -170,7 +192,16 @@ module Note::Indexable
 
     def publish_embeddings(owner, generation, prepared)
       chunks.destroy_all
-      prepared.each.with_index(1) do |(text, result), position|
+      total_tokens = owner.input_tokens_count
+      counter_type = Account.type_for_attribute("input_tokens_count")
+      prepared.each.with_index(1) do |(text, vector, input_tokens), position|
+        if input_tokens && counter_type.serializable?(total_tokens + input_tokens)
+          total_tokens += input_tokens
+        else
+          input_tokens = nil
+        end
+
+        result = RubyLLM::Embedding.new(vectors: vector, model: ENV["EMBEDDING_MODEL"], input_tokens:)
         chunks.create!(account: owner, content: text, prepared_embedding_result: result,
           metadata: { "position" => position, "note_generation" => generation })
       end

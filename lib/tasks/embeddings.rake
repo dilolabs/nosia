@@ -25,13 +25,17 @@ namespace :embeddings do
     Rake::Task["embeddings:rebuild"].invoke
   end
 
-  desc "Rebuild all existing embeddings"
+  desc "Rebuild all existing embeddings (stop writers still using the old model first)"
   task rebuild: :environment do
     puts "Do you want to rebuild existing embeddings to match the new dimension? (yes/no)"
     rebuild_confirmation = STDIN.gets.chomp.downcase
     if rebuild_confirmation == "yes"
       puts "Rebuilding existing embeddings... (this may take a while)"
+      # On a model switch, all writers should already use the target config.
+      # Retire old Note generations before any replacement is attempted.
+      Note.transaction { Note.invalidate_embedding_space }
       Chunk.without_notes.find_each(&:generate_embedding!)
+      Note.rebuild_active_embeddings
       puts "All embeddings have been rebuilt."
     else
       puts "Skipping rebuilding of existing embeddings."

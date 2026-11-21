@@ -28,7 +28,9 @@ module Chunk::Vectorizable
           config.redact_error_messages = true
         end
       end
-      RubyLLM.embed(text, context:, model: ENV["EMBEDDING_MODEL"], dimensions: embedding_dimensions, provider: :openai, assume_model_exists: true)
+      dimensions = private_input ? embedding_dimensions : ENV["EMBEDDING_DIMENSIONS"].to_i
+      owner = Nosia::PrivateEmbeddingUsage::OWNER if private_input
+      RubyLLM.embed(text, context:, model: ENV["EMBEDDING_MODEL"], dimensions:, provider: :openai, assume_model_exists: true, owner:)
     end
   end
 

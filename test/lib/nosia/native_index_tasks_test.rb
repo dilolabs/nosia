@@ -171,14 +171,24 @@ class NativeIndexTasksTest < ActiveSupport::TestCase
     assert_equal new_vector, source.reload.embedding
   end
 
-  test "legacy rebuild selects ordinary sources but never a note chunk" do
-    note, source = mixed_chunks
+  test "legacy same-width model switch rebuilds active note generations without sending hidden text" do
+    old_chunk, source = mixed_chunks
+    note = old_chunk.chunkable
+    generation = note.embedding_generation
+    note.update!(embedding_status: :ready, indexed_generation: generation)
+    hidden = draft_note("Hidden")
+    hidden.update!(embedding_status: :ready, indexed_generation: hidden.embedding_generation)
+    hidden.trash
     new_vector = [ 0.5 ] * Chunk.columns_hash.fetch("embedding").limit
-    inputs = []
+    old_hidden = insert_picker_chunk(@first, hidden, "old hidden chunk", [ 0.25 ] * new_vector.length)
+    requests = []
+    ENV["EMBEDDING_DIMENSIONS"] = new_vector.length.to_s
+    previous_model = ENV["EMBEDDING_MODEL"]
+    ENV["EMBEDDING_MODEL"] = "synthetic-same-width-switch"
 
     with_singleton_replacement(STDIN, :gets, -> { "yes\n" }) do
-      with_singleton_replacement(RubyLLM, :embed, ->(text, **) {
-        inputs << text
+      with_singleton_replacement(RubyLLM, :embed, ->(text, model:, dimensions:, **) {
+        requests << [ text, model, dimensions ]
         RubyLLM::Embedding.new(vectors: new_vector, model: "fake")
       }) do
         task = Rake::Task["embeddings:rebuild"]
@@ -187,9 +197,15 @@ class NativeIndexTasksTest < ActiveSupport::TestCase
       end
     end
 
-    assert_equal [ source.content ], inputs
-    assert_equal [ 0.25 ] * new_vector.length, note.reload.embedding
+    assert_equal [ source.content, note.title ].map { |text| [ text, "synthetic-same-width-switch", new_vector.length ] }, requests
+    assert_equal [ "ready", generation + 1, generation + 1 ], embedding_state(note)
+    refute Chunk.exists?(old_chunk.id)
+    assert_equal [ new_vector ], note.chunks.reload.map(&:embedding)
+    assert_equal [ "pending", 2, nil ], embedding_state(hidden)
+    assert_equal [ old_hidden.id ], hidden.chunks.reload.ids
     assert_equal new_vector, source.reload.embedding
+  ensure
+    ENV["EMBEDDING_MODEL"] = previous_model
   end
 
   test "native reindex rebuilds note chunks through the new generation not the legacy selector" do

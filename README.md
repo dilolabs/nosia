@@ -193,18 +193,28 @@ By default, Nosia uses `ai/granite-embedding-multilingual` for generating docume
    EMBEDDING_DIMENSIONS=768  # Adjust based on your model's output dimensions
    ```
 
-2. Restart Nosia to apply changes:
+2. If the dimensions are changing, restart Nosia to apply the configuration:
    ```bash
    docker compose down
    docker compose up -d
    ```
 
-3. Update existing embeddings (if you have documents already indexed):
+3. For a dimension change, update existing embeddings (if you have documents already indexed):
    ```bash
    docker compose run web bin/rails embeddings:change_dimensions
    ```
 
 > **Important:** Different embedding models produce vectors of different dimensions. Ensure `EMBEDDING_DIMENSIONS` matches your model's output size, or vector search will fail.
+
+If the new model uses the same dimensions, rebuild without changing the schema:
+
+```bash
+docker compose stop web solidq
+docker compose run --rm web bin/rails embeddings:rebuild
+docker compose up -d web solidq
+```
+
+Restart the web and worker services only after the rebuild succeeds. The rebuild indexes active notes; notes in Trash are indexed when restored.
 
 ### Advanced Installation
 

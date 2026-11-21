@@ -117,6 +117,21 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
     end
   end
 
+  test "unspecified embedding width preserves the legacy source request but not the note request" do
+    old_dimensions = ENV.delete("EMBEDDING_DIMENSIONS")
+    sent = []
+    original = RubyLLM.method(:embed)
+    RubyLLM.define_singleton_method(:embed) { |_, dimensions:, **| sent << dimensions }
+
+    Chunk.embed_text("ordinary")
+    Chunk.embed_text("private", private_input: true)
+
+    assert_equal [ 0, Chunk.embedding_dimensions ], sent
+  ensure
+    ENV["EMBEDDING_DIMENSIONS"] = old_dimensions
+    RubyLLM.define_singleton_method(:embed, original)
+  end
+
   [ 0, nil, :absent_tokens ].each do |input|
     test "saving generated embeddings without reported positive input (#{input.inspect}) keeps pending result without recording" do
       website = @account.websites.create!(url: "https://unreported-embedding.example")

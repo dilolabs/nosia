@@ -69,6 +69,26 @@ class NoteIndexJobTest < ActiveJob::TestCase
     assert_equal original, note.chunk_ids
   end
 
+  test "long preformatted notes skip NBSP and control-only parts without changing code" do
+    padding = "\u00A0\u200B" * ENV.fetch("CHUNK_SIZE", "512").to_i
+    code = "def sample\n  :indented\nend"
+    note = draft("Code", body_html: "<pre>#{padding}\n\n#{code}</pre>")
+    inputs = []
+    fake_provider do |text|
+      inputs << text
+      embedding_result
+    end
+
+    Note::IndexJob.perform_now(note.id, note.embedding_generation)
+
+    assert_equal 2, inputs.size
+    assert_equal [ "Code", code ], inputs
+    assert_equal "ready", note.reload.embedding_status
+    chunks = note.chunks.sort_by { |chunk| chunk.metadata.fetch("position") }
+    assert_equal inputs, chunks.map(&:content)
+    assert_equal [ @vector, @vector ], chunks.map(&:embedding)
+  end
+
   test "emptying an indexed note clears its live marker and destroys its chunks" do
     note = draft("Temporary content")
     index(note)
@@ -108,6 +128,71 @@ class NoteIndexJobTest < ActiveJob::TestCase
       end
     end
     assert_equal [ "Saved", 1 ], [ note.reload.title, note.embedding_generation ]
+  end
+
+  %w[ActiveJob::EnqueueError SolidQueue::Job::EnqueueError].each do |error_name|
+    test "#{error_name} at enqueue leaves a committed draft recoverable by retry" do
+      draft_key = SecureRandom.uuid
+      params = { account: @account, folder: @folder, draft_key:, title: "Saved anyway", body_html: "" }
+      attempts = 0
+      note = nil
+      private_detail = "queue detail #{SecureRandom.hex}"
+      log = Rails.root.join("log/test.log")
+      offset = log.size
+
+      failure = ->(*) do
+        attempts += 1
+        raise error_name.constantize, private_detail
+      end
+      with_queue_outage(failure) do
+        assert_difference -> { @account.notes.count } do
+          note = Note.save_draft!(**params)
+          assert_equal "failed", note.reload.embedding_status
+          assert_equal note.id, Note.save_draft!(**params).id
+        end
+      end
+      assert_equal 1, attempts
+      assert_not File.read(log, nil, offset).include?(private_detail), "queue diagnostics must not include raw errors"
+
+      assert_enqueued_jobs 1, only: Note::IndexJob do
+        note.retry_index
+        note.retry_index
+      end
+      fake_provider { embedding_result }
+      perform_enqueued_jobs only: Note::IndexJob
+      assert_equal [ "ready", 1, 1 ], note.reload.values_at(:embedding_status, :embedding_generation, :indexed_generation)
+    end
+  end
+
+  test "failed enqueue for an older generation does not fail a concurrent revision" do
+    attempts = 0
+    adapter = queue_adapter
+    with_queue_outage(->(job, timestamp) {
+      attempts += 1
+      if attempts == 1
+        edit(Note.find(job.arguments.first), "Newer revision")
+        raise SolidQueue::Job::EnqueueError, "first enqueue failed"
+      end
+      ActiveJob::QueueAdapters::TestAdapter.instance_method(:enqueue_at).bind_call(adapter, job, timestamp)
+    }) do
+      note = draft("Original revision")
+      assert_equal [ "Newer revision", "pending", 2 ], note.reload.values_at(:title, :embedding_status, :embedding_generation)
+      assert_enqueued_with job: Note::IndexJob, args: [ note.id, 2 ]
+    end
+    assert_equal 2, attempts
+  end
+
+  test "an aborted enqueue leaves an edited generation failed but does not roll back the edit" do
+    note = draft("First revision")
+    abort_enqueue = -> { throw :abort }
+    Note::IndexJob.set_callback(:enqueue, :before, abort_enqueue)
+
+    assert_no_enqueued_jobs only: Note::IndexJob do
+      edit(note, "Accepted revision")
+    end
+    assert_equal [ "Accepted revision", "failed", 2 ], note.reload.values_at(:title, :embedding_status, :embedding_generation)
+  ensure
+    Note::IndexJob.skip_callback(:enqueue, :before, abort_enqueue) if abort_enqueue
   end
 
   test "stale, missing and already-indexed jobs do not contact the provider" do
@@ -458,6 +543,65 @@ class NoteIndexJobTest < ActiveJob::TestCase
     end if original_config
   end
 
+  test "oversized usage from a real HTTP response is quarantined without logging or blocking publication" do
+    note = draft("Private usage #{SecureRandom.hex}")
+    oversized_input = (2**31) + 123457
+    output = StringIO.new
+    original_config = RubyLLM.config.dup
+    RubyLLM.define_singleton_method(:embed, @original_embed)
+    stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+      stub.post("/v1/embeddings") do |request|
+        assert_equal note.title, JSON.parse(request.body).fetch("input")
+        body = { data: [ { embedding: @vector } ], usage: { prompt_tokens: oversized_input } }
+        [ 200, { "Content-Type" => "application/json" }, body.to_json ]
+      end
+    end
+    adapter = Class.new(Faraday::Adapter::Test) do
+      define_method(:initialize) { |app, **| super(app, stubs, &nil) }
+    end
+    RubyLLM.configure do |config|
+      config.faraday_adapter = adapter
+      config.logger = Logger.new(output, level: :debug)
+      config.log_bodies = true
+    end
+    log = Rails.root.join("log/test.log")
+    offset = log.size
+
+    assert_no_difference [ -> { @account.token_usages.count }, -> { RubyLLM::ActiveRecord::Usage.count } ] do
+      assert_no_changes -> { @account.reload.input_tokens_count } do
+        perform_enqueued_jobs only: Note::IndexJob
+      end
+    end
+
+    assert_equal "ready", note.reload.embedding_status
+    assert_equal [ @vector ], note.chunks.reload.map(&:embedding)
+    logs = output.string + File.read(log, nil, offset)
+    assert_not logs.include?(oversized_input.to_s), "provider usage leaked in diagnostic logs"
+    assert_not logs.include?(note.title), "note contents leaked in diagnostic logs"
+  ensure
+    if original_config
+      RubyLLM.configure do |config|
+        config.faraday_adapter = original_config.faraday_adapter
+        config.logger = original_config.logger
+        config.log_bodies = original_config.log_bodies
+      end
+    end
+  end
+
+  test "note usage cannot overflow the account counter" do
+    note = draft("Counter at capacity")
+    @account.update!(input_tokens_count: (2**31) - 2)
+    fake_provider { embedding_result }
+
+    assert_no_changes -> { @account.reload.input_tokens_count } do
+      assert_no_difference -> { @account.token_usages.count } do
+        Note::IndexJob.perform_now(note.id, note.embedding_generation)
+      end
+    end
+    assert_equal "ready", note.reload.embedding_status
+    assert_equal [ @vector ], note.chunks.reload.map(&:embedding)
+  end
+
   test "an exhausted old provider attempt cannot fail a newer generation" do
     note = draft("Old version")
     generation = note.embedding_generation
@@ -587,6 +731,14 @@ class NoteIndexJobTest < ActiveJob::TestCase
   end
 
   private
+    def with_queue_outage(failure)
+      adapter = queue_adapter
+      adapter.define_singleton_method(:enqueue_at) { |*args| failure.call(*args) }
+      yield
+    ensure
+      adapter.singleton_class.remove_method(:enqueue_at)
+    end
+
     def draft(title, body_html: "", folder: @folder)
       Note.save_draft!(account: @account, folder:, draft_key: SecureRandom.uuid, title:, body_html:)
     end
