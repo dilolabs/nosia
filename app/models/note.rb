@@ -1,6 +1,6 @@
 # Saved, revisioned rich text that belongs to exactly one folder.
 class Note < ApplicationRecord
-  include Editable, Taggable, Trashable
+  include Editable, Taggable, Trashable, Indexable
 
   # The submitted content or revision no longer matches the saved note.
   class EditConflict < StandardError; end
@@ -13,6 +13,7 @@ class Note < ApplicationRecord
 
   belongs_to :account
   belongs_to :note_folder
+  has_many :chunks, as: :chunkable, dependent: :destroy
   has_one :pin, class_name: "NotePin", inverse_of: :note, dependent: :destroy, autosave: false
   private :pin=, :build_pin, :create_pin, :create_pin!
 
@@ -156,6 +157,7 @@ class Note < ApplicationRecord
 
         association(:pin).reset
         association(:trashing).reset
+        association(:chunks).reset
         if [ pin, trashing ].compact.any? { |state| state.account_id != owner_id }
           errors.add(:base, :invalid)
           raise ActiveRecord::RecordInvalid, self

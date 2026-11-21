@@ -56,7 +56,7 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
   test "saving generated embeddings records pending normalized usage only once" do
     website = @account.websites.create!(url: "https://embedding.example")
     @chunk.chunkable = website
-    vector = Array.new(Chunk.embedding_dimensions, 0.1)
+    vector = Array.new(Chunk.columns_hash.fetch("embedding").limit, 0.1)
     result = Struct.new(:vectors, :tokens, :model).new(vector, RubyLLM::Tokens.new(input: 8), "provider-result-model")
 
     with_embedding_result(result) do
@@ -83,7 +83,7 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
       website = @account.websites.create!(url: "https://unreported-embedding.example")
       @chunk.chunkable = website
       tokens = RubyLLM::Tokens.new(input: input) unless input == :absent_tokens
-      vector = Array.new(Chunk.embedding_dimensions, 0.1)
+      vector = Array.new(Chunk.columns_hash.fetch("embedding").limit, 0.1)
       result = Struct.new(:vectors, :tokens, :model).new(vector, tokens, "provider-result-model")
 
       with_embedding_result(result) do

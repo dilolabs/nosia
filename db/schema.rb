@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_21_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -351,6 +351,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_000003) do
     t.datetime "content_updated_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "embedding_generation", default: 0, null: false
+    t.bigint "indexed_generation"
+    t.string "embedding_status", default: "empty", null: false
     t.index ["account_id", "content_updated_at", "id"], name: "index_notes_on_account_id_and_content_updated_at_and_id"
     t.index ["account_id", "draft_key"], name: "index_notes_on_account_id_and_draft_key", unique: true
     t.index ["account_id", "note_folder_id", "content_updated_at", "id"], name: "idx_on_account_id_note_folder_id_content_updated_at_4ffd20809f"

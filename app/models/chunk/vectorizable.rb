@@ -6,20 +6,37 @@ module Chunk::Vectorizable
     after_save :record_embedding_usage_if_needed
   end
 
-  def generate_embedding
-    return if content.blank?
-    Rails.logger.info "Generating embedding for Chunk #{id}..."
-    begin
+  class_methods do
+    # Requests one text embedding using the configured source embedding provider.
+    # @param text [String] Text to embed.
+    # @return [RubyLLM::Embedding] The vector and normalized usage.
+    # @raise [RubyLLM::Error] If the provider request fails.
+    def embed_text(text)
       context = RubyLLM.context do |config|
         config.openai_api_base = ENV["EMBEDDING_BASE_URL"] || ENV["AI_BASE_URL"]
         config.openai_api_key = ENV["AI_API_KEY"]
+        config.log_bodies = false
       end
-      embedding_result = RubyLLM.embed(content, context:, model: ENV["EMBEDDING_MODEL"], dimensions: ENV["EMBEDDING_DIMENSIONS"].to_i, provider: :openai, assume_model_exists: true)
-      self.embedding = embedding_result.vectors
-      @pending_embedding_result = embedding_result
-    rescue RubyLLM::Error => e
-      Rails.logger.error "Error generating embedding for Chunk #{id}: #{e.message}"
-      throw :abort
+      RubyLLM.embed(text, context:, model: ENV["EMBEDDING_MODEL"], dimensions: embedding_dimensions, provider: :openai, assume_model_exists: true)
+    end
+  end
+
+  # In-memory result supplied only by the Note indexing worker for a chunk save.
+  # @param result [RubyLLM::Embedding] The prepared vector and usage.
+  attr_writer :prepared_embedding_result
+
+  def generate_embedding
+    return if content.blank?
+
+    if chunkable_type == "Note"
+      # Never call the provider as a fallback while the worker is publishing.
+      throw :abort unless @prepared_embedding_result
+
+      self.embedding = @prepared_embedding_result.vectors
+      @pending_embedding_result = @prepared_embedding_result
+      @prepared_embedding_result = nil
+    else
+      generate_source_embedding
     end
   end
 
@@ -29,6 +46,18 @@ module Chunk::Vectorizable
   end
 
   private
+
+  def generate_source_embedding
+    Rails.logger.info "Generating embedding for Chunk #{id}..."
+    begin
+      embedding_result = self.class.embed_text(content)
+      self.embedding = embedding_result.vectors
+      @pending_embedding_result = embedding_result
+    rescue RubyLLM::Error => e
+      Rails.logger.error "Error generating embedding for Chunk #{id}: #{e.message}"
+      throw :abort
+    end
+  end
 
   def record_embedding_usage_if_needed
     return unless @pending_embedding_result&.tokens&.input&.positive?

@@ -180,9 +180,9 @@ class Message < ApplicationRecord
   end
 
   # Resolve cited evidence only within this message's saved chat account.
-  # @return [ActiveRecord::Relation<Chunk>] Matching citations, excluding other accounts
+  # @return [ActiveRecord::Relation<Chunk>] Matching non-note citations in the saved chat account.
   def similar_chunks
-    chat.account.chunks.where(id: Array(similar_chunk_ids).uniq)
+    chat.account.chunks.without_notes.where(id: Array(similar_chunk_ids).uniq)
   end
 
   def similar_documents

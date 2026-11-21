@@ -151,4 +151,55 @@ class ChatAccountCitationsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "a[href='#{chunk_path(own, chat_id: chat.id)}']", minimum: 1
   end
+
+  test "published note chunks do not take a top-k slot" do
+    chat = chats(:picker_second_chat)
+    width = Chunk.columns_hash.fetch("embedding").limit
+    query_vector = [ 1.0 ] + Array.new(width - 1, 0.0)
+    document_vector = [ 0.5, 1.0 ] + Array.new(width - 2, 0.0)
+    published_note_chunk(@second, query_vector)
+    own = insert_picker_chunk(@second, texts(:picker_second_text), "Text source evidence", document_vector)
+    result = RubyLLM::Embedding.new(vectors: query_vector, model: "fake")
+
+    with_singleton_replacement(RubyLLM, :embed, ->(*, **) { result }) do
+      assert_equal [ own.id ], chat.account.chunks.search_by_similarity("query", limit: 1).ids
+    end
+  end
+
+  test "saved citation IDs cannot expose published note chunks" do
+    chat = chats(:picker_second_chat)
+    width = Chunk.columns_hash.fetch("embedding").limit
+    vector = [ 1.0 ] + Array.new(width - 1, 0.0)
+    note_chunk = published_note_chunk(@second, vector)
+    own = insert_picker_chunk(@second, texts(:picker_second_text), "Text source evidence", vector)
+    message = chat.messages.create!(role: :assistant, content: "Cited answer", similar_chunk_ids: [ note_chunk.id.to_s, own.id.to_s ])
+
+    assert_equal [ own.id ], message.similar_chunks.ids
+
+    get chat_url(chat)
+    assert_response :success
+    assert_select "a[href='#{chunk_path(own, chat_id: chat.id)}']", minimum: 1
+    assert_select "a[href='#{chunk_path(note_chunk, chat_id: chat.id)}']", count: 0
+
+    get chunk_url(note_chunk), params: { chat_id: chat.id }
+    assert_response :not_found
+  end
+
+  test "direct citation lookup also hides note chunks without a chat context" do
+    width = Chunk.columns_hash.fetch("embedding").limit
+    chunk = published_note_chunk(@first, [ 1.0 ] + Array.new(width - 1, 0.0))
+
+    get chunk_url(chunk)
+    assert_response :not_found
+  end
+
+  private
+    def published_note_chunk(account, vector)
+      note = Note.save_draft!(account:, folder: account.general_note_folder, draft_key: SecureRandom.uuid,
+        title: "Private note evidence", body_html: "")
+      note.update!(embedding_status: :ready, indexed_generation: note.embedding_generation)
+      insert_picker_chunk(account, note, note.title, vector).tap do |chunk|
+        chunk.update!(metadata: { "position" => 1, "note_generation" => note.embedding_generation })
+      end
+    end
 end

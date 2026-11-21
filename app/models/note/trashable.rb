@@ -27,6 +27,7 @@ module Note::Trashable
       marker = restorable_trashing
       marker.destroy!
       association(:trashing).reset
+      resume_pending_index
     end
   end
 

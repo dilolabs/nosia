@@ -76,7 +76,7 @@ module Note::Editable
       ensure_active_note
       raise Note::EditConflict unless content_revision.eql?(expected_revision)
 
-      Note::Editable.persist_content(self, title:, body:)
+      apply_content!(title:, body:)
     end
   rescue ActiveRecord::RecordNotFound
     raise Note::Unavailable
@@ -97,13 +97,7 @@ module Note::Editable
 
   # @api private
   def self.persist_content(note, title:, body:)
-    return note if note.persisted? && note.title == title && note.body_html == body.html
-
-    note.assign_attributes(title:, body_html: body.html, body_text: body.text,
-      content_revision: note.content_revision.to_i + 1, content_updated_at: Time.current)
-    note.save!(context: :revisioned_content)
-    Note::Taggable.sync(note, body.tag_keys)
-    note
+    note.send(:apply_content!, title:, body:)
   end
 
   def self.parse_body(note, html)
@@ -115,6 +109,19 @@ module Note::Editable
   private_class_method :parse_body
 
   private
+    def apply_content!(title:, body:)
+      return self if persisted? && self.title == title && body_html == body.html
+
+      previous_input = embedding_input
+      assign_attributes(title:, body_html: body.html, body_text: body.text,
+        content_revision: content_revision.to_i + 1, content_updated_at: Time.current)
+      embedding_changed = assign_embedding_generation(previous_input)
+      save!(context: :revisioned_content)
+      Note::Taggable.sync(self, body.tag_keys)
+      apply_embedding_change if embedding_changed
+      self
+    end
+
     def content_written_through_revision
       if validation_context != :revisioned_content && (new_record? || (changes_to_save.keys & CONTENT_ATTRIBUTES).any?)
         errors.add(:base, :invalid)

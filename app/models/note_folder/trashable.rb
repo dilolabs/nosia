@@ -30,7 +30,15 @@ module NoteFolder::Trashable
     with_locked_trashable_folder do
       restorable_trashing.destroy!
       association(:trashing).reset
+      resume_indexing_later
     end
+  end
+
+  # Visits active pending or failed notes in this branch without embedding inline.
+  # @return [void]
+  def resume_indexing_now
+    branch = self.class.branch_in(account_id, root_id: id).select(:id)
+    Note.active_in(account_id).where(note_folder_id: branch, embedding_status: %w[pending failed]).find_each(&:resume_indexing)
   end
 
   # Permanently deletes a directly trashed branch and its contents, even under a trashed ancestor.
@@ -51,6 +59,13 @@ module NoteFolder::Trashable
   end
 
   private
+    def resume_indexing_later
+      folder_id = id
+      ActiveRecord.after_all_transactions_commit do
+        NoteFolder::ResumeIndexingJob.perform_later(folder_id)
+      end
+    end
+
     def with_locked_trashable_folder
       with_locked_folder do |locked_account|
         reject_trash_change if general?
