@@ -52,8 +52,9 @@ fr:
         failed: Échec de l’indexation
       retry_index: Relancer l’indexation
       index_retry_failed: Impossible de relancer l’indexation. Réessayez.
+      index_retry_not_started: La relance de l’indexation n’a pas démarré. Réessayez.
       index_status_unavailable: Impossible de vérifier l’indexation. Rouvrez la note pour réessayer.
-      index_sharing: Les notes enregistrées et actives sont partagées avec ce compte. Les conversations du compte et les requêtes API autorisées peuvent les utiliser. Les fournisseurs d’IA configurés pour l’indexation et les réponses peuvent être locaux ou distants.
+      index_sharing: Les notes enregistrées et actives sont partagées avec ce compte. Leurs titres et textes sont envoyés au fournisseur d’embeddings configuré pour l’indexation. Des extraits pertinents peuvent être envoyés pour répondre aux conversations du compte ou aux requêtes API autorisées. Les fournisseurs peuvent être locaux ou distants.
       copy_draft: Copier le brouillon
       draft_copied: Brouillon copié.
       copy_manually: Votre brouillon est sélectionné. Copiez-le avec votre navigateur ou votre clavier.

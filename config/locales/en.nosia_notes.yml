@@ -52,8 +52,9 @@ en:
         failed: Indexing failed
       retry_index: Retry indexing
       index_retry_failed: Could not retry indexing. Try again.
+      index_retry_not_started: Indexing retry failed to start. Try again.
       index_status_unavailable: Could not check indexing status. Reopen the note to check again.
-      index_sharing: Saved, active notes are shared with this account. Account chats and authorized API requests can use them. Your configured AI providers for indexing and answers may be local or remote.
+      index_sharing: Saved, active notes are shared with this account. Their titles and text are sent to the configured embedding provider for indexing. Relevant excerpts can be sent to answer account chats or authorized API requests. Providers may be local or remote.
       copy_draft: Copy draft
       draft_copied: Draft copied.
       copy_manually: Your draft is selected. Copy it using your browser or keyboard.

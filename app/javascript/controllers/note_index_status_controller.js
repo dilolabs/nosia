@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 const POLL_MS = 5000
 
 export default class extends Controller {
-  static targets = ["message", "actions"]
+  static targets = ["message", "outcome", "actions"]
 
   connect() {
     this.pane = this.element.closest(".n-notes-reader")
@@ -44,6 +44,7 @@ export default class extends Controller {
   rememberFocus({ submitter }) {
     this.retryButton = submitter
     this.restoreFocus = document.activeElement === this.retryButton
+    this.outcomeTarget.textContent = ""
   }
 
   finishRetry() {
@@ -52,7 +53,9 @@ export default class extends Controller {
 
   checkRetry(event) {
     const { succeeded, location } = event.detail.fetchResponse
-    if (!succeeded || location.href !== new URL(this.element.dataset.statusUrl, window.location.origin).href) {
+    const retryStatus = new URL(location)
+    if (/^\d+$/.test(retryStatus.searchParams.get("retry_failed"))) retryStatus.searchParams.delete("retry_failed")
+    if (!succeeded || retryStatus.href !== new URL(this.element.dataset.statusUrl, window.location.origin).href) {
       event.preventDefault()
       this.retryError()
     }
@@ -136,6 +139,8 @@ export default class extends Controller {
     Object.assign(current, { statusUrl, revision, generation, updatedAt })
     this.messageTarget.dataset.noteIndexStatus = state
     if (this.messageTarget.textContent !== message.textContent) this.messageTarget.textContent = message.textContent
+    const outcome = frame.querySelector('[data-note-index-status-target="outcome"]').textContent
+    if (this.outcomeTarget.textContent !== outcome) this.outcomeTarget.textContent = outcome
     if (Boolean(this.actionsTarget.firstElementChild) !== (state === "failed")) {
       this.actionsTarget.replaceChildren(...frame.querySelector('[data-note-index-status-target="actions"]').children)
       if (focused) this.messageTarget.focus({ preventScroll: true })

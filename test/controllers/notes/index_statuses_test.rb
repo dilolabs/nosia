@@ -77,6 +77,41 @@ class NotesIndexStatusesTest < ActionDispatch::IntegrationTest
     assert_select "lexxy-editor, .n-notes-form", count: 0
   end
 
+  test "a failed post-commit enqueue reports a localized outcome only to the retry frame" do
+    adapter = queue_adapter
+    adapter.define_singleton_method(:enqueue_at) do |_job, _timestamp|
+      raise SolidQueue::Job::EnqueueError, "Synthetic queue outage"
+    end
+    original = @note.values_at(:title, :body_html, :content_revision, :embedding_generation)
+    headers = frame_headers.merge("Accept-Language" => "fr")
+
+    assert_no_enqueued_jobs(only: Note::IndexJob) do
+      post index_retry_path, headers: headers
+      assert_response :see_other
+    end
+    retry_status_location = response.location
+    assert @note.reload.embedding_failed?
+    assert_equal original, @note.values_at(:title, :body_html, :content_revision, :embedding_generation)
+    follow_redirect!(headers: headers)
+    assert_response :success
+    assert_includes response.headers.fetch("Cache-Control"), "no-store"
+    assert_select "[role='status'][data-note-index-status='failed']", text: "Échec de l’indexation"
+    assert_select "[role='status']", text: "La relance de l’indexation n’a pas démarré. Réessayez."
+    assert_select "button", text: "Relancer l’indexation"
+    assert_select "lexxy-editor, .n-notes-form", count: 0
+
+    get index_status_path, headers: headers
+    assert_response :success
+    assert_select "[role='status']", text: "La relance de l’indexation n’a pas démarré. Réessayez.", count: 0
+
+    @note.update!(embedding_generation: 3)
+    get retry_status_location, headers: headers
+    assert_response :success
+    assert_select "[role='status']", text: "La relance de l’indexation n’a pas démarré. Réessayez.", count: 0
+  ensure
+    adapter.singleton_class.remove_method(:enqueue_at)
+  end
+
   test "cross-account notes and missing membership do not reveal status or retry" do
     assert_inaccessible account: accounts(:picker_second)
     assert_inaccessible account: accounts(:picker_foreign)

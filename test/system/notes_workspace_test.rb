@@ -178,6 +178,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     @note.update!(embedding_status: :failed, embedding_generation: 2)
     visit account_note_path(@account, @note)
     assert_selector "#note-index-status [role='status'][data-note-index-status='failed']", text: "Indexing failed"
+    assert_selector ".n-notes-sharing", text: /saved, active notes are shared.*titles and text.*sent.*configured embedding provider.*relevant excerpts.*sent.*account chats.*authorized API requests.*local or remote/i
     watch_dirty_departure("Unsaved draft for indexing")
 
     retry_button = "#note-index-status button"
@@ -193,6 +194,38 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_current_path account_note_path(@account, @note)
     assert_equal 0, page.evaluate_script("window.departureConfirmations")
     assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+  end
+
+  test "a queue outage after accepting the retry announces failure and preserves the dirty draft" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector "#note-index-status [data-note-index-status='failed']", text: "Indexing failed"
+    watch_dirty_departure("Dirty while the queue is unavailable")
+    fail_enqueue = -> { raise SolidQueue::Job::EnqueueError, "Synthetic queue outage" }
+    Note::IndexJob.set_callback(:enqueue, :before, fail_enqueue)
+    page.execute_script(<<~JS)
+      document.querySelector("#note-index-status").addEventListener("turbo:frame-render", event => {
+        window.retryStatusResponse = event.detail.fetchResponse.statusCode
+      })
+    JS
+    retry_button = "#note-index-status button"
+    orbite_tab_to(retry_button)
+    page.driver.browser.action.send_keys(:enter).perform
+
+    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+      page.evaluate_script("window.retryStatusResponse === 200")
+    end
+    assert_selector "#note-index-status [role='status']", text: "Indexing retry failed to start. Try again."
+    assert_selector "#note-index-status [data-note-index-status='failed']", text: "Indexing failed"
+    assert_selector "#{retry_button}:focus:enabled"
+    assert_save_status "Could not save"
+    assert_field "Title (optional)", with: "Dirty while the queue is unavailable"
+    assert_equal [ "Field notes", 1, "failed" ], @note.reload.values_at(:title, :content_revision, :embedding_status)
+    assert_current_path account_note_path(@account, @note)
+    assert_equal 0, page.evaluate_script("window.departureConfirmations")
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+  ensure
+    Note::IndexJob.skip_callback(:enqueue, :before, fail_enqueue) if fail_enqueue
   end
 
   test "index polls suspend while hidden stop at ready and restart on new save acknowledgments" do
@@ -273,6 +306,49 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_save_status "Saved"
   end
 
+  test "an in-flight index poll is canceled by a newer autosave and cannot show its stale result" do
+    @note.update!(embedding_status: :pending, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector "#note-index-status [data-note-index-status='pending']"
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS)
+      window.originalNoteEditor = document.querySelector("lexxy-editor")
+      window.indexPolls = 0
+      const ordinaryFetch = window.fetch
+      window.fetch = async (url, options) => {
+        if (!new URL(url, location.origin).pathname.endsWith("/index_status") || ++window.indexPolls !== 1) {
+          return ordinaryFetch(url, options)
+        }
+        window.oldPollSignal = options.signal
+        const response = await ordinaryFetch(url, options)
+        const html = await response.text()
+        return new Promise(resolve => {
+          window.releaseOldPoll = () => resolve({ ok: true, text: async () => {
+            window.deliveredOldPoll = true
+            return html
+          } })
+        })
+      }
+    JS
+    @note.update!(embedding_status: :ready, indexed_generation: 2)
+    Selenium::WebDriver::Wait.new(timeout: 8).until { page.evaluate_script("Boolean(window.releaseOldPoll)") }
+
+    fill_in "Title (optional)", with: "A real newer revision"
+    assert_save_status "Saved"
+    assert_equal [ 2, 3 ], @note.reload.values_at(:content_revision, :embedding_generation)
+    assert page.evaluate_script("window.oldPollSignal.aborted")
+    page.execute_script("window.releaseOldPoll()")
+    orbite_settle
+    assert page.evaluate_script("window.deliveredOldPoll")
+    assert_selector "#note-index-status [data-note-index-status='pending']", wait: 0
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+
+    @note.mark_index_failed(3)
+    assert_selector "#note-index-status [data-note-index-status='failed']", wait: 8
+    assert_save_status "Saved"
+    assert_poll_count_stays(2)
+  end
+
   test "an indexing status error stops the poll without replacing the editor or save feedback" do
     @note.update!(embedding_status: :pending, embedding_generation: 2)
     visit account_note_path(@account, @note)
@@ -323,7 +399,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     orbite_select_language("FR")
     visit account_note_path(@account, @note)
     assert_selector "#note-index-status [data-note-index-status='failed']", text: "Échec de l’indexation"
-    assert_text "Les notes enregistrées"
+    assert_selector ".n-notes-sharing", text: /notes enregistrées et actives.*partagées.*titres et textes.*envoyés.*fournisseur d’embeddings configuré.*extraits pertinents.*envoyés.*conversations du compte.*requêtes API autorisées.*locaux ou distants/i
 
     [ [ 375, 340, false ], [ 667, 375, true ], [ 768, 850, false ], [ 1024, 850, true ], [ 1440, 850, false ] ].each do |width, height, dark|
       orbite_viewport(width, height)
