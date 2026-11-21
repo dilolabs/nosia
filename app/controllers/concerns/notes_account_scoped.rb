@@ -3,8 +3,11 @@ module NotesAccountScoped
   extend ActiveSupport::Concern
   include AccountScoped
 
+  class InactiveDestination < StandardError; end
+
   included do
     before_action :set_notes_account
+    rescue_from InactiveDestination, with: :render_inactive_destination
     rescue_from Note::EditConflict, with: :render_edit_conflict
     rescue_from Note::Unavailable, ActiveRecord::RecordInvalid, with: :render_unavailable
     rescue_from Note::PurgeForbidden, with: -> { head :forbidden }
@@ -51,6 +54,22 @@ module NotesAccountScoped
 
     def active_for_change(active, all, id)
       active.find_by(id:) || unavailable_item(all, id)
+    end
+
+    def active_for_read(active, all, id)
+      active.find_by(id:) || raise_inactive_destination(all.exists?(id:))
+    end
+
+    def raise_inactive_destination(known_item)
+      raise InactiveDestination if known_item
+
+      raise ActiveRecord::RecordNotFound
+    end
+
+    def render_inactive_destination
+      # Mark stale account-local links, not the generic 404 used to deny access.
+      response.set_header("X-Notes-Draft-Recovery", "unavailable")
+      render file: Rails.public_path.join("404.html"), layout: false, status: :not_found
     end
 
     def trashed_note

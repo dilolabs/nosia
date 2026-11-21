@@ -431,6 +431,109 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal [ "Draft during departure", "Interview outline still here", 2 ], @note.reload.values_at(:title, :body_text, :content_revision)
   end
 
+  test "a real 409 from a stale folder trash action keeps the draft mounted and recoverable" do
+    folder = @note.note_folder
+    parent = folder.parent
+    editor_path = account_note_path(@account, @note, folder_id: folder.id)
+    visit editor_path
+    watch_dirty_departure("Keep the 409 draft")
+    find(".lexxy-editor__content").send_keys(:end, " in the open editor")
+
+    other_tab = open_new_window
+    within_window(other_tab) do
+      visit account_notes_workspace_path(@account, folder_id: parent.id)
+      within "#notes-list" do
+        find("summary", text: "Trash folder").click
+        accept_confirm(/all its folders and notes/) { click_on "Trash folder" }
+      end
+      assert_current_path account_notes_workspace_path(@account, view: "trash")
+    end
+
+    within "#notes-list" do
+      find("summary", text: "Trash folder").click
+      click_on "Trash folder"
+    end
+    assert_http_departure_status 409
+    assert_current_path editor_path
+    assert_save_status "This change is not available."
+    assert_field "Title (optional)", with: "Keep the 409 draft"
+    assert_selector ".lexxy-editor__content", exact_text: "Interview outline in the open editor"
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    assert_equal 2, page.evaluate_script("window.departureConfirmations")
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+    assert_equal [ "Field notes", "Interview outline", 1 ], @note.reload.values_at(:title, :body_text, :content_revision)
+
+    click_on "Copy draft"
+    assert_text "Draft copied"
+    assert_equal "Keep the 409 draft\n\nInterview outline in the open editor", page.evaluate_script("window.copiedNote")
+    page.execute_script("window.confirm = window.ordinaryConfirm; window.fetch = window.ordinaryFetch")
+    dismiss_confirm(/unsaved changes/i) { click_on "Back to list" }
+    click_on "Save note"
+    assert_save_status "This change is not available."
+    assert_button "Copy draft"
+    assert_no_button "Load saved version"
+    assert_equal 1, @note.reload.content_revision
+  ensure
+    other_tab&.close
+  end
+
+  test "a real 404 from a stale note link keeps the original draft saveable" do
+    destination = Note.save_draft!(account: @account, folder: @note.note_folder, draft_key: SecureRandom.uuid,
+      title: "Another note", body_html: "")
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    visit editor_path
+    watch_dirty_departure("Keep the 404 draft")
+    destination.trash
+
+    within("#notes-list") { click_on "Another note" }
+    assert_http_departure_status 404
+    assert_current_path editor_path
+    assert_save_status "Could not open that page. Your draft is still here."
+    assert_field "Title (optional)", with: "Keep the 404 draft"
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    assert_equal 1, page.evaluate_script("window.departureConfirmations")
+    refute page.evaluate_script("document.documentElement.hasAttribute('aria-busy')")
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+
+    page.execute_script("window.confirm = window.ordinaryConfirm; window.fetch = window.ordinaryFetch")
+    dismiss_confirm(/unsaved changes/i) { click_on "Back to list" }
+    click_on "Save note"
+    assert_save_status "Saved"
+    assert_equal [ "Keep the 404 draft", 2 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "a missing destination in Turbo Back keeps the draft and restores the editor URL" do
+    destination = Note.save_draft!(account: @account, folder: @note.note_folder, draft_key: SecureRandom.uuid,
+      title: "Previous note", body_html: "")
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    visit account_note_path(@account, destination, folder_id: @note.note_folder_id)
+    click_on "Field notes"
+    assert_current_path editor_path
+    watch_dirty_departure("Keep the Back draft")
+    destination.trash
+
+    page.execute_script("history.back()")
+    assert_http_departure_status 404
+    assert_current_path editor_path
+    assert_save_status "Could not open that page. Your draft is still here."
+    assert_field "Title (optional)", with: "Keep the Back draft"
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    assert_equal 1, page.evaluate_script("window.departureConfirmations")
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "a membership 404 still follows normal access handling after approved departure" do
+    visit account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    watch_dirty_departure("Local text after access ends")
+    @account.account_users.find_by!(user: users(:picker_owner)).destroy!
+
+    click_on "Back to list"
+    assert_http_departure_status 404
+    assert_current_path account_notes_workspace_path(@account, folder_id: @note.note_folder_id)
+    assert_no_selector "lexxy-editor"
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+  end
+
   test "confirming folder trash and draft discard follows the redirect without another prompt" do
     folder = @note.note_folder
     visit account_note_path(@account, @note, folder_id: folder.id)
@@ -528,6 +631,38 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
+    def watch_dirty_departure(title)
+      find("lexxy-editor[connected]")
+      page.execute_script(<<~JS)
+        window.originalNoteEditor = document.querySelector("lexxy-editor")
+        window.ordinaryFetch = window.fetch
+        window.fetch = (url, options) => options?.method === "PATCH" ?
+          Promise.reject(new TypeError("Hold the autosave")) : window.ordinaryFetch(url, options)
+        window.ordinaryConfirm = window.confirm
+        window.departureConfirmations = 0
+        window.confirm = () => { window.departureConfirmations++; return true }
+        document.addEventListener("turbo:before-fetch-response", event => {
+          if (event.target === document.documentElement || event.target.matches("#notes-list form")) {
+            window.departureStatus = event.detail.fetchResponse.statusCode
+          }
+        })
+        Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+          writeText(text) { window.copiedNote = text; return Promise.resolve() }
+        } })
+      JS
+      fill_in "Title (optional)", with: title
+      assert_save_status "Could not save"
+      refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))")
+    end
+
+    def assert_http_departure_status(status)
+      Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+        page.evaluate_script("window.departureStatus") == status
+      end
+      # Give Turbo a repaint to process the fetched HTML, if it didn't intercept it.
+      orbite_settle
+    end
+
     def assert_save_status(text)
       assert_selector "[data-note-autosave-target='status'][role='status']", text:
     end

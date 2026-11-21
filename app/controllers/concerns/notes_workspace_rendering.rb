@@ -38,7 +38,7 @@ module NotesWorkspaceRendering
     def context_folder
       id = notes_id(params[:folder_id])
       if reading_workspace?
-        active_folders.find(id)
+        active_for_read(active_folders, @account.note_folders, id)
       elsif filing_note?
         folder_for_change(id)
       else
@@ -56,8 +56,9 @@ module NotesWorkspaceRendering
       @selected_tag ||= begin
         key = normalized_tag_key
         active_tags.find_by(key:).tap do |tag|
-          if !tag && (reading_workspace? || !@account.note_tags.exists?(key:))
-            raise ActiveRecord::RecordNotFound
+          unless tag
+            known_tag = @account.note_tags.exists?(key:)
+            raise_inactive_destination(known_tag) if reading_workspace? || !known_tag
           end
         end
       end

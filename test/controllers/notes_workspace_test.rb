@@ -131,6 +131,30 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_equal 2, @note.reload.content_revision
   end
 
+  test "only a known unavailable Notes destination identifies its 404 as draft-recoverable" do
+    @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#retired</p>")
+    @note.trash
+    get note_url(@note)
+    assert_response :not_found
+    assert_equal "unavailable", response.headers["X-Notes-Draft-Recovery"]
+
+    @folder.trash
+    [ { folder_id: @folder.id }, { tag: "retired" } ].each do |filter|
+      get workspace, params: filter
+      assert_response :not_found
+      assert_equal "unavailable", response.headers["X-Notes-Draft-Recovery"]
+    end
+
+    get note_url(@note, @other)
+    assert_response :not_found
+    assert_nil response.headers["X-Notes-Draft-Recovery"]
+
+    @user.account_users.find_by!(account: @account).destroy!
+    get note_url(@note)
+    assert_response :not_found
+    assert_nil response.headers["X-Notes-Draft-Recovery"]
+  end
+
   test "a draft from a tag that disappears still creates in General" do
     @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#retiring</p>")
     get new_account_note_path(@account, tag: "retiring", page: 2)

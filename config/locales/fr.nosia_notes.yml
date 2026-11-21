@@ -41,6 +41,8 @@ fr:
       saved: Enregistrée
       unsaved: Modifications non enregistrées
       save_failed: Impossible d’enregistrer vos modifications. Réessayez.
+      navigation_failed: Impossible d’ouvrir cette page. Votre brouillon est toujours disponible.
+      action_failed: Impossible d’effectuer cette action. Votre brouillon est toujours disponible.
       retry: Réessayer
       copy_draft: Copier le brouillon
       draft_copied: Brouillon copié.

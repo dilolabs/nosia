@@ -41,6 +41,8 @@ en:
       saved: Saved
       unsaved: Unsaved changes
       save_failed: Could not save your changes. Try again.
+      navigation_failed: Could not open that page. Your draft is still here.
+      action_failed: Could not complete that action. Your draft is still here.
       retry: Retry
       copy_draft: Copy draft
       draft_copied: Draft copied.

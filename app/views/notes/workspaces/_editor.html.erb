@@ -1,7 +1,7 @@
 <%# locals: (account:, note:, options:, folders:, form_title:, form_body_html:, form_revision:, seed_tag:) %>
 <%= render "notes/workspaces/editor_heading", account:, note:, options:, folders: %>
 <% action = note.persisted? ? account_note_path(account, note, **options) : account_notes_path(account, **options) %>
-<% messages = %i[ saving saved unsaved save_failed discard_draft unavailable draft_copied copy_manually ].to_h do |key|
+<% messages = %i[ saving saved unsaved save_failed navigation_failed action_failed discard_draft unavailable draft_copied copy_manually ].to_h do |key|
      [ key, t("nosia.notes.#{key}") ]
    end %>
 <%= form_with model: note, url: action, class: "n-notes-form", data: {
@@ -9,6 +9,7 @@
       action: "lexxy:initialize->note-autosave#hydrate input->note-autosave#changed lexxy:change->note-autosave#changed " \
               "submit->note-autosave#saveNow keydown->note-autosave#keyboardSave keydown.esc->note-autosave#closeFormatting " \
               "turbo:before-visit@document->note-autosave#beforeVisit turbo:before-render@document->note-autosave#beforeRender " \
+              "turbo:visit@document->note-autosave#visitStarted turbo:before-fetch-response@document->note-autosave#beforeDepartureResponse " \
               "turbo:submit-start@document->note-autosave#otherSubmitStarted turbo:submit-end@document->note-autosave#otherSubmitEnded"
     } do |form| %>
   <%= render "notes/workspaces/errors", record: note %>

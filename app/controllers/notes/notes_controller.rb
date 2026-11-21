@@ -24,7 +24,7 @@ class Notes::NotesController < ApplicationController
   end
 
   def show
-    @note = active_notes.find(notes_id(request.path_parameters.fetch(:id)))
+    @note = active_for_read(active_notes, @account.notes, notes_id(request.path_parameters.fetch(:id)))
     @form_revision = @note.content_revision
     set_note_context
     render_workspace(screen: "editor")
