@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { Turbo } from "@hotwired/turbo-rails"
+import NoteDeparture from "controllers/note_departure"
 
 const IDLE_MS = 600
 const REGIONS = ["notes-list", "notes-sidebar", "notes-editor-heading", "notes-header-actions"]
@@ -12,9 +13,13 @@ export default class extends Controller {
   connect() {
     this.serial = 0
     this.autosavePaused = false
-    this.historyEntry = window.history.state?.turbo
     this.workspace = this.element.closest(".n-notes")
-    window.addEventListener("popstate", this.#beforeRestore, true)
+    this.departure = new NoteDeparture(this.element, {
+      draftSerial: () => this.dirty ? this.serial : null,
+      confirmDiscard: () => this.#confirmDiscard(),
+      onFailure: (message) => this.#departureFailed(message),
+      onReturn: () => this.#replaceLocation()
+    })
     if (this.editorTarget.editor?.getRootElement()) this.hydrate()
     if (this.recoveredValue) this.#markDirty()
   }
@@ -24,11 +29,9 @@ export default class extends Controller {
     this.request?.abort()
     this.request = null
     this.firstPost = null
-    this.approvedSubmission = null
-    this.approvedVisit = null
+    this.departure.disconnect()
     this.content = null
     this.dirty = false
-    window.removeEventListener("popstate", this.#beforeRestore, true)
     window.removeEventListener("beforeunload", this.#beforeUnload)
   }
 
@@ -112,79 +115,6 @@ export default class extends Controller {
     this.skipUnloadWarning = true
     // A Turbo morph of the same URL could preserve this conflicted controller.
     window.location.replace(this.savedLocation)
-  }
-
-  beforeVisit(event) {
-    const submission = this.approvedSubmission
-    this.approvedSubmission = null
-    this.approvedVisit = null
-    // Turbo proposes the redirect after submit-end; only that response can
-    // reuse approval given to the original form submission.
-    const response = submission?.result?.fetchResponse
-    if (submission === Turbo.navigator.formSubmission && response?.succeeded && response.location.href === event.detail.url) return
-
-    if (!this.#approveDeparture()) event.preventDefault()
-    else if (this.dirty) this.approvedVisit = { url: event.detail.url }
-  }
-
-  visitStarted(event) {
-    if (this.approvedVisit?.url === event.detail.url) this.approvedVisit.visit = Turbo.navigator.currentVisit
-    else this.approvedVisit = null
-  }
-
-  otherSubmitStarted(event) {
-    const { formSubmission } = event.detail
-    if (event.target === this.element || !this.dirty || formSubmission.delegate !== Turbo.navigator) return
-
-    // Turbo has already asked for its action-specific confirmation, but
-    // hasn't sent the request yet. Stopping here aborts that request.
-    if (this.#approveDeparture()) this.approvedSubmission = formSubmission
-    else formSubmission.stop()
-  }
-
-  otherSubmitEnded(event) {
-    if (event.detail.formSubmission === this.approvedSubmission && !event.detail.success) this.approvedSubmission = null
-  }
-
-  beforeDepartureResponse(event) {
-    if (!this.dirty || !this.autosavePaused || !this.element.isConnected) return
-
-    const { fetchResponse } = event.detail
-    const { statusCode } = fetchResponse
-    const staleDestination = statusCode === 404 && fetchResponse.header("X-Notes-Draft-Recovery") === "unavailable"
-    // Unmarked 404s, 401s, and 403s must keep normal authentication/access handling.
-    if (!staleDestination && statusCode !== 409 && statusCode !== 422 && !fetchResponse.serverError) return
-
-    const { currentVisit, formSubmission } = Turbo.navigator
-    const departure = this.approvedVisit
-    if (event.target === document.documentElement && departure?.visit && departure.visit === currentVisit) {
-      event.preventDefault()
-      this.approvedVisit = null
-      this.#stopVisit(currentVisit)
-      if (departure.offset) this.#returnToEditor(departure.offset)
-      this.#showStatus(this.messagesValue.navigation_failed)
-    } else if (formSubmission && formSubmission === this.approvedSubmission && event.target === formSubmission.formElement) {
-      event.preventDefault()
-      this.#showStatus(statusCode === 409 ? this.messagesValue.unavailable : this.messagesValue.action_failed)
-    } else {
-      return
-    }
-
-    // The action may have failed independently of the note; let Save check the
-    // original revision while still offering a way to recover the local draft.
-    this.copyTarget.hidden = false
-  }
-
-  beforeRender(event) {
-    if (this.dirty && this.autosavePaused && event.detail.renderMethod === "morph") {
-      // A same-note redirect (e.g. pinning) must not keep discarded Lexxy text
-      // on a reused form. Remove only the old editor when rendering proceeds.
-      const render = event.detail.render
-      event.detail.render = (currentBody, newBody) => {
-        this.element.remove()
-        return render(currentBody, newBody)
-      }
-    }
   }
 
   #readContent() {
@@ -291,14 +221,14 @@ export default class extends Controller {
   }
 
   #replaceLocation() {
-    if (this.returningTo || !this.locationToReplace) return
+    if (!this.departure.atEditorEntry || !this.locationToReplace) return
 
     const { history, view } = Turbo.session
     const location = this.locationToReplace
     this.locationToReplace = null
     if (location.href === window.location.href) return
 
-    history.replace(location, this.historyEntry?.restorationIdentifier)
+    history.replace(location, window.history.state?.turbo?.restorationIdentifier)
     view.lastRenderedLocation = location
     const returnTo = document.querySelector(".n-language-preference input[name='return_to']")
     if (returnTo) returnTo.value = location.pathname + location.search
@@ -306,6 +236,7 @@ export default class extends Controller {
 
   #refreshWorkspace(regions) {
     const template = document.createElement("template")
+    const focusedNote = document.activeElement?.closest("#notes-list [data-note-id] > a")?.parentElement.id
     for (const id of REGIONS) {
       template.innerHTML = regions[id]
       const region = this.workspace.querySelector(`#${id}`)
@@ -316,6 +247,7 @@ export default class extends Controller {
         region.removeEventListener("turbo:before-morph-attribute", this.#preserveInteraction)
       }
     }
+    if (focusedNote) this.workspace.querySelector(`#${CSS.escape(focusedNote)} > a`)?.focus({ preventScroll: true })
   }
 
   #preserveInteraction = (event) => {
@@ -344,12 +276,17 @@ export default class extends Controller {
     this.retryTarget.hidden = !retry
   }
 
-  #approveDeparture() {
-    if (!this.dirty) return true
+  #confirmDiscard() {
     if (!window.confirm(this.messagesValue.discard_draft)) return false
 
     this.#pauseAutosave()
     return true
+  }
+
+  #departureFailed(message) {
+    this.#pauseAutosave()
+    this.#showStatus(this.messagesValue[message])
+    this.copyTarget.hidden = false
   }
 
   #pauseAutosave() {
@@ -370,46 +307,5 @@ export default class extends Controller {
 
     event.preventDefault()
     event.returnValue = true
-  }
-
-  // Turbo doesn't dispatch before-visit for history restores. For indexed
-  // same-document entries, cancel its restore and undo the browser traversal.
-  #beforeRestore = (event) => {
-    const next = event.state?.turbo
-    if (this.returningTo && next?.restorationIdentifier === this.historyEntry.restorationIdentifier) {
-      this.#cancelRestore(event)
-      this.returningTo = false
-      this.#replaceLocation()
-    } else if (this.dirty && Number.isInteger(next?.restorationIndex) && this.historyEntry) {
-      const offset = this.historyEntry.restorationIndex - next.restorationIndex
-      if (!offset) return
-      if (this.#approveDeparture()) {
-        const url = window.location.href
-        const visit = Turbo.navigator.currentVisit
-        this.approvedVisit = { url, offset }
-        if (visit?.action === "restore" && visit.location.href === url) this.approvedVisit.visit = visit
-      } else {
-        this.#cancelRestore(event)
-        this.#returnToEditor(offset)
-      }
-    }
-  }
-
-  #returnToEditor(offset) {
-    this.returningTo = true
-    window.history.go(offset)
-  }
-
-  #cancelRestore(event) {
-    event.stopImmediatePropagation()
-    const visit = Turbo.navigator.currentVisit
-    if (visit?.action === "restore" && visit.state === "started") this.#stopVisit(visit)
-  }
-
-  #stopVisit(visit) {
-    Turbo.navigator.stop()
-    Turbo.session.adapter.visitFailed(visit)
-    Turbo.session.view.unmarkVisitDirection()
-    document.documentElement.removeAttribute("aria-busy")
   }
 }

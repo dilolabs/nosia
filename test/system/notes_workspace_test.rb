@@ -502,6 +502,139 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal [ "Keep the 404 draft", 2 ], @note.reload.values_at(:title, :content_revision)
   end
 
+  test "an edit made during a GET from a clean editor requires approval before rendering" do
+    list = account_notes_workspace_path(@account, q: "outline")
+    editor_path = account_note_path(@account, @note, q: "outline")
+    visit editor_path
+    hold_notes_get(list)
+    history_length = page.evaluate_script("history.length")
+    page.execute_script(<<~JS)
+      document.addEventListener("turbo:before-render", event => {
+        event.preventDefault()
+        window.releaseNotesRender = event.detail.resume
+      }, { once: true })
+    JS
+    click_on "Back to list"
+    wait_for_held_notes_get
+    page.execute_script("window.releaseNotesGet()")
+    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+      page.evaluate_script("typeof window.releaseNotesRender === 'function'")
+    end
+    find_field("Title (optional)").send_keys([ :control, "a" ], "Typed during the GET")
+    assert_save_status "Could not save"
+    page.execute_script("window.releaseNotesRender()")
+    orbite_settle
+
+    assert_current_path editor_path
+    assert_field "Title (optional)", with: "Typed during the GET"
+    assert_equal 1, page.evaluate_script("window.visitWarnings")
+    assert_equal history_length, page.evaluate_script("history.length")
+    refute page.evaluate_script("document.documentElement.hasAttribute('aria-busy')")
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "editing after approval requires new consent and accepting it completes the visit" do
+    list = account_notes_workspace_path(@account, q: "outline")
+    visit account_note_path(@account, @note, q: "outline")
+    hold_notes_get(list, answers: [ true, true ])
+    fill_in "Title (optional)", with: "Initially approved draft"
+    assert_save_status "Could not save"
+    click_on "Back to list"
+    wait_for_held_notes_get
+    find(".lexxy-editor__content").send_keys(:end, " edited after consent")
+    page.execute_script("window.releaseNotesGet()")
+
+    assert_current_path list
+    assert_selector "[data-notes-screen='list']"
+    assert_equal 2, page.evaluate_script("window.visitWarnings")
+    assert_equal [ "Field notes", "Interview outline", 1 ], @note.reload.values_at(:title, :body_text, :content_revision)
+  end
+
+  test "cancelling a second visit does not clear recovery for the first pending GET" do
+    destination = Note.save_draft!(account: @account, folder: @note.note_folder, draft_key: SecureRandom.uuid,
+      title: "Pending destination", body_html: "")
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    destination_path = account_note_path(@account, destination, folder_id: @note.note_folder_id)
+    visit editor_path
+    hold_notes_get(destination_path, answers: [ true, false ])
+    fill_in "Title (optional)", with: "Keep after two visits"
+    assert_save_status "Could not save"
+    destination.trash
+
+    within("#notes-list") { click_on "Pending destination" }
+    wait_for_held_notes_get
+    click_on "Back to list"
+    assert_equal 2, page.evaluate_script("window.visitWarnings")
+    page.execute_script("window.releaseNotesGet()")
+    assert_selector "[data-note-autosave-target='status'], .rails-default-error-page"
+
+    assert_current_path editor_path
+    assert_save_status "Could not open that page. Your draft is still here."
+    assert_equal 404, page.evaluate_script("window.departureStatus")
+    assert_field "Title (optional)", with: "Keep after two visits"
+    assert_button "Copy draft"
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "a failed GET with a dirty draft does not invoke Turbo's full-page fallback" do
+    list = account_notes_workspace_path(@account, q: "outline")
+    editor_path = account_note_path(@account, @note, q: "outline")
+    visit editor_path
+    hold_notes_get(list, answers: [ true ])
+    fill_in "Title (optional)", with: "Keep after network error"
+    assert_save_status "Could not save"
+    click_on "Back to list"
+    wait_for_held_notes_get
+    page.execute_script(<<~JS)
+      document.addEventListener("turbo:reload", () => { window.fallbackRequested = true })
+      window.releaseNotesGet({ fail: true })
+    JS
+    # On the broken behavior Chromium may pause at its native leave dialog.
+    begin
+      assert_save_status "Could not open that page. Your draft is still here."
+    rescue Selenium::WebDriver::Error::UnexpectedAlertOpenError
+      flunk "Turbo fell back to a full-page load despite the dirty draft"
+    end
+    assert_current_path editor_path
+    assert_field "Title (optional)", with: "Keep after network error"
+    refute page.evaluate_script("window.fallbackRequested || document.documentElement.hasAttribute('aria-busy')")
+    assert_button "Copy draft"
+    refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))")
+    page.execute_script("window.fetch = window.ordinaryFetch")
+    click_on "Save note"
+    assert_save_status "Saved"
+    assert_equal [ "Keep after network error", 2 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "list reorder during autosave keeps keyboard focus on the same note link" do
+    folder = @note.note_folder
+    other_note = Note.save_draft!(account: @account, folder:, draft_key: SecureRandom.uuid,
+      title: "Keep keyboard focus here", body_html: "")
+    visit account_note_path(@account, @note, folder_id: folder.id)
+    find("lexxy-editor[connected]")
+    assert_equal [ other_note.id, @note.id ], browser_list_note_ids
+    page.execute_script(<<~JS)
+      const ordinaryFetch = window.fetch
+      window.fetch = (url, options) => options?.method === "PATCH" ?
+        new Promise(resolve => { window.releaseNoteSave = () => resolve(ordinaryFetch(url, options)) }) :
+        ordinaryFetch(url, options)
+    JS
+    fill_in "Title (optional)", with: "Move to the top"
+    assert_save_status "Saving"
+    focused = "[data-note-id='#{other_note.id}'] a"
+    page.execute_script("document.querySelector(arguments[0]).focus()", focused)
+    assert_selector "#{focused}:focus"
+    page.execute_script("window.releaseNoteSave()")
+    assert_save_status "Saved"
+
+    assert_equal [ @note.id, other_note.id ], browser_list_note_ids
+    assert_selector "#{focused}:focus"
+    assert_equal account_note_path(@account, other_note, folder_id: folder.id),
+      page.evaluate_script("document.activeElement.getAttribute('href')")
+    page.send_keys(:enter)
+    assert_current_path account_note_path(@account, other_note, folder_id: folder.id)
+  end
+
   test "a missing destination in Turbo Back keeps the draft and restores the editor URL" do
     destination = Note.save_draft!(account: @account, folder: @note.note_folder, draft_key: SecureRandom.uuid,
       title: "Previous note", body_html: "")
@@ -631,6 +764,42 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
+    def hold_notes_get(path, answers: [ false ])
+      find("lexxy-editor[connected]")
+      page.execute_script(<<~JS, path, answers)
+        const [path, answers] = arguments
+        const destination = new URL(path, location.origin).href
+        window.ordinaryFetch = window.fetch
+        window.visitWarnings = 0
+        window.confirm = () => answers[window.visitWarnings++] ?? false
+        window.fetch = (url, options) => {
+          if (options?.method === "PATCH") return Promise.reject(new TypeError("Hold the autosave"))
+          if (options?.method === "GET" && url === destination && !(new Headers(options.headers)).has("X-Sec-Purpose")) {
+            return new Promise((resolve, reject) => {
+              window.releaseNotesGet = ({ fail = false } = {}) => {
+                if (fail) reject(new TypeError("Simulated navigation network failure"))
+                else resolve(window.ordinaryFetch(url, { ...options, cache: "no-store" }))
+              }
+            })
+          }
+          return window.ordinaryFetch(url, options)
+        }
+        document.addEventListener("turbo:before-fetch-response", event => {
+          if (event.target === document.documentElement) window.departureStatus = event.detail.fetchResponse.statusCode
+        })
+      JS
+    end
+
+    def wait_for_held_notes_get
+      Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+        page.evaluate_script("typeof window.releaseNotesGet === 'function'")
+      end
+    end
+
+    def browser_list_note_ids
+      all("#notes-list [data-note-id]").map { |item| item["data-note-id"].to_i }
+    end
+
     def watch_dirty_departure(title)
       find("lexxy-editor[connected]")
       page.execute_script(<<~JS)

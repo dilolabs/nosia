@@ -16,7 +16,7 @@
   <% if notes.any? %>
     <ul>
       <% notes.each do |note| %>
-        <li data-note-id="<%= note.id %>">
+        <li id="<%= dom_id(note, :notes_list_item) %>" data-note-id="<%= note.id %>">
           <%= link_to account_note_path(account, note, **options), aria: { current: ("page" if note == selected_note) } do %>
             <strong><%= notes_title(note) %></strong>
             <% if folder && note.pin %>
