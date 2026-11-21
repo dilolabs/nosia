@@ -1,4 +1,5 @@
 <% content_for :title, t("nosia.notes.title") %>
+<% turbo_exempts_page_from_cache %>
 <% folders_url = account_notes_workspace_path(@account, **@list_options.merge(view: "folders")) %>
 <% list_options = @list_options.without(:view).merge(view: "list") if @list_options.empty? || @list_options[:view] == "folders" %>
 <% list_options ||= @list_options %>
@@ -37,7 +38,7 @@
         <% if @note %>
           <%= render "notes/workspaces/editor", account: @account, note: @note, options: list_options,
                      folders: @active_folder_map, form_title: @form_title, form_body_html: @form_body_html,
-                     form_revision: @form_revision %>
+                     form_revision: @form_revision, seed_tag: @form_seed_tag %>
         <% elsif @folder %>
           <%= render "notes/folders/form", account: @account, folder: @folder, options: list_options, folders: @active_folder_map %>
         <% else %>

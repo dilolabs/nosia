@@ -1,4 +1,4 @@
-<%# locals: (account:, note:, options:, folders:, form_title:, form_body_html:, form_revision:) %>
+<%# locals: (account:, note:, options:, folders:, form_title:, form_body_html:, form_revision:, seed_tag:) %>
 <%= link_to t("nosia.notes.back_to_list"), account_notes_workspace_path(account, **options), class: "n-notes-button n-notes-back", data: { notes_back: true } %>
 <h2 id="notes-reader-heading"><%= t(note.persisted? ? "nosia.notes.editor" : "nosia.notes.new_note") %></h2>
 <% if note.persisted? %>
@@ -19,6 +19,7 @@
   <%= render "notes/workspaces/errors", record: note %>
   <%= form.hidden_field :draft_key %>
   <%= form.hidden_field :expected_revision, value: form_revision || 0 %>
+  <%= form.hidden_field :seed_tag, value: seed_tag if note.new_record? && seed_tag.present? && !options[:tag] %>
   <%= form.label :title, t("nosia.notes.note_title") %>
   <%= form.text_field :title, value: form_title || note.title %>
   <%= form.label :body_html, t("nosia.notes.body"), for: "notes-body" %>

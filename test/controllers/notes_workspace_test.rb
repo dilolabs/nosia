@@ -20,6 +20,7 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_response :success
     assert_select "h1", count: 1
+    assert_select "meta[name=turbo-cache-control][content=no-cache]", count: 1
     assert_select "[data-notes-screen='folders'] [data-notes-sidebar]"
     assert_select "[data-notes-list]"
     assert_select "[data-notes-accounts] a[href='#{workspace(@other)}']", text: @other.name
@@ -28,6 +29,7 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
 
     get "/"
     assert_select "[data-dashboard-destination='notes'][href='#{workspace}']"
+    assert_select "meta[name=turbo-cache-control][content=no-cache]", count: 0
   end
 
   test "entry and account switch honor revoked and absent membership" do
@@ -127,6 +129,100 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     patch note_url(@note), params: { tag: "disappeared", note: { title: "Unavailable", body_html: "", expected_revision: 2 } }
     assert_response :conflict
     assert_equal 2, @note.reload.content_revision
+  end
+
+  test "a draft from a tag that disappears still creates in General" do
+    @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#retiring</p>")
+    get new_account_note_path(@account, tag: "retiring", page: 2)
+    assert_response :success
+    assert_select "lexxy-editor[value='<p>#retiring</p>']"
+    key = css_select("input[name='note[draft_key]']").sole["value"]
+    action = css_select("form.n-notes-form").sole["action"]
+    @note.edit_content!(expected_revision: 2, title: @note.title, body_html: "")
+
+    assert_difference "Note.count", 1 do
+      post action, params: { note: { draft_key: key, title: "Keep this draft", body_html: "<p>New ideas</p>" } }
+    end
+    assert_response :see_other
+    saved = @account.notes.find_by!(draft_key: key)
+    assert_predicate saved.note_folder, :general?
+    assert_redirected_to account_note_path(@account, saved)
+    follow_redirect!
+    assert_select "[data-notes-back][href='#{account_notes_workspace_path(@account, folder_id: saved.note_folder_id)}']"
+  end
+
+  test "invalid drafts from a retired tag keep the editor and fall back to a valid list" do
+    @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#retiring</p>")
+    @note.edit_content!(expected_revision: 2, title: @note.title, body_html: "")
+    key = SecureRandom.uuid
+    draft = { draft_key: key, title: "Keep the title" }
+
+    assert_no_difference [ "Note.count", "NoteFolder.count" ] do
+      post account_notes_path(@account, tag: "retiring", page: 2), params: { note: draft }
+    end
+    assert_response 422
+    assert_select "[data-notes-back][href='#{account_notes_workspace_path(@account, view: "list")}']"
+    assert_select "input[name='note[title]'][value='Keep the title']"
+    assert_select "input[name='note[draft_key]'][value='#{key}']"
+    retry_path = css_select("form.n-notes-form").sole["action"]
+    post retry_path, params: { note: draft.merge(body_html: "<p>Corrected draft</p>") }
+    assert_response :see_other
+    assert_predicate @account.notes.find_by!(draft_key: key).note_folder, :general?
+  end
+
+  test "retrying a seed-only draft from a retired tag still requires a user edit" do
+    @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#retiring</p>")
+    @note.edit_content!(expected_revision: 2, title: @note.title, body_html: "")
+    draft = { draft_key: SecureRandom.uuid, title: "", body_html: "<p>#retiring</p>" }
+
+    assert_no_difference [ "Note.count", "NoteFolder.count" ] do
+      post account_notes_path(@account, tag: "retiring"), params: { note: draft }
+      assert_response 422
+      assert_select "[data-notes-back][href='#{account_notes_workspace_path(@account, view: "list")}']"
+
+      form = css_select("form.n-notes-form").sole
+      preserved_fields = form.css("input[type=hidden][name^='note[']").to_h do |field|
+        [ field["name"].delete_prefix("note[").delete_suffix("]").to_sym, field["value"] ]
+      end
+      post form["action"], params: { note: draft.merge(preserved_fields) }
+      assert_response 422
+    end
+  end
+
+  test "an active note with a retired tag context still validates and saves edits" do
+    origin = save_note(note_folders(:reading), body: "<p>#retiring</p>")
+    get account_note_path(@account, @note, tag: "retiring", page: 2)
+    action = css_select("form.n-notes-form").sole["action"]
+    origin.edit_content!(expected_revision: 1, title: origin.title, body_html: "")
+
+    patch action, params: { note: { title: "Edited notes", expected_revision: 1 } }
+    assert_response 422
+    assert_select "[data-notes-back][href='#{account_notes_workspace_path(@account, folder_id: @folder.id)}']"
+    assert_select "input[name='note[title]'][value='Edited notes']"
+    assert_select "input[name='note[expected_revision]'][value='1']"
+    patch action, params: { note: { title: "Ignored", body_html: "", expected_revision: 0 } }
+    assert_response :conflict
+    assert_select "[role=alert]", text: /This note changed/
+
+    patch action, params: { note: { title: "Edited notes", body_html: "<p>Edited outline</p>", expected_revision: 1 } }
+    assert_response :see_other
+    follow_redirect!
+    assert_select "[data-notes-back][href='#{account_notes_workspace_path(@account, folder_id: @folder.id)}']"
+    assert_equal [ "Edited notes", 2 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "a moved note can be edited after its original list folder is trashed" do
+    destination = note_folders(:reading)
+    get account_note_path(@account, @note, folder_id: @folder.id, page: 2)
+    action = css_select("form.n-notes-form").sole["action"]
+    @note.move_to(destination)
+    @folder.trash
+
+    patch action, params: { note: { title: "Moved and edited", body_html: "", expected_revision: 1 } }
+    assert_response :see_other
+    follow_redirect!
+    assert_select "[data-notes-back][href='#{account_notes_workspace_path(@account, folder_id: destination.id)}']"
+    assert_equal [ "Moved and edited", destination.id ], @note.reload.values_at(:title, :note_folder_id)
   end
 
   test "literal search is account wide, shows real paths and previews, and excludes trashed content and tags" do

@@ -15,6 +15,17 @@ module NotesAccountScoped
       @account = member_account(notes_id(request.path_parameters.fetch(:account_id)))
     end
 
+    def with_notes_write
+      # AccountUser revocation and Notes writes serialize on this same row.
+      @account.with_lock(requires_new: true) do
+        Account.uncached do
+          raise ActiveRecord::RecordNotFound unless @account.account_users.exists?(user_id: Current.user.id)
+
+          yield
+        end
+      end
+    end
+
     def notes_id(id)
       return id if id.is_a?(String) && /\A[1-9][0-9]{0,18}\z/.match?(id)
 

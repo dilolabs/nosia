@@ -3,12 +3,12 @@ class Notes::NoteTrashingsController < ApplicationController
   include NotesAccountScoped
 
   def create
-    note_for_change.trash
+    with_notes_write { note_for_change.trash }
     redirect_to_notes_trash
   end
 
   def destroy
-    trashed_note.restore
+    with_notes_write { trashed_note.restore }
     redirect_to_notes_trash
   end
 end

@@ -11,31 +11,55 @@ module NotesWorkspaceRendering
   private
     def list_options
       @list_options ||= begin
-        options = {}
-        if (search = query).present?
-          options[:q] = search
-        else
-          options[:folder_id] = context_folder.id if params.key?(:folder_id)
-          options[:tag] = selected_tag.key if params.key?(:tag)
-        end
-        options[:page] = page_number if page_number > 1
+        options = list_filters
+        # A page number belongs to the list that produced it.
+        filter_went_stale = options.empty? && (params.key?(:folder_id) || params.key?(:tag))
+        options[:page] = page_number if page_number > 1 && !filter_went_stale
         options[:view] = params[:view] if LIST_VIEWS.include?(params[:view])
         options
       end
     end
 
-    def context_folder
-      if reading_workspace?
-        active_folders.find(notes_id(params[:folder_id]))
+    def list_filters
+      search = query
+      return { q: search } if search.present?
+
+      folder = context_folder if params.key?(:folder_id)
+      if params.key?(:tag)
+        tag = selected_tag
+        tag ? { tag: tag.key } : {}
+      elsif folder
+        { folder_id: folder.id }
       else
-        folder_for_change(params[:folder_id])
+        {}
       end
+    end
+
+    def context_folder
+      id = notes_id(params[:folder_id])
+      if reading_workspace?
+        active_folders.find(id)
+      elsif filing_note?
+        folder_for_change(id)
+      else
+        # Keep a missing or foreign ID a 404, but drop a known inactive
+        # folder when it was only carrying the return path.
+        active_folders.find_by(id:).tap { |folder| @account.note_folders.find(id) unless folder }
+      end
+    end
+
+    def filing_note?
+      false
     end
 
     def selected_tag
       @selected_tag ||= begin
         key = normalized_tag_key
-        active_tags.find_by(key:) || unavailable_tag(key)
+        active_tags.find_by(key:).tap do |tag|
+          if !tag && (reading_workspace? || !@account.note_tags.exists?(key:))
+            raise ActiveRecord::RecordNotFound
+          end
+        end
       end
     end
 
@@ -46,12 +70,6 @@ module NotesWorkspaceRendering
       end
 
       key.delete_prefix("#").unicode_normalize(:nfc).downcase(:fold).unicode_normalize(:nfc)
-    end
-
-    def unavailable_tag(key)
-      raise ActiveRecord::RecordNotFound if reading_workspace? || !@account.note_tags.exists?(key:)
-
-      raise Note::Unavailable
     end
 
     def reading_workspace?
@@ -78,14 +96,19 @@ module NotesWorkspaceRendering
     end
 
     def redirect_to_note(note)
-      options = list_options
-      if options[:tag] && !active_tags.exists?(key: options[:tag])
-        options = options.except(:tag, :page)
+      discard_stale_list_filters
+      redirect_to account_note_path(@account, note, **list_options), status: :see_other
+    end
+
+    def discard_stale_list_filters
+      if (list_options[:tag] && !active_tags.exists?(key: list_options[:tag])) ||
+          (list_options[:folder_id] && !filing_note? && !active_folders.exists?(id: list_options[:folder_id]))
+        @list_options = list_options.except(:tag, :folder_id, :page)
       end
-      redirect_to account_note_path(@account, note, **options), status: :see_other
     end
 
     def render_workspace(screen: nil, status: :ok)
+      discard_stale_list_filters unless reading_workspace?
       @membership_accounts = Current.user.accounts.order(:name, :id)
       @active_folder_map = active_folders.order(:name, :id).index_by(&:id)
       @folder_groups = @active_folder_map.values.group_by(&:parent_id)
@@ -110,11 +133,11 @@ module NotesWorkspaceRendering
     end
 
     def load_note_list
+      @page = list_options.fetch(:page, 1)
       relation = list_for_context.order(content_updated_at: :desc, id: :desc).preload(:pin)
-      rows = relation.offset((page_number - 1) * PAGE_SIZE).limit(PAGE_SIZE + 1).to_a
-      @has_more_notes = rows.size > PAGE_SIZE && page_number < MAX_PAGE
+      rows = relation.offset((@page - 1) * PAGE_SIZE).limit(PAGE_SIZE + 1).to_a
+      @has_more_notes = rows.size > PAGE_SIZE && @page < MAX_PAGE
       @notes = rows.first(PAGE_SIZE)
-      @page = page_number
     end
 
     def list_for_context

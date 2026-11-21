@@ -86,6 +86,32 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_no_selector "[data-notes-sidebar]"
   end
 
+  test "Turbo Back reloads the same search after another tab trashes a result" do
+    @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>Interview outline #archived</p>")
+    search_path = account_notes_workspace_path(@account, q: "outline")
+    visit search_path
+    assert_selector "[data-note-id='#{@note.id}']", text: @note.title
+    assert_link "#archived"
+    within(".n-orbite-rail") { click_on "Home" }
+    assert_current_path user_root_path
+
+    other_tab = open_new_window
+    within_window(other_tab) do
+      visit account_note_path(@account, @note)
+      find("summary", text: "Note actions").click
+      click_button "Trash note"
+      assert_selector "[data-notes-trash-note='#{@note.id}']", text: @note.title
+    end
+
+    page.go_back
+    assert_current_path search_path
+    assert_field "Search all notes in this account", with: "outline"
+    assert_no_selector "[data-note-id='#{@note.id}']"
+    assert_no_link "#archived"
+  ensure
+    other_tab&.close
+  end
+
   test "long French labels fit the mobile editor in light and dark themes" do
     @account.update!(name: "CompteDeRecherche" * 6)
     orbite_select_language("FR")

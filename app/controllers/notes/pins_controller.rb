@@ -4,11 +4,11 @@ class Notes::PinsController < ApplicationController
 
   def create
     list_options
-    redirect_to_note(note_for_change.pin_in_folder)
+    redirect_to_note(with_notes_write { note_for_change.pin_in_folder })
   end
 
   def destroy
     list_options
-    redirect_to_note(note_for_change.unpin)
+    redirect_to_note(with_notes_write { note_for_change.unpin })
   end
 end

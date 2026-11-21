@@ -4,8 +4,9 @@ class Notes::MovementsController < ApplicationController
 
   def create
     list_options
-    note = note_for_change
-    destination = folder_for_change(params[:note_folder_id])
-    redirect_to_note(note.move_to(destination))
+    note = with_notes_write do
+      note_for_change.move_to(folder_for_change(params[:note_folder_id]))
+    end
+    redirect_to_note(note)
   end
 end

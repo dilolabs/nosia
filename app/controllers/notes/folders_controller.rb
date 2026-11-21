@@ -8,8 +8,11 @@ class Notes::FoldersController < ApplicationController
   end
 
   def create
-    @folder = @account.note_folders.build(name: folder_params[:name], parent: parent_from_form)
-    save_folder
+    saved = with_notes_write do
+      @folder = @account.note_folders.build(name: folder_params[:name], parent: parent_from_form)
+      @folder.save
+    end
+    respond_to_folder_save(saved)
   end
 
   def edit
@@ -19,11 +22,14 @@ class Notes::FoldersController < ApplicationController
   end
 
   def update
-    @folder = folder_for_change(request.path_parameters.fetch(:id))
-    raise Note::Unavailable if @folder.general?
+    saved = with_notes_write do
+      @folder = folder_for_change(request.path_parameters.fetch(:id))
+      raise Note::Unavailable if @folder.general?
 
-    @folder.assign_attributes(name: folder_params[:name], parent: parent_from_form)
-    save_folder
+      @folder.assign_attributes(name: folder_params[:name], parent: parent_from_form)
+      @folder.save
+    end
+    respond_to_folder_save(saved)
   end
 
   private
@@ -41,8 +47,8 @@ class Notes::FoldersController < ApplicationController
       end
     end
 
-    def save_folder
-      if @folder.save
+    def respond_to_folder_save(saved)
+      if saved
         redirect_to account_notes_workspace_path(@account, folder_id: @folder.id), status: :see_other
       elsif (@folder.persisted? && !active_folders.exists?(id: @folder.id)) ||
           (@folder.parent_id && !active_folders.exists?(id: @folder.parent_id))
