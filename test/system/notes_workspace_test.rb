@@ -203,18 +203,10 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     watch_dirty_departure("Dirty while the queue is unavailable")
     fail_enqueue = -> { raise SolidQueue::Job::EnqueueError, "Synthetic queue outage" }
     Note::IndexJob.set_callback(:enqueue, :before, fail_enqueue)
-    page.execute_script(<<~JS)
-      document.querySelector(".n-notes-index-status").addEventListener("turbo:frame-render", event => {
-        window.retryStatusResponse = event.detail.fetchResponse.statusCode
-      })
-    JS
     retry_button = ".n-notes-index-status button"
     orbite_tab_to(retry_button)
     page.driver.browser.action.send_keys(:enter).perform
 
-    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
-      page.evaluate_script("window.retryStatusResponse === 200")
-    end
     assert_selector ".n-notes-index-status [role='status']", text: "Indexing retry failed to start. Try again."
     assert_selector ".n-notes-index-status [data-note-index-status='failed']", text: "Indexing failed"
     assert_selector "#{retry_button}:focus:enabled"
@@ -275,24 +267,12 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     visit account_note_path(@account, @note)
     assert_selector ".n-notes-index-status [data-note-index-status='failed']"
     find("lexxy-editor[connected]")
-    page.execute_script(<<~JS, account_note_index_status_path(@account, @note))
-      const statusUrl = arguments[0], frame = document.querySelector(".n-notes-index-status")
-      const ordinaryFetch = window.fetch
-      window.fetch = async (url, options) => {
-        if (!new URL(url, location.origin).pathname.endsWith("/index_retry")) return ordinaryFetch(url, options)
-        // Hold an already-rendered response for the old index generation.
-        const oldStatus = await ordinaryFetch(statusUrl, { headers: { "Turbo-Frame": frame.id } })
-        return new Promise(resolve => { window.releaseIndexRetry = () => resolve(oldStatus) })
-      }
-      frame.addEventListener("turbo:frame-render", event => {
-        event.target.dataset.receivedRetry = "true"
-      })
-    JS
+    fail_enqueue = -> { throw :abort }
+    Note::IndexJob.set_callback(:enqueue, :before, fail_enqueue)
+    hold_index_retry(@note)
     click_button "Retry indexing"
     assert_selector ".n-notes-index-status[aria-busy=true]"
-    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
-      page.evaluate_script("Boolean(window.releaseIndexRetry)")
-    end
+    assert_equal 200, retrieve_held_retry_status
     # An embedding-space rebuild can advance the generation without editing the note.
     @note.update_columns(embedding_generation: 3, embedding_status: :pending)
     fill_in "Title (optional)", with: "Field notes  "
@@ -300,10 +280,13 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal 1, @note.reload.content_revision
     assert_selector ".n-notes-index-status [data-note-index-status='pending']", text: "Indexing in progress"
 
-    page.execute_script("window.releaseIndexRetry()")
-    assert_selector ".n-notes-index-status[data-received-retry=true]"
+    release_index_retry
+    assert_no_selector ".n-notes-index-status[aria-busy=true]"
     assert_selector ".n-notes-index-status [data-note-index-status='pending']", text: "Indexing in progress", wait: 0
+    assert_no_text "Indexing retry failed to start. Try again.", wait: 0
     assert_save_status "Saved"
+  ensure
+    Note::IndexJob.skip_callback(:enqueue, :before, fail_enqueue) if fail_enqueue
   end
 
   test "a delayed retry from a previous note cannot claim a new editor or its retry form" do
@@ -314,40 +297,18 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     previous_id = @note.id
     fail_previous_retry = -> { throw :abort if arguments.first == previous_id }
     Note::IndexJob.set_callback(:enqueue, :before, fail_previous_retry)
-    page.execute_script(<<~JS, account_note_index_retry_path(@account, @note))
-      const retryUrl = new URL(arguments[0], location.origin).href
-      const ordinaryFetch = window.fetch
-      window.fetch = async (url, options) => {
-        const response = await ordinaryFetch(url, options)
-        if (new URL(url, location.origin).href !== retryUrl || options?.method?.toUpperCase() !== "POST") return response
-
-        window.previousRetryStatus = response.status
-        return new Promise(resolve => { window.releasePreviousRetry = () => resolve(response) })
-      }
-      document.addEventListener("turbo:submit-end", event => {
-        if (event.detail.formSubmission.action === retryUrl) window.previousRetryFinished = true
-      })
-    JS
+    hold_index_retry(@note)
     click_button "Retry indexing"
-    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
-      page.evaluate_script("Boolean(window.releasePreviousRetry)")
-    end
-    assert_equal 200, page.evaluate_script("window.previousRetryStatus")
+    assert_equal 200, retrieve_held_retry_status
     assert @note.reload.embedding_failed?
 
     click_link "New note"
     assert_current_path new_account_note_path(@account), ignore_query: true
     assert_selector ".n-notes-index-status [data-note-index-status='empty']"
     find("lexxy-editor[connected]")
-    page.execute_script(<<~JS)
-      window.newNoteEditor = document.querySelector("lexxy-editor")
-      window.releasePreviousRetry()
-    JS
-    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
-      page.evaluate_script("window.previousRetryFinished")
-    end
-    orbite_settle
-    orbite_settle
+    page.execute_script("window.newNoteEditor = document.querySelector('lexxy-editor')")
+    assert page.evaluate_script("window.heldIndexRetry.signal.aborted")
+    release_index_retry
     assert_selector ".n-notes-index-status [data-note-index-status='empty']", wait: 0
     assert_no_button "Retry indexing", wait: 0
     assert_nil find("turbo-frame.n-notes-index-status")["data-status-url"]
@@ -364,7 +325,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector ".n-notes-index-status form[action='#{retry_path}']", wait: 8
     frame = find("turbo-frame.n-notes-index-status")[:id]
     refute_equal previous_frame, frame
-    assert_selector "form[action='#{retry_path}'][data-turbo-frame='#{frame}']"
+    assert_selector "##{frame} form[action='#{retry_path}'][data-turbo='false']"
     orbite_tab_to("##{frame} button")
     page.driver.browser.action.send_keys(:enter).perform
     assert_selector ".n-notes-index-status [data-note-index-status='pending']:focus"
@@ -375,23 +336,89 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     Note::IndexJob.skip_callback(:enqueue, :before, fail_previous_retry) if fail_previous_retry
   end
 
-  test "retry does not apply a different generation from a concurrent edit of the same note" do
+  test "a delayed retry cannot replace or announce in a reopened editor for the same note" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    other = Note.save_draft!(account: @account, folder: @note.note_folder, draft_key: SecureRandom.uuid,
+      title: "Other note to open", body_html: "")
+    visit account_note_path(@account, @note)
+    assert_selector ".n-notes-index-status [data-note-index-status='failed']"
+    fail_enqueue = -> { throw :abort }
+    Note::IndexJob.set_callback(:enqueue, :before, fail_enqueue)
+    hold_index_retry(@note)
+    page.execute_script("window.originalNoteEditor = document.querySelector('lexxy-editor')")
+    click_button "Retry indexing"
+    assert_equal 200, retrieve_held_retry_status
+
+    click_link "Other note to open"
+    assert_current_path account_note_path(@account, other), ignore_query: true
+    click_link "Field notes"
+    assert_current_path account_note_path(@account, @note), ignore_query: true
+    assert_selector ".n-notes-index-status [data-note-index-status='failed']"
+    refute page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    page.execute_script(<<~JS)
+      window.reopenedEditor = document.querySelector("lexxy-editor")
+      window.reopenedFrame = document.querySelector(".n-notes-index-status")
+    JS
+    assert page.evaluate_script("window.heldIndexRetry.signal.aborted")
+    release_index_retry
+    assert_no_text "Indexing retry failed to start. Try again.", wait: 0
+    assert_selector ".n-notes-index-status [data-note-index-status='failed']", wait: 0
+    assert_button "Retry indexing"
+    assert_current_path account_note_path(@account, @note), ignore_query: true
+    assert page.evaluate_script("window.reopenedEditor === document.querySelector('lexxy-editor')")
+    assert page.evaluate_script("window.reopenedFrame === document.querySelector('.n-notes-index-status')")
+  ensure
+    Note::IndexJob.skip_callback(:enqueue, :before, fail_enqueue) if fail_enqueue
+  end
+
+  test "a stale retry observes newer pending work without enqueueing it again" do
     @note.update!(embedding_status: :failed, embedding_generation: 2)
     visit account_note_path(@account, @note)
     assert_selector ".n-notes-index-status [data-note-index-status='failed']"
-    page.execute_script(<<~JS)
-      document.querySelector(".n-notes-index-status").addEventListener("turbo:frame-render", event => {
-        event.target.dataset.receivedRetry = "true"
-      })
-    JS
     @note.edit_content!(expected_revision: 1, title: "Edited in another window", body_html: @note.body_html)
     assert_equal [ "pending", 3 ], @note.reload.values_at(:embedding_status, :embedding_generation)
 
     click_button "Retry indexing"
-    assert_selector ".n-notes-index-status[data-received-retry=true]"
-    assert_selector ".n-notes-index-status [data-note-index-status='failed']", wait: 0
-    assert_button "Retry indexing"
+    assert_selector ".n-notes-index-status [role='status']", text: "Indexing state changed."
+    assert_selector ".n-notes-index-status [data-note-index-status='pending']", wait: 0
+    assert_no_button "Retry indexing"
     assert_field "Title (optional)", with: "Field notes"
+  end
+
+  test "a stale retry refreshes the current failed status without saving a dirty draft" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector ".n-notes-index-status [data-note-index-status='failed']"
+    watch_dirty_departure("My local draft")
+    member = users(:picker_outsider)
+    @account.account_users.grant_to(member)
+    editor = ActionDispatch::Integration::Session.new(Rails.application)
+    editor.post login_path, params: { email: member.email, password: "picker-password-123" }
+    editor.patch account_note_path(@account, @note), params: {
+      note: { title: "Saved by another member", body_html: "<p>Member's saved text</p>", expected_revision: 1 }
+    }
+    assert_equal 303, editor.response.status
+    @note.reload.mark_index_failed(3)
+    before_retry = @note.reload.values_at(:title, :body_html, :content_revision, :embedding_generation)
+    retry_button = ".n-notes-index-status button"
+
+    orbite_tab_to(retry_button)
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector ".n-notes-index-status [role='status']", text: "Indexing state changed. Check the current status before retrying."
+    assert_selector ".n-notes-index-status [data-note-index-status='failed']"
+    assert_selector "#{retry_button}:focus:enabled"
+    assert @note.reload.embedding_failed?
+    assert_equal before_retry, @note.values_at(:title, :body_html, :content_revision, :embedding_generation)
+    assert_field "Title (optional)", with: "My local draft"
+    assert_save_status "Could not save"
+    assert_equal 0, page.evaluate_script("window.departureConfirmations")
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector ".n-notes-index-status [data-note-index-status='pending']:focus"
+    assert @note.reload.embedding_pending?
+    assert_equal before_retry, @note.values_at(:title, :body_html, :content_revision, :embedding_generation)
+    assert_field "Title (optional)", with: "My local draft"
   end
 
   test "an in-flight index poll is canceled by a newer autosave and cannot show its stale result" do
@@ -1490,6 +1517,36 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
 
     def assert_save_status(text)
       assert_selector "[data-note-autosave-target='status'][role='status']", text:
+    end
+
+    def hold_index_retry(note)
+      page.execute_script(<<~JS, account_note_index_retry_path(@account, note))
+        const retryUrl = new URL(arguments[0], location.origin).href
+        const ordinaryFetch = window.fetch
+        window.fetch = async (url, options) => {
+          const response = await ordinaryFetch(url, options)
+          if (new URL(url, location.origin).href !== retryUrl || options?.method?.toUpperCase() !== "POST") return response
+
+          // Capture the real response before disconnect can abort its body.
+          const body = await response.text()
+          return new Promise(resolve => {
+            window.heldIndexRetry = { status: response.status, signal: options.signal, release: () => {
+              resolve(new Response(body, { status: response.status, headers: response.headers }))
+            } }
+          })
+        }
+      JS
+    end
+
+    def retrieve_held_retry_status
+      Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+        page.evaluate_script("window.heldIndexRetry?.status")
+      end
+    end
+
+    def release_index_retry
+      page.execute_script("window.heldIndexRetry.release()")
+      orbite_settle
     end
 
     def assert_poll_count_stays(count)

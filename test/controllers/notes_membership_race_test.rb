@@ -64,7 +64,7 @@ class NotesMembershipRaceTest < ActionDispatch::IntegrationTest
     @note.update!(embedding_status: :failed, embedding_generation: 2)
 
     assert_no_enqueued_jobs(only: Note::IndexJob) do
-      revoke_ahead_of_write { post "#{account_note_path(@account, @note)}/index_retry" }
+      revoke_ahead_of_write { post account_note_index_retry_path(@account, @note), params: { expected_generation: 2 } }
     end
 
     assert_response :not_found

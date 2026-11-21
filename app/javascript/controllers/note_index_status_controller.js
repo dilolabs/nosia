@@ -16,7 +16,7 @@ export default class extends Controller {
 
   disconnect() {
     this.visibility?.disconnect()
-    this.stop()
+    this.suspend()
   }
 
   schedule() {
@@ -33,6 +33,14 @@ export default class extends Controller {
     this.#cancelPoll()
   }
 
+  suspend() {
+    this.stop()
+    if (this.retry) {
+      this.retry.controller.abort()
+      this.#finishRetry()
+    }
+  }
+
   saved({ detail: html }) {
     const frame = this.#frameFrom(html)
     if (!frame || !this.#apply(frame, { fromSave: true })) return
@@ -41,37 +49,30 @@ export default class extends Controller {
     this.schedule()
   }
 
-  rememberFocus({ submitter }) {
-    this.retryButton = submitter
-    this.restoreFocus = document.activeElement === this.retryButton
+  async submitRetry(event) {
+    event.preventDefault()
+    if (this.retry) return
+
+    const form = event.target
+    const body = new FormData(form)
+    const generation = body.get("expected_generation")
+    if (generation !== this.element.dataset.generation || !this.element.dataset.statusUrl) return
+
+    const retry = this.retry = { controller: new AbortController(), button: event.submitter }
     this.outcomeTarget.textContent = ""
-  }
+    this.element.setAttribute("aria-busy", "true")
+    retry.button?.setAttribute("aria-disabled", "true")
 
-  finishRetry() {
-    if (this.retryFailed) this.#restoreRetryFocus()
-  }
+    const result = await this.#requestRetry(form.action, body, retry.controller.signal)
+    if (this.retry !== retry || !this.element.isConnected) return
 
-  checkRetry(event) {
-    const { succeeded, location } = event.detail.fetchResponse
-    const retryStatus = new URL(location)
-    if (/^\d+$/.test(retryStatus.searchParams.get("retry_failed"))) retryStatus.searchParams.delete("retry_failed")
-    if (!succeeded || retryStatus.href !== new URL(this.element.dataset.statusUrl, window.location.origin).href) {
-      event.preventDefault()
-      this.retryError()
-    }
-  }
+    this.#finishRetry()
+    if (generation !== this.element.dataset.generation) return
 
-  retryError() {
-    if (this.messageTarget.dataset.noteIndexStatus === "failed") this.messageTarget.textContent = this.element.dataset.retryError
-    // Turbo re-enables the submitter just before submit-end.
-    if (this.retryButton?.disabled) this.retryFailed = true
-    else this.#restoreRetryFocus()
-  }
-
-  renderRetry(event) {
-    event.detail.render = (_current, frame) => {
-      if (frame.dataset.generation === this.element.dataset.generation && this.#apply(frame)) this.schedule()
-      this.#restoreRetryFocus()
+    if (!result) {
+      this.outcomeTarget.textContent = this.element.dataset.retryError
+    } else if ((result.changed || result.frame.dataset.generation === generation) && this.#apply(result.frame)) {
+      this.schedule()
     }
   }
 
@@ -86,6 +87,27 @@ export default class extends Controller {
   #cancelPoll() {
     this.poll?.abort()
     this.poll = null
+  }
+
+  async #requestRetry(url, body, signal) {
+    try {
+      const response = await fetch(url, {
+        method: "POST", body, cache: "no-store", redirect: "error", signal,
+        headers: { Accept: "text/html", "Turbo-Frame": this.element.id }
+      })
+      if (!response.ok && response.status !== 409) return
+
+      const frame = this.#frameFrom(await response.text())
+      if (frame) return { frame, changed: response.status === 409 }
+    } catch {
+      // A failed request never hands this form or its response to Turbo navigation.
+    }
+  }
+
+  #finishRetry() {
+    this.retry.button?.removeAttribute("aria-disabled")
+    this.element.removeAttribute("aria-busy")
+    this.retry = null
   }
 
   async #refresh() {
@@ -139,6 +161,7 @@ export default class extends Controller {
 
     const message = frame.querySelector("[data-note-index-status]")
     const state = message.dataset.noteIndexStatus
+    const generationChanged = current.generation !== generation
     const focused = this.actionsTarget.contains(document.activeElement)
     if (firstSave) this.element.id = frame.id
     Object.assign(current, { statusUrl, revision, generation, updatedAt })
@@ -146,20 +169,10 @@ export default class extends Controller {
     if (this.messageTarget.textContent !== message.textContent) this.messageTarget.textContent = message.textContent
     const outcome = frame.querySelector('[data-note-index-status-target="outcome"]').textContent
     if (this.outcomeTarget.textContent !== outcome) this.outcomeTarget.textContent = outcome
-    if (Boolean(this.actionsTarget.firstElementChild) !== (state === "failed")) {
+    if (Boolean(this.actionsTarget.firstElementChild) !== (state === "failed") || (state === "failed" && generationChanged)) {
       this.actionsTarget.replaceChildren(...frame.querySelector('[data-note-index-status-target="actions"]').children)
-      if (focused) this.messageTarget.focus({ preventScroll: true })
+      if (focused) (this.actionsTarget.querySelector("button") || this.messageTarget).focus({ preventScroll: true })
     }
     return true
-  }
-
-  #restoreRetryFocus() {
-    if (this.restoreFocus && [document.body, this.retryButton].includes(document.activeElement)) {
-      const target = this.actionsTarget.querySelector("button") || this.messageTarget
-      target.focus({ preventScroll: true })
-    }
-    this.restoreFocus = false
-    this.retryFailed = false
-    this.retryButton = null
   }
 }

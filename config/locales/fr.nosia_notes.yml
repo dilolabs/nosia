@@ -53,6 +53,7 @@ fr:
       retry_index: Relancer l’indexation
       index_retry_failed: Impossible de relancer l’indexation. Réessayez.
       index_retry_not_started: La relance de l’indexation n’a pas démarré. Réessayez.
+      index_retry_changed: L’état de l’indexation a changé. Vérifiez-le avant de réessayer.
       index_status_unavailable: Impossible de vérifier l’indexation. Rouvrez la note pour réessayer.
       index_sharing: Les notes enregistrées et actives sont partagées avec ce compte. Leurs titres et textes sont envoyés au fournisseur d’embeddings configuré pour l’indexation. Des extraits pertinents peuvent être envoyés pour répondre aux conversations du compte ou aux requêtes API autorisées. Les fournisseurs peuvent être locaux ou distants.
       copy_draft: Copier le brouillon

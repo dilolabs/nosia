@@ -1,4 +1,4 @@
-<%# locals: (account:, note:, retry_failed: false) %>
+<%# locals: (account:, note:, outcome: nil) %>
 <% frame_id = dom_id(note, :index_status) %>
 <%= turbo_frame_tag frame_id, class: "n-notes-index-status",
       data: { controller: "note-index-status",
@@ -6,20 +6,17 @@
               revision: note.content_revision || 0, generation: note.embedding_generation, updated_at: note.updated_at&.utc&.iso8601(6),
               retry_error: t("nosia.notes.index_retry_failed"), poll_error: t("nosia.notes.index_status_unavailable"),
               action: "visibilitychange@document->note-index-status#schedule pageshow@window->note-index-status#schedule " \
-                      "pagehide@window->note-index-status#stop note-autosave:saved->note-index-status#saved " \
-                      "submit->note-index-status#rememberFocus:capture turbo:submit-end->note-index-status#finishRetry " \
-                      "turbo:before-fetch-response->note-index-status#checkRetry " \
-                      "turbo:before-frame-render->note-index-status#renderRetry turbo:frame-missing->note-index-status#retryError:prevent " \
-                      "turbo:fetch-request-error->note-index-status#retryError" } do %>
+                      "pagehide@window->note-index-status#suspend note-autosave:saved->note-index-status#saved" } do %>
   <div class="n-notes-meta">
     <p role="status" aria-atomic="true" tabindex="-1" data-note-index-status="<%= note.embedding_status %>"
        data-note-index-status-target="message"><%= t("nosia.notes.index_status.#{note.embedding_status}") %></p>
-    <p role="status" aria-atomic="true" data-note-index-status-target="outcome"><%= t("nosia.notes.index_retry_not_started") if retry_failed %></p>
+    <p role="status" aria-atomic="true" data-note-index-status-target="outcome"><%= t("nosia.notes.#{outcome}") if outcome %></p>
   </div>
   <div data-note-index-status-target="actions">
     <% if note.embedding_failed? %>
       <%= button_to t("nosia.notes.retry_index"), account_note_index_retry_path(account, note), class: "n-notes-button",
-                    form: { data: { turbo_frame: frame_id } } %>
+                    params: { expected_generation: note.embedding_generation },
+                    form: { data: { turbo: false, action: "submit->note-index-status#submitRetry" } } %>
     <% end %>
   </div>
 <% end %>
