@@ -1,0 +1,21 @@
+<%# locals: (account:, note:) %>
+<%= turbo_frame_tag "note-index-status", class: "n-notes-index-status",
+      data: { controller: "note-index-status",
+              status_url: note.persisted? ? account_note_index_status_path(account, note) : nil,
+              revision: note.content_revision || 0, generation: note.embedding_generation, updated_at: note.updated_at&.utc&.iso8601(6),
+              retry_error: t("nosia.notes.index_retry_failed"), poll_error: t("nosia.notes.index_status_unavailable"),
+              action: "visibilitychange@document->note-index-status#schedule pageshow@window->note-index-status#schedule " \
+                      "pagehide@window->note-index-status#stop note-autosave:saved->note-index-status#saved " \
+                      "submit->note-index-status#rememberFocus:capture turbo:submit-end->note-index-status#finishRetry " \
+                      "turbo:before-fetch-response->note-index-status#checkRetry " \
+                      "turbo:before-frame-render->note-index-status#renderRetry turbo:frame-missing->note-index-status#retryError:prevent " \
+                      "turbo:fetch-request-error->note-index-status#retryError" } do %>
+  <p role="status" aria-atomic="true" tabindex="-1" class="n-notes-meta" data-note-index-status="<%= note.embedding_status %>"
+     data-note-index-status-target="message"><%= t("nosia.notes.index_status.#{note.embedding_status}") %></p>
+  <div data-note-index-status-target="actions">
+    <% if note.embedding_failed? %>
+      <%= button_to t("nosia.notes.retry_index"), account_note_index_retry_path(account, note), class: "n-notes-button",
+                    form: { data: { turbo_frame: "note-index-status" } } %>
+    <% end %>
+  </div>
+<% end %>

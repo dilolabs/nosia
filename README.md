@@ -9,6 +9,7 @@ Nosia is a platform that allows you to run AI models on your own data with compl
 - **🔒 Private & Secure** - Your data stays on your infrastructure
 - **🤖 OpenAI-Compatible API** - Drop-in replacement for OpenAI clients
 - **📚 RAG-Powered** - Augment AI responses with your documents
+- **📝 Notes workspace** - Write and organize shared account notes that can inform chats and authorized API completions
 - **🔌 MCP Integration** - Connect AI to external tools and services via Model Context Protocol
 - **🤖 Agent Skills** - Extend chat with custom LLM-driven and Ruby-based skills
 - **🔄 Real-time Streaming** - Server-sent events for live responses

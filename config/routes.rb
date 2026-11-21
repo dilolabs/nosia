@@ -47,6 +47,8 @@ Rails.application.routes.draw do
           resource :purge, only: :destroy, controller: "folder_purges"
         end
         resources :notes, only: %i[ new create show update ] do
+          resource :index_status, only: :show
+          resource :index_retry, only: :create
           resource :movement, only: :create
           resource :pin, only: %i[ create destroy ]
           resource :trashing, only: %i[ create destroy ], controller: "note_trashings"

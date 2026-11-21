@@ -3,6 +3,7 @@ json.id @note.id
 json.revision @note.content_revision
 json.update_url location
 json.location location
+json.index_status render(partial: "notes/workspaces/index_status", formats: [ :html ], locals: { account: @account, note: @note })
 json.workspace do
   json.set! "notes-list", render(partial: "notes/workspaces/list", formats: [ :html ], locals: {
     account: @account, notes: @notes, options: @list_options, folder: @selected_folder, folders: @active_folder_map,

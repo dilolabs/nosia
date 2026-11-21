@@ -45,6 +45,15 @@ en:
       navigation_failed: Could not open that page. Your draft is still here.
       action_failed: Could not complete that action. Your draft is still here.
       retry: Retry
+      index_status:
+        empty: No text to index
+        pending: Indexing in progress
+        ready: Note indexed
+        failed: Indexing failed
+      retry_index: Retry indexing
+      index_retry_failed: Could not retry indexing. Try again.
+      index_status_unavailable: Could not check indexing status. Reopen the note to check again.
+      index_sharing: Saved, active notes are shared with this account. Account chats and authorized API requests can use them. Your configured AI providers for indexing and answers may be local or remote.
       copy_draft: Copy draft
       draft_copied: Draft copied.
       copy_manually: Your draft is selected. Copy it using your browser or keyboard.

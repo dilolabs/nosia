@@ -2,9 +2,15 @@ require "test_helper"
 require "timeout"
 
 class NotesMembershipRaceTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
   self.use_transactional_tests = false
   self.fixture_paths = [ Rails.root.join("test/support/fixtures/chat_accounts") ]
   fixtures :users, :accounts, :account_users, :note_folders, :notes
+
+  def queue_adapter_for_test
+    ActiveJob::QueueAdapters::TestAdapter.new
+  end
 
   setup do
     @account = accounts(:picker_first)
@@ -52,6 +58,17 @@ class NotesMembershipRaceTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert Note.active_in(@account.id).exists?(@note.id)
     refute NoteTrashing.exists?(note_id: @note.id)
+  end
+
+  test "retry queued behind membership revocation cannot enqueue indexing" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+
+    assert_no_enqueued_jobs(only: Note::IndexJob) do
+      revoke_ahead_of_write { post "#{account_note_path(@account, @note)}/index_retry" }
+    end
+
+    assert_response :not_found
+    assert @note.reload.embedding_failed?
   end
 
   private

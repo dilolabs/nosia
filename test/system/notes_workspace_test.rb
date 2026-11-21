@@ -174,6 +174,172 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_text "#research"
   end
 
+  test "keyboard index retry keeps a failed autosave draft and announces indexing on the same editor" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector "#note-index-status [role='status'][data-note-index-status='failed']", text: "Indexing failed"
+    watch_dirty_departure("Unsaved draft for indexing")
+
+    retry_button = "#note-index-status button"
+    orbite_tab_to(retry_button)
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector "#note-index-status [data-note-index-status='pending']:focus", text: "Indexing in progress"
+    @note.update!(embedding_status: :ready, indexed_generation: 2)
+    assert_selector "#note-index-status [role='status'][data-note-index-status='ready']:focus", text: "Note indexed", wait: 8
+    assert_no_selector retry_button
+    assert_save_status "Could not save"
+    assert_field "Title (optional)", with: "Unsaved draft for indexing"
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+    assert_current_path account_note_path(@account, @note)
+    assert_equal 0, page.evaluate_script("window.departureConfirmations")
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+  end
+
+  test "index polls suspend while hidden stop at ready and restart on new save acknowledgments" do
+    visit new_account_note_path(@account)
+    assert_selector "#note-index-status [data-note-index-status='empty']"
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS)
+      window.originalNoteEditor = document.querySelector("lexxy-editor")
+      window.indexPolls = 0
+      window.hideNotesPage = hidden => {
+        Object.defineProperty(document, "visibilityState", { configurable: true, value: hidden ? "hidden" : "visible" })
+        Object.defineProperty(document, "hidden", { configurable: true, value: hidden })
+        document.dispatchEvent(new Event("visibilitychange"))
+      }
+      const ordinaryFetch = window.fetch
+      window.fetch = (url, options) => {
+        if (new URL(url, location.origin).pathname.endsWith("/index_status")) window.indexPolls++
+        return ordinaryFetch(url, options)
+      }
+      window.hideNotesPage(true)
+    JS
+
+    fill_in "Title (optional)", with: "Index new note"
+    assert_save_status "Saved"
+    assert_selector "#note-index-status [data-note-index-status='pending']"
+    saved = @account.notes.find_by!(title: "Index new note")
+    saved.update!(embedding_status: :ready, indexed_generation: saved.embedding_generation)
+    assert_poll_count_stays(0)
+
+    page.execute_script("window.hideNotesPage(false)")
+    assert_selector "#note-index-status [data-note-index-status='ready']", wait: 8
+    assert_poll_count_stays(1)
+
+    fill_in "Title (optional)", with: "Index a later edit"
+    assert_save_status "Saved"
+    assert_selector "#note-index-status [data-note-index-status='pending']"
+    saved.reload.mark_index_failed(saved.embedding_generation)
+    assert_selector "#note-index-status [data-note-index-status='failed']", wait: 8
+    assert_save_status "Saved"
+    assert_button "Retry indexing"
+    assert_equal 2, page.evaluate_script("window.indexPolls")
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+  end
+
+  test "a delayed retry response cannot overwrite a newer index generation on the same content revision" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector "#note-index-status [data-note-index-status='failed']"
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS, account_note_index_status_path(@account, @note))
+      const statusUrl = arguments[0]
+      const ordinaryFetch = window.fetch
+      window.fetch = async (url, options) => {
+        if (!new URL(url, location.origin).pathname.endsWith("/index_retry")) return ordinaryFetch(url, options)
+        // Hold an already-rendered response for the old index generation.
+        const oldStatus = await ordinaryFetch(statusUrl, { headers: { "Turbo-Frame": "note-index-status" } })
+        return new Promise(resolve => { window.releaseIndexRetry = () => resolve(oldStatus) })
+      }
+      document.querySelector("#note-index-status").addEventListener("turbo:frame-render", event => {
+        event.target.dataset.receivedRetry = "true"
+      })
+    JS
+    click_button "Retry indexing"
+    assert_selector "#note-index-status[aria-busy=true]"
+    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+      page.evaluate_script("Boolean(window.releaseIndexRetry)")
+    end
+    # An embedding-space rebuild can advance the generation without editing the note.
+    @note.update_columns(embedding_generation: 3, embedding_status: :pending)
+    fill_in "Title (optional)", with: "Field notes  "
+    assert_save_status "Saved"
+    assert_equal 1, @note.reload.content_revision
+    assert_selector "#note-index-status [data-note-index-status='pending']", text: "Indexing in progress"
+
+    page.execute_script("window.releaseIndexRetry()")
+    assert_selector "#note-index-status[data-received-retry=true]"
+    assert_selector "#note-index-status [data-note-index-status='pending']", text: "Indexing in progress", wait: 0
+    assert_save_status "Saved"
+  end
+
+  test "an indexing status error stops the poll without replacing the editor or save feedback" do
+    @note.update!(embedding_status: :pending, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector "#note-index-status [data-note-index-status='pending']"
+    find("lexxy-editor[connected]")
+    page.execute_script(<<~JS)
+      window.originalNoteEditor = document.querySelector("lexxy-editor")
+      window.indexPolls = 0
+      const ordinaryFetch = window.fetch
+      window.fetch = (url, options) => {
+        if (!new URL(url, location.origin).pathname.endsWith("/index_status")) return ordinaryFetch(url, options)
+        window.indexPolls++
+        return Promise.resolve(new Response("", { status: 404 }))
+      }
+    JS
+    assert_selector "#note-index-status [role='status']", text: "Could not check indexing status.", wait: 8
+    assert_poll_count_stays(1)
+    assert_field "Title (optional)", with: "Field notes"
+    assert_no_selector "[data-note-autosave-target='status']", text: "Could not"
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+  end
+
+  test "a retry request error leaves a keyboard user at the retry control" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    visit account_note_path(@account, @note)
+    assert_selector "#note-index-status [data-note-index-status='failed']"
+    page.execute_script(<<~JS)
+      const ordinaryFetch = window.fetch
+      window.fetch = (url, options) => {
+        if (!new URL(url, location.origin).pathname.endsWith("/index_retry")) return ordinaryFetch(url, options)
+        return new Promise(resolve => { window.failIndexRetry = () => resolve(new Response("", { status: 503 })) })
+      }
+    JS
+    orbite_tab_to("#note-index-status button")
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector "#note-index-status[aria-busy=true]"
+    # Let Chromium update focus after Turbo disables the submit button.
+    orbite_settle
+    page.execute_script("window.failIndexRetry()")
+
+    assert_selector "#note-index-status [role='status']", text: "Could not retry indexing."
+    assert_selector "#note-index-status button:focus:enabled"
+    assert_current_path account_note_path(@account, @note)
+  end
+
+  test "French indexing controls fit narrow and tablet panes in both themes" do
+    @note.update!(embedding_status: :failed, embedding_generation: 2)
+    orbite_select_language("FR")
+    visit account_note_path(@account, @note)
+    assert_selector "#note-index-status [data-note-index-status='failed']", text: "Échec de l’indexation"
+    assert_text "Les notes enregistrées"
+
+    [ [ 375, 340, false ], [ 667, 375, true ], [ 768, 850, false ], [ 1024, 850, true ], [ 1440, 850, false ] ].each do |width, height, dark|
+      orbite_viewport(width, height)
+      orbite_theme(dark)
+      assert_button "Relancer l’indexation"
+      orbite_tab_to("#note-index-status button") if width == 1024
+      assert page.evaluate_script(<<~JS)
+        (() => {
+          const button = document.querySelector("#note-index-status button").getBoundingClientRect()
+          const main = document.querySelector("main")
+          return button.width >= 44 && button.height >= 44 && main.scrollWidth <= main.clientWidth + 1
+        })()
+      JS
+    end
+  end
+
   test "hydrating a blank or seeded Lexxy editor sends no autosave request" do
     @note.edit_content!(expected_revision: 1, title: @note.title, body_html: "<p>#research</p>")
     [ {}, { tag: "research" } ].each do |context|
@@ -1147,5 +1313,11 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
 
     def assert_save_status(text)
       assert_selector "[data-note-autosave-target='status'][role='status']", text:
+    end
+
+    def assert_poll_count_stays(count)
+      # Observe a full polling interval; no condition can prove a request did not start.
+      sleep 5.5
+      assert_equal count, page.evaluate_script("window.indexPolls")
     end
 end

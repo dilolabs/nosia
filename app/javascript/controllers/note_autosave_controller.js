@@ -208,6 +208,8 @@ export default class extends Controller {
     this.locationToReplace = new URL(result.location, window.location.origin)
     this.#replaceLocation()
     this.#refreshWorkspace(result.workspace)
+    const frame = form.nextElementSibling
+    if (frame?.id === "note-index-status") this.dispatch("saved", { target: frame, detail: result.index_status })
 
     if (this.serial === serial) {
       this.#markClean()

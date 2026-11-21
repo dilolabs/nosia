@@ -8,7 +8,7 @@
 .n-notes h2 { font-size: 1.0625rem; font-weight: 650; }
 .n-notes ul { list-style: none; }
 .n-notes summary { min-block-size: 2.75rem; padding-block: .625rem; cursor: pointer; }
-.n-notes :is(a, button, input, select, textarea, summary, .lexxy-editor__content):focus-visible {
+.n-notes :is(a, button, input, select, textarea, summary, .lexxy-editor__content, .n-notes-index-status [role="status"]):focus-visible {
   outline: 2px solid var(--orbite-accent);
   outline-offset: -2px;
 }
@@ -93,6 +93,17 @@
 .n-notes a[aria-current] { box-shadow: inset 2px 0 var(--orbite-accent); }
 .n-notes-back { margin-block-end: .5rem; }
 .n-notes-meta { font-size: .8125rem; color: var(--orbite-muted); }
+.n-notes-index-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .375rem .5rem;
+  margin-block: .5rem .25rem;
+  padding-block-start: .5rem;
+  border-block-start: 1px solid var(--orbite-line);
+}
+.n-notes-index-status, .n-notes-sharing { max-inline-size: 48rem; }
+.n-notes-index-status [data-note-index-status-target="actions"]:empty { display: none; }
 .n-notes-preview { font-size: .875rem; }
 
 .n-notes-tree .n-notes-tree, .n-notes-trash li ul {

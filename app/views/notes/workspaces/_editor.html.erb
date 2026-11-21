@@ -35,3 +35,5 @@
   <p role="status" class="n-notes-meta" data-note-autosave-target="copyStatus"></p>
   <textarea hidden readonly class="n-notes-copy" aria-label="<%= t("nosia.notes.copy_draft") %>" data-note-autosave-target="copyText"></textarea>
 <% end %>
+<%= render "notes/workspaces/index_status", account:, note: %>
+<p class="n-notes-meta n-notes-sharing"><%= t("nosia.notes.index_sharing") %></p>

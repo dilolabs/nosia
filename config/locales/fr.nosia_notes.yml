@@ -45,6 +45,15 @@ fr:
       navigation_failed: Impossible d’ouvrir cette page. Votre brouillon est toujours disponible.
       action_failed: Impossible d’effectuer cette action. Votre brouillon est toujours disponible.
       retry: Réessayer
+      index_status:
+        empty: Aucun texte à indexer
+        pending: Indexation en cours
+        ready: Note indexée
+        failed: Échec de l’indexation
+      retry_index: Relancer l’indexation
+      index_retry_failed: Impossible de relancer l’indexation. Réessayez.
+      index_status_unavailable: Impossible de vérifier l’indexation. Rouvrez la note pour réessayer.
+      index_sharing: Les notes enregistrées et actives sont partagées avec ce compte. Les conversations du compte et les requêtes API autorisées peuvent les utiliser. Les fournisseurs d’IA configurés pour l’indexation et les réponses peuvent être locaux ou distants.
       copy_draft: Copier le brouillon
       draft_copied: Brouillon copié.
       copy_manually: Votre brouillon est sélectionné. Copiez-le avec votre navigateur ou votre clavier.
