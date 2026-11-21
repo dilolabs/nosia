@@ -17,6 +17,7 @@ class NativeIndexTasksTest < ActiveSupport::TestCase
     @native_root.join("storage").mkpath
     @native_root.join("db").mkpath
     File.symlink(Rails.root.join("db/migrate"), @native_root.join("db/migrate"))
+    hide_shared_note_fixtures
     Chunk.unscoped.delete_all
     connection = ActiveRecord::Base.connection
     connection.remove_index(:chunks, :embedding) if connection.index_exists?(:chunks, :embedding)
@@ -320,6 +321,15 @@ class NativeIndexTasksTest < ActiveSupport::TestCase
   end
 
   private
+    def hide_shared_note_fixtures
+      # Other suites can load these fixtures before their per-test transactions.
+      # Hide only those notes for this instance-wide rebuild test; rollback restores them.
+      fixture_ids = %i[field_notes second_team_note].map { |label| ActiveRecord::FixtureSet.identify(label) }
+      [ @first, @second ].each do |account|
+        Note.active_in(account.id).where(id: fixture_ids).find_each(&:trash)
+      end
+    end
+
     def draft_note(title)
       folder = @first.note_folders.create!(name: "#{title} folder")
       Note.save_draft!(account: @first, folder:, draft_key: SecureRandom.uuid, title:, body_html: "")
