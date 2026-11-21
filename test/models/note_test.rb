@@ -173,7 +173,7 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal 1, note.content_revision
   end
 
-  test "only visible prose contributes to Unicode hashtag keys" do
+  test "visible text outside code blocks contributes to Unicode hashtag keys" do
     note = save_draft(body_html: <<~HTML)
       <p>#Réunion #RÉUNION #Straße #STRASSE #resume #résumé</p>
       <p>https://example.invalid/#url www.example.invalid/#www ftp://example.invalid/#ftp
@@ -183,9 +183,15 @@ class NoteTest < ActiveSupport::TestCase
       <p>word#no ##no #<strong>Split</strong></p>
     HTML
 
-    assert_equal %w[link resume réunion résumé split strasse].sort, note.note_tags.pluck(:key).sort
+    assert_equal %w[inline link resume réunion résumé split strasse].sort, note.note_tags.pluck(:key).sort
     assert_includes note.body_text, "#inline"
     assert_includes note.body_text, "#block"
+  end
+
+  test "a hashtag can span inline code formatting but not a code block" do
+    note = save_draft(body_html: "<p>For #<code>planning</code></p><pre><code>#ignored</code></pre>")
+
+    assert_equal [ "planning" ], note.note_tags.pluck(:key)
   end
 
   test "non-rendered table attributes are removed without losing the table contents" do
@@ -271,6 +277,40 @@ class NoteTest < ActiveSupport::TestCase
       @note.update!(account: accounts(:picker_second), note_folder: note_folders(:second_team))
     end
     assert_equal @account, @note.reload.account
+  end
+
+  test "an ordinary folder assignment cannot hide a note in a trashed branch" do
+    note = save_draft
+    note_folders(:sessions).create_trashing!
+
+    assert_raises(ActiveRecord::RecordInvalid) { note.update!(note_folder: note_folders(:interviews)) }
+    assert_equal @folder, note.reload.note_folder
+    assert Note.active_in(@account.id).exists?(note.id)
+  end
+
+  test "an ordinary folder assignment cannot restore a note from a trashed branch" do
+    note_folders(:sessions).create_trashing!
+
+    assert_raises(ActiveRecord::RecordInvalid) { @note.update!(note_folder: @folder) }
+    assert_equal note_folders(:interviews), @note.reload.note_folder
+    refute Note.active_in(@account.id).exists?(@note.id)
+  end
+
+  test "an ordinary folder assignment requires the note itself to be active" do
+    @note.create_trashing!
+
+    assert_raises(ActiveRecord::RecordInvalid) { @note.update!(note_folder: @folder) }
+    assert_equal note_folders(:interviews), @note.reload.note_folder
+  end
+
+  test "validated creation cannot attach a note to a trashed folder" do
+    destination = note_folders(:sessions)
+    destination.create_trashing!
+    draft = @account.notes.build(note_folder: destination, draft_key: SecureRandom.uuid,
+      title: "Draft", content_revision: 1, content_updated_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { draft.save!(context: :revisioned_content) }
+    assert error.record.errors.added?(:note_folder, :invalid)
   end
 
   test "an ordinary model update cannot bypass the revisioned content write" do
@@ -400,6 +440,52 @@ class NoteLockingTest < ActiveSupport::TestCase
       end
     end
     assert_equal "Field notes", @note.reload.title
+  end
+
+  test "an ordinary folder assignment holds the account lock without changing the content revision" do
+    destination = note_folders(:reading)
+    content_time = @note.content_updated_at
+
+    Note.transaction do
+      @note.update!(note_folder: destination)
+      assert_account_lock_held
+    end
+
+    assert_equal destination, @note.reload.note_folder
+    assert_equal 1, @note.content_revision
+    assert_equal content_time, @note.content_updated_at
+  end
+
+  test "an ordinary save rechecks destination visibility after validation cached the active tree" do
+    destination = note_folders(:reading)
+    @note.note_folder = destination
+    active = NoteFolder.active_in(@account.id)
+
+    Note.cache do
+      assert @note.valid?
+      assert active.exists?(destination.id)
+      in_another_session { NoteFolderTrashing.create!(note_folder_id: destination.id, account_id: @account.id) }
+      assert active.exists?(destination.id), "the saving connection still has the old tree cached"
+
+      assert_raises(ActiveRecord::RecordInvalid) { @note.save! }
+    end
+    assert_equal note_folders(:interviews), @note.reload.note_folder
+  end
+
+  test "an ordinary save rechecks the source after another connection trashes its branch" do
+    @note.note_folder = note_folders(:reading)
+    branch = note_folders(:sessions)
+    active = Note.active_in(@account.id)
+
+    Note.cache do
+      assert @note.valid?
+      assert active.exists?(@note.id)
+      in_another_session { NoteFolderTrashing.create!(note_folder_id: branch.id, account_id: @account.id) }
+      assert active.exists?(@note.id), "the saving connection still has the old note visibility cached"
+
+      assert_raises(ActiveRecord::RecordInvalid) { @note.save! }
+    end
+    assert_equal note_folders(:interviews), @note.reload.note_folder
   end
 
   test "a draft replay reads the current revision even after an earlier version was cached" do

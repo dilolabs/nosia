@@ -31,7 +31,7 @@ class Note::Body
     @html = "" if EMPTY_EDITOR_HTML.include?(@html)
 
     @text = project_text(fragment)
-    @tag_keys = project_text(fragment, omit_code: true).gsub(LITERAL_URL, " ").scan(HASHTAG).map do |(tag)|
+    @tag_keys = project_text(fragment, omit_code_blocks: true).gsub(LITERAL_URL, " ").scan(HASHTAG).map do |(tag)|
       tag.unicode_normalize(:nfc).downcase(:fold).unicode_normalize(:nfc)
     end.uniq
   end
@@ -47,26 +47,24 @@ class Note::Body
       fragment.to_html
     end
 
-    def project_text(fragment, omit_code: false)
+    def project_text(fragment, omit_code_blocks: false)
       lines = []
       buffer = +""
-      collect_text(fragment, lines, buffer, omit_code:)
+      collect_text(fragment, lines, buffer, omit_code_blocks:)
       flush_text(lines, buffer)
       lines.join("\n")
     end
 
-    def collect_text(node, lines, buffer, omit_code:)
+    def collect_text(node, lines, buffer, omit_code_blocks:)
       if node.text?
         buffer << node.content
-      elsif omit_code && %w[pre code].include?(node.name)
-        buffer << " "
       elsif node.name == "pre"
         flush_text(lines, buffer)
-        lines << preformatted_text(node)
+        lines << preformatted_text(node) unless omit_code_blocks
       else
         block = BLOCK_TAGS.include?(node.name)
         flush_text(lines, buffer) if block
-        node.children.each { |child| collect_text(child, lines, buffer, omit_code:) }
+        node.children.each { |child| collect_text(child, lines, buffer, omit_code_blocks:) }
         flush_text(lines, buffer) if block
       end
     end

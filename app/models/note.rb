@@ -12,8 +12,8 @@ class Note < ApplicationRecord
   belongs_to :note_folder
   has_one :trashing, class_name: "NoteTrashing", inverse_of: :note, dependent: :destroy
 
-  validate :folder_matches_account, if: -> { new_record? || will_save_change_to_note_folder_id? }
   validate :stable_identity, if: :persisted?
+  validate :folder_in_active_tree, if: -> { new_record? || will_save_change_to_note_folder_id? }
 
   # Matches a case-insensitive, literal substring of the saved title or plain text.
   # @param input [String] Search text.
@@ -30,14 +30,27 @@ class Note < ApplicationRecord
   end
 
   private
-    def folder_matches_account
-      unless NoteFolder.uncached { NoteFolder.exists?(id: note_folder_id, account_id:) }
-        errors.add(:note_folder, :invalid)
-      end
-    end
-
     def stable_identity
       errors.add(:account_id, :invalid) if will_save_change_to_account_id?
       errors.add(:draft_key, :invalid) if will_save_change_to_draft_key?
+    end
+
+    def folder_in_active_tree
+      return if errors.any?
+
+      owner_id = new_record? ? account_id : account_id_in_database
+      # A normal save runs validation inside its transaction and holds this lock through the write.
+      if Account.lock.exists?(id: owner_id)
+        self.class.uncached do
+          if persisted? && !self.class.active_in(owner_id).exists?(id:)
+            errors.add(:base, :invalid)
+          end
+          if association(:note_folder).target&.new_record? || !NoteFolder.active_in(owner_id).exists?(id: note_folder_id)
+            errors.add(:note_folder, :invalid)
+          end
+        end
+      else
+        errors.add(:account, :invalid)
+      end
     end
 end
