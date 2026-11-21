@@ -78,6 +78,45 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
     end
   end
 
+  test "ordinary source embeddings honor configured HTTP body logging" do
+    output = StringIO.new
+    request_marker = "source-request-#{SecureRandom.hex}"
+    response_marker = "source-response-#{SecureRandom.hex}"
+    vector = [ 1.0 ] + Array.new(Chunk.columns_hash.fetch("embedding").limit - 1, 0.0)
+    stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+      stub.post("/v1/embeddings") do |request|
+        assert_equal request_marker, JSON.parse(request.body).fetch("input")
+        body = { data: [ { embedding: vector } ], diagnostic: response_marker }
+        [ 200, { "Content-Type" => "application/json" }, body.to_json ]
+      end
+    end
+    adapter = Class.new(Faraday::Adapter::Test) do
+      define_method(:initialize) { |app, **| super(app, stubs, &nil) }
+    end
+    previous = RubyLLM.config.dup
+    RubyLLM.configure do |config|
+      config.faraday_adapter = adapter
+      config.logger = Logger.new(output, level: :debug)
+      config.log_bodies = true
+    end
+
+    @chunk.chunkable = @account.websites.create!(url: "https://embedding.example")
+    @chunk.content = request_marker
+    @chunk.save!
+
+    assert_equal vector, @chunk.reload.embedding
+    assert_includes output.string, request_marker
+    assert_includes output.string, response_marker
+  ensure
+    if previous
+      RubyLLM.configure do |config|
+        config.faraday_adapter = previous.faraday_adapter
+        config.logger = previous.logger
+        config.log_bodies = previous.log_bodies
+      end
+    end
+  end
+
   [ 0, nil, :absent_tokens ].each do |input|
     test "saving generated embeddings without reported positive input (#{input.inspect}) keeps pending result without recording" do
       website = @account.websites.create!(url: "https://unreported-embedding.example")

@@ -19,10 +19,10 @@ module Chunk::Vectorizable
       context = RubyLLM.context do |config|
         config.openai_api_base = ENV["EMBEDDING_BASE_URL"] || ENV["AI_BASE_URL"]
         config.openai_api_key = ENV["AI_API_KEY"]
-        config.log_bodies = false
         if private_input
           # Faraday logs exception messages separately from bodies. The default
           # instrumenter also exposes input and exceptions to log subscribers.
+          config.log_bodies = false
           config.logger = PRIVATE_EMBEDDING_LOGGER
           config.instrumenter = nil
           config.redact_error_messages = true
