@@ -206,6 +206,22 @@ class NoteTest < ActiveSupport::TestCase
     assert_no_match(/(?:style|data-temporary|colgroup)/, note.body_html)
   end
 
+  test "a table caption remains a separate paragraph through an exact HTML round trip" do
+    note = save_draft(body_html: '<p>Intro</p><table><caption onclick="example()"><em>#legend</em></caption>' \
+      "<tbody><tr><th>Label</th><td>Value</td></tr></tbody></table>").reload
+    stored_html = note.body_html
+    revision = note.content_revision
+
+    note.edit_content!(expected_revision: revision, title: note.title, body_html: stored_html).reload
+
+    assert_equal revision, note.content_revision
+    assert_equal stored_html, note.body_html
+    assert_equal "<p>Intro</p><p><em>#legend</em></p><table><tbody><tr><th>Label</th><td>Value</td></tr></tbody></table>", stored_html
+    assert_equal stored_html, Nokogiri::HTML5.fragment(stored_html).to_html
+    assert_equal "Intro\n#legend\nLabel\nValue", note.body_text
+    assert_equal [ "legend" ], note.note_tags.pluck(:key)
+  end
+
   test "unsupported elements, media, and unsafe attributes cannot persist as rich text" do
     note = save_draft(body_html: <<~HTML).reload
       <div><p onclick="example()">Kept<a href="javascript:void(0)"> label</a><img src="/picture">

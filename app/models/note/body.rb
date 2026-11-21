@@ -24,10 +24,12 @@ class Note::Body
   def initialize(html)
     fragment = Loofah.html5_fragment(without_attachments(html))
     fragment.css(DROP_SUBTREES).remove
+    move_table_captions(fragment)
     Rails::HTML5::SafeListSanitizer.new.scrub(fragment, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
 
-    # HTML5 eats one leading newline after <pre> on each parse.
-    @html = fragment.to_html(preserve_newline: true).strip
+    # Unwrapping unsupported elements can change the HTML5 tree when reopened.
+    fragment = Loofah.html5_fragment(serialize(fragment))
+    @html = serialize(fragment)
     @html = "" if EMPTY_EDITOR_HTML.include?(@html)
 
     @text = project_text(fragment)
@@ -45,6 +47,20 @@ class Note::Body
       fragment = Nokogiri::HTML4.fragment(html)
       fragment.css(ATTACHMENT_NODES).remove
       fragment.to_html
+    end
+
+    def move_table_captions(fragment)
+      fragment.css("table > caption").each do |caption|
+        paragraph = fragment.document.create_element("p")
+        paragraph.add_child(caption.children)
+        caption.parent.add_previous_sibling(paragraph)
+        caption.remove
+      end
+    end
+
+    def serialize(fragment)
+      # HTML5 eats one leading newline after <pre> on each parse.
+      fragment.to_html(preserve_newline: true).strip
     end
 
     def project_text(fragment, omit_code_blocks: false)
