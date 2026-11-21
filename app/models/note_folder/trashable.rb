@@ -30,11 +30,11 @@ module NoteFolder::Trashable
     end
   end
 
-  # Permanently deletes a directly trashed branch and all of its contents.
+  # Permanently deletes a directly trashed branch and its contents, even under a trashed ancestor.
   # @param by [User] The acting account owner.
   # @return [NoteFolder] The destroyed root of the branch.
   # @raise [Note::PurgeForbidden] If the actor is not the account owner.
-  # @raise [ActiveRecord::RecordInvalid] If the folder has no direct marker, is General, or has an inactive parent.
+  # @raise [ActiveRecord::RecordInvalid] If the folder has no direct marker or is General.
   # @raise [ActiveRecord::RecordNotFound] If the saved folder or account no longer exists.
   def purge(by:)
     with_locked_folder do |locked_account|
@@ -42,7 +42,7 @@ module NoteFolder::Trashable
         raise Note::PurgeForbidden
       end
 
-      restorable_trashing
+      reject_trash_change unless trashing
       destroy_branch
     end
   end

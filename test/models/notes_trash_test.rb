@@ -94,15 +94,43 @@ class NotesTrashTest < ActiveSupport::TestCase
     assert_equal @root, @child.reload.parent
   end
 
-  test "a directly trashed descendant cannot be purged independently of its trashed parent" do
+  test "the owner can purge a directly trashed note under a trashed ancestor without deleting its sibling" do
+    sibling = draft_in(@leaf)
+    member = users(:picker_outsider)
+    @account.account_users.grant_to(member)
     @note.trash
-    @leaf.trash
     @child.trash
 
-    assert_raises(Note::Unavailable) { @note.purge(by: @owner) }
-    assert_raises(ActiveRecord::RecordInvalid) { @leaf.purge(by: @owner) }
-    assert Note.exists?(@note.id)
-    assert NoteFolder.exists?(@leaf.id)
+    assert_raises(Note::Unavailable) { @note.restore }
+    assert_raises(Note::Unavailable) { sibling.purge(by: @owner) }
+    assert_raises(Note::PurgeForbidden) { @note.purge(by: member) }
+
+    assert @note.purge(by: @owner).destroyed?
+    refute Note.exists?(@note.id)
+    assert Note.exists?(sibling.id)
+    assert NoteFolderTrashing.exists?(note_folder_id: @child.id)
+    @child.restore
+    assert Note.active_in(@account.id).exists?(sibling.id)
+  end
+
+  test "the owner can purge a directly trashed branch under a trashed ancestor without deleting its sibling" do
+    sibling = @account.note_folders.create!(parent: @child, name: "Keep")
+    member = users(:picker_outsider)
+    @account.account_users.grant_to(member)
+    @leaf.trash
+    @root.trash
+
+    assert_raises(ActiveRecord::RecordInvalid) { @leaf.restore }
+    assert_raises(ActiveRecord::RecordInvalid) { sibling.purge(by: @owner) }
+    assert_raises(Note::PurgeForbidden) { @leaf.purge(by: member) }
+
+    assert @leaf.purge(by: @owner).destroyed?
+    refute NoteFolder.exists?(@leaf.id)
+    refute Note.exists?(@note.id)
+    assert NoteFolder.exists?(sibling.id)
+    assert NoteFolderTrashing.exists?(note_folder_id: @root.id)
+    @root.restore
+    assert NoteFolder.active_in(@account.id).exists?(sibling.id)
   end
 
   test "General remains a permanent root and may contain notes and folders" do

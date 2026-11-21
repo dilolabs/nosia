@@ -29,18 +29,19 @@ module Note::Trashable
     end
   end
 
-  # Permanently deletes a directly trashed note and its dependents.
+  # Permanently deletes a directly trashed note and its dependents, even under a trashed folder.
   # @param by [User] The acting account owner.
   # @return [Note] The destroyed note.
   # @raise [Note::PurgeForbidden] If the actor is not the account owner.
-  # @raise [Note::Unavailable] If no direct marker exists or the original folder is inactive.
+  # @raise [Note::Unavailable] If the note is missing or has no direct marker.
   def purge(by:)
     with_locked_note do |locked_account|
       unless by.is_a?(User) && by.persisted? && by.id_in_database == locked_account.owner_id
         raise Note::PurgeForbidden
       end
 
-      restorable_trashing
+      raise Note::Unavailable unless trashing
+
       destroy!
     end
   end
