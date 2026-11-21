@@ -655,6 +655,86 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
   end
 
+  test "a failed visit superseding Turbo Back returns to the original editor history entry" do
+    list = account_notes_workspace_path(@account, q: "outline")
+    editor_path = account_note_path(@account, @note, q: "outline")
+    new_note = new_account_note_path(@account, q: "outline")
+    visit list
+    click_on "Field notes"
+    assert_current_path editor_path
+    hold_notes_get(list, new_note, answers: [ true, true ])
+    editor_history = page.evaluate_script("[history.length, history.state.turbo]")
+    fill_in "Title (optional)", with: "Keep after superseding Back"
+    assert_save_status "Could not save"
+
+    page.execute_script("history.back()")
+    wait_for_held_notes_get(list)
+    assert_current_path list
+    click_on "New note"
+    wait_for_held_notes_get(new_note)
+    assert page.evaluate_script("window.abortedNotesGets.includes(arguments[0])", list)
+    page.execute_script("window.releaseNotesGet({ fail: true })")
+    assert_save_status "Could not open that page. Your draft is still here."
+
+    assert_current_path editor_path
+    assert_equal editor_history, page.evaluate_script("[history.length, history.state.turbo]")
+    assert_field "Title (optional)", with: "Keep after superseding Back"
+    assert_equal 2, page.evaluate_script("window.visitWarnings")
+    page.execute_script("window.fetch = window.ordinaryFetch")
+    click_on "Save note"
+    assert_save_status "Saved"
+    assert_current_path editor_path
+    assert_equal [ "Keep after superseding Back", 2 ], @note.reload.values_at(:title, :content_revision)
+
+    page.go_back
+    assert_current_path list
+    assert_selector "[data-notes-screen='list']"
+    page.go_forward
+    assert_current_path editor_path
+    assert_field "Title (optional)", with: "Keep after superseding Back"
+    assert_equal editor_history, page.evaluate_script("[history.length, history.state.turbo]")
+  end
+
+  test "declining a real unmarked 404 after a late edit retains the Notes head and styling" do
+    destination = Note.save_draft!(account: @account, folder: @note.note_folder, draft_key: SecureRandom.uuid,
+      title: "Deleted destination", body_html: "")
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    destination_path = account_note_path(@account, destination, folder_id: @note.note_folder_id)
+    visit editor_path
+    hold_notes_get(destination_path)
+    page.execute_script(<<~JS)
+      window.originalNoteEditor = document.querySelector("lexxy-editor")
+      window.notePageHead = () => [document.title,
+        Array.from(document.head.querySelectorAll("link[rel=stylesheet]"), link => link.href),
+        getComputedStyle(document.querySelector(".n-notes-workspace")).display]
+    JS
+    original_head = page.evaluate_script("window.notePageHead()")
+    assert_equal "grid", original_head.last
+    refute_empty original_head[1]
+    original_history = page.evaluate_script("[history.length, history.state.turbo]")
+    destination.trash
+    destination.purge(by: users(:picker_owner))
+
+    within("#notes-list") { click_on "Deleted destination" }
+    wait_for_held_notes_get
+    assert_equal 0, page.evaluate_script("window.visitWarnings")
+    fill_in "Title (optional)", with: "Keep the styled draft"
+    assert_save_status "Could not save"
+    page.execute_script("window.releaseNotesGet()")
+    assert_http_departure_status 404
+    assert_nil page.evaluate_script("window.departureRecovery")
+
+    assert_current_path editor_path
+    assert_field "Title (optional)", with: "Keep the styled draft"
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    assert_equal 1, page.evaluate_script("window.visitWarnings")
+    assert_equal original_history, page.evaluate_script("[history.length, history.state.turbo]")
+    assert_equal original_head, page.evaluate_script("window.notePageHead()")
+    refute page.evaluate_script("document.documentElement.hasAttribute('aria-busy')")
+    refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))")
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+  end
+
   test "a membership 404 still follows normal access handling after approved departure" do
     visit account_note_path(@account, @note, folder_id: @note.note_folder_id)
     watch_dirty_departure("Local text after access ends")
@@ -764,35 +844,46 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
-    def hold_notes_get(path, answers: [ false ])
+    def hold_notes_get(*paths, answers: [ false ])
       find("lexxy-editor[connected]")
-      page.execute_script(<<~JS, path, answers)
-        const [path, answers] = arguments
-        const destination = new URL(path, location.origin).href
+      page.execute_script(<<~JS, paths, answers)
+        const [paths, answers] = arguments
+        const destinations = new Map(paths.map(path => [new URL(path, location.origin).href, path]))
         window.ordinaryFetch = window.fetch
         window.visitWarnings = 0
+        window.abortedNotesGets = []
         window.confirm = () => answers[window.visitWarnings++] ?? false
         window.fetch = (url, options) => {
           if (options?.method === "PATCH") return Promise.reject(new TypeError("Hold the autosave"))
-          if (options?.method === "GET" && url === destination && !(new Headers(options.headers)).has("X-Sec-Purpose")) {
+          if (options?.method === "GET" && destinations.has(url) && !(new Headers(options.headers)).has("X-Sec-Purpose")) {
+            const path = destinations.get(url)
             return new Promise((resolve, reject) => {
+              window.heldNotesGet = path
               window.releaseNotesGet = ({ fail = false } = {}) => {
                 if (fail) reject(new TypeError("Simulated navigation network failure"))
                 else resolve(window.ordinaryFetch(url, { ...options, cache: "no-store" }))
               }
+              options.signal.addEventListener("abort", () => {
+                window.abortedNotesGets.push(path)
+                reject(new DOMException("Aborted", "AbortError"))
+              }, { once: true })
             })
           }
           return window.ordinaryFetch(url, options)
         }
         document.addEventListener("turbo:before-fetch-response", event => {
-          if (event.target === document.documentElement) window.departureStatus = event.detail.fetchResponse.statusCode
+          if (event.target === document.documentElement) {
+            const response = event.detail.fetchResponse
+            window.departureStatus = response.statusCode
+            window.departureRecovery = response.header("X-Notes-Draft-Recovery")
+          }
         })
       JS
     end
 
-    def wait_for_held_notes_get
+    def wait_for_held_notes_get(path = nil)
       Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
-        page.evaluate_script("typeof window.releaseNotesGet === 'function'")
+        page.evaluate_script("typeof window.releaseNotesGet === 'function' && (!arguments[0] || window.heldNotesGet === arguments[0])", path)
       end
     end
 

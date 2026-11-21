@@ -59,8 +59,7 @@ export default class NoteDeparture {
     const candidate = this.candidate?.url === url ? this.candidate : null
     if (!candidate && action !== "restore") return
 
-    const offset = action === "restore" ? this.#restoreOffset(window.history.state?.turbo) : null
-    this.active = { visit, offset, serial: candidate?.serial ?? null, updateHistory: visit.updateHistory }
+    this.active = { visit, serial: candidate?.serial ?? null, updateHistory: visit.updateHistory }
     this.candidate = this.submission = null
     // Turbo normally changes history before before-render (and before any
     // render interception completes). Commit it with the actual body render.
@@ -78,6 +77,17 @@ export default class NoteDeparture {
     const departure = this.#activeVisit
     if (!departure) return
 
+    if (departure.visit.response?.statusCode >= 400) {
+      // ErrorRenderer replaces the head before calling detail.render. Guard this
+      // renderer instance instead, after any interception but before either swap.
+      const renderer = departure.visit.view.renderer
+      const renderError = renderer.render.bind(renderer)
+      renderer.render = () => {
+        if (this.#commitRender(departure)) return renderError()
+      }
+      return
+    }
+
     const { render, renderMethod } = event.detail
     const preview = document.documentElement.hasAttribute("data-turbo-preview")
     event.detail.render = (currentBody, newBody) => {
@@ -89,18 +99,25 @@ export default class NoteDeparture {
         return
       }
 
-      const serial = this.draftSerial()
-      if (serial !== null && serial !== departure.serial && !this.confirmDiscard()) {
-        this.#cancelVisit(departure)
-        Turbo.cache.exemptPageFromCache()
-        return
-      }
-
-      departure.visit.updateHistory = departure.updateHistory
-      departure.visit.changeHistory()
-      if (serial !== null && renderMethod === "morph") this.form.remove()
+      if (!this.#commitRender(departure)) return
+      if (this.draftSerial() !== null && renderMethod === "morph") this.form.remove()
       return render(currentBody, newBody)
     }
+  }
+
+  #commitRender(departure) {
+    if (departure !== this.#activeVisit || !this.form.isConnected) return false
+
+    const serial = this.draftSerial()
+    if (serial !== null && serial !== departure.serial && !this.confirmDiscard()) {
+      this.#cancelVisit(departure)
+      Turbo.cache.exemptPageFromCache()
+      return false
+    }
+
+    departure.visit.updateHistory = departure.updateHistory
+    departure.visit.changeHistory()
+    return true
   }
 
   #submitStarted = (event) => {
@@ -207,8 +224,11 @@ export default class NoteDeparture {
   }
 
   #cancelVisit(departure) {
+    // A replacement visit may have aborted Back while the browser still sits
+    // at its destination. Roll back from the actual entry to the mounted editor.
+    const offset = this.#restoreOffset(window.history.state?.turbo)
     this.#stopVisit(departure.visit)
-    if (departure.offset) this.#returnToEditor(departure.offset)
+    if (offset) this.#returnToEditor(offset)
   }
 
   #returnToEditor(offset) {
