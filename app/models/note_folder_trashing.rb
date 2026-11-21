@@ -4,11 +4,18 @@ class NoteFolderTrashing < ApplicationRecord
   belongs_to :account, default: -> { note_folder&.account }
 
   validate :account_matches_folder
+  before_create :lock_folder_account
+  before_destroy :lock_folder_account, if: :persisted?, prepend: true
 
   private
     def account_matches_folder
       if note_folder && account_id != note_folder.account_id
         errors.add(:account, :invalid)
       end
+    end
+
+    def lock_folder_account
+      # Lock the account before writing the marker or touching the folder.
+      Account.lock.find(new_record? ? account_id : account_id_in_database)
     end
 end
