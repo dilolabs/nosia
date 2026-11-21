@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_21_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -304,6 +304,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_000002) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "parent_id"], name: "index_note_folders_on_account_id_and_parent_id"
     t.index ["account_id", "system_key"], name: "index_note_folders_on_account_id_and_system_key", unique: true, where: "(system_key IS NOT NULL)"
+  end
+
+  create_table "note_pins", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_id"], name: "index_note_pins_on_note_id", unique: true
   end
 
   create_table "note_taggings", force: :cascade do |t|

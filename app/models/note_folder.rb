@@ -1,13 +1,12 @@
 # An account-owned folder in the Notes workspace.
 class NoteFolder < ApplicationRecord
-  include Tree
+  include Tree, Trashable
 
   GENERAL_SYSTEM_KEY = "general".freeze
 
   belongs_to :account
   belongs_to :parent, class_name: "NoteFolder", optional: true, inverse_of: :children
   has_many :children, class_name: "NoteFolder", foreign_key: :parent_id, inverse_of: :parent
-  has_one :trashing, class_name: "NoteFolderTrashing", inverse_of: :note_folder, dependent: :destroy
 
   validates :name, presence: true
   validate :stable_identity, on: :update
