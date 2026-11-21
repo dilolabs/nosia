@@ -747,6 +747,171 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
   end
 
+  test "declining the late discard for a Pin 404 keeps the styled draft and lets it be copied" do
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    pin_path = account_note_pin_path(@account, @note, folder_id: @note.note_folder_id)
+    visit editor_path
+    hold_notes_requests(pin_path)
+    original_history = page.evaluate_script("[history.length, history.state.turbo]")
+    page.execute_script(<<~JS)
+      window.originalNoteEditor = document.querySelector("lexxy-editor")
+      window.noteHead = () => [document.title,
+        Array.from(document.head.querySelectorAll("link[rel=stylesheet]"), link => link.href),
+        getComputedStyle(document.querySelector(".n-notes-workspace")).display]
+    JS
+    head = page.evaluate_script("window.noteHead()")
+    assert_equal "grid", head.last
+    find(".n-notes-editor-actions summary").click
+    click_on "Pin in folder"
+    wait_for_held_notes_request(pin_path)
+    assert_equal 0, page.evaluate_script("window.visitWarnings")
+
+    fill_in "Title (optional)", with: "Local draft after a failed pin"
+    assert_save_status "Could not save"
+    @note.trash
+    @note.purge(by: users(:picker_owner))
+    page.execute_script("window.releaseNotesRequest()")
+    assert_stored_form_error 404
+
+    assert_current_path editor_path
+    assert_field "Title (optional)", with: "Local draft after a failed pin"
+    assert_nil page.evaluate_script("sessionStorage.getItem('notesFormRecovery')")
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    assert_equal head, page.evaluate_script("window.noteHead()")
+    assert_equal original_history, page.evaluate_script("[history.length, history.state.turbo]")
+    assert_save_status "Could not complete that action. Your draft is still here."
+    assert_equal 1, page.evaluate_script("window.visitWarnings")
+    click_on "Copy draft"
+    assert_text "Draft copied"
+    assert_equal "Local draft after a failed pin\n\nInterview outline", page.evaluate_script("window.copiedNote")
+    refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))")
+    refute NotePin.exists?(note_id: @note.id)
+  end
+
+  test "accepting late discard after a Pin membership 404 shows the actual error without reloading" do
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    visit editor_path
+    pin_path = account_note_pin_path(@account, @note, folder_id: @note.note_folder_id)
+    hold_notes_requests(pin_path, answers: [ true ])
+    page.execute_script("window.pinDocument = true")
+    find(".n-notes-editor-actions summary").click
+    click_on "Pin in folder"
+    wait_for_held_notes_request(pin_path)
+    fill_in "Title (optional)", with: "Discard after pin fails"
+    assert_save_status "Could not save"
+    @account.account_users.find_by!(user: users(:picker_owner)).destroy!
+    page.execute_script("window.releaseNotesRequest()")
+
+    assert_stored_form_error 404
+    assert_selector "body .exception-message, body.rails-default-error-page"
+    assert_no_selector "lexxy-editor"
+    assert page.evaluate_script("window.pinDocument")
+    assert_current_path editor_path
+    assert_equal 1, page.evaluate_script("window.visitWarnings")
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+    refute NotePin.exists?(note_id: @note.id)
+  end
+
+  test "a real folder trash 409 superseding Back restores the original editor history" do
+    list = account_notes_workspace_path(@account, q: "outline")
+    folder = @note.note_folder
+    editor_path = account_note_path(@account, @note, folder_id: folder.id)
+    trash_path = account_note_folder_trashing_path(@account, folder)
+    visit list
+    page.execute_script("Turbo.visit(arguments[0])", editor_path)
+    assert_current_path editor_path
+    hold_notes_requests(list, trash_path, answers: [ true, true, true ])
+    original_history = page.evaluate_script("[history.length, history.state.turbo]")
+    fill_in "Title (optional)", with: "Keep through failed trash"
+    assert_save_status "Could not save"
+
+    page.execute_script("history.back()")
+    wait_for_held_notes_request(list)
+    assert_current_path list
+    folder.parent.trash
+    within "#notes-list" do
+      find("summary", text: "Trash folder").click
+      click_on "Trash folder"
+    end
+    wait_for_held_notes_request(trash_path)
+    assert page.evaluate_script("window.abortedNotesRequests.includes(arguments[0])", list)
+    page.execute_script("window.releaseNotesRequest()")
+    assert_http_departure_status 409
+    assert_save_status "This change is not available."
+    assert_current_path editor_path
+    assert_equal original_history, page.evaluate_script("[history.length, history.state.turbo]")
+    assert_field "Title (optional)", with: "Keep through failed trash"
+    assert_button "Copy draft"
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+  end
+
+  test "late edits can stop a successful Pin redirect without losing the draft" do
+    editor_path = account_note_path(@account, @note, folder_id: @note.note_folder_id)
+    visit editor_path
+    pin_path = account_note_pin_path(@account, @note, folder_id: @note.note_folder_id)
+    hold_notes_requests(pin_path)
+    page.execute_script("window.originalNoteEditor = document.querySelector('lexxy-editor')")
+    find(".n-notes-editor-actions summary").click
+    click_on "Pin in folder"
+    wait_for_held_notes_request(pin_path)
+    fill_in "Title (optional)", with: "Keep despite successful pin"
+    assert_save_status "Could not save"
+    page.execute_script("window.releaseNotesRequest()")
+    assert_http_departure_status 200
+
+    assert_field "Title (optional)", with: "Keep despite successful pin"
+    assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    assert_equal 1, page.evaluate_script("window.visitWarnings")
+    assert_current_path editor_path
+    assert_button "Copy draft"
+    assert NotePin.exists?(note_id: @note.id)
+    assert_equal [ "Field notes", 1 ], @note.reload.values_at(:title, :content_revision)
+    page.execute_script("window.fetch = window.ordinaryFetch")
+    click_on "Save note"
+    assert_save_status "Saved"
+    assert_equal [ "Keep despite successful pin", 2 ], @note.reload.values_at(:title, :content_revision)
+  end
+
+  test "cancelling a folder trash action that supersedes Back restores the editor entry" do
+    list = account_notes_workspace_path(@account, q: "outline")
+    folder = @note.note_folder
+    editor_path = account_note_path(@account, @note, folder_id: folder.id)
+    visit list
+    page.execute_script("Turbo.visit(arguments[0])", editor_path)
+    assert_current_path editor_path
+    hold_notes_requests(list, answers: [ true, false ])
+    original_history = page.evaluate_script("[history.length, history.state.turbo]")
+    fill_in "Title (optional)", with: "Keep after cancelled trash"
+    assert_save_status "Could not save"
+
+    page.execute_script("history.back()")
+    wait_for_held_notes_request(list)
+    assert_current_path list
+    within "#notes-list" do
+      find("summary", text: "Trash folder").click
+      click_on "Trash folder"
+    end
+    Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+      page.evaluate_script("window.visitWarnings === 2")
+    end
+    assert_current_path editor_path
+    assert_equal original_history, page.evaluate_script("[history.length, history.state.turbo]")
+    assert_field "Title (optional)", with: "Keep after cancelled trash"
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+
+    page.execute_script("window.fetch = window.ordinaryFetch")
+    click_on "Save note"
+    assert_save_status "Saved"
+    click_on "New note"
+    assert_current_path new_account_note_path(@account, folder_id: folder.id)
+    assert_field "Title (optional)", with: ""
+    assert_equal original_history.last.fetch("restorationIndex") + 1, page.evaluate_script("history.state.turbo.restorationIndex")
+    page.go_back
+    assert_current_path editor_path
+    assert_field "Title (optional)", with: "Keep after cancelled trash"
+  end
+
   test "confirming folder trash and draft discard follows the redirect without another prompt" do
     folder = @note.note_folder
     visit account_note_path(@account, @note, folder_id: folder.id)
@@ -844,6 +1009,63 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
+    def hold_notes_requests(*paths, answers: [ false ])
+      find("lexxy-editor[connected]")
+      page.execute_script(<<~JS, paths, answers)
+        const [paths, answers] = arguments
+        const destinations = new Map(paths.map(path => [new URL(path, location.origin).href, path]))
+        window.ordinaryFetch = window.fetch
+        window.visitWarnings = 0
+        window.abortedNotesRequests = []
+        sessionStorage.removeItem("notesFormStatus")
+        sessionStorage.removeItem("notesFormRecovery")
+        window.confirm = () => {
+          const answer = answers[window.visitWarnings++] ?? false
+          return answer
+        }
+        window.fetch = (url, options) => {
+          if (options?.method === "PATCH") return Promise.reject(new TypeError("Hold the autosave"))
+          if (!destinations.has(url) || (new Headers(options.headers)).has("X-Sec-Purpose")) return window.ordinaryFetch(url, options)
+          const path = destinations.get(url)
+          return new Promise((resolve, reject) => {
+            window.heldNotesRequest = path
+            window.releaseNotesRequest = () => resolve(window.ordinaryFetch(url, { ...options, cache: "no-store" }))
+            options.signal.addEventListener("abort", () => {
+              window.abortedNotesRequests.push(path)
+              reject(new DOMException("Aborted", "AbortError"))
+            }, { once: true })
+          })
+        }
+        document.addEventListener("turbo:before-fetch-response", event => {
+          if (event.target === document.documentElement || event.target.matches("form")) {
+            const response = event.detail.fetchResponse
+            window.departureStatus = response.statusCode
+            window.departureRecovery = response.header("X-Notes-Draft-Recovery")
+            if (event.target.matches("form")) {
+              sessionStorage.setItem("notesFormStatus", response.statusCode)
+              if (window.departureRecovery) sessionStorage.setItem("notesFormRecovery", window.departureRecovery)
+            }
+          }
+        })
+        Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+          writeText(text) { window.copiedNote = text; return Promise.resolve() }
+        } })
+      JS
+    end
+
+    def wait_for_held_notes_request(path)
+      Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+        page.evaluate_script("window.heldNotesRequest === arguments[0]", path)
+      end
+    end
+
+    def assert_stored_form_error(status)
+      Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
+        page.evaluate_script("Number(sessionStorage.getItem('notesFormStatus'))") == status
+      end
+      orbite_settle
+    end
+
     def hold_notes_get(*paths, answers: [ false ])
       find("lexxy-editor[connected]")
       page.execute_script(<<~JS, paths, answers)
