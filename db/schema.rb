@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_20_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_21_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -285,6 +285,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_000001) do
     t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["model_id"], name: "index_messages_on_model_id"
     t.index ["tool_call_id"], name: "index_messages_on_tool_call_id"
+  end
+
+  create_table "note_folder_trashings", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_folder_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_folder_id"], name: "index_note_folder_trashings_on_note_folder_id", unique: true
+  end
+
+  create_table "note_folders", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "parent_id"
+    t.string "name", null: false
+    t.string "system_key"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "parent_id"], name: "index_note_folders_on_account_id_and_parent_id"
+    t.index ["account_id", "system_key"], name: "index_note_folders_on_account_id_and_system_key", unique: true, where: "(system_key IS NOT NULL)"
   end
 
   create_table "passwordless_sessions", force: :cascade do |t|

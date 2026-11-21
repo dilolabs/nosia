@@ -17,12 +17,23 @@ class Account < ApplicationRecord
   has_many :chunks, dependent: :destroy
   has_many :documents, dependent: :destroy
   has_many :mcp_servers, dependent: :destroy
+  has_many :note_folders, dependent: :destroy
   has_many :prompts, dependent: :destroy
   has_many :qnas, dependent: :destroy
   has_many :texts, dependent: :destroy
   has_many :websites, dependent: :destroy
   has_many :agent_skills, dependent: :destroy
   has_many :token_usages, dependent: :destroy
+
+  # Finds or lazily creates the permanent Notes root for this account.
+  # @return [NoteFolder] The account's General folder.
+  def general_note_folder
+    with_lock do
+      note_folders.find_or_create_by!(system_key: NoteFolder::GENERAL_SYSTEM_KEY) do |folder|
+        folder.name = "General"
+      end
+    end
+  end
 
   # Recompute cached token counters from the token_usages event log (drift repair).
   # Rails 8's sum takes a single column, so two queries (small, indexed).
