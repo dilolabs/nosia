@@ -49,6 +49,32 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
     assert NoteFolder.active_in(@account.id).exists?(@folder.id)
   end
 
+  test "a marker cannot be reassigned to another folder in the same account" do
+    marker = @folder.create_trashing!
+    destination = note_folders(:reading)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { marker.update!(note_folder: destination) }
+
+    assert error.record.errors.added?(:note_folder_id, :invalid)
+    assert_equal @folder, marker.reload.note_folder
+    active = NoteFolder.active_in(@account.id)
+    refute active.exists?(@folder.id)
+    assert active.exists?(destination.id)
+  end
+
+  test "a marker cannot change accounts even when reassigned to a matching folder" do
+    marker = @folder.create_trashing!
+    destination = note_folders(:second_team)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      marker.update!(account_id: destination.account_id, note_folder_id: destination.id)
+    end
+
+    assert error.record.errors.added?(:account_id, :invalid)
+    assert_equal @account, marker.reload.account
+    assert_equal @folder, marker.note_folder
+  end
+
   private
     def assert_account_lock_held
       pool = ApplicationRecord.connection_pool
