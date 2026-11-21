@@ -1,6 +1,9 @@
 module Chunk::Vectorizable
   extend ActiveSupport::Concern
 
+  PRIVATE_EMBEDDING_LOGGER = Logger.new(File::NULL)
+  private_constant :PRIVATE_EMBEDDING_LOGGER
+
   included do
     before_save :generate_embedding, if: :content_changed?
     after_save :record_embedding_usage_if_needed
@@ -9,13 +12,21 @@ module Chunk::Vectorizable
   class_methods do
     # Requests one text embedding using the configured source embedding provider.
     # @param text [String] Text to embed.
+    # @param private_input [Boolean] Keep request and provider diagnostics out of logs.
     # @return [RubyLLM::Embedding] The vector and normalized usage.
     # @raise [RubyLLM::Error] If the provider request fails.
-    def embed_text(text)
+    def embed_text(text, private_input: false)
       context = RubyLLM.context do |config|
         config.openai_api_base = ENV["EMBEDDING_BASE_URL"] || ENV["AI_BASE_URL"]
         config.openai_api_key = ENV["AI_API_KEY"]
         config.log_bodies = false
+        if private_input
+          # Faraday logs exception messages separately from bodies. The default
+          # instrumenter also exposes input and exceptions to log subscribers.
+          config.logger = PRIVATE_EMBEDDING_LOGGER
+          config.instrumenter = nil
+          config.redact_error_messages = true
+        end
       end
       RubyLLM.embed(text, context:, model: ENV["EMBEDDING_MODEL"], dimensions: embedding_dimensions, provider: :openai, assume_model_exists: true)
     end
@@ -40,7 +51,12 @@ module Chunk::Vectorizable
     end
   end
 
+  # Rebuilds a legacy source embedding synchronously. Note vectors are only
+  # written by the generation worker.
+  # @return [Boolean, nil] The save result, or nil when no save is needed.
   def generate_embedding!
+    return if chunkable_type == "Note"
+
     generate_embedding
     save! if embedding_changed?
   end

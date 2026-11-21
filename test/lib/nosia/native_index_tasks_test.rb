@@ -154,7 +154,76 @@ class NativeIndexTasksTest < ActiveSupport::TestCase
     refute @native_root.join("storage/.native-reindex-target").exist?
   end
 
+  test "manual re-embedding skips a note and still handles a later source chunk" do
+    note, source = mixed_chunks
+    new_vector = [ 0.5 ] * Chunk.columns_hash.fetch("embedding").limit
+    inputs = []
+
+    with_singleton_replacement(RubyLLM, :embed, ->(text, **) {
+      inputs << text
+      RubyLLM::Embedding.new(vectors: new_vector, model: "fake")
+    }) do
+      Chunk.where(id: [ note.id, source.id ]).order(:id).each(&:generate_embedding!)
+    end
+
+    assert_equal [ source.content ], inputs
+    assert_equal [ 0.25 ] * new_vector.length, note.reload.embedding
+    assert_equal new_vector, source.reload.embedding
+  end
+
+  test "legacy rebuild selects ordinary sources but never a note chunk" do
+    note, source = mixed_chunks
+    new_vector = [ 0.5 ] * Chunk.columns_hash.fetch("embedding").limit
+    inputs = []
+
+    with_singleton_replacement(STDIN, :gets, -> { "yes\n" }) do
+      with_singleton_replacement(RubyLLM, :embed, ->(text, **) {
+        inputs << text
+        RubyLLM::Embedding.new(vectors: new_vector, model: "fake")
+      }) do
+        task = Rake::Task["embeddings:rebuild"]
+        task.reenable
+        assert_queries_match(/SELECT "chunks"\.\*.*"chunks"\."chunkable_type" !=/) { task.invoke }
+      end
+    end
+
+    assert_equal [ source.content ], inputs
+    assert_equal [ 0.25 ] * new_vector.length, note.reload.embedding
+    assert_equal new_vector, source.reload.embedding
+  end
+
+  test "native reindex excludes notes from source reconstruction and its completion check" do
+    note, source = mixed_chunks
+    inputs = []
+    new_vector = [ 0.5 ] * 768
+
+    with_singleton_replacement(RubyLLM, :embed, ->(text, **) {
+      inputs << text
+      RubyLLM::Embedding.new(vectors: new_vector, model: "fake")
+    }) do
+      assert_queries_match(/SELECT "chunks"\.\*.*"chunks"\."chunkable_type" !=/) do
+        invoke_native_task("reindex")
+      end
+    end
+
+    assert_equal [ source.content ], inputs
+    assert_equal "vector(768)", embedding_column_type
+    assert_equal new_vector, source.reload.embedding
+    assert_equal "native-test-space", @native_root.join("storage/.native-embedding-fingerprint").read
+    refute @native_root.join("storage/.native-reindex-target").exist?
+    assert_nil note.reload.embedding
+  end
+
   private
+    def mixed_chunks
+      width = Chunk.columns_hash.fetch("embedding").limit
+      note = Note.save_draft!(account: @first, folder: @first.general_note_folder, draft_key: SecureRandom.uuid,
+        title: "Note vector", body_html: "")
+      stored_note = insert_picker_chunk(@first, note, "note content", [ 0.25 ] * width)
+      stored_source = insert_picker_chunk(@first, texts(:picker_first_text), "later source content", [ 0.25 ] * width)
+      [ stored_note, stored_source ]
+    end
+
     def prepare_empty_index
       invoke_native_task("prepare_empty_index")
     end

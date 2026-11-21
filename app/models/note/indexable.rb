@@ -107,7 +107,7 @@ module Note::Indexable
     end
 
     def embed_part(text)
-      Chunk.embed_text(text)
+      Chunk.embed_text(text, private_input: true)
     rescue RubyLLM::Error, Faraday::ParsingError
       raise EmbeddingError, "Embedding provider request failed", cause: nil
     rescue NoMethodError, TypeError, ArgumentError => error

@@ -112,8 +112,10 @@ namespace :nosia_native do
       end
       File.write(marker, target)
     end
-    Chunk.unscoped.where(embedding: nil).where.not(content: [ nil, "" ]).find_each(&:generate_embedding!)
-    raise "Incomplete embedding reconstruction" if Chunk.unscoped.where.not(content: [ nil, "" ]).where(embedding: nil).exists?
+    # Notes publish full generations in their worker, never through this legacy loop.
+    remaining_sources = Chunk.unscoped.without_notes.where.not(content: [ nil, "" ]).where(embedding: nil)
+    remaining_sources.find_each(&:generate_embedding!)
+    raise "Incomplete embedding reconstruction" if remaining_sources.exists?
     File.write(Rails.root.join("storage", ".native-embedding-fingerprint"), fingerprint)
     File.delete(marker)
     puts "native-index-rebuilt"

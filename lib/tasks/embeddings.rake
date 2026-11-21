@@ -31,7 +31,7 @@ namespace :embeddings do
     rebuild_confirmation = STDIN.gets.chomp.downcase
     if rebuild_confirmation == "yes"
       puts "Rebuilding existing embeddings... (this may take a while)"
-      Chunk.find_each(&:generate_embedding!)
+      Chunk.without_notes.find_each(&:generate_embedding!)
       puts "All embeddings have been rebuilt."
     else
       puts "Skipping rebuilding of existing embeddings."

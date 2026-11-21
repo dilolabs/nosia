@@ -357,6 +357,77 @@ class NoteIndexJobTest < ActiveJob::TestCase
     end if original_config
   end
 
+  test "HTTP error diagnostics never log note text or provider echoes across retries" do
+    note = draft("Synthetic note #{SecureRandom.hex}")
+    provider_only_text = "echo marker #{SecureRandom.hex}"
+    ordinary_source = "ordinary source #{SecureRandom.hex}"
+    log = Rails.root.join("log/test.log")
+    log_offset = log.size
+    RubyLLM.define_singleton_method(:embed, @original_embed)
+    output = StringIO.new
+    provider_logger = Logger.new(output, level: :debug)
+    calls = 0
+    ordinary_error = nil
+    stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+      stub.post("/v1/embeddings") do |request|
+        text = JSON.parse(request.body).fetch("input")
+        if text == note.title
+          calls += 1
+          if calls == 1
+            ordinary_error = Thread.new do
+              Chunk.embed_text(ordinary_source)
+            rescue RubyLLM::BadRequestError => error
+              error
+            end.value
+          end
+        else
+          assert_equal ordinary_source, text
+        end
+        message = text == note.title ? "#{provider_only_text}: #{text}" : text
+        [ 400, { "Content-Type" => "application/json" }, { error: { message: } }.to_json ]
+      end
+    end
+    adapter = Class.new(Faraday::Adapter::Test) do
+      define_method(:initialize) { |app, **| super(app, stubs, &nil) }
+    end
+    original_config = RubyLLM.config.dup
+    RubyLLM.configure do |config|
+      config.faraday_adapter = adapter
+      config.logger = provider_logger
+      config.log_bodies = true
+      config.redact_error_messages = false
+    end
+
+    # An installation may route RubyLLM events into its diagnostic log.
+    log_event = ->(_name, _started, _finished, _id, payload) do
+      provider_logger.info("Embedding event: #{payload.slice(:input, :exception).inspect}")
+    end
+    ActiveSupport::Notifications.subscribed(log_event, "embedding.ruby_llm") do
+      perform_enqueued_jobs only: Note::IndexJob do
+        Note::IndexJob.perform_later(note.id, note.embedding_generation)
+      end
+    end
+
+    assert_equal 3, calls
+    assert_equal "failed", note.reload.embedding_status
+    assert_empty note.chunks
+    assert_instance_of RubyLLM::BadRequestError, ordinary_error
+    assert_includes output.string, ordinary_source
+    assert_includes output.string, "error:", "ordinary HTTP diagnostics should still be logged"
+    assert_includes output.string, "Embedding event:", "ordinary instrumentation should still reach subscribers"
+    assert_same provider_logger, RubyLLM.logger
+    logs = output.string + File.read(log, nil, log_offset)
+    assert_not logs.include?(note.title), "the note text was recorded in a log"
+    assert_not logs.include?(provider_only_text), "the provider error payload was recorded in a log"
+  ensure
+    RubyLLM.configure do |config|
+      config.faraday_adapter = original_config.faraday_adapter
+      config.logger = original_config.logger
+      config.log_bodies = original_config.log_bodies
+      config.redact_error_messages = original_config.redact_error_messages
+    end if original_config
+  end
+
   test "an exhausted old provider attempt cannot fail a newer generation" do
     note = draft("Old version")
     generation = note.embedding_generation
