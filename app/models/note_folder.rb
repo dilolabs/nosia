@@ -47,9 +47,12 @@ class NoteFolder < ApplicationRecord
 
       # A normal save runs validation inside its transaction, so this lock lasts through the write.
       if Account.lock.exists?(id: account_id)
-        active_folders = self.class.active_in(account_id)
-        errors.add(:base, :invalid) if persisted? && !active_folders.exists?(id:)
-        errors.add(:parent, :invalid) if invalid_parent?(active_folders)
+        # Earlier validations or reads may have cached the tree before the lock.
+        self.class.uncached do
+          active_folders = self.class.active_in(account_id)
+          errors.add(:base, :invalid) if persisted? && !active_folders.exists?(id:)
+          errors.add(:parent, :invalid) if invalid_parent?(active_folders)
+        end
       else
         errors.add(:account, :invalid)
       end

@@ -1,6 +1,6 @@
 # A direct trash marker for one folder; its descendants need no markers.
 class NoteFolderTrashing < ApplicationRecord
-  belongs_to :note_folder, inverse_of: :trashing, touch: true
+  belongs_to :note_folder, inverse_of: :trashing
   belongs_to :account, default: -> { note_folder&.account }
 
   validate :account_matches_folder
@@ -21,7 +21,7 @@ class NoteFolderTrashing < ApplicationRecord
     end
 
     def lock_folder_account
-      # Lock the account before writing the marker or touching the folder.
+      # A destroy must lock the original account even if a rejected update left it dirty.
       Account.lock.find(new_record? ? account_id : account_id_in_database)
     end
 end

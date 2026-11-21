@@ -75,6 +75,26 @@ class NoteFolderTrashingTest < ActiveSupport::TestCase
     assert_equal @folder, marker.note_folder
   end
 
+  test "destroying a dirty marker locks its original account without touching the foreign folder" do
+    marker = @folder.create_trashing!
+    destination = note_folders(:private)
+    timestamp = Time.utc(2020, 1, 1)
+    destination.update!(updated_at: timestamp)
+    assert_raises(ActiveRecord::RecordInvalid) do
+      marker.update!(account: destination.account, note_folder: destination)
+    end
+    assert_equal destination, marker.note_folder
+
+    NoteFolderTrashing.transaction do
+      marker.destroy!
+
+      assert_account_lock_held
+    end
+
+    refute NoteFolderTrashing.exists?(marker.id)
+    assert_equal timestamp, destination.reload.updated_at
+  end
+
   private
     def assert_account_lock_held
       pool = ApplicationRecord.connection_pool

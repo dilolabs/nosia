@@ -3,7 +3,7 @@ class Account < ApplicationRecord
 
   belongs_to :owner, class_name: "User"
 
-  before_destroy :lock_for_mcp_authorization_cleanup, prepend: true
+  before_destroy :prepare_dependent_cleanup, prepend: true
 
   has_many :account_users, dependent: :destroy do
     def grant_to(users)
@@ -107,8 +107,9 @@ class Account < ApplicationRecord
   end
 
   private
-    def lock_for_mcp_authorization_cleanup
+    def prepare_dependent_cleanup
       Account.lock.find(id)
+      note_folders.reload
       McpAuthorization.uncached { McpAuthorization.where(account_id: id).find_each(&:retire!) }
     end
 end
