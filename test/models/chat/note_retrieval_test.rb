@@ -46,6 +46,48 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
     end
   end
 
+  test "the web job raises and logs a safe provider rejection without retaining the response" do
+    log = Rails.root.join("log/test.log")
+    log_offset = log.size
+    with_note_provider(error_response: provider_rejection("SECOND_NOTE_MARKER")) do |requests|
+      error = assert_raises(RubyLLM::BadRequestError) { ChatResponseJob.perform_now(@chat.id, "Question") }
+
+      assert_includes provider_text(requests), "SECOND_NOTE_MARKER"
+      diagnostics = File.read(log, nil, log_offset)
+      assert_includes diagnostics, "Error performing ChatResponseJob"
+      assert_not_includes diagnostics, "SECOND_NOTE_MARKER"
+      assert_equal "Note-context provider request failed", error.message
+      assert_nil error.response
+      assert_nil error.cause
+      assert_nil error.provider_message
+    end
+  end
+
+  test "an ordinary source-only provider rejection keeps its original message and response" do
+    with_note_provider(error_response: provider_rejection("SECOND_TEXT_MARKER")) do
+      error = assert_raises(RubyLLM::BadRequestError) { @chat.complete_with_nosia("Question") { |_| } }
+
+      assert_includes error.message, "SECOND_TEXT_MARKER"
+      assert_equal 400, error.response.status
+    end
+  end
+
+  test "a Faraday parsing error from a Note completion loses its wrapped exception and response" do
+    provider_error = ->(_request) do
+      raise Faraday::ParsingError.new(JSON::ParserError.new("SECOND_NOTE_MARKER"), { body: "SECOND_NOTE_MARKER" })
+    end
+
+    with_note_provider(after_request: provider_error) do |requests|
+      error = assert_raises(Faraday::ParsingError) { complete_web_turn }
+
+      assert_includes provider_text(requests), "SECOND_NOTE_MARKER"
+      assert_equal "Note-context provider request failed", error.message
+      assert_nil error.wrapped_exception
+      assert_nil error.response
+      assert_nil error.cause
+    end
+  end
+
   test "ineligible Notes do not crowd an eligible passage out of top-k" do
     ENV["RETRIEVAL_FETCH_K"] = "1"
     @second_chunk.update!(embedding: other_vector)

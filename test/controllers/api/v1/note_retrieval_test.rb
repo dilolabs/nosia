@@ -10,6 +10,22 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
   end
 
   [ false, true ].each do |stream|
+    test "a reflected Note completion error is safe in application logging (stream: #{stream})" do
+      log = Rails.root.join("log/test.log")
+      log_offset = log.size
+      with_note_provider(error_response: provider_rejection("FIRST_NOTE_MARKER")) do |requests|
+        post_completion(stream:, show_exceptions: :all)
+
+        assert_includes provider_text(requests), "FIRST_NOTE_MARKER"
+        assert_not_includes response.body, "FIRST_NOTE_MARKER"
+        assert_not_includes response.body, "data: [DONE]"
+        diagnostics = File.read(log, nil, log_offset)
+        assert_includes diagnostics, "RubyLLM::BadRequestError"
+        assert_not_includes diagnostics, "FIRST_NOTE_MARKER"
+        assert_includes diagnostics, "Note-context provider request failed"
+      end
+    end
+
     test "matching token retrieves and cites current Notes (stream: #{stream})" do
       ENV["GUARD_MODEL"] = "synthetic-notes-guard"
       with_note_provider do |requests|
@@ -180,28 +196,30 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
 
   test "Note relevance guards do not log provider errors that quote their input" do
     ENV["GUARD_MODEL"] = "synthetic-notes-guard"
-    fail_note_guard = ->(request) do
-      if provider_text([ request ]).include?("Context: FIRST_NOTE_MARKER")
-        raise RubyLLM::BadRequestError, "SYNTHETIC_NOTE_GUARD_ERROR_ECHO"
-      end
-    end
+    log = Rails.root.join("log/test.log")
+    log_offset = log.size
 
-    with_provider_debug_log do |log|
-      with_note_provider(after_request: fail_note_guard) do |requests|
+    with_provider_debug_log do |provider_log|
+      with_note_provider(error_response: provider_rejection("Context: FIRST_NOTE_MARKER")) do |requests|
         post_completion(stream: false)
 
         assert_response :success
         assert_includes provider_text(requests.first(1)), "FIRST_NOTE_MARKER"
-        assert_not_includes log.string, "SYNTHETIC_NOTE_GUARD_ERROR_ECHO"
+        assert_not_includes provider_log.string, "FIRST_NOTE_MARKER"
+        diagnostics = File.read(log, nil, log_offset)
+        assert_includes diagnostics, "Error determining context relevance: RubyLLM::BadRequestError"
+        assert_not_includes diagnostics, "FIRST_NOTE_MARKER"
         assert_includes provider_text(requests.select { |request| request["stream"] }), "FIRST_TEXT_MARKER"
+        assert_no_note_context(requests.select { |request| request["stream"] })
       end
     end
   end
 
   private
-    def post_completion(stream:, **legacy)
+    def post_completion(stream:, show_exceptions: :rescuable, **legacy)
       post "/v1/chat/completions", params: { model: "synthetic-notes-api", prompt: "Question", stream:, **legacy },
-        headers: { "Authorization" => "Bearer #{@token.plain_token}" }, as: :json
+        headers: { "Authorization" => "Bearer #{@token.plain_token}" },
+        env: { "action_dispatch.show_exceptions" => show_exceptions, "action_dispatch.show_detailed_exceptions" => false }, as: :json
     end
 
     def assert_completion_response(stream)

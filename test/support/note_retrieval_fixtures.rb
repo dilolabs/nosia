@@ -54,13 +54,17 @@ module NoteRetrievalFixtures
       [ 0.8, 0.6 ] + query_vector.drop(2)
     end
 
-    def with_note_provider(after_request: nil, tools_on_first_completion: false, stream_content: "Synthetic answer")
+    def with_note_provider(after_request: nil, error_response: nil, tools_on_first_completion: false, stream_content: "Synthetic answer")
       requests = []
       stubs = Faraday::Adapter::Test::Stubs.new
       stubs.post("/v1/chat/completions") do |env|
         request = JSON.parse(env.body)
         requests << request
         after_request&.call(request)
+        if (failure = error_response&.call(request))
+          next failure
+        end
+
         if env.request.on_data
           env.status = 200
           if tools_on_first_completion && requests.one?
@@ -104,6 +108,14 @@ module NoteRetrievalFixtures
 
     def provider_text(requests)
       requests.flat_map { |request| request.fetch("messages") }.pluck("content").join("\n")
+    end
+
+    def provider_rejection(marker)
+      ->(request) do
+        if provider_text([ request ]).include?(marker)
+          [ 400, { "content-type" => "application/json" }, { error: { message: "Rejected passage: #{marker}" } }.to_json ]
+        end
+      end
     end
 
     def with_provider_debug_log
