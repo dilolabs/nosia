@@ -1,5 +1,5 @@
-<%# locals: (id:, label:, close_on_focus_leave: false, icon: nil) %>
-<button type="button" popovertarget="<%= id %>" class="n-notes-button n-notes-menu-trigger<%= " n-notes-icon-button" if icon %>"
+<%# locals: (id:, label:, close_on_focus_leave: false, icon: nil, button_class: "n-notes-button") %>
+<button type="button" popovertarget="<%= id %>" class="<%= button_class %> n-notes-menu-trigger<%= " n-notes-icon-button" if icon %>"
         <%= tag.attributes(aria: { label: }, title: label) if icon %>>
   <% if icon %>
     <%= inline_svg "svg/#{icon}.svg", aria_hidden: true, class: "n-notes-icon" %>

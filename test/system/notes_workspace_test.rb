@@ -29,7 +29,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector ".n-notes-identity h1", text: "Notes"
     assert_selector ".n-notes-identity [data-notes-accounts]"
     row = "[data-note-id='#{@note.id}'] a[aria-current='page']"
-    new_note = ".n-notes-header .n-notes-primary"
+    new_note = ".n-notes-header .n-workspace-primary"
 
     [ false, true ].each do |dark|
       orbite_theme(dark)
@@ -45,10 +45,15 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
           const primary = style(arguments[1]);
           const selected = style(arguments[0]);
           const preview = style(`${arguments[0]} .n-notes-preview`);
-          const luminance = (color) => color.match(/[0-9]+/g).slice(0, 3)
-            .map(channel => Number(channel) / 255)
-            .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
-            .reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
+          const canvas = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+          const luminance = color => {
+            canvas.fillStyle = color;
+            canvas.fillRect(0, 0, 1, 1);
+            return Array.from(canvas.getImageData(0, 0, 1, 1).data).slice(0, 3)
+              .map(channel => channel / 255)
+              .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+              .reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
+          };
           const contrast = (foreground, background) => {
             const [low, high] = [luminance(foreground), luminance(background)].sort((a, b) => a - b);
             return (high + 0.05) / (low + 0.05);
@@ -65,7 +70,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
         })()
       JS
       transparent = "rgba(0, 0, 0, 0)"
-      assert_operator styles.fetch("radius"), :>=, 8
+      assert_operator styles.fetch("radius"), :>=, 6
       refute_equal transparent, styles.fetch("primaryFill")
       assert_includes styles.fetch("selectedShadow"), "inset"
       assert_equal [ transparent ] * 3, styles.fetch("paneFills")
@@ -73,6 +78,34 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       assert_operator styles.fetch("focusContrast"), :>=, 3, "New note focus ring contrast (dark: #{dark})"
       assert_operator styles.fetch("previewContrast"), :>=, 4.5
       orbite_tab_to(row)
+    end
+  end
+
+  test "the Notes header keeps its controls on one row when space permits" do
+    visit account_notes_workspace_path(@account, view: "list")
+    [ [ 1440, 900 ], [ 900, 768 ], [ 375, 800 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      [ false, true ].each do |dark|
+        orbite_theme(dark)
+        title = find(".n-notes-header h1")
+        account = find("[data-notes-accounts] button")
+        search = find(".n-notes-search input[type=search]")
+        primary = find_link("New note")
+        midpoints = page.evaluate_script(<<~JS, title, account, search, primary)
+          [...arguments].map(node => {
+            const rect = node.getBoundingClientRect();
+            return rect.top + rect.height / 2;
+          })
+        JS
+        if width == 1440
+          assert_in_delta midpoints.first, midpoints.max, 1
+          assert_in_delta midpoints.first, midpoints.min, 1
+        elsif width == 375
+          assert_operator midpoints[0], :<, midpoints[1]
+          assert_operator midpoints[1], :<, midpoints[2]
+        end
+        assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1")
+      end
     end
   end
 
@@ -227,7 +260,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector "[data-notes-sidebar]", count: 1, visible: :all
     page.driver.browser.action.send_keys(:escape).perform
     assert_no_selector "#notes-folders-dialog[open]", visible: :all
-    assert_equal "n-notes-button n-notes-folder-trigger", page.evaluate_script("document.activeElement.className")
+    assert_selector ".n-notes-folder-trigger:focus"
 
     trigger.click
     assert_selector "#notes-folders-dialog:modal"

@@ -24,8 +24,16 @@
 }
 
 .n-notes-identity { min-inline-size: 0; max-inline-size: min(24rem, 100%); }
-.n-notes-identity h1 { font-size: 1.5rem; font-weight: 650; line-height: 1.2; letter-spacing: -.025em; }
-.n-notes-identity [data-notes-accounts] > p { font-size: .8125rem; color: var(--orbite-muted); }
+.n-notes-identity h1:not(.n-workspace-title) { font-size: 1.5rem; font-weight: 650; line-height: 1.2; letter-spacing: -.025em; }
+.n-notes-identity [data-notes-accounts] > p:not(.n-workspace-scope) { font-size: .8125rem; color: var(--orbite-muted); }
+.n-notes-header .n-notes-identity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .375rem .75rem;
+}
+.n-notes-header [data-notes-accounts] { min-inline-size: 0; max-inline-size: 100%; }
+.n-notes-header [data-notes-accounts] > .n-workspace-scope { margin-block-start: 0; }
 
 .n-notes-actions, .n-notes-search {
   display: flex;
@@ -35,9 +43,9 @@
 }
 
 .n-notes-search { flex: 1 1 15rem; min-inline-size: 0; }
-.n-notes-search input[type="search"] { flex: 1 1 8rem; min-inline-size: 0; }
+.n-notes-search input[type="search"] { flex: 1 1 8rem; min-inline-size: 0; min-block-size: 2.75rem; }
 
-.n-notes :is(input[type="search"], input[type="text"], select, textarea) {
+.n-notes :is(input[type="search"], input[type="text"], select, textarea):not(:where(.n-notes-search .n-field)) {
   max-inline-size: 100%;
   min-block-size: 2.75rem;
   padding: .375rem .75rem;
@@ -71,7 +79,7 @@
   color: var(--orbite-on-accent);
 }
 .n-notes .n-notes-primary:hover { background: var(--orbite-accent); text-decoration: underline; }
-.n-notes .n-notes-button.n-notes-primary:focus-visible { outline-color: var(--orbite-on-accent); }
+.n-notes :is(.n-notes-button.n-notes-primary, .n-notes-header .n-workspace-primary):focus-visible { outline-color: var(--orbite-on-accent); }
 .n-notes-icon { inline-size: 1rem; block-size: 1rem; flex: none; }
 
 .n-notes-import { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; max-inline-size: 42rem; }
@@ -356,6 +364,7 @@
 
 @media (width < 48rem) {
   .n-notes-identity, .n-notes-search { flex-basis: 100%; }
+  .n-notes-header [data-notes-accounts] { flex-basis: 100%; }
   .n-notes-header .n-notes-actions { min-inline-size: 0; max-inline-size: 100%; }
   .n-notes:not([data-notes-screen="folders"]) .n-notes-sidebar-slot,
   .n-notes:not([data-notes-screen="list"]) .n-notes-list,

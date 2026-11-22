@@ -1,8 +1,9 @@
-<%# locals: (account:, memberships:) %>
+<%# locals: (account:, memberships:, compact: false) %>
 <div data-notes-accounts>
   <% if memberships.size > 1 %>
     <%= render layout: "notes/workspaces/dropdown",
-          locals: { id: "notes-accounts", label: t("nosia.notes.account", name: account.name), close_on_focus_leave: true } do %>
+          locals: { id: "notes-accounts", label: t("nosia.notes.account", name: account.name),
+                    close_on_focus_leave: true, button_class: compact ? "n-workspace-button" : "n-notes-button" } do %>
       <ul role="list" aria-label="<%= t("nosia.notes.switch_account") %>">
         <% memberships.each do |membership_account| %>
           <li><%= link_to membership_account.name, account_notes_workspace_path(membership_account),
@@ -11,6 +12,6 @@
       </ul>
     <% end %>
   <% else %>
-    <p><%= t("nosia.notes.account", name: account.name) %></p>
+    <%= tag.p t("nosia.notes.account", name: account.name), class: ("n-workspace-scope" if compact) %>
   <% end %>
 </div>
