@@ -83,6 +83,72 @@ class NoteImport::MarkdownTest < ActiveSupport::TestCase
     assert_equal "Cell", fragment.at_css("table td > a").text
   end
 
+  test "a wiki target on the next line remains inert without losing other literal wiki bindings" do
+    paths = [ "Plan.md", "A B.md", "A%20B.md", "Réunion.md" ]
+    source = "é [[A B|Same]] [[\r\nRéunion|Multiline]] [[A%20B|Same]] [[Réunion|Fin]]"
+    prepared = prepare(paths, source)
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "/accounts/1/notes/11", "Same" ], [ "/accounts/1/notes/12", "Same" ],
+      [ "/accounts/1/notes/13", "Fin" ] ], links(fragment)
+    assert_equal [ "\nRéunion" ], prepared.warnings.fetch(:examples).pluck(:target)
+    assert_includes fragment.text, "Multiline"
+  end
+
+  test "a blockquote marker change does not shift either identical-looking wiki destination" do
+    paths = [ "Plan.md", "A B.md", "A%20B.md", "Réunion.md" ]
+    source = "> é [[A B|Same]] [[\n> Réunion|Multiline]] [[A%20B|Same]] [[Réunion|Fin]]"
+    prepared = prepare(paths, source)
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "/accounts/1/notes/11", "Same" ], [ "/accounts/1/notes/12", "Same" ],
+      [ "/accounts/1/notes/13", "Fin" ] ], links(fragment.at_css("blockquote"))
+    assert_equal 1, prepared.warnings.fetch(:count)
+    assert_includes fragment.text, "Multiline"
+  end
+
+  test "embed captions are entirely inert without touching code or escaped embed syntax" do
+    paths = [ "Plan.md", "Target.md" ]
+    source = <<~'MD'
+      Before ![[Diagram.png|caption <person@example.org> and [reference](Target.md)]] after
+      [Outside](https://example.org/notes)
+      [[Target]] `![[Diagram.png|<code@example.org>]]`
+
+      \!\[[Diagram.png|<escaped@example.org>]] \![[Target|Escaped bang]]
+
+      ```
+      ![[Diagram.png|<fenced@example.org>]]
+      ```
+    MD
+    prepared = prepare(paths, source)
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "https://example.org/notes", "Outside" ], [ "/accounts/1/notes/11", "Target" ],
+      [ "mailto:escaped@example.org", "escaped@example.org" ], [ "/accounts/1/notes/11", "Escaped bang" ] ], links(fragment)
+    assert_includes fragment.text, "Before ![[Diagram.png|caption <person@example.org> and [reference](Target.md)]] after"
+    assert_equal [ "![[Diagram.png|<code@example.org>]]", "![[Diagram.png|<fenced@example.org>]]\n" ], fragment.css("code").map(&:text)
+    assert_empty fragment.css("img, picture, video, audio, source, embed, object, a a")
+    assert_equal 0, prepared.warnings.fetch(:count)
+  end
+
+  test "embed detection does not change an external autolink with brackets in its URL" do
+    paths = [ "Plan.md" ]
+    prepared = prepare(paths, "Autolink: https://example.org/![[Diagram]] and <outside@example.org>")
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "https://example.org/!%5B%5BDiagram%5D%5D", "https://example.org/![[Diagram]]" ],
+      [ "mailto:outside@example.org", "outside@example.org" ] ], links(fragment)
+  end
+
+  test "an embed inside a link label remains inert and the original destination stays readable" do
+    paths = [ "Plan.md", "Target.md" ]
+    prepared = prepare(paths, "[Before ![[Diagram.png|caption]] after](Target.md) [[Target|Outside]]")
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "/accounts/1/notes/11", "Outside" ] ], links(fragment)
+    assert_includes fragment.text, "Before ![[Diagram.png|caption]] after (Target.md)"
+  end
+
   test "does not convert escaped or code wiki text or create nested anchors" do
     paths = [ "Plan.md", "Target.md" ]
     source = <<~'MD'

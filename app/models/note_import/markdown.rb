@@ -2,6 +2,7 @@
 
 require "commonmarker"
 require "digest"
+require "set"
 require "strscan"
 
 # Prepares notes and resolves links without a database, filesystem, or network.
@@ -91,6 +92,8 @@ class NoteImport::Markdown
     if (front_matter = source[FRONT_MATTER])
       source = source.delete_prefix(front_matter)
     end
+    embeds = Embeds.new(source)
+    source = embeds.mask
     document = Commonmarker.parse(source, options: OPTIONS)
     rendered_markdown = document.to_html(options: OPTIONS, plugins: PLUGINS)
     html = rendered_markdown
@@ -102,7 +105,8 @@ class NoteImport::Markdown
     fragment = parse_fragment(html, path)
     remove_media(fragment)
     wiki = WikiSource.new(source, rendered_markdown)
-    links, warnings = prepare_links(fragment, document, wiki, path)
+    links, warnings = prepare_links(fragment, document, wiki, embeds.masked_anchors(fragment), path)
+    embeds.restore(fragment)
     html = fragment.to_html
     check_size(html, path)
     @remaining_examples -= warnings.fetch(:examples).size
@@ -129,7 +133,7 @@ class NoteImport::Markdown
       end
     end
 
-    def prepare_links(fragment, document, wiki_source, path)
+    def prepare_links(fragment, document, wiki_source, embedded_anchors, path)
       anchors = fragment.css("a")
       markdown_anchors = anchors.reject { |anchor| anchor.key?("data-wikilink") }
       wiki_anchors = anchors.select { |anchor| anchor["data-wikilink"] == "true" }
@@ -138,6 +142,11 @@ class NoteImport::Markdown
       examples = []
       count = 0
       links = anchors.filter_map do |anchor|
+        if embedded_anchors.include?(anchor)
+          unlink(anchor, markdown[anchor] || anchor.text)
+          next
+        end
+
         if anchor.key?("data-wikilink")
           raw = wiki[anchor]
           target = raw && @targets.resolve_wiki(raw)
@@ -208,12 +217,14 @@ class NoteImport::Markdown
     # multiline inlines and tables. A second, detached parse tags lexical wiki
     # openings; only tags on parser-generated wiki anchors can identify a target.
     class WikiSource
-      OPENING = /\[\[[ \t]*+(?=(?:[^\[\]\\]|\\.){0,2002}\]\])/m
+      OPENING = /\[\[[ \t\n]*+(?=(?:[^\[\]\\]|\\.){0,2002}\]\])/m
       TARGET = /(?:[^\[\]|\\]|\\[[:punct:]]|\\(?![[:punct:]]))*/
       TABLE_TARGET = /(?:[^\[\]|\\]|\\(?!\|)[[:punct:]]|\\(?![[:punct:]]))*/
       MARKER_PREFIX = "nosiawikiref"
       MAX_COMPONENT_BYTES = 1_000 # Comrak's wiki target/label limit.
       VERBATIM_RUN = /[a-zA-Z0-9_.~\/\-\u0080-\u{10ffff}]+/
+      # Only Commonmarker's generated wiki anchors have this markup. Raw HTML is escaped.
+      ANCHOR = %r{<a href="([^"]*)" data-wikilink="true">.*?</a>}m
 
       def initialize(source, html)
         @source = source
@@ -229,24 +240,58 @@ class NoteImport::Markdown
         marker = /#{prefix}(\d+)z/
         shadow, replacements = mark_source(prefix)
         witnessed = Commonmarker.to_html(shadow, options: OPTIONS, plugins: PLUGINS)
-        # Check the entire renderer output, not only link count/href. False
-        # lexical matches in code or escaped text must not alter the parse.
-        return {} unless same_rendering?(witnessed, marker, replacements)
+        originals = wiki_spans(@html)
+        return {} unless originals.size == anchors.size
 
-        witnesses = Nokogiri::HTML5.fragment(witnessed).css('a[data-wikilink="true"]')
-        return {} unless witnesses.size == anchors.size
-
+        witnesses = wiki_spans(witnessed)
+        pairs = verified_pairs(originals, witnessed, witnesses, marker, replacements)
         scanner = StringScanner.new(@source)
-        anchors.zip(witnesses).to_h do |anchor, witness|
-          if (match = witness["href"].match(marker))
+        pairs.to_h do |index, witness|
+          anchor = anchors.fetch(index)
+          if (match = witness[1].match(marker))
             scanner.pos = match[1].to_i
-            target = scanner.scan(witness.ancestors("td, th").empty? ? TARGET : TABLE_TARGET)
+            target = scanner.scan(anchor.ancestors("td, th").empty? ? TARGET : TABLE_TARGET)
           end
           [ anchor, match && target ]
         end
       end
 
       private
+        def wiki_spans(html)
+          spans = []
+          html.scan(ANCHOR) { spans << Regexp.last_match }
+          spans
+        end
+
+        def verified_pairs(originals, html, witnesses, marker, replacements)
+          # Match each anchor with its exact surrounding renderer output. If
+          # marking changes a parse, keep the proven prefix and suffix without
+          # pairing anything across the changed region.
+          pairs = {}
+          left = right = 0
+          size = [ originals.size, witnesses.size ].min
+          size.times do |index|
+            original, witness = originals[index], witnesses[index]
+            break unless same_rendering?(@html.byteslice(left...original.byteend(0)),
+              html.byteslice(right...witness.byteend(0)), marker, replacements)
+
+            pairs[index] = witness
+            left, right = original.byteend(0), witness.byteend(0)
+          end
+
+          left, right = @html.bytesize, html.bytesize
+          (size - pairs.size).times do |distance|
+            index = originals.size - distance - 1
+            original, witness = originals[index], witnesses[-distance - 1]
+            break unless same_rendering?(@html.byteslice(original.bytebegin(0)...left),
+              html.byteslice(witness.bytebegin(0)...right), marker, replacements)
+
+            pairs[index] = witness
+            left, right = original.bytebegin(0), witness.bytebegin(0)
+          end
+          pairs
+        end
+
         def mark_source(prefix)
           scanner = StringScanner.new(@source)
           output = +""
@@ -270,28 +315,130 @@ class NoteImport::Markdown
           [ output << scanner.rest, replacements ]
         end
 
-        def same_rendering?(witnessed, marker, replacements)
+        def same_rendering?(original, witnessed, marker, replacements)
           original_offset = shadow_offset = 0
           witnessed.scan(marker) do |(id)|
             match = Regexp.last_match
             unchanged = witnessed.byteslice(shadow_offset...match.bytebegin(0))
-            return false unless unchanged == @html.byteslice(original_offset, unchanged.bytesize)
+            return false unless unchanged == original.byteslice(original_offset, unchanged.bytesize)
 
             original_offset += unchanged.bytesize
             shadow_offset = match.byteend(0)
             if (raw = replacements[id.to_i])
-              restored = if raw == @html.byteslice(original_offset, raw.bytesize)
+              restored = if raw == original.byteslice(original_offset, raw.bytesize)
                 raw
               else
                 URI::DEFAULT_PARSER.escape(raw.b, /[^\x00-\x7f]/n)
               end
-              return false unless restored == @html.byteslice(original_offset, restored.bytesize)
+              return false unless restored == original.byteslice(original_offset, restored.bytesize)
 
               original_offset += restored.bytesize
             end
           end
-          witnessed.byteslice(shadow_offset..) == @html.byteslice(original_offset..)
+          witnessed.byteslice(shadow_offset..) == original.byteslice(original_offset..)
         end
     end
     private_constant :WikiSource
+
+    # Commonmarker has no embed node. Probe the candidate openings in one AST
+    # to distinguish inline text from code, HTML, and link destinations. Only
+    # mask those inline spans; restore them as literal DOM text after linking.
+    class Embeds
+      TOKENS = /\\[[:punct:]]|!\[\[|[\[\]\n]/
+
+      def initialize(source)
+        @source = source
+        @prefix = "nosiaembed#{Digest::SHA256.hexdigest(source)[0, 12]}z"
+        @marker = /#{@prefix}(\d+)z/
+        @masked = {}
+      end
+
+      def mask
+        return @source unless @source.include?("![[")
+
+        spans = candidate_spans
+        return @source if spans.empty?
+
+        actual = inline_openings(replace_spans(spans, probe: true))
+        replace_spans(spans.select { |start, _| actual.include?(start) }, probe: false)
+      end
+
+      def masked_anchors(fragment)
+        return Set.new if @masked.empty?
+
+        fragment.css("a").select do |anchor|
+          anchor.text.to_enum(:scan, @marker).any? { @masked.key?(Regexp.last_match[0]) }
+        end.to_set
+      end
+
+      def restore(fragment)
+        unless @masked.empty?
+          fragment.xpath(".//text()").each do |node|
+            if node.content.match?(@marker)
+              node.content = node.content.gsub(@marker) { |token| @masked.fetch(token, token) }
+            end
+          end
+        end
+      end
+
+      private
+        def candidate_spans
+          scanner = StringScanner.new(@source)
+          brackets = []
+          spans = []
+          while scanner.scan_until(TOKENS)
+            case scanner.matched
+            # Obsidian embeds are inline: don't use a bracket on another
+            # line to claim unrelated Markdown belongs to the caption.
+            when "\n"
+              brackets.clear
+            when "![[" then brackets.push(scanner.pos - 3, nil)
+            when "[" then brackets.push(nil)
+            when "]"
+              if (start = brackets.pop) && @source.getbyte(scanner.pos - 2) == "]".ord
+                spans << [ start, scanner.pos ]
+              end
+            end
+          end
+          spans.sort_by(&:first)
+        end
+
+        def replace_spans(spans, probe:)
+          source = +""
+          offset = 0
+          spans.each do |start, finish|
+            next if start < offset
+
+            token = "#{@prefix}#{start}z"
+            if probe
+              source << @source.byteslice(offset..start) << token
+              offset = start + 1
+            else
+              source << @source.byteslice(offset...start) << token
+              @masked[token] = @source.byteslice(start...finish)
+              offset = finish
+            end
+          end
+          source << @source.byteslice(offset..)
+        end
+
+        def inline_openings(probe)
+          document = Commonmarker.parse(probe, options: OPTIONS)
+          openings = Set.new
+          stack = [ document ]
+          until stack.empty?
+            node = stack.pop
+            if node.type == :text
+              node.string_content.scan(/!#{@marker}/) { |(offset)| openings.add(offset.to_i) }
+            end
+            # A token in a URL is not an embed, even if the URL is also the
+            # displayed label (as in an automatic link).
+            unless node.type == :link && node.url.match?(@marker)
+              node.each { |child| stack << child }
+            end
+          end
+          openings
+        end
+    end
+    private_constant :Embeds
 end
