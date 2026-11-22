@@ -71,42 +71,44 @@ class NotesImportRequestLimitTest < ActiveSupport::TestCase
     assert_empty body
   end
 
-  test "Rack multipart metadata errors return a safe 400 and remove partial temporary files" do
-    original_parser = Rack::Multipart.method(:parse_multipart)
-    files = []
-    factory = ->(*) { Tempfile.new("notes-import-test").tap { |file| files << [ file, file.path ] } }
-    env = request_env(path: BATCHES_PATH, content_type: MULTIPART_TYPE, extra: {
-      Rack::RACK_MULTIPART_TEMPFILE_FACTORY => factory,
-      "HTTP_ACCEPT_LANGUAGE" => "fr"
-    })
-    Rack::Multipart.define_singleton_method(:parse_multipart) do |parser_env, _params|
-      parser_env.fetch(Rack::RACK_MULTIPART_TEMPFILE_FACTORY).call("ignored.md", "text/markdown")
-      raise NoMethodError, "private multipart metadata"
+  [ NoMethodError, TypeError ].each do |error_class|
+    test "Rack multipart #{error_class} returns a safe 400 and removes partial temporary files" do
+      original_parser = Rack::Multipart.method(:parse_multipart)
+      files = []
+      factory = ->(*) { Tempfile.new("notes-import-test").tap { |file| files << [ file, file.path ] } }
+      env = request_env(path: BATCHES_PATH, content_type: MULTIPART_TYPE, extra: {
+        Rack::RACK_MULTIPART_TEMPFILE_FACTORY => factory,
+        "HTTP_ACCEPT_LANGUAGE" => "fr"
+      })
+      Rack::Multipart.define_singleton_method(:parse_multipart) do |parser_env, _params|
+        parser_env.fetch(Rack::RACK_MULTIPART_TEMPFILE_FACTORY).call("ignored.md", "text/markdown")
+        raise error_class, "private multipart metadata"
+      end
+
+      status, headers, body = rejecting_middleware.call(env)
+      assert_equal 400, status
+      assert_equal "no-store", headers.fetch("cache-control")
+      assert_equal "fr", headers.fetch("content-language")
+      assert_equal({ "error" => "invalid_request", "message" => I18n.t("nosia.notes.imports.errors.invalid_request", locale: :fr) },
+        JSON.parse(body.join))
+      assert_same factory, env.fetch(Rack::RACK_MULTIPART_TEMPFILE_FACTORY)
+      file, path = files.sole
+      assert_predicate file, :closed?
+      refute_path_exists path
+    ensure
+      Rack::Multipart.define_singleton_method(:parse_multipart, original_parser)
+      files.each { |file, _path| file.close! }
     end
 
-    status, headers, body = rejecting_middleware.call(env)
-    assert_equal 400, status
-    assert_equal "no-store", headers.fetch("cache-control")
-    assert_equal "fr", headers.fetch("content-language")
-    assert_equal({ "error" => "invalid_request", "message" => I18n.t("nosia.notes.imports.errors.invalid_request", locale: :fr) },
-      JSON.parse(body.join))
-    assert_same factory, env.fetch(Rack::RACK_MULTIPART_TEMPFILE_FACTORY)
-    file, path = files.sole
-    assert_predicate file, :closed?
-    refute_path_exists path
-  ensure
-    Rack::Multipart.define_singleton_method(:parse_multipart, original_parser)
-    files.each { |file, _path| file.close! }
-  end
+    test "a downstream #{error_class} is not handled as multipart input" do
+      downstream_error = error_class.new("unexpected downstream error")
+      middleware = NotesImportRequestLimit.new(->(*) { raise downstream_error }, [ /\A/ ])
+      body = "--RackTestBoundary--\r\n"
+      env = request_env(path: BATCHES_PATH, length: body.bytesize.to_s, content_type: MULTIPART_TYPE,
+        extra: { Rack::RACK_INPUT => StringIO.new(body) })
 
-  test "a downstream NoMethodError is not handled as multipart input" do
-    downstream_error = NoMethodError.new("unexpected downstream error")
-    middleware = NotesImportRequestLimit.new(->(*) { raise downstream_error }, [ /\A/ ])
-    body = "--RackTestBoundary--\r\n"
-    env = request_env(path: BATCHES_PATH, length: body.bytesize.to_s, content_type: MULTIPART_TYPE,
-      extra: { Rack::RACK_INPUT => StringIO.new(body) })
-
-    assert_same downstream_error, assert_raises(NoMethodError) { middleware.call(env) }
+      assert_same downstream_error, assert_raises(error_class) { middleware.call(env) }
+    end
   end
 
   private
