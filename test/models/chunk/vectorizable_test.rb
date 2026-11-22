@@ -78,14 +78,19 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
     end
   end
 
-  test "ordinary source embeddings honor configured HTTP body logging" do
+  test "ordinary source embeddings honor configured HTTP retries and body logging" do
     output = StringIO.new
     request_marker = "source-request-#{SecureRandom.hex}"
     response_marker = "source-response-#{SecureRandom.hex}"
     vector = [ 1.0 ] + Array.new(Chunk.columns_hash.fetch("embedding").limit - 1, 0.0)
+    requests = []
     stubs = Faraday::Adapter::Test::Stubs.new do |stub|
       stub.post("/v1/embeddings") do |request|
-        assert_equal request_marker, JSON.parse(request.body).fetch("input")
+        requests << JSON.parse(request.body).fetch("input")
+        if requests.one?
+          next [ 503, { "Content-Type" => "application/json" }, { error: { message: "Synthetic service outage" } }.to_json ]
+        end
+
         body = { data: [ { embedding: vector } ], diagnostic: response_marker }
         [ 200, { "Content-Type" => "application/json" }, body.to_json ]
       end
@@ -98,12 +103,15 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
       config.faraday_adapter = adapter
       config.logger = Logger.new(output, level: :debug)
       config.log_bodies = true
+      config.max_retries = 1
+      config.retry_interval = 0
     end
 
     @chunk.chunkable = @account.websites.create!(url: "https://embedding.example")
     @chunk.content = request_marker
     @chunk.save!
 
+    assert_equal [ request_marker, request_marker ], requests
     assert_equal vector, @chunk.reload.embedding
     assert_includes output.string, request_marker
     assert_includes output.string, response_marker
@@ -113,6 +121,8 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
         config.faraday_adapter = previous.faraday_adapter
         config.logger = previous.logger
         config.log_bodies = previous.log_bodies
+        config.max_retries = previous.max_retries
+        config.retry_interval = previous.retry_interval
       end
     end
   end

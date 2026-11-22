@@ -12,7 +12,7 @@ module Chunk::Vectorizable
   class_methods do
     # Requests one text embedding using the configured source embedding provider.
     # @param text [String] Text to embed.
-    # @param private_input [Boolean] Keep request and provider diagnostics out of logs.
+    # @param private_input [Boolean] Suppress provider diagnostics and leave retries to Note indexing.
     # @return [RubyLLM::Embedding] The vector and normalized usage.
     # @raise [RubyLLM::Error] If the provider request fails.
     def embed_text(text, private_input: false)
@@ -20,6 +20,8 @@ module Chunk::Vectorizable
         config.openai_api_base = ENV["EMBEDDING_BASE_URL"] || ENV["AI_BASE_URL"]
         config.openai_api_key = ENV["AI_API_KEY"]
         if private_input
+          # Only the Note job can recheck generation and visibility before retrying.
+          config.max_retries = 0
           # Faraday logs exception messages separately from bodies. The default
           # instrumenter also exposes input and exceptions to log subscribers.
           config.log_bodies = false

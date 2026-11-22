@@ -284,6 +284,64 @@ class NoteIndexJobTest < ActiveJob::TestCase
     assert_empty note.chunks
   end
 
+  %i[ edit trash purge ].each do |mutation|
+    test "a retryable HTTP failure does not resend a private embedding after a committed #{mutation}" do
+      note = draft("Private generation")
+      generation = note.embedding_generation
+      clear_enqueued_jobs
+      requests = []
+      receive = ->(text) do
+        requests << text
+        change_note_on_another_connection(note.id, mutation) if requests.one?
+        [ 503, { error: { message: "Synthetic service outage" } } ]
+      end
+
+      with_embedding_http_adapter(receive) do
+        assert_enqueued_with job: Note::IndexJob, args: [ note.id, generation ] do
+          Note::IndexJob.perform_now(note.id, generation)
+        end
+        assert_equal [ "Private generation" ], requests, "the SDK must not resend the ineligible part"
+
+        assert_performed_jobs 1, only: Note::IndexJob do
+          perform_enqueued_jobs only: Note::IndexJob, at: 10.seconds.from_now
+        end
+        assert_equal [ "Private generation" ], requests, "the queued retry must recheck eligibility before sending"
+        assert_empty Chunk.where(chunkable: note)
+      end
+    end
+  end
+
+  test "the queued retry can publish a still-current generation after an HTTP outage" do
+    note = draft("Current generation")
+    generation = note.embedding_generation
+    clear_enqueued_jobs
+    requests = []
+    receive = ->(text) do
+      requests << text
+      if requests.one?
+        [ 503, { error: { message: "Synthetic service outage" } } ]
+      else
+        [ 200, { data: [ { embedding: @vector } ], usage: { prompt_tokens: 8 } } ]
+      end
+    end
+
+    with_embedding_http_adapter(receive) do
+      assert_enqueued_with job: Note::IndexJob, args: [ note.id, generation ] do
+        Note::IndexJob.perform_now(note.id, generation)
+      end
+      assert_equal [ "Current generation" ], requests
+      assert_equal "pending", note.reload.embedding_status
+      assert_empty note.chunks
+
+      assert_difference -> { @account.reload.input_tokens_count }, 8 do
+        perform_enqueued_jobs only: Note::IndexJob
+      end
+      assert_equal [ "Current generation", "Current generation" ], requests
+      assert_equal [ "ready", generation ], note.reload.values_at(:embedding_status, :indexed_generation)
+      assert_equal @vector, note.chunks.sole.embedding
+    end
+  end
+
   test "the final generation check locks the note row against a native reset" do
     note = draft("Active generation")
     fake_provider { embedding_result }
@@ -860,6 +918,49 @@ class NoteIndexJobTest < ActiveJob::TestCase
       Note::IndexJob.perform_now(note.id, note.embedding_generation)
     ensure
       fake_provider { flunk "unexpected embedding request" }
+    end
+
+    def with_embedding_http_adapter(respond)
+      original_config = RubyLLM.config.dup
+      RubyLLM.define_singleton_method(:embed, @original_embed)
+      stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+        stub.post("/v1/embeddings") do |request|
+          status, body = respond.call(JSON.parse(request.body).fetch("input"))
+          [ status, { "Content-Type" => "application/json" }, body.to_json ]
+        end
+      end
+      adapter = Class.new(Faraday::Adapter::Test) do
+        define_method(:initialize) { |app, **| super(app, stubs, &nil) }
+      end
+      RubyLLM.configure do |config|
+        config.faraday_adapter = adapter
+        config.max_retries = 1
+        config.retry_interval = 0
+      end
+      yield
+    ensure
+      RubyLLM.configure do |config|
+        config.faraday_adapter = original_config.faraday_adapter
+        config.max_retries = original_config.max_retries
+        config.retry_interval = original_config.retry_interval
+      end
+    end
+
+    def change_note_on_another_connection(note_id, mutation)
+      writer = Thread.new do
+        Note.with_connection do
+          note = Note.find(note_id)
+          case mutation
+          when :edit then edit(note, "New generation")
+          when :trash then note.trash
+          when :purge then note.trash.purge(by: @owner)
+          end
+        end
+      end
+      assert writer.join(5), "the lifecycle mutation must commit before returning the HTTP failure"
+      writer.value
+    ensure
+      writer.kill if writer&.alive?
     end
 
     def while_computing(note, generation)
