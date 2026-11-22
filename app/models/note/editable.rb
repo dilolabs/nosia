@@ -22,11 +22,7 @@ module Note::Editable
     # @raise [Note::Unavailable] If the saved draft is no longer active.
     # @raise [ActiveRecord::RecordInvalid] If the draft inputs are invalid.
     def save_draft!(account:, folder:, draft_key:, title:, body_html:)
-      draft = new
-      draft.account_id = account.id if account.is_a?(Account) && account.persisted?
-      draft.note_folder_id = folder.id if folder.is_a?(NoteFolder) && folder.persisted?
-      draft.draft_key = draft_key if draft_key.is_a?(String) && draft_key.ascii_only? && UUID_SHAPE.match?(draft_key)
-      %i[account_id note_folder_id draft_key].each { |field| draft.errors.add(field, :invalid) unless draft[field] }
+      draft = build_draft(account:, folder:, draft_key:)
       title, body = Note::Editable.canonical_content(draft, title:, body_html:)
 
       transaction(requires_new: true) do
@@ -39,7 +35,32 @@ module Note::Editable
       end
     end
 
+    # @api private
+    # First-saves final imported content inside the publisher's account lock and transaction.
+    # @param account [Account] Locked owner of the note.
+    # @param folder [NoteFolder] Active destination in that account.
+    # @param reserved_id [Integer] Server-owned primary key reserved from the Notes sequence.
+    # @param title [String] Filename-derived title.
+    # @param body_html [String] Final rendered HTML with resolved Notes URLs.
+    # @return [Note] The saved note at revision one.
+    # @raise [ActiveRecord::RecordInvalid] If the destination or content is invalid.
+    def save_imported_note!(account:, folder:, reserved_id:, title:, body_html:)
+      draft = build_draft(account:, folder:, draft_key: SecureRandom.uuid)
+      draft.id = reserved_id
+      title, body = Note::Editable.canonical_content(draft, title:, body_html:)
+      Note::Editable.persist_content(draft, title:, body:)
+    end
+
     private
+      def build_draft(account:, folder:, draft_key:)
+        new.tap do |draft|
+          draft.account_id = account.id if account.is_a?(Account) && account.persisted?
+          draft.note_folder_id = folder.id if folder.is_a?(NoteFolder) && folder.persisted?
+          draft.draft_key = draft_key if draft_key.is_a?(String) && draft_key.ascii_only? && UUID_SHAPE.match?(draft_key)
+          %i[account_id note_folder_id draft_key].each { |field| draft.errors.add(field, :invalid) unless draft[field] }
+        end
+      end
+
       def save_or_replay(draft, title:, body:)
         account_id = draft.account_id
         existing = find_by(account_id:, draft_key: draft.draft_key)

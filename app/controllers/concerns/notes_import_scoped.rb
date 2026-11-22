@@ -26,7 +26,7 @@ module NotesImportScoped
     end
 
     def import_progress(import)
-      { status: import.status, uploaded_count: import.staged_files.count, total: import.manifest.size }
+      { status: import.status, uploaded_count: import.uploaded_count, total: import.manifest.size }
     end
 
     def render_import_error(error)

@@ -1,5 +1,7 @@
 # One member's private upload and retry-safe receipt for a Notes folder import.
 class NoteImport < ApplicationRecord
+  include Lifecycle, Publication
+
   DESTROY_ONLY = "Note imports must be destroyed with their staged files".freeze
 
   # Bulk deletion skips the locked cleanup used by receipt and account destruction.
@@ -113,6 +115,11 @@ class NoteImport < ApplicationRecord
         update!(status: :sealed, sealed_at: now, activity_at: now)
       end
     end
+  end
+
+  # @return [Integer] Accepted files, including completed uploads whose staging has been purged.
+  def uploaded_count
+    sealed_at? ? manifest.size : staged_files.count
   end
 
   # @api private

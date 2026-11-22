@@ -1,4 +1,4 @@
-# Seals complete uploads without publishing or enqueueing here.
+# Seals complete uploads before scheduling background publication.
 class Notes::Imports::SealsController < ApplicationController
   include NotesImportScoped
 
@@ -6,6 +6,7 @@ class Notes::Imports::SealsController < ApplicationController
   def create
     import = import_receipt(:note_import_id)
     seal(import)
+    import.enqueue_publication if import.sealed?
     status = NoteImport::TERMINAL_STATUSES.include?(import.status) ? :ok : :accepted
     render json: import_progress(import), status:
   end

@@ -22,8 +22,8 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
     sign_in @initiator
   end
 
-  test "start, stage, and seal a private receipt without publishing or enqueueing" do
-    assert_no_enqueued_jobs do
+  test "start, stage, and seal a private receipt with one enqueue but no publication" do
+    assert_enqueued_jobs 1 do
       assert_no_difference [ "Note.count", "NoteFolder.count" ] do
         receipt = start_receipt
         assert_equal "uploading", receipt.fetch("status")
@@ -38,13 +38,13 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
 
         post_json receipt.fetch("seal_url"), {}
         assert_response :accepted
-        assert_equal({ "status" => "sealed", "uploaded_count" => 1, "total" => 1 }, private_json)
-        assert_predicate @account.note_imports.sole, :sealed?
+        assert_equal({ "status" => "queued", "uploaded_count" => 1, "total" => 1 }, private_json)
+        assert_predicate @account.note_imports.sole, :queued?
         assert_not_nil @account.note_imports.sole.sealed_at
 
         get receipt.fetch("status_url"), headers: JSON_HEADERS
         assert_response :ok
-        assert_equal({ "status" => "sealed", "uploaded_count" => 1, "total" => 1 }, private_json)
+        assert_equal({ "status" => "queued", "uploaded_count" => 1, "total" => 1 }, private_json)
       end
     end
   end
@@ -94,13 +94,31 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
     assert_response :accepted
     sealed_at = record.reload.sealed_at
     travel 1.minute do
-      post_json receipt.fetch("seal_url"), {}
+      assert_no_enqueued_jobs { post_json receipt.fetch("seal_url"), {} }
       assert_response :accepted
       assert_equal sealed_at, record.reload.sealed_at
     end
 
     post_batch receipt.fetch("batch_url")
     assert_error 409, "not_uploading"
+  end
+
+  test "progress remains complete after sealed staging is purged but not for an expired upload" do
+    record = seed_import
+    record.stage!([ { path: PATH, bytes: MARKDOWN } ])
+    record.seal!
+    record.update!(status: :succeeded)
+    record.purge_staging!
+    get "#{imports_path}/#{record.id}", headers: JSON_HEADERS
+    assert_response :ok
+    assert_equal({ "status" => "succeeded", "uploaded_count" => 1, "total" => 1 }, private_json)
+
+    expired = seed_import
+    expired.update!(status: :expired)
+    expired.purge_staging!
+    get "#{imports_path}/#{expired.id}", headers: JSON_HEADERS
+    assert_response :ok
+    assert_equal({ "status" => "expired", "uploaded_count" => 0, "total" => 1 }, private_json)
   end
 
   test "sealing a terminal receipt returns its status without changing it" do
