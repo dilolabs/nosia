@@ -1,0 +1,11 @@
+<% content_for :title, t("nosia.notes.imports.status_title") %>
+<% turbo_exempts_page_from_cache %>
+
+<section class="n-notes">
+  <h1><%= t("nosia.notes.imports.status_title") %></h1>
+  <div role="status">
+    <p><%= t("nosia.notes.imports.statuses.#{progress.fetch(:status)}") %></p>
+    <p><%= t("nosia.notes.imports.progress", uploaded: progress.fetch(:uploaded_count), total: progress.fetch(:total)) %></p>
+  </div>
+  <%= link_to t("nosia.notes.back_to_notes"), account_notes_workspace_path(@account) %>
+</section>

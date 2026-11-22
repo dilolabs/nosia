@@ -6,6 +6,46 @@ en:
       destinations:
         notes: Notes
     notes:
+      imports:
+        new_title: Import a Markdown folder
+        not_ready: Folder selection is not available yet.
+        status_title: Import status
+        progress: "Files uploaded: %{uploaded} of %{total}"
+        statuses:
+          uploading: Waiting for files
+          sealed: Upload complete
+          queued: Waiting to import
+          running: Importing notes
+          succeeded: Notes imported
+          failed: Import failed
+          expired: Upload expired
+        errors:
+          not_found: This import was not found.
+          invalid_request: The upload could not be read. Select the folder again.
+          length_required: The upload must specify its size.
+          invalid_length: The upload has an invalid size header.
+          payload_too_large: This request is too large. Upload fewer files at a time or select a smaller folder.
+          unsupported_media_type: This upload format is not supported.
+          invalid_batch: Upload between 1 and 16 Markdown files at a time.
+          invalid_confirmation_key: Confirm the folder selection again.
+          invalid_root_name: Rename the selected folder and try again.
+          invalid_file_count: Select a folder with between 1 and 500 Markdown files.
+          invalid_path: A Markdown file has an invalid path. Check the file and folder names.
+          depth_limit_exceeded: A Markdown file is too deeply nested. Select a shallower folder.
+          duplicate_path: Two files have the same path. Rename one and try again.
+          invalid_file_size: Each Markdown file must be at most 2 MiB.
+          total_size_exceeded: The Markdown files exceed 32 MiB in total. Select a smaller folder.
+          path_collision: A file and a folder share a path. Rename one and try again.
+          folder_limit_exceeded: The import can contain at most 250 folders. Select a smaller folder.
+          invalid_ignored_counts: The ignored file counts are invalid. Select the folder again.
+          unexpected_path: An uploaded file was not in the confirmed selection. Select the folder again.
+          size_mismatch: An uploaded file changed size. Select the folder again.
+          invalid_payload: A Markdown file is not valid UTF-8 text. Fix its encoding and try again.
+          incomplete_upload: Some files have not been uploaded. Upload them before continuing.
+          confirmation_conflict: The selection has changed. Confirm it again.
+          import_in_progress: An import is already in progress for this account.
+          content_conflict: A previously uploaded file has changed. Select the folder again.
+          not_uploading: This import is no longer accepting files.
       title: Notes
       title_singular: Note
       no_account: You need access to an account to use Notes.

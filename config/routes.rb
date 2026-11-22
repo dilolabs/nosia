@@ -42,6 +42,12 @@ Rails.application.routes.draw do
       resources :chats, only: :index, module: :accounts
       scope module: :notes do
         resource :notes_workspace, path: "notes", only: :show, controller: "workspaces"
+        resources :note_imports, path: "note-imports", controller: "imports", only: %i[ new create show ] do
+          scope module: :imports do
+            resources :batches, only: :create
+            resource :seal, only: :create
+          end
+        end
         resources :note_folders, path: "note-folders", controller: "folders", only: %i[ new create edit update ] do
           resource :trashing, only: %i[ create destroy ], controller: "folder_trashings"
           resource :purge, only: :destroy, controller: "folder_purges"

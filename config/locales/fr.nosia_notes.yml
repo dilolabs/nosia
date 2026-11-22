@@ -6,6 +6,46 @@ fr:
       destinations:
         notes: Notes
     notes:
+      imports:
+        new_title: Importer un dossier Markdown
+        not_ready: La sélection de dossiers n’est pas encore disponible.
+        status_title: État de l’importation
+        progress: "Fichiers envoyés : %{uploaded} sur %{total}"
+        statuses:
+          uploading: En attente de fichiers
+          sealed: Envoi terminé
+          queued: En attente d’importation
+          running: Importation des notes
+          succeeded: Notes importées
+          failed: Échec de l’importation
+          expired: Envoi expiré
+        errors:
+          not_found: Cette importation est introuvable.
+          invalid_request: Impossible de lire l’envoi. Sélectionnez à nouveau le dossier.
+          length_required: La taille de l’envoi doit être indiquée.
+          invalid_length: L’en-tête de taille de l’envoi est invalide.
+          payload_too_large: Cette requête est trop volumineuse. Envoyez moins de fichiers à la fois ou sélectionnez un dossier plus petit.
+          unsupported_media_type: Ce format d’envoi n’est pas pris en charge.
+          invalid_batch: Envoyez entre 1 et 16 fichiers Markdown à la fois.
+          invalid_confirmation_key: Confirmez à nouveau la sélection du dossier.
+          invalid_root_name: Renommez le dossier sélectionné et réessayez.
+          invalid_file_count: Sélectionnez un dossier contenant entre 1 et 500 fichiers Markdown.
+          invalid_path: Le chemin d’un fichier Markdown est invalide. Vérifiez les noms des fichiers et des dossiers.
+          depth_limit_exceeded: Un fichier Markdown est trop profondément imbriqué. Sélectionnez un dossier moins imbriqué.
+          duplicate_path: Deux fichiers ont le même chemin. Renommez-en un et réessayez.
+          invalid_file_size: Chaque fichier Markdown doit faire au maximum 2 Mio.
+          total_size_exceeded: Les fichiers Markdown dépassent 32 Mio au total. Sélectionnez un dossier plus petit.
+          path_collision: Un fichier et un dossier ont le même chemin. Renommez-en un et réessayez.
+          folder_limit_exceeded: Une importation peut contenir au maximum 250 dossiers. Sélectionnez un dossier plus petit.
+          invalid_ignored_counts: Le nombre de fichiers ignorés est invalide. Sélectionnez à nouveau le dossier.
+          unexpected_path: Un fichier envoyé ne faisait pas partie de la sélection confirmée. Sélectionnez à nouveau le dossier.
+          size_mismatch: La taille d’un fichier envoyé a changé. Sélectionnez à nouveau le dossier.
+          invalid_payload: Un fichier Markdown n’est pas du texte UTF-8 valide. Corrigez son encodage et réessayez.
+          incomplete_upload: Certains fichiers n’ont pas été envoyés. Envoyez-les avant de continuer.
+          confirmation_conflict: La sélection a changé. Confirmez-la à nouveau.
+          import_in_progress: Une importation est déjà en cours pour ce compte.
+          content_conflict: Un fichier déjà envoyé a changé. Sélectionnez à nouveau le dossier.
+          not_uploading: Cette importation n’accepte plus de fichiers.
       title: Notes
       title_singular: Note
       no_account: Vous devez avoir accès à un compte pour utiliser Notes.
