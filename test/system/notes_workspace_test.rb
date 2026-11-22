@@ -181,6 +181,91 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
   end
 
+  test "account choices float above the editor with long French labels" do
+    @account.update!(name: "ÉquipeDeRecherche" * 5)
+    orbite_select_language("FR")
+    trigger = "[data-notes-accounts] button[popovertarget='notes-accounts']"
+
+    [ [ 1440, 900 ], [ 900, 768 ], [ 375, 650 ], [ 667, 375 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+
+      [ false, true ].each do |dark|
+        orbite_theme(dark)
+        assert_selector trigger, exact_text: "Compte : #{@account.name}"
+        assert_notes_dropdown("notes-accounts", "#note_title") do |panel|
+          assert_selector "#{trigger}:focus"
+          anchor = assert_anchored_notes_dropdown("notes-accounts").fetch("anchor")
+          assert_operator anchor.fetch("height"), :>=, 44
+          assert_operator anchor.fetch("width"), :>=, 44
+          assert_account_label_fits(find("#{trigger} > span"))
+          within "#{panel} ul[aria-label='Changer de compte pour Notes']" do
+            current = find("a[aria-current='true']", exact_text: @account.name)
+            other = find_link(accounts(:picker_second).name)
+            [ current, other ].each do |link|
+              target = link.native.rect
+              assert_operator target.height, :>=, 44
+              assert_operator target.width, :>=, 44
+            end
+            refute other["aria-current"]
+            assert_includes page.evaluate_script("getComputedStyle(arguments[0]).boxShadow", current), "inset"
+            current_fill, other_fill = page.evaluate_script("[...arguments].map(link => getComputedStyle(link).backgroundColor)", current, other)
+            refute_equal current_fill, other_fill
+            assert_account_label_fits(current)
+          end
+        end
+      end
+    end
+  end
+
+  test "the account switcher respects a dirty draft before switching to a different account" do
+    other = accounts(:picker_second)
+    editor_path = account_note_path(@account, @note)
+    visit editor_path
+    watch_dirty_departure("Unsaved account draft")
+    page.execute_script("window.confirm = window.ordinaryConfirm")
+
+    assert_button "Account: #{@account.name}"
+    click_button "Account: #{@account.name}"
+    within "#notes-accounts:popover-open" do
+      dismiss_confirm(/unsaved changes/i) { click_link other.name }
+    end
+    assert_current_path editor_path
+    assert_field "Title (optional)", with: "Unsaved account draft"
+    assert_no_selector "[data-note-id='#{notes(:second_team_note).id}']"
+
+    accept_confirm(/unsaved changes/i) { within("#notes-accounts:popover-open") { click_link other.name } }
+    assert_current_path account_notes_workspace_path(other)
+    assert_selector "[data-notes-screen='folders']"
+    assert_selector "[data-notes-accounts] button", text: "Account: #{other.name}"
+    assert_selector "[data-notes-list] [data-note-id='#{notes(:second_team_note).id}']"
+    assert_no_selector "[data-note-id='#{@note.id}'], lexxy-editor", visible: :all
+    assert_equal "Field notes", @note.reload.title
+  end
+
+  test "the account switcher opens and navigates without scripts" do
+    other = accounts(:picker_second)
+    orbite_viewport(375, 650)
+    page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+    visit account_note_path(@account, @note)
+
+    assert_button "Account: #{@account.name}"
+    click_button "Account: #{@account.name}"
+    assert_anchored_notes_dropdown("notes-accounts")
+    page.driver.browser.action.send_keys(:tab).perform
+    assert_selector "#notes-accounts:popover-open a[aria-current='true']:focus"
+    page.driver.browser.action.send_keys(:tab).perform
+    assert_selector "#notes-accounts:popover-open a[href='#{account_notes_workspace_path(other)}']:focus"
+    page.driver.browser.action.send_keys(:enter).perform
+
+    assert_current_path account_notes_workspace_path(other)
+    assert_button "Account: #{other.name}"
+    within("[data-notes-sidebar]") { click_link "All Notes" }
+    assert_selector "[data-notes-list] [data-note-id='#{notes(:second_team_note).id}']"
+    assert_no_selector "[data-note-id='#{@note.id}']"
+  end
+
   test "Escape closes nested move before note actions and returns focus in order" do
     orbite_viewport(375, 650)
     visit account_note_path(@account, @note)
@@ -1990,6 +2075,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       assert_selector panel
       orbite_assert_reachable(panel)
       assert_equal before, notes_layout(reference)
+      yield panel if block_given?
       orbite_tab_to(first_item)
       page.driver.browser.action.send_keys(:escape).perform
       assert_no_selector panel, visible: :all
@@ -2003,6 +2089,19 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       assert_no_selector panel, visible: :all
       assert_no_selector "#{trigger}:focus"
       assert_equal before, notes_layout(reference)
+    end
+
+    def assert_account_label_fits(label)
+      assert page.evaluate_script(<<~JS, label), "The account label should wrap inside #{label.tag_name}"
+        (() => {
+          const label = arguments[0], bounds = label.getBoundingClientRect()
+          const range = document.createRange()
+          range.selectNodeContents(label)
+          const text = range.getBoundingClientRect()
+          return text.left >= bounds.left - 1 && text.right <= bounds.right + 1 &&
+            text.top >= bounds.top - 1 && text.bottom <= bounds.bottom + 1
+        })()
+      JS
     end
 
     def hold_notes_requests(*paths, answers: [ false ])

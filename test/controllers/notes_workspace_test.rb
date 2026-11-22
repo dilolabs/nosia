@@ -23,7 +23,9 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_select "meta[name=turbo-cache-control][content=no-cache]", count: 1
     assert_select "[data-notes-screen='folders'] [data-notes-sidebar]"
     assert_select "[data-notes-list]"
-    assert_select "[data-notes-accounts] a[href='#{workspace(@other)}']", text: @other.name
+    assert_select "[data-notes-accounts] ul[role=list][aria-label='Switch Notes account']" do
+      assert_select "a[href='#{workspace(@other)}']", text: @other.name
+    end
     assert_select "[data-notes-accounts] a[href='#{workspace(@foreign)}']", count: 0
     assert_select ".n-orbite-rail a[href='/notes'], .n-orbite-panel-links a[href='/notes']", count: 2
 
@@ -39,7 +41,8 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     get "/notes"
     assert_redirected_to workspace(@other)
     follow_redirect!
-    assert_select "[data-notes-accounts]", text: /#{@other.name}/
+    assert_select "[data-notes-accounts] > p", text: "Account: #{@other.name}"
+    assert_select "[data-notes-accounts] [popovertarget]", count: 0
     assert_select "[data-notes-accounts] a[href='#{workspace}']", count: 0
 
     delete "/logout"
@@ -368,6 +371,8 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     patch note_url(@note), params: { note: { title:, body_html: body, expected_revision: 1 } }
 
     assert_response :conflict
+    assert_select "[data-notes-accounts] button[popovertarget=notes-accounts]", text: "Account: #{@account.name}"
+    assert_select "#notes-accounts[popover=auto] a[href='#{workspace(@other)}']", text: @other.name
     assert_select "label[for=notes-draft-title]", text: "Submitted title"
     assert_select "input#notes-draft-title[readonly]" do |fields|
       assert_equal title, fields.sole["value"]
