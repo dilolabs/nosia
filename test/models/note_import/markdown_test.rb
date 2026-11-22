@@ -107,6 +107,28 @@ class NoteImport::MarkdownTest < ActiveSupport::TestCase
     assert_includes fragment.text, "Multiline"
   end
 
+  test "wiki destinations between two unrelated marker mismatches are still verified" do
+    paths = [ "Plan.md", "A B.md", "A%20B.md", "Réunion.md" ]
+    prepared = prepare(paths, <<~MD)
+      > é [[
+      > Réunion|First]]
+
+      [[A%20B]] [[A B|Same]] [[A%20B|Same]] [[Absent name|Unavailable]]
+
+      > É [[
+      > Réunion|Last]]
+    MD
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "/accounts/1/notes/12", "A%20B" ], [ "/accounts/1/notes/11", "Same" ],
+      [ "/accounts/1/notes/12", "Same" ] ], links(fragment)
+    assert_equal 3, prepared.warnings.fetch(:count)
+    assert_equal "Absent name", prepared.warnings.fetch(:examples).second.fetch(:target)
+    assert_empty fragment.css("[data-sourcepos]")
+    assert_includes fragment.text, "First"
+    assert_includes fragment.text, "Last"
+  end
+
   test "embed captions are entirely inert without touching code or escaped embed syntax" do
     paths = [ "Plan.md", "Target.md" ]
     source = <<~'MD'
@@ -138,6 +160,17 @@ class NoteImport::MarkdownTest < ActiveSupport::TestCase
 
     assert_equal [ [ "https://example.org/!%5B%5BDiagram%5D%5D", "https://example.org/![[Diagram]]" ],
       [ "mailto:outside@example.org", "outside@example.org" ] ], links(fragment)
+  end
+
+  test "an embed preserves the punctuation boundary for an adjacent external autolink" do
+    paths = [ "Plan.md" ]
+    prepared = prepare(paths, "![[Diagram.png]]https://example.org and ![[Map.png|<person@example.org>]]https://example.net")
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "https://example.org", "https://example.org" ], [ "https://example.net", "https://example.net" ] ], links(fragment)
+    assert_includes fragment.text, "![[Diagram.png]]https://example.org"
+    assert_includes fragment.text, "![[Map.png|<person@example.org>]]https://example.net"
+    assert_empty fragment.css("img, object, embed, a a")
   end
 
   test "an embed inside a link label remains inert and the original destination stays readable" do
@@ -184,11 +217,11 @@ class NoteImport::MarkdownTest < ActiveSupport::TestCase
   test "unresolved literal wiki targets are reported even when an anchor has no label" do
     paths = [ "Plan.md", "A B.md", "A&amp;B.md" ]
     target = "a" * 1_000
-    prepared = prepare(paths, "[[A B]] [[#{target}]] [[A&amp;B|Literal]] [[|Missing]] [[Absent|]]")
+    prepared = prepare(paths, "[[A B]] [[#{target}]] [[A&amp;B|Literal]] [[|Missing]] [[Absent|]] [[A\\]B|Escaped]]")
     fragment = rendered(prepared, paths)
 
     assert_equal [ [ "/accounts/1/notes/11", "A B" ], [ "/accounts/1/notes/12", "Literal" ] ], links(fragment)
-    assert_equal [ target.byteslice(0, 512), "", "Absent" ], prepared.warnings.fetch(:examples).pluck(:target)
+    assert_equal [ target.byteslice(0, 512), "", "Absent", 'A\]B' ], prepared.warnings.fetch(:examples).pluck(:target)
     assert_includes fragment.text, "Absent"
   end
 

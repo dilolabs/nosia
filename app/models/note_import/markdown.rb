@@ -16,6 +16,8 @@ class NoteImport::Markdown
     extension: { wikilinks_title_after_pipe: true, table: true, strikethrough: true, header_ids: nil }.freeze,
     render: { unsafe: false, escape: true }.freeze
   }.freeze
+  POSITIONED_OPTIONS = OPTIONS.merge(render: OPTIONS[:render].merge(sourcepos: true).freeze).freeze
+  SOURCE_POSITION = / data-sourcepos="\d+:\d+-\d+:\d+"/
   PLUGINS = { syntax_highlighter: nil }.freeze
   FRONT_MATTER = /\A(?:\uFEFF)?---[ \t]*\n.*?^---[ \t]*(?:\n|\z)/m
   EXTERNAL_SCHEMES = %w[http https ftp mailto tel sms].freeze
@@ -95,16 +97,17 @@ class NoteImport::Markdown
     embeds = Embeds.new(source)
     source = embeds.mask
     document = Commonmarker.parse(source, options: OPTIONS)
-    rendered_markdown = document.to_html(options: OPTIONS, plugins: PLUGINS)
+    positioned = source.include?("[[")
+    rendered_markdown = document.to_html(options: positioned ? POSITIONED_OPTIONS : OPTIONS, plugins: PLUGINS)
     html = rendered_markdown
     if front_matter
       html = "<pre><code>#{ERB::Util.html_escape(front_matter)}</code></pre>\n#{html}"
     end
-    check_size(html, path)
+    check_size(html, path, positioned:)
 
     fragment = parse_fragment(html, path)
+    wiki = positioned ? WikiSource.new(source, rendered_markdown).destinations(fragment) : {}
     remove_media(fragment)
-    wiki = WikiSource.new(source, rendered_markdown)
     links, warnings = prepare_links(fragment, document, wiki, embeds.masked_anchors(fragment), path)
     embeds.restore(fragment)
     html = fragment.to_html
@@ -114,8 +117,10 @@ class NoteImport::Markdown
   end
 
   private
-    def check_size(html, path)
-      if html.bytesize > MAX_RENDERED_BYTES
+    def check_size(html, path, positioned: false)
+      bytesize = html.bytesize
+      html.scan(SOURCE_POSITION) { |attribute| bytesize -= attribute.bytesize } if positioned
+      if bytesize > MAX_RENDERED_BYTES
         raise NoteImport::Invalid.new(:rendered_file_size_exceeded, path:)
       end
     end
@@ -133,12 +138,10 @@ class NoteImport::Markdown
       end
     end
 
-    def prepare_links(fragment, document, wiki_source, embedded_anchors, path)
+    def prepare_links(fragment, document, wiki, embedded_anchors, path)
       anchors = fragment.css("a")
       markdown_anchors = anchors.reject { |anchor| anchor.key?("data-wikilink") }
-      wiki_anchors = anchors.select { |anchor| anchor["data-wikilink"] == "true" }
       markdown = markdown_destinations(document, markdown_anchors)
-      wiki = wiki_source.destinations(wiki_anchors)
       examples = []
       count = 0
       links = anchors.filter_map do |anchor|
@@ -215,7 +218,8 @@ class NoteImport::Markdown
 
     # Comrak escapes WikiLink URLs and can lose physical source columns in
     # multiline inlines and tables. A second, detached parse tags lexical wiki
-    # openings; only tags on parser-generated wiki anchors can identify a target.
+    # openings. Match stable block starts, then verify the generated anchors
+    # within each block without trusting inline source columns.
     class WikiSource
       OPENING = /\[\[[ \t\n]*+(?=(?:[^\[\]\\]|\\.){0,2002}\]\])/m
       TARGET = /(?:[^\[\]|\\]|\\[[:punct:]]|\\(?![[:punct:]]))*/
@@ -225,45 +229,81 @@ class NoteImport::Markdown
       VERBATIM_RUN = /[a-zA-Z0-9_.~\/\-\u0080-\u{10ffff}]+/
       # Only Commonmarker's generated wiki anchors have this markup. Raw HTML is escaped.
       ANCHOR = %r{<a href="([^"]*)" data-wikilink="true">.*?</a>}m
+      WIKI_ANCHORS = 'a[data-wikilink="true"]'
+      CONTAINERS = "p, li, tr, h1, h2, h3, h4, h5, h6"
+      LIST_ITEM_BLOCKS = %w[blockquote div h1 h2 h3 h4 h5 h6 hr ol p pre table ul].freeze
 
       def initialize(source, html)
         @source = source
         @html = html
       end
 
-      def destinations(anchors)
-        return {} if anchors.empty?
+      def destinations(fragment)
+        original_blocks = take_blocks(fragment)
+        return {} if original_blocks.empty?
 
         prefix = "#{MARKER_PREFIX}#{Digest::SHA256.hexdigest(@source)[0, 12]}z"
         return {} if @source.include?(prefix) || @html.include?(prefix)
 
         marker = /#{prefix}(\d+)z/
         shadow, replacements = mark_source(prefix)
-        witnessed = Commonmarker.to_html(shadow, options: OPTIONS, plugins: PLUGINS)
-        originals = wiki_spans(@html)
-        return {} unless originals.size == anchors.size
+        witnessed = Commonmarker.to_html(shadow, options: POSITIONED_OPTIONS, plugins: PLUGINS)
+        shadow_blocks = take_blocks(Nokogiri::HTML5.fragment(witnessed))
 
-        witnesses = wiki_spans(witnessed)
-        pairs = verified_pairs(originals, witnessed, witnesses, marker, replacements)
         scanner = StringScanner.new(@source)
-        pairs.to_h do |index, witness|
-          anchor = anchors.fetch(index)
-          if (match = witness[1].match(marker))
-            scanner.pos = match[1].to_i
-            target = scanner.scan(anchor.ancestors("td, th").empty? ? TARGET : TABLE_TARGET)
+        original_blocks.each_with_object({}) do |(position, original_block), destinations|
+          next unless original_block && (shadow_block = shadow_blocks[position])
+
+          container, nodes = original_block
+          original_html = inline_html(container)
+          originals = wiki_spans(original_html)
+          next unless originals.size == nodes.size
+
+          shadow_html = inline_html(shadow_block.first)
+          witnesses = wiki_spans(shadow_html)
+          verified_pairs(original_html, originals, shadow_html, witnesses, marker, replacements).each do |index, witness|
+            if (match = witness[1].match(marker))
+              anchor = nodes.fetch(index)
+              scanner.pos = match[1].to_i
+              destinations[anchor] = scanner.scan(container.name == "tr" ? TABLE_TARGET : TARGET)
+            end
           end
-          [ anchor, match && target ]
         end
+      rescue ArgumentError
+        # A shadow parse hitting the HTML parser's bounds proves no bindings.
+        {}
       end
 
       private
+        def take_blocks(fragment)
+          groups = fragment.css(WIKI_ANCHORS).group_by { |anchor| anchor.ancestors(CONTAINERS).first }
+          groups.each_with_object({}) do |(node, matches), found|
+            next unless node && (position = node["data-sourcepos"])
+
+            key = [ node.name, position.partition("-").first ]
+            found[key] = found.key?(key) ? nil : [ node, matches ]
+          end.tap do
+            fragment.css("[data-sourcepos]").each { |node| node.remove_attribute("data-sourcepos") }
+          end
+        end
+
+        def inline_html(container)
+          if container.name == "li"
+            # Tight items have no paragraph wrapper. Nested blocks have their
+            # own positions; don't include them in the item or verify twice.
+            container.children.reject { |child| LIST_ITEM_BLOCKS.include?(child.name) }.map(&:to_html).join
+          else
+            container.inner_html
+          end
+        end
+
         def wiki_spans(html)
           spans = []
           html.scan(ANCHOR) { spans << Regexp.last_match }
           spans
         end
 
-        def verified_pairs(originals, html, witnesses, marker, replacements)
+        def verified_pairs(original_html, originals, html, witnesses, marker, replacements)
           # Match each anchor with its exact surrounding renderer output. If
           # marking changes a parse, keep the proven prefix and suffix without
           # pairing anything across the changed region.
@@ -272,18 +312,18 @@ class NoteImport::Markdown
           size = [ originals.size, witnesses.size ].min
           size.times do |index|
             original, witness = originals[index], witnesses[index]
-            break unless same_rendering?(@html.byteslice(left...original.byteend(0)),
+            break unless same_rendering?(original_html.byteslice(left...original.byteend(0)),
               html.byteslice(right...witness.byteend(0)), marker, replacements)
 
             pairs[index] = witness
             left, right = original.byteend(0), witness.byteend(0)
           end
 
-          left, right = @html.bytesize, html.bytesize
+          left, right = original_html.bytesize, html.bytesize
           (size - pairs.size).times do |distance|
             index = originals.size - distance - 1
             original, witness = originals[index], witnesses[-distance - 1]
-            break unless same_rendering?(@html.byteslice(original.bytebegin(0)...left),
+            break unless same_rendering?(original_html.byteslice(original.bytebegin(0)...left),
               html.byteslice(witness.bytebegin(0)...right), marker, replacements)
 
             pairs[index] = witness
@@ -350,6 +390,7 @@ class NoteImport::Markdown
         @source = source
         @prefix = "nosiaembed#{Digest::SHA256.hexdigest(source)[0, 12]}z"
         @marker = /#{@prefix}(\d+)z/
+        @literal_marker = /!#{@marker};/
         @masked = {}
       end
 
@@ -367,15 +408,15 @@ class NoteImport::Markdown
         return Set.new if @masked.empty?
 
         fragment.css("a").select do |anchor|
-          anchor.text.to_enum(:scan, @marker).any? { @masked.key?(Regexp.last_match[0]) }
+          anchor.text.to_enum(:scan, @literal_marker).any? { @masked.key?(Regexp.last_match[0]) }
         end.to_set
       end
 
       def restore(fragment)
         unless @masked.empty?
           fragment.xpath(".//text()").each do |node|
-            if node.content.match?(@marker)
-              node.content = node.content.gsub(@marker) { |token| @masked.fetch(token, token) }
+            if node.content.match?(@literal_marker)
+              node.content = node.content.gsub(@literal_marker) { |token| @masked.fetch(token, token) }
             end
           end
         end
@@ -414,6 +455,9 @@ class NoteImport::Markdown
               source << @source.byteslice(offset..start) << token
               offset = start + 1
             else
+              # Keep punctuation on both sides. Literal square brackets here
+              # could turn the placeholder back into Markdown link syntax.
+              token = "!#{token};"
               source << @source.byteslice(offset...start) << token
               @masked[token] = @source.byteslice(start...finish)
               offset = finish
