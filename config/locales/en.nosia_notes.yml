@@ -60,6 +60,9 @@ en:
       draft_copied: Draft copied.
       copy_manually: Your draft is selected. Copy it using your browser or keyboard.
       load_saved: Load saved version
+      copy_submitted_draft: Copy your unsaved title and text before leaving this page.
+      submitted_title: Submitted title
+      submitted_body: Submitted note text
       discard_draft: You have unsaved changes. Leave this note and discard your draft?
       edit_tag_seed: Add a title or edit the text before saving this note.
       hashtag_too_long: A hashtag is too long. Shorten it and save the note again.

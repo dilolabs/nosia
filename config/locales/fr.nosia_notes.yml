@@ -60,6 +60,9 @@ fr:
       draft_copied: Brouillon copié.
       copy_manually: Votre brouillon est sélectionné. Copiez-le avec votre navigateur ou votre clavier.
       load_saved: Charger la version enregistrée
+      copy_submitted_draft: Copiez votre titre et votre texte non enregistrés avant de quitter cette page.
+      submitted_title: Titre envoyé
+      submitted_body: Texte de la note envoyé
       discard_draft: Vous avez des modifications non enregistrées. Quitter cette note et abandonner le brouillon ?
       edit_tag_seed: Ajoutez un titre ou modifiez le texte avant d’enregistrer cette note.
       hashtag_too_long: Un mot-dièse est trop long. Raccourcissez-le et enregistrez à nouveau la note.

@@ -77,15 +77,38 @@ class Notes::NotesController < ApplicationController
           render :save_error, status: :conflict, locals: { code:, message: I18n.t("nosia.notes.#{code}"), location: }
         end
       else
+        if request.format.html? && %w[ create update ].include?(action_name)
+          return render_missing_note unless Account.uncached { @account.account_users.exists?(user_id: Current.user.id) }
+
+          set_submitted_draft(code)
+        end
         super
       end
     end
 
-    def render_missing_note(error)
+    def set_submitted_draft(code)
+      if params[:note].is_a?(ActionController::Parameters) && params[:note].present?
+        @submitted_draft = { title: note_params[:title].to_s, body: submitted_body&.text.to_s }
+        @saved_note_location = saved_conflict_location if code == "edit_conflict"
+      end
+    end
+
+    def saved_conflict_location
+      id = Note.uncached do
+        if @note
+          active_notes.where(id: @note.id).pick(:id)
+        else
+          active_notes.where(draft_key: note_params[:draft_key]).pick(:id)
+        end
+      end
+      account_note_path(@account, id) if id
+    end
+
+    def render_missing_note
       if request.format.json?
         head :not_found
       else
-        raise error
+        render file: Rails.public_path.join("404.html"), layout: false, status: :not_found
       end
     end
 

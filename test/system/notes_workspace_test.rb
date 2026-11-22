@@ -83,6 +83,33 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector ".n-notes-folder-trigger[aria-haspopup='dialog']"
   end
 
+  test "a native HTML conflict lets a keyboard user select the draft and load the saved note" do
+    visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected]"
+    @note.edit_content!(expected_revision: 1, title: "Newer saved title", body_html: "<p>Newer saved body</p>")
+    page.execute_script(<<~JS)
+      const form = document.querySelector(".n-notes-form")
+      form.dataset.turbo = "false"
+      form.elements["note[title]"].value = "My draft title"
+      form.elements["note[body_html]"].value = "<p>My draft text</p>"
+      HTMLFormElement.prototype.submit.call(form)
+    JS
+
+    assert_selector "[role=alert]", text: /Your changes were not saved/
+    assert_selector "input#notes-draft-title[readonly]"
+    body = find_field("Submitted note text")
+    assert_equal "My draft text", body.value
+    find_field("Submitted title").send_keys(:tab)
+    assert_equal body[:id], page.evaluate_script("document.activeElement.id")
+    body.send_keys([ :control, "a" ])
+    assert_equal "My draft text", page.evaluate_script(<<~JS)
+      document.activeElement.value.slice(document.activeElement.selectionStart, document.activeElement.selectionEnd)
+    JS
+    body.send_keys(:tab, :enter)
+    assert_field "Title (optional)", with: "Newer saved title"
+    assert_text "Newer saved body"
+  end
+
   test "medium screens can still reach the folder pane without scripts" do
     orbite_viewport(960, 850)
     page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)

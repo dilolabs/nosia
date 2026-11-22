@@ -360,6 +360,97 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_equal "Another editor", @note.reload.title
   end
 
+  test "an HTML conflict preserves only the submitted draft in readonly controls" do
+    @note.edit_content!(expected_revision: 1, title: "Other editor's saved title", body_html: "<p>Saved body marker</p>")
+    title = "<img src=x onerror=alert(1)> My draft"
+    body = "<p>My draft &lt;/textarea&gt; &lt;img&gt;<script>script marker</script><img src=x onerror=alert(1)></p>"
+
+    patch note_url(@note), params: { note: { title:, body_html: body, expected_revision: 1 } }
+
+    assert_response :conflict
+    assert_select "label[for=notes-draft-title]", text: "Submitted title"
+    assert_select "input#notes-draft-title[readonly]" do |fields|
+      assert_equal title, fields.sole["value"]
+    end
+    assert_select "label[for=notes-draft-body]", text: "Submitted note text"
+    assert_select "textarea#notes-draft-body[readonly]", text: "My draft </textarea> <img>"
+    assert_select "[onerror], lexxy-editor", count: 0
+    assert_select "a[href='#{note_url(@note)}']", text: "Load saved version"
+    refute_includes response.body, "script marker"
+    refute_includes response.body, "Saved body marker"
+    assert_equal [ "Other editor's saved title", "Saved body marker", 2 ], @note.reload.values_at(:title, :body_text, :content_revision)
+  end
+
+  test "an unavailable HTML save lets an authorized member copy their draft but not load the hidden note" do
+    @note.edit_content!(expected_revision: 1, title: "Hidden title marker", body_html: "<p>Hidden body marker</p>")
+    @folder.trash
+
+    patch note_url(@note), params: { note: { title: "Mon brouillon", body_html: "<p>Mon texte</p>", expected_revision: 2 } },
+      headers: { "Accept-Language" => "fr" }
+
+    assert_response :conflict
+    assert_select "label[for=notes-draft-title]", text: "Titre envoyé"
+    assert_select "input#notes-draft-title[readonly][value='Mon brouillon']"
+    assert_select "label[for=notes-draft-body]", text: "Texte de la note envoyé"
+    assert_select "textarea#notes-draft-body[readonly]", text: "Mon texte"
+    assert_select "a", text: "Charger la version enregistrée", count: 0
+    refute_includes response.body, "Hidden title marker"
+    refute_includes response.body, "Hidden body marker"
+  end
+
+  test "an HTML save submitted through Turbo still returns the copyable draft" do
+    patch note_url(@note), params: { note: { title: "Turbo draft", body_html: "<p>Submitted text</p>", expected_revision: 0 } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml" }
+
+    assert_response :conflict
+    assert_equal "text/html", response.media_type
+    assert_select "textarea#notes-draft-body[readonly]", text: "Submitted text"
+    assert_select "a[href='#{note_url(@note)}']", text: "Load saved version"
+  end
+
+  test "HTML saves denied by account scope or membership return 404 without rendering a draft" do
+    foreign_note = Note.save_draft!(account: @foreign, folder: note_folders(:private), draft_key: SecureRandom.uuid,
+      title: "Foreign note", body_html: "")
+    draft = { title: "Submitted denial marker", body_html: "<p>Submitted body marker</p>", expected_revision: 0 }
+    [ note_url(foreign_note, @foreign), note_url(foreign_note), note_url(@note, @other) ].each do |url|
+      patch url, params: { note: draft }
+      assert_response :not_found
+      refute_includes response.body, "Submitted denial marker"
+      refute_includes response.body, "Submitted body marker"
+    end
+
+    @foreign.account_users.create!(user: @user)
+    patch note_url(foreign_note), params: { note: draft }
+    assert_response :not_found
+    refute_includes response.body, "Submitted denial marker"
+
+    @user.account_users.find_by!(account: @account).destroy!
+    patch note_url(@note), params: { note: draft }
+    assert_response :not_found
+    refute_includes response.body, "Submitted denial marker"
+    refute_includes response.body, "Submitted body marker"
+  end
+
+  test "an HTML create replay conflict preserves the draft and links only to an active saved note" do
+    saved = save_note(@folder, title: "Saved title", body: "<p>Private saved body</p>")
+    draft = { draft_key: saved.draft_key, title: "Replay title", body_html: "<p>Replay body</p>" }
+    assert_no_difference "Note.count" do
+      post workspace, params: { folder_id: @folder.id, note: draft }
+      assert_response :conflict
+      assert_select "input#notes-draft-title[readonly][value='Replay title']"
+      assert_select "textarea#notes-draft-body[readonly]", text: "Replay body"
+      assert_select "a[href='#{note_url(saved)}']", text: "Load saved version"
+
+      saved.trash
+      post workspace, params: { folder_id: @folder.id, note: draft }
+      assert_response :conflict
+      assert_select "textarea#notes-draft-body[readonly]", text: "Replay body"
+      assert_select "a", text: "Load saved version", count: 0
+      refute_includes response.body, "Private saved body"
+    end
+    assert_equal [ "Saved title", 1 ], saved.reload.values_at(:title, :content_revision)
+  end
+
   test "a rejected long hashtag preserves the edit form and a correction updates the same note" do
     long_tag = "é" * (NoteTag::MAX_KEY_BYTES / 2 + 1)
     title = "Edited outline"
@@ -566,6 +657,7 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
          headers: { "Accept-Language" => "fr" }
     assert_response :conflict
     assert_select "[role=alert]", text: /Cette modification est impossible/
+    assert_select "#notes-draft-title, #notes-draft-body", count: 0
     assert_equal @folder, @note.reload.note_folder
   end
 
