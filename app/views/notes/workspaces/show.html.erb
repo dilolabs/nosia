@@ -6,15 +6,17 @@
      <%= tag.attributes(data: { notes_folders_page: true }) if @screen == "folders" && @list_options[:view] == "folders" %>
      data-action="turbo:before-cache@document->notes-navigation#beforeCache">
   <header class="n-notes-header">
-    <h1><%= t("nosia.notes.title") %></h1>
-    <%= render "notes/workspaces/accounts", account: @account, memberships: @membership_accounts %>
-    <%= render "notes/workspaces/header_actions", account: @account, options: list_options, screen: @screen %>
+    <div class="n-notes-identity">
+      <h1><%= t("nosia.notes.title") %></h1>
+      <%= render "notes/workspaces/accounts", account: @account, memberships: @membership_accounts %>
+    </div>
     <%= form_with url: account_notes_workspace_path(@account), method: :get, class: "n-notes-search", html: { role: "search" } do |form| %>
       <%= form.label :q, t("nosia.notes.search_label"), class: "sr-only" %>
       <%= form.search_field :q, value: @list_options[:q], size: 24, maxlength: NotesWorkspaceRendering::MAX_QUERY_LENGTH,
                             placeholder: t("nosia.notes.search_label") %>
       <%= form.submit t("nosia.notes.search"), class: "n-notes-button" %>
     <% end %>
+    <%= render "notes/workspaces/header_actions", account: @account, options: list_options, screen: @screen %>
   </header>
 
   <div class="n-notes-workspace">
@@ -37,8 +39,10 @@
         <% elsif @folder %>
           <%= render "notes/folders/form", account: @account, folder: @folder, options: list_options, folders: @active_folder_map %>
         <% else %>
-          <h2 id="notes-reader-heading"><%= t("nosia.notes.editor") %></h2>
-          <p><%= t("nosia.notes.select_note") %></p>
+          <div class="n-notes-empty">
+            <h2 id="notes-reader-heading"><%= t("nosia.notes.editor") %></h2>
+            <p><%= t("nosia.notes.select_note") %></p>
+          </div>
         <% end %>
       </section>
     <% end %>

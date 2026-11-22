@@ -2,7 +2,7 @@
 <section class="n-notes-trash" data-notes-trash aria-labelledby="notes-trash-heading">
   <h2 id="notes-trash-heading"><%= t("nosia.notes.trash") %></h2>
   <% if folders.empty? && notes.empty? %>
-    <p><%= t("nosia.notes.empty_trash") %></p>
+    <p class="n-notes-empty"><%= t("nosia.notes.empty_trash") %></p>
   <% else %>
     <p><%= t("nosia.notes.trash_help") %></p>
     <ul>

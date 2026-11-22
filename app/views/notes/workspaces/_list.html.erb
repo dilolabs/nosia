@@ -34,7 +34,7 @@
       <% end %>
     </ul>
   <% else %>
-    <p><%= t(options[:q] ? "nosia.notes.no_results" : "nosia.notes.no_notes") %></p>
+    <p class="n-notes-empty"><%= t(options[:q] ? "nosia.notes.no_results" : "nosia.notes.no_notes") %></p>
   <% end %>
   <% if page > 1 || more %>
     <nav class="n-notes-actions" aria-label="<%= t("nosia.notes.pages") %>">

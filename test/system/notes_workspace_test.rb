@@ -23,6 +23,54 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     page.current_window.resize_to(1400, 1400)
   end
 
+  test "rounded Orbite notes keep one paper surface and visible keyboard controls" do
+    orbite_viewport(1440, 900)
+    visit account_note_path(@account, @note)
+    assert_selector ".n-notes-identity h1", text: "Notes"
+    assert_selector ".n-notes-identity [data-notes-accounts]"
+    row = "[data-note-id='#{@note.id}'] a[aria-current='page']"
+
+    [ false, true ].each do |dark|
+      orbite_theme(dark)
+      assert_selector row, text: "Field notes"
+      styles = page.evaluate_script(<<~JS, row)
+        (() => {
+          const style = (selector) => getComputedStyle(document.querySelector(selector));
+          const primary = style('.n-notes-header .n-notes-primary');
+          const selected = style(arguments[0]);
+          const preview = style(`${arguments[0]} .n-notes-preview`);
+          const luminance = (color) => color.match(/[0-9]+/g).slice(0, 3)
+            .map(channel => Number(channel) / 255)
+            .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+            .reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
+          const contrast = (foreground, background) => {
+            const [low, high] = [luminance(foreground), luminance(background)].sort((a, b) => a - b);
+            return (high + 0.05) / (low + 0.05);
+          };
+          return {
+            radius: parseFloat(primary.borderRadius),
+            height: parseFloat(primary.minHeight),
+            primaryFill: primary.backgroundColor,
+            selectedShadow: selected.boxShadow,
+            paneFills: ['.n-notes-sidebar-slot', '.n-notes-list', '.n-notes-reader'].map(selector => style(selector).backgroundColor),
+            primaryContrast: contrast(primary.color, primary.backgroundColor),
+            previewContrast: contrast(preview.color, selected.backgroundColor)
+          };
+        })()
+      JS
+      transparent = "rgba(0, 0, 0, 0)"
+      assert_operator styles.fetch("radius"), :>=, 8
+      assert_operator styles.fetch("height"), :>=, 44
+      refute_equal transparent, styles.fetch("primaryFill")
+      assert_includes styles.fetch("selectedShadow"), "inset"
+      assert_equal [ transparent ] * 3, styles.fetch("paneFills")
+      assert_operator styles.fetch("primaryContrast"), :>=, 4.5
+      assert_operator styles.fetch("previewContrast"), :>=, 4.5
+      orbite_tab_to(".n-notes-search input[type=search]")
+      orbite_tab_to(row)
+    end
+  end
+
   test "the medium layout keeps its list and editor, and moves one sidebar into a keyboard dialog" do
     orbite_viewport(960, 850)
     visit account_notes_workspace_path(@account)
