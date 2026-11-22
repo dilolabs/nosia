@@ -5,7 +5,8 @@ const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
 
 export default class extends Controller {
   connect() {
-    if (CSS.supports("position-area", "block-end span-all")) return
+    // Keep this in sync with the anchor positioning rules in notes_workspace.css.
+    if (CSS.supports("position-area", "block-end span-all") && CSS.supports("anchor-scope", "--notes-confirmation")) return
 
     this.listeners = new AbortController()
     const { signal } = this.listeners

@@ -301,6 +301,38 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert NoteFolderTrashing.exists?(note_folder_id: folder.id)
   end
 
+  test "folder confirmation can cancel and submit with native popovers but no dialog commands or scripts" do
+    folder = note_folders(:interviews)
+    orbite_viewport(375, 650)
+    visit account_notes_workspace_path(@account, folder_id: folder.id, view: "list")
+    # Model a browser that ignores dialog commands but implements native popovers.
+    page.execute_script(<<~JS)
+      document.querySelectorAll("#notes-list [commandfor]").forEach(button => {
+        button.removeAttribute("commandfor")
+        button.removeAttribute("command")
+      })
+    JS
+    page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+
+    click_button "Folder actions"
+    click_button "Trash folder"
+    panel = "#trash-folder-#{folder.id}:popover-open"
+    assert_selector panel, text: "Move “Interviews” and all its folders and notes to Trash?"
+    assert_selector "#{panel} button:focus", exact_text: "Cancel"
+    page.driver.browser.action.send_keys(:tab).perform
+    assert_selector "#{panel} button[type=submit]:focus", exact_text: "Trash folder"
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+    within(panel) { click_button "Cancel" }
+    assert_no_selector panel
+    assert_selector "#folder-actions-#{folder.id}:popover-open"
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+
+    click_button "Trash folder"
+    within(panel) { click_button "Trash folder" }
+    assert_selector "[data-notes-trash]"
+    assert NoteFolderTrashing.exists?(note_folder_id: folder.id)
+  end
+
   test "folder confirmation floats with safe Tab, Cancel and Escape on narrow and wide layouts" do
     folder = note_folders(:interviews)
     actions = "#folder-actions-#{folder.id}:popover-open"
@@ -581,25 +613,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     orbite_viewport(667, 375)
     visit account_note_path(@account, @note)
     assert_selector "lexxy-editor[connected]"
-    removed = page.evaluate_script(<<~JS)
-      (() => {
-        const removeAnchorRules = (sheet) => {
-          let removed = 0
-          for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
-            const rule = sheet.cssRules[i]
-            if (rule instanceof CSSSupportsRule && /position-area:\\s*block-end span-all/.test(rule.conditionText)) {
-              sheet.deleteRule(i)
-              removed++
-            } else if (rule.cssRules) {
-              removed += removeAnchorRules(rule)
-            }
-          }
-          return removed
-        }
-        return [...document.styleSheets].reduce((count, sheet) => count + removeAnchorRules(sheet), 0)
-      })()
-    JS
-    assert_equal 1, removed
+    assert_equal 1, remove_notes_support_rules("position-area")
     hold_note_save_response
     fill_in "Title (optional)", with: "Saved while the fallback is open"
     id = "note-actions-#{@note.id}"
@@ -633,6 +647,41 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     refute_equal initial.fetch("anchor").fetch("top"), after_scroll.fetch("anchor").fetch("top")
     orbite_viewport(690, 480)
     assert_anchored_notes_dropdown(id)
+  ensure
+    browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
+  test "nested folder confirmation stays anchored when position-area works but anchor scoping does not" do
+    browser = page.driver.browser
+    script = browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS)
+      const supports = CSS.supports.bind(CSS)
+      CSS.supports = (...args) => args[0] === "anchor-scope" ? false : supports(...args)
+      // Keep real popovers, but model showPopover before its source option.
+      const showPopover = HTMLElement.prototype.showPopover
+      HTMLElement.prototype.showPopover = function() { return showPopover.call(this) }
+    JS
+    folder = note_folders(:interviews)
+    parent_id = "folder-actions-#{folder.id}"
+    confirmation_id = "trash-folder-#{folder.id}"
+    orbite_viewport(667, 375)
+    visit account_notes_workspace_path(@account, folder_id: folder.id, view: "list")
+    assert_equal [ true, false ], page.evaluate_script("[CSS.supports('position-area', 'block-end span-all'), CSS.supports('anchor-scope', '--notes-confirmation')]")
+    assert_equal 1, remove_notes_support_rules("anchor-scope")
+    open_folder_trash_confirmation(folder)
+    assert_selector "##{confirmation_id}:popover-open"
+    orbite_settle
+
+    assert_anchored_notes_dropdown(parent_id)
+    before = assert_anchored_notes_dropdown(confirmation_id)
+    page.execute_script("document.querySelector('main').scrollTop += 24")
+    orbite_settle
+    assert_anchored_notes_dropdown(parent_id)
+    after_scroll = assert_anchored_notes_dropdown(confirmation_id)
+    refute_equal before.fetch("anchor").fetch("top"), after_scroll.fetch("anchor").fetch("top")
+
+    orbite_viewport(690, 480)
+    assert_anchored_notes_dropdown(parent_id)
+    assert_anchored_notes_dropdown(confirmation_id)
   ensure
     browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
   end
@@ -2188,6 +2237,28 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       assert_operator panel.fetch("left"), :<=, anchor.fetch("right"), sample.inspect
       assert_operator panel.fetch("right"), :>=, anchor.fetch("left"), sample.inspect
       sample
+    end
+
+    def remove_notes_support_rules(property)
+      page.evaluate_script(<<~JS, property)
+        (() => {
+          const property = arguments[0]
+          const removeRules = (sheet) => {
+            let removed = 0
+            for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
+              const rule = sheet.cssRules[i]
+              if (rule instanceof CSSSupportsRule && rule.conditionText.includes(`(${property}:`)) {
+                sheet.deleteRule(i)
+                removed++
+              } else if (rule.cssRules) {
+                removed += removeRules(rule)
+              }
+            }
+            return removed
+          }
+          return [...document.styleSheets].reduce((count, sheet) => count + removeRules(sheet), 0)
+        })()
+      JS
     end
 
     def hold_note_save_response(hold_request: false)

@@ -94,7 +94,7 @@
   box-shadow: 0 4px 22px rgb(0 0 0 / .12);
 }
 
-@supports (position-area: block-end span-all) {
+@supports (position-area: block-end span-all) and (anchor-scope: --notes-confirmation) {
   .n-notes .n-notes-dropdown {
     inset: auto;
     position-area: block-end span-all;
@@ -110,11 +110,9 @@
   .n-notes .n-notes-move-trigger { anchor-name: --notes-move; }
   .n-notes .n-notes-move-dialog { position-anchor: --notes-move; }
 
-  @supports (anchor-scope: --notes-confirmation) {
-    .n-notes .n-notes-confirmation { anchor-scope: --notes-confirmation; }
-    .n-notes .n-notes-confirmation-trigger { anchor-name: --notes-confirmation; }
-    .n-notes .n-notes-confirmation-dialog { position-anchor: --notes-confirmation; }
-  }
+  .n-notes .n-notes-confirmation { anchor-scope: --notes-confirmation; }
+  .n-notes .n-notes-confirmation-trigger { anchor-name: --notes-confirmation; }
+  .n-notes .n-notes-confirmation-dialog { position-anchor: --notes-confirmation; }
 }
 
 .n-notes :is(.n-notes-move-dialog, .n-notes-confirmation-dialog)::backdrop { background: transparent; }
