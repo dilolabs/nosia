@@ -1,6 +1,6 @@
 <%# locals: (account:, note:, options:, folders:) %>
 <%= form_with url: account_note_movement_path(account, note, **options), class: "n-notes-dropdown-form" do |form| %>
   <%= form.label :note_folder_id, t("nosia.notes.move_destination") %>
-  <%= form.select :note_folder_id, notes_folder_choices(folders), selected: note.note_folder_id %>
+  <%= form.select :note_folder_id, notes_folder_choices(folders), { selected: note.note_folder_id }, autofocus: true %>
   <%= form.submit t("nosia.notes.move"), class: "n-notes-button" %>
 <% end %>

@@ -186,15 +186,16 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     visit account_note_path(@account, @note)
     assert_selector "lexxy-editor[connected]"
     actions = "button[popovertarget='note-actions-#{@note.id}']"
-    move = "button[popovertarget='note-move-#{@note.id}']"
+    move = notes_move_trigger
     actions_panel = "#note-actions-#{@note.id}:popover-open"
-    move_panel = "#note-move-#{@note.id}:popover-open"
+    move_panel = notes_open_move_panel
     assert_selector actions
     orbite_tab_to(actions)
     page.driver.browser.action.send_keys(:enter).perform
     assert_selector actions_panel
     orbite_tab_to(move)
-    page.driver.browser.action.send_keys(:enter, :tab).perform
+    page.driver.browser.action.send_keys(:enter).perform
+    page.driver.browser.action.send_keys(:tab).perform unless page.has_selector?("#{move_panel} select:focus", wait: 0)
     assert_selector "#{move_panel} select:focus"
 
     page.driver.browser.action.send_keys(:escape).perform
@@ -205,6 +206,58 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector "#{actions}:focus"
   end
 
+  test "tabbing past Move submit does not leave focus behind the open picker" do
+    [ [ 375, 650 ], [ 1440, 900 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      actions = "#note-actions-#{@note.id}:popover-open"
+      move = notes_open_move_panel
+      orbite_tab_to("button[popovertarget='note-actions-#{@note.id}']")
+      page.driver.browser.action.send_keys(:enter).perform
+      orbite_tab_to(notes_move_trigger)
+      before = notes_layout("#note_title")
+      page.driver.browser.action.send_keys(:enter).perform
+      orbite_assert_reachable(move)
+      assert_equal before, notes_layout("#note_title")
+      orbite_tab_to("#{move} input[type=submit]")
+      2.times do
+        page.driver.browser.action.send_keys(:tab).perform
+        if page.has_selector?(move, wait: 0)
+          assert page.evaluate_script("document.activeElement.matches('body, ' + arguments[0] + ' *')", move),
+            "Focus escaped the open Move picker at #{width}x#{height}"
+        end
+      end
+
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_no_selector move
+      assert_selector "#{actions} #{notes_move_trigger}:focus"
+      assert_equal before, notes_layout("#note_title")
+    end
+  end
+
+  test "native Escape returns focus from the Move destination without scripts" do
+    orbite_viewport(375, 650)
+    page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+    visit account_note_path(@account, @note)
+    id = "note-actions-#{@note.id}"
+    move_trigger = notes_move_trigger
+    move_panel = notes_open_move_panel
+    click_button "Note actions"
+    assert_anchored_notes_dropdown(id)
+    find(move_trigger).click
+    page.driver.browser.action.send_keys(:tab).perform unless page.has_selector?("#{move_panel} select:focus", wait: 0)
+    assert_selector "#{move_panel} select:focus"
+    assert_anchored_notes_dropdown("note-move-#{@note.id}")
+    page.driver.browser.action.send_keys(:escape).perform
+
+    assert_no_selector move_panel
+    assert_selector "##{id}:popover-open #{move_trigger}:focus"
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_no_selector "##{id}:popover-open"
+    assert_selector "button[popovertarget='#{id}']:focus"
+  end
+
   test "note actions still move a note without scripts" do
     orbite_viewport(375, 650)
     page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
@@ -213,7 +266,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_button "Note actions"
     click_button "Note actions"
     click_button "Move note"
-    within "#note-move-#{@note.id}:popover-open" do
+    within notes_open_move_panel do
       select "Research / Reading", from: "Destination folder"
       click_button "Move note"
     end
@@ -222,26 +275,111 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal note_folders(:reading), @note.reload.note_folder
   end
 
-  test "saving leaves the tablet drawer semantics and opened note actions intact" do
-    orbite_viewport(768, 850)
+  test "Move still opens a modal when declarative dialog commands are unavailable" do
     visit account_note_path(@account, @note)
     assert_selector "lexxy-editor[connected]"
-    assert_selector ".n-notes-folder-trigger[aria-haspopup='dialog']"
-    page.execute_script(<<~JS)
-      const normalFetch = window.fetch
-      const gate = new Promise(resolve => { window.releaseNoteSave = resolve })
-      window.fetch = (...args) => {
-        const result = normalFetch(...args)
-        return args[1]?.method === "PATCH" ? result.then(response => gate.then(() => response)) : result
-      }
+    click_button "Note actions"
+    trigger = find(notes_move_trigger)
+    page.execute_script(<<~JS, trigger)
+      const trigger = arguments[0]
+      Object.defineProperty(trigger, "commandForElement", { value: undefined })
+      trigger.removeAttribute("command")
+      trigger.removeAttribute("commandfor")
     JS
+    trigger.click
+    assert_selector "#note-move-#{@note.id}:modal select:focus"
+    click_button "Cancel"
+    assert_no_selector notes_open_move_panel
+    assert_selector "#{notes_move_trigger}:focus"
+  end
+
+  test "note actions stay anchored without CSS anchor support through scroll resize and autosave" do
+    browser = page.driver.browser
+    script = browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS)
+      const supports = CSS.supports.bind(CSS)
+      CSS.supports = (...args) => args[0] === "position-area" && args[1] === "block-end span-all" ? false : supports(...args)
+    JS
+    orbite_viewport(667, 375)
+    visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected]"
+    removed = page.evaluate_script(<<~JS)
+      (() => {
+        const removeAnchorRules = (sheet) => {
+          let removed = 0
+          for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
+            const rule = sheet.cssRules[i]
+            if (rule instanceof CSSSupportsRule && /position-area:\\s*block-end span-all/.test(rule.conditionText)) {
+              sheet.deleteRule(i)
+              removed++
+            } else if (rule.cssRules) {
+              removed += removeAnchorRules(rule)
+            }
+          }
+          return removed
+        }
+        return [...document.styleSheets].reduce((count, sheet) => count + removeAnchorRules(sheet), 0)
+      })()
+    JS
+    assert_equal 1, removed
+    hold_note_save_response
+    fill_in "Title (optional)", with: "Saved while the fallback is open"
+    id = "note-actions-#{@note.id}"
+    move_id = "note-move-#{@note.id}"
+    trigger = "button[popovertarget='#{id}']"
+    orbite_tab_to(trigger)
+    before = notes_layout("#note_title")
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector "##{id}:popover-open"
+    orbite_settle
+    initial = assert_anchored_notes_dropdown(id)
+    assert_equal before, notes_layout("#note_title")
+    orbite_tab_to(notes_move_trigger)
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector "#{notes_open_move_panel} select:focus"
+    orbite_settle
+    initial_move = assert_anchored_notes_dropdown(move_id)
+    assert_equal before, notes_layout("#note_title")
+
+    page.execute_script("window.releaseNoteSave()")
+    assert_save_status "Saved"
+    assert_equal initial, assert_anchored_notes_dropdown(id)
+    assert_equal initial_move, assert_anchored_notes_dropdown(move_id)
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_no_selector notes_open_move_panel
+    assert_selector "#{notes_move_trigger}:focus"
+
+    page.execute_script("document.querySelector('main').scrollTop += 24")
+    orbite_settle
+    after_scroll = assert_anchored_notes_dropdown(id)
+    refute_equal initial.fetch("anchor").fetch("top"), after_scroll.fetch("anchor").fetch("top")
+    orbite_viewport(690, 480)
+    assert_anchored_notes_dropdown(id)
+  ensure
+    browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
+  test "saving leaves the tablet drawer semantics and opened note actions intact" do
+    orbite_viewport(768, 850)
+    options = { folder_id: @note.note_folder_id }
+    visit account_note_path(@account, @note, **options)
+    assert_selector "lexxy-editor[connected]"
+    assert_selector ".n-notes-folder-trigger[aria-haspopup='dialog']"
+    hold_note_save_response
     fill_in "Title (optional)", with: "Updated from tablet"
     click_button "Note actions"
     assert_selector "#note-actions-#{@note.id}:popover-open"
     page.execute_script("window.releaseNoteSave()")
     assert_save_status "Saved"
-    within("#note-actions-#{@note.id}:popover-open") { assert_button "Pin in folder" }
+    panel = "#note-actions-#{@note.id}:popover-open"
+    pin_form = "#{panel} form[action='#{account_note_pin_path(@account, @note, **options)}'][method=post]"
+    assert_selector "#{pin_form} button", text: "Pin in folder"
     assert_selector ".n-notes-folder-trigger[aria-haspopup='dialog']"
+    orbite_tab_to("#{pin_form} button")
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_current_path account_note_path(@account, @note, **options)
+    assert_selector "[data-note-id='#{@note.id}']", text: "Pinned"
+    assert NotePin.exists?(account: @account, note: @note)
+    assert_field "Title (optional)", with: "Updated from tablet"
   end
 
   test "a native HTML conflict lets a keyboard user select the draft and load the saved note" do
@@ -1647,30 +1785,77 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
-    def assert_notes_dropdown(id, reference)
-      trigger = "button[popovertarget='#{id}']"
-      panel = "##{id}:popover-open"
-      first_item = "#{panel} > form:first-child > button, #{panel} > ul > li:first-child > a"
-      assert_selector trigger
-      orbite_tab_to(trigger)
-      layout = <<~JS
+    def notes_move_trigger
+      id = "note-move-#{@note.id}"
+      "button:is([popovertarget='#{id}'], [commandfor='#{id}']):not([popovertargetaction=hide])"
+    end
+
+    def notes_open_move_panel
+      "#note-move-#{@note.id}:is(:popover-open, :modal)"
+    end
+
+    def notes_layout(reference)
+      page.evaluate_script(<<~JS, reference)
         (() => {
           const main = document.querySelector("main")
           const box = document.querySelector(arguments[0]).getBoundingClientRect()
           return [box.toJSON(), main.scrollTop, main.scrollLeft, window.scrollY]
         })()
       JS
-      before = page.evaluate_script(layout, reference)
+    end
+
+    def assert_anchored_notes_dropdown(id)
+      sample = page.evaluate_script(<<~JS, id)
+        (() => {
+          const trigger = document.querySelector(`button[popovertarget="${arguments[0]}"]:not([popovertargetaction="hide"])`)
+          const panel = document.getElementById(arguments[0])
+          return { anchor: trigger.getBoundingClientRect().toJSON(), panel: panel.getBoundingClientRect().toJSON(),
+            open: panel.matches(":popover-open, :modal"), viewport: [innerWidth, innerHeight] }
+        })()
+      JS
+      assert sample.fetch("open")
+      panel, anchor = sample.values_at("panel", "anchor")
+      width, height = sample.fetch("viewport")
+      assert_operator panel.fetch("left"), :>=, 0, sample.inspect
+      assert_operator panel.fetch("right"), :<=, width, sample.inspect
+      assert_operator panel.fetch("top"), :>=, 0, sample.inspect
+      assert_operator panel.fetch("bottom"), :<=, height, sample.inspect
+      gap = [ panel.fetch("top") - anchor.fetch("bottom"), anchor.fetch("top") - panel.fetch("bottom") ].max
+      assert_operator gap, :>=, 0, sample.inspect
+      assert_operator gap, :<=, 8, sample.inspect
+      assert_operator panel.fetch("left"), :<=, anchor.fetch("right"), sample.inspect
+      assert_operator panel.fetch("right"), :>=, anchor.fetch("left"), sample.inspect
+      sample
+    end
+
+    def hold_note_save_response
+      page.execute_script(<<~JS)
+        const normalFetch = window.fetch
+        const gate = new Promise(resolve => { window.releaseNoteSave = resolve })
+        window.fetch = (...args) => {
+          const result = normalFetch(...args)
+          return args[1]?.method === "PATCH" ? result.then(response => gate.then(() => response)) : result
+        }
+      JS
+    end
+
+    def assert_notes_dropdown(id, reference)
+      trigger = "button[popovertarget='#{id}']"
+      panel = "##{id}:popover-open"
+      first_item = "#{panel} > form:first-child > button, #{panel} > ul > li:first-child > a"
+      assert_selector trigger
+      orbite_tab_to(trigger)
+      before = notes_layout(reference)
 
       page.driver.browser.action.send_keys(:enter).perform
       assert_selector panel
       orbite_assert_reachable(panel)
-      assert_equal before, page.evaluate_script(layout, reference)
+      assert_equal before, notes_layout(reference)
       orbite_tab_to(first_item)
       page.driver.browser.action.send_keys(:escape).perform
       assert_no_selector panel, visible: :all
       assert_selector "#{trigger}:focus"
-      assert_equal before, page.evaluate_script(layout, reference)
+      assert_equal before, notes_layout(reference)
 
       page.driver.browser.action.send_keys(:enter).perform
       assert_selector panel
@@ -1678,7 +1863,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       page.driver.browser.action.move_to_location(2, 2).click.perform
       assert_no_selector panel, visible: :all
       assert_no_selector "#{trigger}:focus"
-      assert_equal before, page.evaluate_script(layout, reference)
+      assert_equal before, notes_layout(reference)
     end
 
     def hold_notes_requests(*paths, answers: [ false ])

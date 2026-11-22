@@ -4,6 +4,7 @@
   <%= inline_svg "svg/chevron-down.svg", aria_hidden: true, class: "n-notes-icon" %>
 </button>
 <div id="<%= id %>" popover="auto" class="n-notes-dropdown"
-     <%= tag.attributes(data: { controller: "notes-submenu", action: "keydown.esc->notes-submenu#dismiss" }) if nested %>>
+     data-controller="notes-dropdown<%= ' notes-submenu' if nested %>"
+     <%= tag.attributes(data: { action: "keydown.esc->notes-submenu#dismiss" }) if nested %>>
   <%= yield %>
 </div>

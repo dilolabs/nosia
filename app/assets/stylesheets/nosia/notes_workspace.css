@@ -80,11 +80,11 @@
 
 .n-notes .n-notes-dropdown {
   position: fixed;
-  inset: 0;
-  margin: auto;
+  inset: var(--notes-dropdown-inset, 0);
+  margin: var(--notes-dropdown-margin, auto);
   box-sizing: border-box;
   inline-size: min(20rem, calc(100vw - 1rem));
-  max-block-size: min(24rem, calc(100dvh - 1rem));
+  max-block-size: min(24rem, var(--notes-dropdown-space, calc(100dvh - 1rem)));
   overflow: auto;
   overscroll-behavior: contain;
   padding: .375rem;
@@ -107,7 +107,12 @@
     inline-size: min(20rem, calc(100% - 1rem));
     max-block-size: min(24rem, calc(100% - .75rem));
   }
+
+  .n-notes .n-notes-move-trigger { anchor-name: --notes-move; }
+  .n-notes .n-notes-move-dialog { position-anchor: --notes-move; }
 }
+
+.n-notes .n-notes-move-dialog::backdrop { background: transparent; }
 
 .n-notes .n-notes-dropdown :is(.n-notes-menu-item, .n-notes-menu-trigger) {
   display: flex;
