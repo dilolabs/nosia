@@ -1,5 +1,14 @@
 # An immutable, encrypted Markdown payload owned by one account's import.
 class NoteImport::StagedFile < ApplicationRecord
+  RETENTION_ONLY = "Staged files can only be removed by import cleanup".freeze
+
+  # Protects both the collection proxy and chained relations from bulk removal.
+  module RetentionProtected
+    def delete_all(*)
+      raise ActiveRecord::ReadOnlyRecord, RETENTION_ONLY
+    end
+  end
+
   belongs_to :note_import, inverse_of: :staged_files
   belongs_to :account, default: -> { note_import&.account }
 
@@ -32,6 +41,13 @@ class NoteImport::StagedFile < ApplicationRecord
   # @return [Boolean] Persisted staging is immutable; retention cleanup uses bulk deletion.
   def readonly?
     persisted? || super
+  end
+
+  # @raise [ActiveRecord::ReadOnlyRecord] If a staged file is already persisted.
+  def delete
+    raise ActiveRecord::ReadOnlyRecord, RETENTION_ONLY if persisted?
+
+    super
   end
 
   # @param options [Hash, nil] Active Record attribute selection options.

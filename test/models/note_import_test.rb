@@ -329,7 +329,64 @@ class NoteImportTest < ActiveSupport::TestCase
     import.seal!
 
     assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.sole.destroy! }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.sole.delete }
     assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "deleting a sealed file through the collection cannot evict it" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.delete(import.staged_files.sole) }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "assigning a replacement collection cannot evict a sealed file" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files = [] }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "clearing the staged file collection cannot evict a sealed file" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.clear }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "bulk deletion through a scoped collection cannot evict a sealed file" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.where(path: "Plan.md").delete_all }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "alternate collection operations cannot evict a sealed file" do
+    import = sealed_import
+    staged = import.staged_files.sole
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.destroy(staged) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.replace([]) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_file_ids = [] }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.delete_all }
+    assert_equal [ staged.id ], import.staged_files.ids
+  end
+
+  test "retention cleanup rechecks terminal state and removes only this import's staged files" do
+    import = sealed_import
+    other = start_import(account: accounts(:picker_second))
+    other.stage!([ { path: "Plan.md", bytes: "ok" } ])
+
+    assert_invalid(:import_in_progress) { import.purge_staging! }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+
+    @account.note_imports.find(import.id).update!(status: :failed)
+    account_users(:picker_first_membership).destroy!
+    import.purge_staging!
+    import.purge_staging!
+    assert_predicate import.reload, :failed?
+    assert_empty import.staged_files
+    assert_equal [ "Plan.md" ], other.staged_files.pluck(:path)
   end
 
   test "sealing rejects a staged path set that has the right count but wrong paths" do
@@ -353,6 +410,12 @@ class NoteImportTest < ActiveSupport::TestCase
   end
 
   private
+    def sealed_import
+      import = start_import
+      import.stage!([ { path: "Plan.md", bytes: "ok" } ])
+      import.seal!
+    end
+
     def start_import(**overrides)
       NoteImport.start!(**{
         account: @account, initiator: @initiator, confirmation_key: SecureRandom.uuid, root_name: "Coffre",

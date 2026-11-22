@@ -14,17 +14,20 @@ class NoteImport < ApplicationRecord
   end
 
   LIVE_STATUSES = %w[uploading sealed queued running].freeze
+  TERMINAL_STATUSES = %w[succeeded failed expired].freeze
   MAX_BATCH_FILES = 16
   CONFIRMATION_KEY = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
 
   belongs_to :account
   belongs_to :initiator, class_name: "User"
-  has_many :staged_files, ->(import) { where(account_id: import.account_id) },
-    class_name: "NoteImport::StagedFile", inverse_of: :note_import, dependent: :delete_all
+  has_many :staged_files, ->(import) { where(account_id: import.account_id).extending(StagedFile::RetentionProtected) },
+    class_name: "NoteImport::StagedFile", inverse_of: :note_import, before_remove: :prevent_staging_removal
+
+  around_destroy :destroy_with_staging
 
   attr_readonly :account_id, :initiator_id, :confirmation_key, :root_name, :manifest, :ignored_counts
 
-  enum :status, %w[uploading sealed queued running succeeded failed expired].index_with(&:itself)
+  enum :status, (LIVE_STATUSES + TERMINAL_STATUSES).index_with(&:itself)
 
   # Starts a private upload, or returns the existing receipt for identical confirmation metadata.
   # @param account [Account] Target account.
@@ -104,32 +107,68 @@ class NoteImport < ApplicationRecord
   end
 
   # @api private
+  # Removes staged bytes after the import reaches a terminal state, preserving its receipt.
+  # @return [NoteImport] The terminal receipt.
+  # @raise [Invalid] If the import is live or unavailable.
+  def purge_staging!
+    with_locked_import do
+      raise Invalid.new(:import_in_progress) unless TERMINAL_STATUSES.include?(status)
+
+      delete_staging_rows
+    end
+  end
+
+  # @api private
   # Runs a staging operation while membership and import state are stable.
   # @return [NoteImport] The locked, refreshed import.
   # @raise [Invalid] If the import is unavailable or its initiator is no longer a member.
   def with_locked_upload
-    raise Invalid.new(:unavailable) unless persisted?
-
-    # Match Notes revocation and account destruction: acquire the account lock first.
-    Account.transaction(requires_new: true) do
-      locked_account = Account.lock.find(account_id_in_database)
-      self.class.uncached do
-        with_lock do
-          raise Invalid.new(:unavailable) unless account_id == locked_account.id
-          unless locked_account.account_users.exists?(user_id: initiator_id)
-            raise Invalid.new(:membership_required)
-          end
-
-          yield
-        end
+    with_locked_import do |locked_account|
+      unless locked_account.account_users.exists?(user_id: initiator_id)
+        raise Invalid.new(:membership_required)
       end
+
+      yield
     end
-    self
-  rescue ActiveRecord::RecordNotFound
-    raise Invalid.new(:unavailable), cause: nil
   end
 
   private
+    def with_locked_import
+      raise Invalid.new(:unavailable) unless persisted? && id == id_in_database
+
+      # Match Notes revocation and account destruction: acquire the account lock first.
+      Account.transaction(requires_new: true) do
+        locked_account = Account.lock.find(account_id_in_database)
+        self.class.uncached do
+          with_lock do
+            raise Invalid.new(:unavailable) unless account_id == locked_account.id
+
+            yield locked_account
+          end
+        end
+      end
+      self
+    rescue ActiveRecord::RecordNotFound
+      raise Invalid.new(:unavailable), cause: nil
+    end
+
+    def prevent_staging_removal(_file)
+      raise ActiveRecord::ReadOnlyRecord, StagedFile::RETENTION_ONLY
+    end
+
+    def destroy_with_staging
+      return yield unless persisted?
+
+      with_locked_import do
+        delete_staging_rows
+        yield
+      end
+    end
+
+    def delete_staging_rows
+      StagedFile.where(account_id:, note_import_id: id).delete_all
+    end
+
     def batch_files(entries)
       unless entries.is_a?(Array) && entries.size.between?(1, MAX_BATCH_FILES)
         raise Invalid.new(:invalid_batch)
