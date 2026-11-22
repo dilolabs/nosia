@@ -1,8 +1,10 @@
 <% content_for :title, t("nosia.notes.title") %>
 <% turbo_exempts_page_from_cache %>
 <section class="n-notes">
-  <h1><%= t("nosia.notes.title") %></h1>
-  <%= render "notes/workspaces/accounts", account: @account, memberships: Current.user.accounts.order(:name, :id) %>
+  <div class="n-notes-identity">
+    <h1><%= t("nosia.notes.title") %></h1>
+    <%= render "notes/workspaces/accounts", account: @account, memberships: Current.user.accounts.order(:name, :id) %>
+  </div>
   <p role="alert"><%= t("nosia.notes.#{@notes_conflict_message}") %></p>
   <% if @submitted_draft %>
     <div class="n-notes-form">

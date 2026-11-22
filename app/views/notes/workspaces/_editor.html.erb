@@ -22,7 +22,7 @@
       and comes only from Note's allowlist (also on a validation rerender). %>
   <%= form.lexxy_rich_text_area :body_html, id: "notes-body", attachments: "false",
                                 value: form_body_html || note.body_html.to_s, data: { note_autosave_target: "editor" } %>
-  <div class="n-notes-actions">
+  <div class="n-notes-actions n-notes-save-row">
     <%= form.submit t("nosia.notes.save_note"), class: "n-notes-button n-notes-primary" %>
     <p role="status" aria-live="polite" class="n-notes-meta" data-note-autosave-target="status"></p>
     <button type="button" class="n-notes-button" hidden data-note-autosave-target="retry"

@@ -76,6 +76,42 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
   end
 
+  test "the rounded Lexxy surface keeps saving and indexing separate across layouts" do
+    [ [ 1440, 900 ], [ 900, 768 ], [ 375, 800 ], [ 667, 375 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      assert_selector ".n-notes-save-row [data-note-autosave-target='status']", visible: :all
+      assert_selector ".n-notes-index-status [data-note-index-status-target='message']"
+
+      [ false, true ].each do |dark|
+        orbite_theme(dark)
+        styles = page.evaluate_script(<<~JS)
+          (() => {
+            const main = document.querySelector("main");
+            const style = (selector) => getComputedStyle(document.querySelector(selector));
+            return {
+              overflow: main.scrollWidth - main.clientWidth,
+              radius: parseFloat(style("#notes-body").borderRadius),
+              titleSize: parseFloat(style("#note_title").fontSize),
+              bodySize: parseFloat(style(".lexxy-editor__content").fontSize)
+            };
+          })()
+        JS
+        label = "notes-polish-#{width}-#{height}-#{dark ? 'dark' : 'light'}"
+        assert_operator styles.fetch("overflow"), :<=, 1, label
+        assert_operator styles.fetch("radius"), :>=, 12, label
+        assert_operator styles.fetch("titleSize"), :>, styles.fetch("bodySize"), label
+        if ENV["NOTES_POLISH_EVIDENCE"]
+          # Keep the writing surface and its feedback in frame on shorter screens.
+          page.execute_script("document.querySelector('.n-notes-index-status').scrollIntoView({ block: 'nearest' })")
+          orbite_settle
+          orbite_record(label, styles, screenshot: true)
+        end
+      end
+    end
+  end
+
   test "the medium layout keeps its list and editor, and moves one sidebar into a keyboard dialog" do
     orbite_viewport(960, 850)
     visit account_notes_workspace_path(@account)
@@ -148,6 +184,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       HTMLFormElement.prototype.submit.call(form)
     JS
 
+    assert_selector ".n-notes-identity h1", text: "Notes"
     assert_selector "[role=alert]", text: /Your changes were not saved/
     assert_selector "input#notes-draft-title[readonly]"
     body = find_field("Submitted note text")
