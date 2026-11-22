@@ -78,6 +78,7 @@ fr:
       pin: Épingler dans le dossier
       unpin: Désépingler du dossier
       move_destination: Dossier de destination
+      choose_move_destination: Choisir un dossier de destination
       move: Déplacer la note
       trash: Corbeille
       trash_note: Mettre la note à la corbeille

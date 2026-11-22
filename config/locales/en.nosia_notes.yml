@@ -78,6 +78,7 @@ en:
       pin: Pin in folder
       unpin: Unpin from folder
       move_destination: Destination folder
+      choose_move_destination: Choose a destination folder
       move: Move note
       trash: Trash
       trash_note: Trash note

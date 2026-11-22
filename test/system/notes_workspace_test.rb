@@ -428,6 +428,85 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_field "Title (optional)", with: "Updated from tablet"
   end
 
+  test "an autosave keeps the chosen Move destination while the submit button has focus" do
+    original_folder_id = @note.note_folder_id
+    destination = note_folders(:reading)
+    options = { folder_id: original_folder_id }
+    visit account_note_path(@account, @note, **options)
+    assert_selector "lexxy-editor[connected]"
+    hold_note_save_response
+    fill_in "Title (optional)", with: "Updated while choosing a destination"
+    assert_save_status "Saving"
+    choose_move_destination("Research / Reading")
+    page.driver.browser.action.send_keys(:tab).perform
+    submit = "#{notes_open_move_panel} input[type=submit]"
+    assert_selector "#{submit}:focus"
+
+    page.execute_script("window.releaseNoteSave()")
+    assert_save_status "Saved"
+    form = "#{notes_open_move_panel} form[action='#{account_note_movement_path(@account, @note, **options)}'][method=post]"
+    assert_selector "#{form} input[type=submit]:focus"
+    within form do
+      assert_select "Destination folder", selected: "Research / Reading"
+      assert_equal destination.id.to_s, find_field("Destination folder").value
+    end
+
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_current_path account_note_path(@account, @note, **options)
+    assert_selector "#notes-editor-heading .n-notes-meta", text: "Research / Reading"
+    assert_equal destination.id, @note.reload.note_folder_id
+  end
+
+  [ :submit, :select ].each do |focused|
+    test "autosave removes an unavailable Move destination without substituting it with #{focused} focused" do
+      original_folder_id = @note.note_folder_id
+      destination = note_folders(:reading)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      hold_note_save_response(hold_request: true)
+      fill_in "Title (optional)", with: "Updated while a destination is being removed"
+      choose_move_destination("Research / Reading")
+      panel = notes_open_move_panel
+      submit = "#{panel} input[type=submit]"
+      select = "#{panel} select"
+      page.driver.browser.action.send_keys(:tab).perform if focused == :submit
+      focus = focused == :submit ? submit : select
+      assert_selector "#{focus}:focus"
+      assert_save_status "Saving"
+      destination.trash
+
+      page.execute_script("window.releaseNoteSave()")
+      assert_save_status "Saved"
+      assert_selector "#{focus}:focus"
+      assert_no_selector "#{select} option[value='#{destination.id}']", visible: :all
+      within panel do
+        assert_equal "", find_field("Destination folder").value
+      end
+      page.driver.browser.action.send_keys(:tab).perform if focused == :select
+      assert_selector "#{submit}:focus"
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "#{select}:invalid:focus"
+      assert_equal original_folder_id, @note.reload.note_folder_id
+    end
+  end
+
+  test "autosave resets the destination of a closed Move picker from the server" do
+    visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected]"
+    hold_note_save_response
+    fill_in "Title (optional)", with: "Updated after closing the picker"
+    choose_move_destination("Research / Reading")
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_no_selector notes_open_move_panel
+
+    page.execute_script("window.releaseNoteSave()")
+    assert_save_status "Saved"
+    click_button "Move note"
+    within notes_open_move_panel do
+      assert_equal @note.note_folder_id.to_s, find_field("Destination folder").value
+    end
+  end
+
   test "a native HTML conflict lets a keyboard user select the draft and load the saved note" do
     visit account_note_path(@account, @note)
     assert_selector "lexxy-editor[connected]"
@@ -1831,6 +1910,16 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
+    def choose_move_destination(label)
+      click_button "Note actions"
+      click_button "Move note"
+      within notes_open_move_panel do
+        select label, from: "Destination folder"
+        assert_select "Destination folder", selected: label
+      end
+      assert_selector "#{notes_open_move_panel} select:focus"
+    end
+
     def notes_move_trigger
       id = "note-move-#{@note.id}"
       "button:is([popovertarget='#{id}'], [commandfor='#{id}']):not([popovertargetaction=hide])"
@@ -1874,13 +1963,17 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       sample
     end
 
-    def hold_note_save_response
-      page.execute_script(<<~JS)
+    def hold_note_save_response(hold_request: false)
+      page.execute_script(<<~JS, hold_request)
         const normalFetch = window.fetch
         const gate = new Promise(resolve => { window.releaseNoteSave = resolve })
+        const holdRequest = arguments[0]
         window.fetch = (...args) => {
+          if (args[1]?.method !== "PATCH") return normalFetch(...args)
+          if (holdRequest) return gate.then(() => normalFetch(...args))
+
           const result = normalFetch(...args)
-          return args[1]?.method === "PATCH" ? result.then(response => gate.then(() => response)) : result
+          return result.then(response => gate.then(() => response))
         }
       JS
     end

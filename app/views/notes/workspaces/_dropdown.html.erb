@@ -1,10 +1,8 @@
-<%# locals: (id:, label:, nested: false) %>
+<%# locals: (id:, label:) %>
 <button type="button" popovertarget="<%= id %>" class="n-notes-button n-notes-menu-trigger">
   <span><%= label %></span>
   <%= inline_svg "svg/chevron-down.svg", aria_hidden: true, class: "n-notes-icon" %>
 </button>
-<div id="<%= id %>" popover="auto" class="n-notes-dropdown"
-     data-controller="notes-dropdown<%= ' notes-submenu' if nested %>"
-     <%= tag.attributes(data: { action: "keydown.esc->notes-submenu#dismiss" }) if nested %>>
+<div id="<%= id %>" popover="auto" class="n-notes-dropdown" data-controller="notes-dropdown">
   <%= yield %>
 </div>
