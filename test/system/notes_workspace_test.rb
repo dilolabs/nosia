@@ -600,6 +600,20 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
         assert_equal before, [ note_entry, folder_entry ].map { |row| notes_layout(row) }
 
         page.driver.browser.action.send_keys(:enter).perform
+        assert_selector "#{panel} button:focus", exact_text: "Cancel"
+        page.driver.browser.action.send_keys(:tab).perform
+        submit = "#{panel} button[type=submit]:focus"
+        assert_selector submit, exact_text: "Confirm permanent deletion"
+        orbite_assert_reachable(submit)
+
+        page.driver.browser.action.send_keys(:escape).perform
+        assert_no_selector open_panel
+        assert_selector "#{trigger}:focus"
+        assert_equal before, [ note_entry, folder_entry ].map { |row| notes_layout(row) }
+        assert Note.exists?(@note.id)
+        assert NoteFolder.exists?(folder.id)
+
+        page.driver.browser.action.send_keys(:enter).perform
         assert_selector panel
         find(search).click
         assert_no_selector open_panel
