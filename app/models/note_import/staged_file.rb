@@ -2,10 +2,19 @@
 class NoteImport::StagedFile < ApplicationRecord
   RETENTION_ONLY = "Staged files can only be removed by import cleanup".freeze
 
-  # Protects both the collection proxy and chained relations from bulk removal.
-  module RetentionProtected
+  # Prevents bulk writes that skip the staged file's callbacks and locks.
+  # Applied to both the collection proxy and its chained relations.
+  module ProtectedCollection
     def delete_all(*)
       raise ActiveRecord::ReadOnlyRecord, RETENTION_ONLY
+    end
+
+    # Rails 8.1 routes touch_all and update_counters through update_all, and single-row
+    # insert/insert!/upsert through the corresponding bulk method.
+    %i[update_all insert_all insert_all! upsert_all].each do |operation|
+      define_method(operation) do |*|
+        raise ActiveRecord::ReadOnlyRecord, "Bulk writes are not allowed on staged files"
+      end
     end
   end
 

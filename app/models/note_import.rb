@@ -20,7 +20,7 @@ class NoteImport < ApplicationRecord
 
   belongs_to :account
   belongs_to :initiator, class_name: "User"
-  has_many :staged_files, ->(import) { where(account_id: import.account_id).extending(StagedFile::RetentionProtected) },
+  has_many :staged_files, ->(import) { where(account_id: import.account_id).extending(StagedFile::ProtectedCollection) },
     class_name: "NoteImport::StagedFile", inverse_of: :note_import, before_remove: :prevent_staging_removal
 
   around_destroy :destroy_with_staging

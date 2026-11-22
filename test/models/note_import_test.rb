@@ -361,6 +361,48 @@ class NoteImportTest < ActiveSupport::TestCase
     assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
   end
 
+  test "bulk updates cannot reassign a sealed file to another import" do
+    import = sealed_import
+    other = start_import(account: accounts(:picker_second))
+    scoped_files = import.staged_files.where(path: "Plan.md")
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { scoped_files.update_all(note_import_id: other.id) }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "bulk inserts cannot append to a sealed import through its collection" do
+    import = sealed_import
+    entry = staged_attributes("Other.md")
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.insert_all([ entry ]) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.insert_all!([ entry ]) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.insert(entry) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.insert!(entry) }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "bulk upserts cannot append to a sealed import through a chained collection" do
+    import = sealed_import
+    scoped_files = import.staged_files.where(path: "Other.md")
+    entry = staged_attributes("Other.md")
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { scoped_files.upsert_all([ entry ]) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { scoped_files.upsert(entry) }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "bulk timestamp and counter APIs cannot update staged rows" do
+    import = sealed_import
+    scoped_files = import.staged_files.where(path: "Plan.md")
+    timestamp = scoped_files.sole.updated_at
+
+    travel 1.minute do
+      assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.touch_all }
+      assert_raises(ActiveRecord::ReadOnlyRecord) { scoped_files.update_counters(touch: true) }
+    end
+    assert_equal timestamp, scoped_files.sole.updated_at
+  end
+
   test "alternate collection operations cannot evict a sealed file" do
     import = sealed_import
     staged = import.staged_files.sole
@@ -391,8 +433,8 @@ class NoteImportTest < ActiveSupport::TestCase
 
   test "sealing rejects a staged path set that has the right count but wrong paths" do
     import = start_import
-    # Simulate a storage inconsistency without using the ordinary staging write path.
-    import.staged_files.insert_all!([ { path: "Other.md", payload: "ok", digest: Digest::SHA256.hexdigest("ok") } ])
+    # Simulate a storage inconsistency outside the import's protected collection.
+    NoteImport::StagedFile.insert_all!([ staged_attributes("Other.md").merge(account_id: import.account_id, note_import_id: import.id) ])
 
     assert_invalid(:incomplete_upload) { import.seal! }
     assert_predicate import.reload, :uploading?
@@ -410,6 +452,10 @@ class NoteImportTest < ActiveSupport::TestCase
   end
 
   private
+    def staged_attributes(path)
+      { path:, payload: "ok", digest: Digest::SHA256.hexdigest("ok") }
+    end
+
     def sealed_import
       import = start_import
       import.stage!([ { path: "Plan.md", bytes: "ok" } ])
