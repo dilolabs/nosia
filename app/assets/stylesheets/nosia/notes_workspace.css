@@ -331,5 +331,7 @@
     padding-inline: .875rem;
   }
   .n-notes-sidebar-slot { padding-inline-end: .875rem; }
+  /* Leave room for Save and the indexing row, including its retry button. */
+  .n-notes-form .lexxy-editor__content { min-block-size: clamp(15rem, calc(100dvh - 30.5rem), 48rem); }
   .n-notes-trash { grid-column: 2 / -1; }
 }

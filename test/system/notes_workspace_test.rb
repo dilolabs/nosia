@@ -167,6 +167,53 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
   end
 
+  [ [ "empty", "No text to index" ], [ "failed", "Échec de l’indexation" ] ].each do |state, message|
+    test "the desktop editor keeps the #{state} indexing status in view without scrolling" do
+      if state == "failed"
+        @note.update!(embedding_status: :failed, embedding_generation: 2)
+        orbite_select_language("FR")
+      end
+      orbite_viewport(1440, 900)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      assert_selector ".n-notes-index-status [role=status][data-note-index-status='#{state}']", exact_text: message
+      assert_button "Relancer l’indexation" if state == "failed"
+
+      samples = [ false, true ].map do |dark|
+        orbite_theme(dark)
+        sample = notes_writing_space.merge(notes_index_geometry)
+        label = "desktop-index-#{state}-#{dark ? 'dark' : 'light'}"
+        orbite_record(label, sample, screenshot: true) if ENV["NOTES_WRITING_EVIDENCE"] == "1"
+        sample
+      end
+
+      samples.each do |sample|
+        assert_equal 0, sample.fetch("mainScroll"), sample.inspect
+        assert_equal 0, sample.fetch("pageScroll"), sample.inspect
+        assert_operator sample.fetch("visible"), :>=, 320, sample.inspect
+        %w[message retry].filter_map { |control| sample[control] }.each do |bounds|
+          assert_operator bounds.fetch("top"), :>=, sample.fetch("viewportTop"), sample.inspect
+          assert_operator bounds.fetch("bottom"), :<=, sample.fetch("viewportBottom"), sample.inspect
+        end
+      end
+    end
+  end
+
+  test "long desktop notes grow past the writing minimum and scroll with the workspace" do
+    body = (1..40).map { |number| "<p>Interview question #{number}</p>" }.join
+    @note.edit_content!(expected_revision: @note.content_revision, title: @note.title, body_html: body)
+    orbite_viewport(1440, 900)
+    visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected] .lexxy-editor__content p:last-child", exact_text: "Interview question 40"
+    assert_operator notes_writing_space.fetch("bodyHeight"), :>, 900
+    page.execute_script("document.querySelector('[data-note-index-status-target=message]').scrollIntoView({ block: 'nearest' })")
+    orbite_settle
+    sample = notes_index_geometry
+    assert_operator sample.fetch("mainScroll"), :>, 0, sample.inspect
+    assert_equal 0, sample.fetch("pageScroll"), sample.inspect
+    assert_operator sample.fetch("message").fetch("bottom"), :<=, sample.fetch("viewportBottom"), sample.inspect
+  end
+
   test "the medium layout keeps its list and editor, and moves one sidebar into a keyboard dialog" do
     orbite_viewport(960, 850)
     visit account_notes_workspace_path(@account)
@@ -2273,6 +2320,27 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
+    def notes_index_geometry
+      page.evaluate_script(<<~JS)
+        (() => {
+          const main = document.querySelector("main")
+          const contentTop = main.getBoundingClientRect().top + main.clientTop
+          const bounds = (selector) => {
+            const rect = document.querySelector(selector)?.getBoundingClientRect()
+            return rect ? { top: rect.top, bottom: rect.bottom } : null
+          }
+          return {
+            mainScroll: main.scrollTop,
+            pageScroll: window.scrollY,
+            viewportTop: Math.max(0, contentTop),
+            viewportBottom: Math.min(innerHeight, contentTop + main.clientHeight),
+            message: bounds("[data-note-index-status-target=message]"),
+            retry: bounds(".n-notes-index-status button")
+          }
+        })()
+      JS
+    end
+
     def notes_writing_space
       page.evaluate_script(<<~JS)
         (() => {
