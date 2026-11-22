@@ -77,10 +77,15 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   test "the rounded Lexxy surface keeps saving and indexing separate across layouts" do
+    @note.edit_content!(expected_revision: @note.content_revision, title: @note.title,
+      body_html: "<h1>Interview outline</h1><h2>Next steps</h2><p>Prepare questions.</p>")
+
     [ [ 1440, 900 ], [ 900, 768 ], [ 375, 800 ], [ 667, 375 ] ].each do |width, height|
       orbite_viewport(width, height)
       visit account_note_path(@account, @note)
       assert_selector "lexxy-editor[connected]"
+      assert_selector ".lexxy-editor__content h1", text: "Interview outline"
+      assert_selector ".lexxy-editor__content h2", text: "Next steps"
       assert_selector ".n-notes-save-row [data-note-autosave-target='status']", visible: :all
       assert_selector ".n-notes-index-status [data-note-index-status-target='message']"
 
@@ -94,6 +99,8 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
               overflow: main.scrollWidth - main.clientWidth,
               radius: parseFloat(style("#notes-body").borderRadius),
               titleSize: parseFloat(style("#note_title").fontSize),
+              h1Size: parseFloat(style(".lexxy-editor__content h1").fontSize),
+              h2Size: parseFloat(style(".lexxy-editor__content h2").fontSize),
               bodySize: parseFloat(style(".lexxy-editor__content").fontSize)
             };
           })()
@@ -101,10 +108,12 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
         label = "notes-polish-#{width}-#{height}-#{dark ? 'dark' : 'light'}"
         assert_operator styles.fetch("overflow"), :<=, 1, label
         assert_operator styles.fetch("radius"), :>=, 12, label
-        assert_operator styles.fetch("titleSize"), :>, styles.fetch("bodySize"), label
+        assert_operator styles.fetch("titleSize"), :>, styles.fetch("h1Size"), "#{label}: note title vs body h1"
+        assert_operator styles.fetch("h1Size"), :>, styles.fetch("h2Size"), "#{label}: body h1 vs h2"
+        assert_operator styles.fetch("h2Size"), :>, styles.fetch("bodySize"), "#{label}: body h2 vs text"
         if ENV["NOTES_POLISH_EVIDENCE"]
-          # Keep the writing surface and its feedback in frame on shorter screens.
-          page.execute_script("document.querySelector('.n-notes-index-status').scrollIntoView({ block: 'nearest' })")
+          selector, alignment = height < 400 ? [ "#note_title", "start" ] : [ ".n-notes-index-status", "nearest" ]
+          page.execute_script("document.querySelector(arguments[0]).scrollIntoView({ block: arguments[1] })", selector, alignment)
           orbite_settle
           orbite_record(label, styles, screenshot: true)
         end
