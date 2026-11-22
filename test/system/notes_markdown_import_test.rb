@@ -94,6 +94,10 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
     assert_text "Import report: Coffre"
     assert_text "Indexing may still be pending"
     assert_text "1 unresolved link"
+    page.go_back
+    assert_current_path new_account_note_import_path(@account)
+    page.go_forward
+    assert_selector "[data-note-import-report]", text: "Import report: Coffre"
     click_link "Accueil"
     assert_selector "lexxy-editor[connected]"
     link = find(".lexxy-editor__content a", text: "la réunion")
@@ -133,7 +137,7 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
     sealed_at = receipt.reload.sealed_at
     assert_not_nil sealed_at
     click_button "Retry upload"
-    assert_current_path account_note_import_path(@account, receipt)
+    assert_current_path account_note_import_path(@account, receipt, continue: 1)
     assert_selector "[role=status]", text: /Waiting to import/
     assert_equal 1, @account.note_imports.count
     assert_equal 2, receipt.staged_files.count
@@ -141,7 +145,7 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
     assert_equal 1, enqueued_jobs.count { |job| job[:job] == NoteImport::PublishJob }
   end
 
-  test "a rejected upload never seals or publishes a partial branch" do
+  test "a rejected upload can be discarded and the corrected folder imported with a new key" do
     visit new_account_note_import_path(@account)
     Dir.mktmpdir("notes-import-", "/tmp/opencode") do |directory|
       File.write(File.join(directory, "Okay.md"), "Readable")
@@ -152,12 +156,107 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
         click_button "Upload and import"
         assert_selector "[role=alert]:focus", text: /not valid UTF-8/
         assert_button "Upload and import", disabled: true
+
+        receipt = @account.note_imports.sole
+        assert_nil receipt.sealed_at
+        assert_empty receipt.staged_files
+        assert_no_enqueued_jobs only: NoteImport::PublishJob
+        click_link "Review unfinished upload"
+        assert_current_path account_note_import_path(@account, receipt)
+        dismiss_confirm(/discard/i) { click_button "Discard upload" }
+        assert_predicate receipt.reload, :uploading?
+        accept_confirm(/discard/i) { click_button "Discard upload" }
+        assert_selector "[role=status]", text: /Upload discarded/
       end
+
+      discarded = @account.note_imports.sole
+      File.write(File.join(directory, "Invalid.md"), "Now valid.")
+      click_link "Import a Markdown folder"
+      select_folder(directory)
+      click_button "Upload and import"
+      assert_selector "[role=status]", text: /Waiting to import/
+      corrected = @account.note_imports.find_by!(status: :queued)
+      refute_equal discarded.confirmation_key, corrected.confirmation_key
+      perform_enqueued_jobs(only: NoteImport::PublishJob)
+      assert_predicate corrected.reload, :succeeded?
+      assert_equal 1, @account.note_folders.where(id: corrected.root_note_folder_id).count
     end
-    receipt = @account.note_imports.sole
-    assert_nil receipt.sealed_at
-    assert_empty receipt.staged_files
-    assert_no_enqueued_jobs only: NoteImport::PublishJob
+  end
+
+  test "a separate new confirmation blocked by a live upload offers review, not a retry" do
+    visit new_account_note_import_path(@account)
+    select_folder
+    initiator = users(:picker_owner)
+    receipt = NoteImport.start!(account: @account, initiator:, root_name: "Original", confirmation_key: SecureRandom.uuid,
+      files: [ { path: "Original.md", size: 0 } ], ignored_counts: { obsidian: 0, other: 0 })
+
+    click_button "Upload and import"
+    assert_selector "[role=alert]:focus", text: /already have an import in progress/
+    assert_no_button "Retry upload"
+    click_link "Find your current import"
+    assert_link "Review unfinished upload", href: account_note_import_path(@account, receipt)
+    assert_predicate receipt.reload, :uploading?
+  end
+
+  test "a job finished before the first receipt GET still opens the report once" do
+    visit new_account_note_import_path(@account)
+    select_folder
+    # Hold the real seal reply before the client can make the first receipt visit.
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.fetch = async (url, options) => {
+        const reply = await fetch(url, options)
+        if (options?.method === "POST" && url.endsWith("/seal")) {
+          await new Promise(resolve => { window.releaseSeal = resolve })
+        }
+        return reply
+      }
+    JS
+    click_button "Upload and import"
+    assert_equal true, page.evaluate_async_script(<<~JS)
+      const done = arguments[0]
+      function waitForSeal() {
+        if (window.releaseSeal) done(true)
+        else requestAnimationFrame(waitForSeal)
+      }
+      waitForSeal()
+    JS
+    assert_current_path new_account_note_import_path(@account)
+    receipt = @account.note_imports.find_by!(status: :queued)
+    perform_enqueued_jobs(only: NoteImport::PublishJob)
+    assert_predicate receipt.reload, :succeeded?
+    page.execute_script("window.releaseSeal()")
+
+    result = account_notes_workspace_path(@account, folder_id: receipt.root_note_folder_id, import_id: receipt.id)
+    assert_current_path result, wait: 10
+    assert_selector "[data-note-import-report]", text: "Import report: Coffre"
+    page.go_back
+    assert_current_path new_account_note_import_path(@account)
+    visit result
+    click_link "View import status"
+    assert_current_path account_note_import_path(@account, receipt)
+    assert_link "Open imported folder", href: result
+  end
+
+  test "retrying after a lost seal response opens the already saved report" do
+    visit new_account_note_import_path(@account)
+    select_folder
+    assert_button "Upload and import", disabled: false
+    observe_import_posts(lose: [ "/seal" ])
+    click_button "Upload and import"
+    assert_selector "[role=alert]:focus", text: /Retry upload/
+    receipt = @account.note_imports.find_by!(status: :queued)
+    sealed_at = receipt.sealed_at
+    perform_enqueued_jobs(only: NoteImport::PublishJob)
+    assert_predicate receipt.reload, :succeeded?
+
+    click_button "Retry upload"
+    assert_current_path account_notes_workspace_path(@account, folder_id: receipt.root_note_folder_id, import_id: receipt.id), wait: 10
+    assert_selector "[data-note-import-report]", text: "Import report: Coffre"
+    assert_equal [ "/note-imports", "/batches", "/seal", "/note-imports" ],
+      page.evaluate_script("window.importPosts").map { |path| "/#{path.split('/').last}" }
+    assert_equal sealed_at, receipt.reload.sealed_at
+    assert_equal 1, @account.note_imports.count
   end
 
   test "polling stops at a failed receipt and offers a fresh selection" do

@@ -13,16 +13,23 @@ export async function uploadFolder(url, selection, limits, signal, progress) {
     files: Array.from(entries, ([path, file]) => ({ path, size: file.size }))
   }, signal)
 
-  if (receipt.status === "uploading" && receipt.uploaded_count !== entries.size) {
-    for (const batch of batches(entries, limits)) {
-      const ack = await post(receipt.batch_url, batch, signal)
-      progress(ack.uploaded_count, ack.total)
+  try {
+    if (receipt.status === "uploading" && receipt.uploaded_count !== entries.size) {
+      for (const batch of batches(entries, limits)) {
+        const ack = await post(receipt.batch_url, batch, signal)
+        progress(ack.uploaded_count, ack.total)
+      }
     }
+    if (receipt.status === "uploading" || receipt.status === "sealed") {
+      await post(receipt.seal_url, {}, signal)
+    }
+  } catch (error) {
+    if (error instanceof UploadRejection && receipt.status === "uploading") error.receiptUrl = receipt.status_url
+    throw error
   }
-  if (receipt.status === "uploading" || receipt.status === "sealed") {
-    await post(receipt.seal_url, {}, signal)
-  }
-  return receipt.status_url
+  const nextPage = new URL(receipt.status_url, location.href)
+  nextPage.searchParams.set("continue", "1")
+  return nextPage
 }
 
 function* batches(entries, { batchFiles, batchBytes }) {
@@ -41,7 +48,7 @@ function* batches(entries, { batchFiles, batchBytes }) {
   if (count) yield form
 }
 
-async function post(url, body, signal) {
+export async function post(url, body, signal) {
   signal.throwIfAborted()
   if (new URL(url, location.href).origin !== location.origin) throw new TypeError()
 

@@ -51,6 +51,21 @@ module NoteImport::Lifecycle
     end
   end
 
+  # Retires an unsealed upload without removing its receipt or changing published Notes.
+  # @return [NoteImport] The discarded receipt, including on retry.
+  # @raise [NoteImport::Invalid] If membership was lost or the upload is no longer open.
+  def discard_upload
+    with_locked_upload do
+      if uploading?
+        record_failure(:upload_discarded)
+      elsif !failed? || report&.[]("error") != "upload_discarded"
+        raise NoteImport::Invalid.new(:not_uploading)
+      end
+    end
+    schedule_staging_cleanup
+    self
+  end
+
   # @api private
   # Starts one attempt for a sealed or queued import.
   # @return [String, nil] The worker's token, or nil if another worker has already claimed it or it is no longer eligible.

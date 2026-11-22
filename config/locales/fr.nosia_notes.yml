@@ -14,7 +14,14 @@ fr:
         open_result: Ouvrir le dossier importé
         inactive_result: Le dossier importé n’est plus actif dans Notes.
         refresh_status: Actualiser l’état
-        uploading_receipt: Revenez à la page d’envoi initiale si elle est encore ouverte pour réessayer. Si vous avez quitté cette page, la sélection ne peut pas être récupérée et l’envoi inachevé expirera.
+        uploading_receipt: Pour renvoyer les mêmes fichiers après une erreur de connexion, revenez à la page d’envoi initiale si elle est encore ouverte. Si vous l’avez quittée, la sélection ne peut pas être récupérée.
+        review_unfinished: Voir l’envoi inachevé
+        find_current: Retrouver l’importation en cours
+        discard:
+          action: Abandonner l’envoi
+          hint: Pour recommencer avec une nouvelle sélection, abandonnez cet envoi inachevé. Les notes enregistrées et les importations dont l’envoi est terminé ne seront pas affectées.
+          confirm: Abandonner cet envoi inachevé ? Les fichiers déjà envoyés pour cette importation seront supprimés.
+          error: Impossible d’abandonner l’envoi. Actualisez cette page et vérifiez son état avant de réessayer.
         poll_error: Impossible de vérifier l’état de l’importation. Actualisez cette page pour réessayer.
         picker:
           label: Choisir un dossier
@@ -30,7 +37,8 @@ fr:
           rejected: L’envoi a été refusé.
           too_large: Le serveur a refusé cet envoi parce qu’il est trop volumineux. Choisissez un dossier plus petit ou renseignez-vous auprès de votre administrateur sur la limite d’envoi.
           transport_file_size: Un fichier Markdown dépasse la limite d’envoi de ce serveur. Divisez le fichier ou renseignez-vous auprès de votre administrateur sur cette limite, puis sélectionnez à nouveau le dossier.
-          restart: Corrigez le problème et sélectionnez à nouveau le dossier. Il faudra peut-être attendre l’expiration de l’envoi inachevé avant d’en commencer un autre.
+          restart: Corrigez le problème et sélectionnez à nouveau le dossier.
+          review: Consultez l’envoi inachevé et abandonnez-le avant de sélectionner à nouveau le dossier corrigé.
         report:
           title: "Rapport d’importation : %{name}"
           saved_counts: "Éléments enregistrés — Notes : %{notes}. Dossiers (racine comprise) : %{folders}."
@@ -62,6 +70,7 @@ fr:
           publication_failed: Le dossier n’a pas pu être enregistré dans Notes. Réessayez l’importation plus tard.
           processing_timeout: L’importation n’a pas démarré à temps. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
           worker_claim_expired: Le traitement s’est arrêté avant l’enregistrement des notes. Sélectionnez à nouveau le dossier pour réessayer.
+          upload_discarded: Envoi abandonné. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
           generic: L’importation a échoué et aucune note n’a été enregistrée. Lancez une nouvelle importation pour réessayer.
         errors:
           not_found: Cette importation est introuvable.

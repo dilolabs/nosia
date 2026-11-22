@@ -14,7 +14,14 @@ en:
         open_result: Open imported folder
         inactive_result: The imported folder is no longer active in Notes.
         refresh_status: Refresh status
-        uploading_receipt: Return to the original upload page to retry if it is still open. If you left that page, the selection cannot be recovered; unfinished uploads expire.
+        uploading_receipt: To retry the same files after a network error, return to the original upload page if it is still open. If you left it, the selection cannot be recovered.
+        review_unfinished: Review unfinished upload
+        find_current: Find your current import
+        discard:
+          action: Discard upload
+          hint: To start over with a new selection, discard this unfinished upload. It will not affect any saved notes or any import whose upload is complete.
+          confirm: Discard this unfinished upload? The files already uploaded for it will be removed.
+          error: Could not discard the upload. Refresh this page and check its status before trying again.
         poll_error: Could not check the import. Refresh this page to try again.
         picker:
           label: Choose a folder
@@ -30,7 +37,8 @@ en:
           rejected: The upload was rejected.
           too_large: The server rejected the request as too large. Try a smaller folder or ask your administrator about the upload limit.
           transport_file_size: A Markdown file is too large for this server’s upload limit. Split the file or ask your administrator about the limit, then select the folder again.
-          restart: Correct the issue and select the folder again. An unfinished upload may need to expire before you can start a new one.
+          restart: Correct the issue and select the folder again.
+          review: Review and discard the unfinished upload before selecting the corrected folder again.
         report:
           title: "Import report: %{name}"
           saved_counts: "Saved — Notes: %{notes}. Folders (including root): %{folders}."
@@ -62,6 +70,7 @@ en:
           publication_failed: The Notes folder could not be saved. Try importing again later.
           processing_timeout: The import did not start in time. Select the folder again to start a new import.
           worker_claim_expired: Processing stopped before the notes could be saved. Select the folder again to retry.
+          upload_discarded: Upload discarded. Select the folder again to start a new import.
           generic: The import failed and no notes were saved. Start a new import to try again.
         errors:
           not_found: This import was not found.

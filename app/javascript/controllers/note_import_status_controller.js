@@ -8,7 +8,7 @@ const TERMINAL = ["succeeded", "failed", "expired"]
 
 export default class extends Controller {
   static targets = ["message", "progress"]
-  static values = { url: String, pollError: String, progress: String }
+  static values = { url: String, pollError: String, progress: String, continuation: Boolean }
 
   connect() { this.schedule() }
   disconnect() { this.stop() }
@@ -44,11 +44,8 @@ export default class extends Controller {
       const { status, message, uploaded_count: uploaded, total, result_url: resultUrl } = result
       if (TERMINAL.includes(status)) {
         this.finished = true
-        if (status === "succeeded" && resultUrl) {
-          Turbo.visit(resultUrl)
-        } else {
-          Turbo.visit(this.urlValue, { action: "replace" })
-        }
+        const destination = this.continuationValue && status === "succeeded" && resultUrl ? resultUrl : this.urlValue
+        Turbo.visit(destination, { action: "replace" })
       } else {
         const progress = fillMessage(this.progressValue, { uploaded, total })
         if (this.messageTarget.textContent !== message) this.messageTarget.textContent = message

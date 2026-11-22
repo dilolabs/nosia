@@ -4,6 +4,7 @@ class NotesImportRequestLimitTest < ActiveSupport::TestCase
   IMPORTS_PATH = "/accounts/42/note-imports"
   BATCHES_PATH = "#{IMPORTS_PATH}/7/batches"
   SEAL_PATH = "#{IMPORTS_PATH}/7/seal"
+  CANCELLATION_PATH = "#{IMPORTS_PATH}/7/cancellation"
   JSON_TYPE = "application/json"
   MULTIPART_TYPE = "multipart/form-data; boundary=RackTestBoundary"
 
@@ -19,7 +20,7 @@ class NotesImportRequestLimitTest < ActiveSupport::TestCase
 
   test "each request uses its own inclusive wire budget" do
     { IMPORTS_PATH => [ 1.megabyte, JSON_TYPE ], BATCHES_PATH => [ 4.megabytes, MULTIPART_TYPE ],
-      SEAL_PATH => [ 16.kilobytes, JSON_TYPE ] }.each do |path, (limit, content_type)|
+      SEAL_PATH => [ 16.kilobytes, JSON_TYPE ], CANCELLATION_PATH => [ 16.kilobytes, JSON_TYPE ] }.each do |path, (limit, content_type)|
       assert_rejected(413, "payload_too_large", path:, length: (limit + 1).to_s, content_type:)
       assert_forwarded(path:, length: limit.to_s, content_type:)
     end
@@ -57,7 +58,8 @@ class NotesImportRequestLimitTest < ActiveSupport::TestCase
       [ "#{IMPORTS_PATH}/7", "PATCH", "GET, HEAD" ],
       [ IMPORTS_PATH, "GET", "POST" ],
       [ "#{BATCHES_PATH}.json/", "DELETE", "POST" ],
-      [ "#{SEAL_PATH}.json/", "GET", "POST" ]
+      [ "#{SEAL_PATH}.json/", "GET", "POST" ],
+      [ "#{CANCELLATION_PATH}.json/", "GET", "POST" ]
     ].each do |path, method, allow|
       assert_rejected(405, "method_not_allowed", path:, method:, allow:, content_type: MULTIPART_TYPE)
     end

@@ -46,6 +46,7 @@ Rails.application.routes.draw do
           scope module: :imports do
             resources :batches, only: :create
             resource :seal, only: :create
+            resource :cancellation, only: :create
           end
         end
         resources :note_folders, path: "note-folders", controller: "folders", only: %i[ new create edit update ] do

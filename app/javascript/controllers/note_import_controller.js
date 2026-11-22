@@ -6,7 +6,7 @@ import { uploadFolder, UploadRejection } from "controllers/note_import_upload"
 const UPLOAD_TIMEOUT_MS = 120_000
 
 export default class extends Controller {
-  static targets = ["picker", "status", "error", "confirm"]
+  static targets = ["picker", "status", "error", "confirm", "review", "find"]
   static values = { url: String, limits: Object, messages: Object }
 
   connect() {
@@ -84,23 +84,33 @@ export default class extends Controller {
   #failed(error) {
     const messages = this.messagesValue
     const retryable = !(error instanceof UploadRejection) || error.status >= 500 ||
-      [408, 429].includes(error.status) || ["incomplete_upload", "not_uploading", "import_in_progress"].includes(error.code)
+      [408, 429].includes(error.status) || ["incomplete_upload", "not_uploading"].includes(error.code)
     this.pickerTarget.disabled = false
     this.confirmTarget.disabled = !retryable
     this.statusTarget.textContent = ""
     if (retryable) {
       this.confirmTarget.textContent = messages.retry_button
-      const detail = error.code === "import_in_progress" ? `${error.message} ` : ""
-      this.#showError(detail + messages.retry_hint)
+      this.#showError(messages.retry_hint)
     } else {
       this.selection = null
       this.pickerTarget.value = ""
       const message = error.status === 413 ? messages.too_large : error.code && error.message
-      this.#showError(`${message || messages.rejected} ${messages.restart}`)
+      if (error.code === "import_in_progress") {
+        this.#showError(message || messages.rejected)
+        this.findTarget.hidden = false
+      } else {
+        this.#showError(`${message || messages.rejected} ${error.receiptUrl ? messages.review : messages.restart}`)
+        if (error.receiptUrl) {
+          this.reviewTarget.href = error.receiptUrl
+          this.reviewTarget.hidden = false
+        }
+      }
     }
   }
 
   #showError(message) {
+    this.reviewTarget.hidden = this.findTarget.hidden = true
+    this.reviewTarget.removeAttribute("href")
     this.errorTarget.textContent = message || ""
     this.errorTarget.hidden = !message
     if (message) this.errorTarget.focus()

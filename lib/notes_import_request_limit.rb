@@ -1,10 +1,10 @@
 # Enforces Notes import methods and wire limits before middleware can parse request bodies.
 class NotesImportRequestLimit
   # Match Journey's default parameter and optional format segments, including encoded IDs.
-  WRITE_PATH = %r{\A/accounts/[^./?]+/note-imports(?:/[^./?]+/(?<part>batches|seal))?(?:\.[^./?]+)?\z}
+  WRITE_PATH = %r{\A/accounts/[^./?]+/note-imports(?:/[^./?]+/(?<part>batches|seal|cancellation))?(?:\.[^./?]+)?\z}
   READ_PATH = %r{\A/accounts/[^./?]+/note-imports/[^./?]+(?:\.[^./?]+)?\z}
-  LIMITS = { nil => 1.megabyte, "batches" => 4.megabytes, "seal" => 16.kilobytes }.freeze
-  BODY_FIELDS = { nil => %w[confirmation_key root_name files ignored_counts], "batches" => %w[entries], "seal" => [] }.freeze
+  LIMITS = { nil => 1.megabyte, "batches" => 4.megabytes, "seal" => 16.kilobytes, "cancellation" => 16.kilobytes }.freeze
+  BODY_FIELDS = { nil => %w[confirmation_key root_name files ignored_counts], "batches" => %w[entries], "seal" => [], "cancellation" => [] }.freeze
   JSON_TYPE = %r{\Aapplication/json(?:[ \t]*;[ \t]*charset=(?:UTF-8|"UTF-8"))?[ \t]*\z}i
   MULTIPART_TYPE = %r{\Amultipart/form-data[ \t]*;[ \t]*boundary=(?:[a-z0-9'+_.-]{1,70}|"[a-z0-9'()+_,./:=? \-]{0,69}[a-z0-9'()+_,./:=?\-]")\z}i
 
@@ -31,7 +31,8 @@ class NotesImportRequestLimit
     elsif upload
       write(env, upload[:part])
     else
-      private_request(env) { |request| request.request_parameters = {}.with_indifferent_access }
+      continuation = env["QUERY_STRING"] == "continue=1"
+      private_request(env, continuation:) { |request| request.request_parameters = {}.with_indifferent_access }
     end
   end
 
@@ -66,10 +67,10 @@ class NotesImportRequestLimit
       [ 415, :unsupported_media_type ] unless expected_type.match?(env["CONTENT_TYPE"])
     end
 
-    def private_request(env)
+    def private_request(env, continuation: false)
       env["action_dispatch.parameter_filter"] = @filters
-      # These requests have no query inputs. Do not log even malformed query strings.
-      env["QUERY_STRING"] = ""
+      # Only the exact, non-sensitive continuation flag may survive redaction.
+      env["QUERY_STRING"] = continuation ? "continue=1" : ""
       yield ActionDispatch::Request.new(env)
       status, headers, body = @app.call(env)
       [ status, headers.merge("cache-control" => "no-store"), body ]

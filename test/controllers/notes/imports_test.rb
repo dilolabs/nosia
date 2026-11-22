@@ -354,9 +354,119 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
     assert_select "p", text: "The imported folder is no longer active in Notes."
   end
 
+  test "only a marked HTML continuation redirects to an active successful result" do
+    record, root = published_receipt
+    path = "#{imports_path}/#{record.id}"
+    target = account_notes_workspace_path(@account, folder_id: root.id, import_id: record.id)
+
+    get "#{path}?continue=1"
+    assert_response :see_other
+    assert_redirected_to target
+    assert_equal "no-store", response.headers["Cache-Control"]
+
+    get "#{path}?continue=1", headers: JSON_HEADERS
+    assert_equal target, private_json.fetch("result_url")
+
+    get "#{path}?continue=1&extra=unused-receipt-parameter"
+    assert_response :ok
+    refute_includes request.filtered_path, "unused-receipt-parameter"
+
+    get path
+    assert_response :ok
+    assert_select "a[href='#{target}']", text: "Open imported folder"
+    root.trash
+    get "#{path}?continue=1"
+    assert_redirected_to path
+    follow_redirect!
+    assert_response :ok
+    assert_select "a", text: "Open imported folder", count: 0
+  end
+
+  test "discard terminalizes only the unsealed upload and retries never resurrect its key" do
+    manifest = manifest_params
+    receipt = start_receipt(manifest)
+    path = receipt.fetch("status_url")
+    record = @account.note_imports.sole
+    post_batch receipt.fetch("batch_url")
+    assert_response :ok
+    assert_no_difference [ "Note.count", "NoteFolder.count", "NoteImport.count" ] do
+      post_json "#{path}/cancellation", {}
+      assert_response :ok
+      assert_equal "failed", private_json.fetch("status")
+      assert_equal({ "error" => "upload_discarded" }, record.reload.report)
+      assert_empty record.staged_files
+      assert_no_changes -> { record.reload.attributes } do
+        post_json "#{path}/cancellation", {}
+        assert_response :ok
+        post_json imports_path, manifest
+        assert_response :ok
+        assert_equal "failed", private_json.fetch("status")
+        post_batch receipt.fetch("batch_url")
+        assert_error 409, "not_uploading"
+        post_json receipt.fetch("seal_url"), {}
+        assert_response :ok
+        assert_equal "failed", private_json.fetch("status")
+      end
+    end
+    assert_equal "uploading", start_receipt(manifest.merge(confirmation_key: SecureRandom.uuid)).fetch("status")
+  end
+
+  test "discard keeps a sealed upload and its files untouched" do
+    record = seed_import
+    record.stage!([ { path: PATH, bytes: MARKDOWN } ])
+    record.seal!
+    %w[sealed queued running succeeded].each do |state|
+      record.update!(status: state)
+      assert_no_changes -> { record.reload.attributes } do
+        post_json "#{imports_path}/#{record.id}/cancellation", {}
+        assert_error 409, "not_uploading"
+        assert_equal MARKDOWN, record.staged_files.sole.payload
+      end
+    end
+  end
+
+  test "discard cannot cross a membership or initiator boundary" do
+    record = seed_import
+    member = users(:picker_outsider)
+    @account.account_users.grant_to(member)
+    assert_no_changes -> { record.reload.attributes } do
+      sign_in member
+      post_json "#{imports_path}/#{record.id}/cancellation", {}
+      assert_error 404, "not_found"
+      get "#{imports_path}/#{record.id}?continue=1"
+      assert_response :not_found
+      assert_nil response.headers["Location"]
+
+      sign_in @initiator
+      post_json "/accounts/#{accounts(:picker_second).id}/note-imports/#{record.id}/cancellation", {}
+      assert_error 404, "not_found"
+
+      account_users(:picker_first_membership).destroy!
+      post_json "#{imports_path}/#{record.id}/cancellation", {}
+      assert_error 404, "not_found"
+    end
+  end
+
+  test "discard requires CSRF and rejects oversized writes with no-store" do
+    record = seed_import
+    path = "#{imports_path}/#{record.id}/cancellation.json/"
+    original = ApplicationController.allow_forgery_protection
+    ApplicationController.allow_forgery_protection = true
+    assert_no_changes -> { record.reload.attributes } do
+      post_json path, {}
+      assert_response 422
+      assert_equal "no-store", response.headers.fetch("Cache-Control")
+      post path, params: "not parsed", headers: JSON_HEADERS.merge("CONTENT_LENGTH" => (16.kilobytes + 1).to_s,
+        "CONTENT_TYPE" => "application/json")
+      assert_error 413, "payload_too_large"
+    end
+  ensure
+    ApplicationController.allow_forgery_protection = original
+  end
+
   test "terminal messages are localized and never expose unknown stored errors" do
     record = seed_import
-    (NoteImport::Publication::FAILURE_CODES + %i[processing_timeout worker_claim_expired]).each do |code|
+    (NoteImport::Publication::FAILURE_CODES + %i[processing_timeout worker_claim_expired upload_discarded]).each do |code|
       record.update!(status: :failed, report: { error: code })
       %i[en fr].each do |locale|
         get "#{imports_path}/#{record.id}", headers: JSON_HEADERS.merge("Accept-Language" => locale.to_s)

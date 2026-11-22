@@ -1,3 +1,4 @@
+<%# locals: (current_import:) %>
 <% content_for :title, t("nosia.notes.imports.new_title") %>
 <% turbo_exempts_page_from_cache %>
 <%
@@ -5,7 +6,7 @@
   preview_errors = %i[invalid_root_name invalid_path depth_limit_exceeded duplicate_path invalid_file_size
                       total_size_exceeded path_collision folder_limit_exceeded invalid_ignored_counts invalid_file_count]
   messages = preview_errors.index_with { |code| note_import_error_message(code) }.merge(
-    %i[ready unsupported preview uploading retry_hint rejected too_large restart retry_button transport_file_size].index_with do |key|
+    %i[ready unsupported preview uploading retry_hint rejected too_large restart review retry_button transport_file_size].index_with do |key|
       t("#{translation}.picker.#{key}", root: "%{root}", notes: "%{notes}", folders: "%{folders}", obsidian: "%{obsidian}",
         other: "%{other}", uploaded: "%{uploaded}", total: "%{total}")
     end
@@ -21,6 +22,13 @@
     <p><strong><%= t("nosia.notes.account", name: @account.name) %></strong></p>
     <p><%= t("#{translation}.disclosure") %></p>
   </div>
+  <% if current_import %>
+    <div class="n-notes-import-report">
+      <p><%= note_import_error_message(:import_in_progress) %></p>
+      <%= link_to t("#{translation}.#{current_import.uploading? ? 'review_unfinished' : 'report.back_to_receipt'}"),
+                  account_note_import_path(@account, current_import), class: "n-notes-button" %>
+    </div>
+  <% end %>
 
   <div class="n-notes-import-picker">
     <label for="notes-import-folder"><%= t("#{translation}.picker.label") %></label>
@@ -29,7 +37,13 @@
     <p id="notes-import-hint"><%= t("#{translation}.picker.limits", **note_import_limit_labels) %></p>
   </div>
   <p role="status" aria-atomic="true" data-note-import-target="status"><%= t("#{translation}.picker.requires_js") %></p>
-  <p id="notes-import-error" role="alert" tabindex="-1" data-note-import-target="error" hidden></p>
+  <div>
+    <p id="notes-import-error" role="alert" tabindex="-1" data-note-import-target="error" hidden></p>
+    <%= link_to t("#{translation}.review_unfinished"), "#", class: "n-notes-button", hidden: true,
+                data: { note_import_target: "review" } %>
+    <%= link_to t("#{translation}.find_current"), new_account_note_import_path(@account), class: "n-notes-button", hidden: true,
+                data: { note_import_target: "find", turbo: false } %>
+  </div>
 
   <div class="n-notes-actions">
     <button type="button" class="n-notes-button n-notes-primary" disabled data-note-import-target="confirm"
