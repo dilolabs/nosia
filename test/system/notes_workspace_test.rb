@@ -29,14 +29,20 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector ".n-notes-identity h1", text: "Notes"
     assert_selector ".n-notes-identity [data-notes-accounts]"
     row = "[data-note-id='#{@note.id}'] a[aria-current='page']"
+    new_note = ".n-notes-header .n-notes-primary"
 
     [ false, true ].each do |dark|
       orbite_theme(dark)
       assert_selector row, text: "Field notes"
-      styles = page.evaluate_script(<<~JS, row)
+      orbite_tab_to(".n-notes-search input[type=search]")
+      target = orbite_tab_to(new_note)
+      assert_operator target.fetch("height"), :>=, 44
+      assert_operator target.fetch("width"), :>=, 44
+
+      styles = page.evaluate_script(<<~JS, row, new_note)
         (() => {
           const style = (selector) => getComputedStyle(document.querySelector(selector));
-          const primary = style('.n-notes-header .n-notes-primary');
+          const primary = style(arguments[1]);
           const selected = style(arguments[0]);
           const preview = style(`${arguments[0]} .n-notes-preview`);
           const luminance = (color) => color.match(/[0-9]+/g).slice(0, 3)
@@ -49,24 +55,23 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
           };
           return {
             radius: parseFloat(primary.borderRadius),
-            height: parseFloat(primary.minHeight),
             primaryFill: primary.backgroundColor,
             selectedShadow: selected.boxShadow,
             paneFills: ['.n-notes-sidebar-slot', '.n-notes-list', '.n-notes-reader'].map(selector => style(selector).backgroundColor),
             primaryContrast: contrast(primary.color, primary.backgroundColor),
+            focusContrast: contrast(primary.outlineColor, primary.backgroundColor),
             previewContrast: contrast(preview.color, selected.backgroundColor)
           };
         })()
       JS
       transparent = "rgba(0, 0, 0, 0)"
       assert_operator styles.fetch("radius"), :>=, 8
-      assert_operator styles.fetch("height"), :>=, 44
       refute_equal transparent, styles.fetch("primaryFill")
       assert_includes styles.fetch("selectedShadow"), "inset"
       assert_equal [ transparent ] * 3, styles.fetch("paneFills")
       assert_operator styles.fetch("primaryContrast"), :>=, 4.5
+      assert_operator styles.fetch("focusContrast"), :>=, 3, "New note focus ring contrast (dark: #{dark})"
       assert_operator styles.fetch("previewContrast"), :>=, 4.5
-      orbite_tab_to(".n-notes-search input[type=search]")
       orbite_tab_to(row)
     end
   end

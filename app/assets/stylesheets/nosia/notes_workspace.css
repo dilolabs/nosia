@@ -72,7 +72,7 @@
   color: var(--orbite-on-accent);
 }
 .n-notes .n-notes-primary:hover { background: var(--orbite-accent); text-decoration: underline; }
-.n-notes .n-notes-primary:focus-visible { outline-color: var(--orbite-on-accent); }
+.n-notes .n-notes-button.n-notes-primary:focus-visible { outline-color: var(--orbite-on-accent); }
 .n-notes-icon { inline-size: 1rem; block-size: 1rem; flex: none; }
 
 .n-notes-workspace {
