@@ -1,4 +1,4 @@
-<%# locals: (restorable:, restore_path:, purge_path:, confirmation:) %>
+<%# locals: (id:, restorable:, restore_path:, purge_path:, confirmation:) %>
 <div class="n-notes-actions">
   <% if restorable %>
     <%= button_to t("nosia.notes.restore"), restore_path, method: :delete, class: "n-notes-button" %>
@@ -6,11 +6,7 @@
     <p class="n-notes-meta"><%= t("nosia.notes.restore_parent_first") %></p>
   <% end %>
   <% if account_owner? %>
-    <details>
-      <summary><%= t("nosia.notes.purge") %></summary>
-      <p><%= confirmation %></p>
-      <%= button_to t("nosia.notes.confirm_purge"), purge_path, method: :delete, class: "n-notes-button",
-                    form: { data: { turbo_confirm: confirmation } } %>
-    </details>
+    <%= render "notes/workspaces/destructive_action", id:, label: t("nosia.notes.purge"),
+               submit_label: t("nosia.notes.confirm_purge"), path: purge_path, method: :delete, confirmation: %>
   <% end %>
 </div>

@@ -703,6 +703,7 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_select "[data-notes-trash] [data-notes-trash-folder='#{branch.id}'] [data-notes-trash-folder='#{@folder.id}']", count: 1
     assert_select "[data-notes-trash-folder='#{@folder.id}']", count: 1
     assert_select "[data-notes-trash-note='#{inherited.id}']", text: /Inherited from folder/
+    assert_select "[data-notes-trash-note='#{inherited.id}'] button, [data-notes-trash-note='#{inherited.id}'] dialog", count: 0
     assert_select "form[action='#{note_url(@note)}/trashing'], form[action='#{folder_url(@folder)}/trashing']", count: 0
     assert_select "form[action='#{note_url(@note)}/purge'][data-turbo-confirm]"
     assert_select "form[action='#{folder_url(@folder)}/purge'][data-turbo-confirm]"
@@ -729,7 +730,11 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
       assert_response :forbidden
     end
     get workspace, params: { view: "trash" }
+    assert_response :success
+    assert_select "[data-notes-trash-note='#{@note.id}']"
+    assert_select "[data-notes-trash-folder='#{@folder.id}']"
     assert_select "form[action$='/purge']", count: 0
+    assert_select "[data-notes-trash] button[commandfor^='purge-'], [data-notes-trash] dialog[id^='purge-']", count: 0
     delete "#{folder_url(branch)}/trashing"
     assert_response :see_other
     delete "#{folder_url(@folder)}/trashing"

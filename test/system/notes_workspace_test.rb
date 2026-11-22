@@ -524,6 +524,91 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
   end
 
+  test "permanent deletion in Trash can cancel and explicitly submit without scripts" do
+    orbite_viewport(375, 650)
+    visit account_note_path(@account, @note)
+    click_button "Note actions"
+    click_button "Trash note"
+
+    entry = "[data-notes-trash-note='#{@note.id}']"
+    id = "purge-note-#{@note.id}"
+    panel = "##{id}:is(:modal, :popover-open)"
+    assert_selector entry, text: @note.title
+    page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+    visit account_notes_workspace_path(@account, view: "trash")
+
+    within(entry) do
+      assert_button "Delete permanently…"
+      click_button "Delete permanently…"
+    end
+    assert_selector panel, text: "Permanently delete “#{@note.title}”? This cannot be undone."
+    within(panel) { click_button "Cancel" }
+    assert_no_selector panel
+    assert_selector "#{entry} button[commandfor='#{id}']:focus", exact_text: "Delete permanently…"
+    assert Note.exists?(@note.id)
+
+    page.driver.browser.action.send_keys(:enter).perform
+    within(panel) { click_button "Confirm permanent deletion" }
+    assert_selector "[data-notes-trash]", text: "Trash is empty."
+    assert_no_selector entry
+    refute Note.exists?(@note.id)
+  end
+
+  test "note and folder purge confirmations float above their own entries in Trash" do
+    folder = note_folders(:reading)
+    @note.trash
+    folder.trash
+    note_entry = "[data-notes-trash-note='#{@note.id}']"
+    folder_entry = "[data-notes-trash-folder='#{folder.id}']"
+    entries = [
+      [ note_entry, "purge-note-#{@note.id}", "Permanently delete “#{@note.title}”? This cannot be undone." ],
+      [ folder_entry, "purge-folder-#{folder.id}", "Permanently delete “#{folder.name}” and all its folders and notes, including items trashed separately? This cannot be undone." ]
+    ]
+    open_panel = "[data-notes-trash] dialog:popover-open"
+    search = ".n-notes-search input[type=search]"
+
+    [ [ 375, 650 ], [ 1440, 900 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_notes_workspace_path(@account, view: "trash")
+      find("#{folder_entry} summary", text: folder.name).click
+      orbite_settle
+      before = [ note_entry, folder_entry ].map { |entry| notes_layout(entry) }
+
+      entries.each do |entry, id, copy|
+        panel = "##{id}:popover-open"
+        trigger = "#{entry} button[commandfor='#{id}'][command=show-modal]"
+        within(entry) do
+          assert_button "Delete permanently…"
+          click_button "Delete permanently…"
+        end
+        assert_selector open_panel, count: 1
+        assert_selector "#{panel} h3", exact_text: "Delete permanently…"
+        assert_selector "#{panel} p", exact_text: copy
+        assert_selector "#{panel} button:focus", exact_text: "Cancel"
+        assert_anchored_notes_dropdown(id)
+        assert_equal before, [ note_entry, folder_entry ].map { |row| notes_layout(row) }
+
+        dismiss_confirm(copy) { within(panel) { click_button "Confirm permanent deletion" } }
+        assert_selector note_entry, text: @note.title
+        assert_selector folder_entry, text: folder.name
+        assert Note.exists?(@note.id)
+        assert NoteFolder.exists?(folder.id)
+
+        page.driver.browser.action.send_keys(:escape).perform
+        assert_no_selector open_panel
+        assert_selector "#{trigger}:focus"
+        assert_equal before, [ note_entry, folder_entry ].map { |row| notes_layout(row) }
+
+        page.driver.browser.action.send_keys(:enter).perform
+        assert_selector panel
+        find(search).click
+        assert_no_selector open_panel
+        assert_selector "#{search}:focus"
+        assert_equal before, [ note_entry, folder_entry ].map { |row| notes_layout(row) }
+      end
+    end
+  end
+
   test "Edit folder in Folder actions keeps the same filtered workspace destination" do
     folder = note_folders(:interviews)
     options = { folder_id: folder.id, view: "list" }
