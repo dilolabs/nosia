@@ -5,14 +5,15 @@
   <% folder = folders[note.note_folder_id || options[:folder_id]] %>
   <p class="n-notes-meta"><%= folder ? notes_folder_path(folder, folders) : t("nosia.notes.general") %></p>
   <% if note.persisted? %>
-    <details class="n-notes-editor-actions">
-      <summary><%= t("nosia.notes.note_actions") %></summary>
-      <div class="n-notes-actions">
+    <div class="n-notes-editor-actions">
+      <%= render layout: "notes/workspaces/dropdown", locals: { id: "note-actions-#{note.id}", label: t("nosia.notes.note_actions") } do %>
         <%= button_to t(note.pin ? "nosia.notes.unpin" : "nosia.notes.pin"), account_note_pin_path(account, note, **options),
-                      method: note.pin ? :delete : :post, class: "n-notes-button" %>
-        <%= button_to t("nosia.notes.trash_note"), account_note_trashing_path(account, note), class: "n-notes-button" %>
-      </div>
-      <%= render "notes/notes/move", account:, note:, options:, folders: %>
-    </details>
+                      method: note.pin ? :delete : :post, class: "n-notes-menu-item" %>
+        <%= render layout: "notes/workspaces/dropdown", locals: { id: "note-move-#{note.id}", label: t("nosia.notes.move"), nested: true } do %>
+          <%= render "notes/notes/move", account:, note:, options:, folders: %>
+        <% end %>
+        <%= button_to t("nosia.notes.trash_note"), account_note_trashing_path(account, note), class: "n-notes-menu-item n-notes-menu-danger" %>
+      <% end %>
+    </div>
   <% end %>
 </div>

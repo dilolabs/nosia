@@ -169,15 +169,78 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal [ "Browser title", "Interview outline revised", 2 ], @note.reload.values_at(:title, :body_text, :content_revision)
   end
 
+  test "note actions float in the viewport without shifting the editor" do
+    [ [ 1440, 900 ], [ 900, 768 ], [ 375, 650 ], [ 667, 375 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      [ false, true ].each do |dark|
+        orbite_theme(dark)
+        assert_notes_dropdown("note-actions-#{@note.id}", "#note_title")
+      end
+    end
+  end
+
+  test "Escape closes nested move before note actions and returns focus in order" do
+    orbite_viewport(375, 650)
+    visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected]"
+    actions = "button[popovertarget='note-actions-#{@note.id}']"
+    move = "button[popovertarget='note-move-#{@note.id}']"
+    actions_panel = "#note-actions-#{@note.id}:popover-open"
+    move_panel = "#note-move-#{@note.id}:popover-open"
+    assert_selector actions
+    orbite_tab_to(actions)
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector actions_panel
+    orbite_tab_to(move)
+    page.driver.browser.action.send_keys(:enter, :tab).perform
+    assert_selector "#{move_panel} select:focus"
+
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_no_selector move_panel
+    assert_selector "#{actions_panel} #{move}:focus"
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_no_selector actions_panel
+    assert_selector "#{actions}:focus"
+  end
+
+  test "note actions still move a note without scripts" do
+    orbite_viewport(375, 650)
+    page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+    visit account_note_path(@account, @note)
+
+    assert_button "Note actions"
+    click_button "Note actions"
+    click_button "Move note"
+    within "#note-move-#{@note.id}:popover-open" do
+      select "Research / Reading", from: "Destination folder"
+      click_button "Move note"
+    end
+
+    assert_selector "#notes-editor-heading .n-notes-meta", text: "Research / Reading"
+    assert_equal note_folders(:reading), @note.reload.note_folder
+  end
+
   test "saving leaves the tablet drawer semantics and opened note actions intact" do
     orbite_viewport(768, 850)
     visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected]"
     assert_selector ".n-notes-folder-trigger[aria-haspopup='dialog']"
-    summary = find(".n-notes-editor-actions summary")
-    summary.click
+    page.execute_script(<<~JS)
+      const normalFetch = window.fetch
+      const gate = new Promise(resolve => { window.releaseNoteSave = resolve })
+      window.fetch = (...args) => {
+        const result = normalFetch(...args)
+        return args[1]?.method === "PATCH" ? result.then(response => gate.then(() => response)) : result
+      }
+    JS
     fill_in "Title (optional)", with: "Updated from tablet"
+    click_button "Note actions"
+    assert_selector "#note-actions-#{@note.id}:popover-open"
+    page.execute_script("window.releaseNoteSave()")
     assert_save_status "Saved"
-    assert_selector ".n-notes-editor-actions[open]"
+    within("#note-actions-#{@note.id}:popover-open") { assert_button "Pin in folder" }
     assert_selector ".n-notes-folder-trigger[aria-haspopup='dialog']"
   end
 
@@ -236,7 +299,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     other_tab = open_new_window
     within_window(other_tab) do
       visit account_note_path(@account, @note)
-      find("summary", text: "Note actions").click
+      click_button "Note actions"
       click_button "Trash note"
       assert_selector "[data-notes-trash-note='#{@note.id}']", text: @note.title
     end
@@ -292,7 +355,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
     assert_selector "[data-note-id='#{saved.id}'] a[aria-current='page']", text: "Research notes"
     assert_selector "h2", text: "Note editor"
-    assert_selector "summary", text: "Note actions"
+    assert_button "Note actions"
     assert_equal account_note_path(@account, saved, q: "Research"),
       find(".n-language-preference input[name='return_to']", visible: :all).value
     refresh
@@ -1336,7 +1399,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     JS
     head = page.evaluate_script("window.noteHead()")
     assert_equal "grid", head.last
-    find(".n-notes-editor-actions summary").click
+    click_button "Note actions"
     click_on "Pin in folder"
     wait_for_held_notes_request(pin_path)
     assert_equal 0, page.evaluate_script("window.visitWarnings")
@@ -1369,7 +1432,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     pin_path = account_note_pin_path(@account, @note, folder_id: @note.note_folder_id)
     hold_notes_requests(pin_path, answers: [ true ])
     page.execute_script("window.pinDocument = true")
-    find(".n-notes-editor-actions summary").click
+    click_button "Note actions"
     click_on "Pin in folder"
     wait_for_held_notes_request(pin_path)
     fill_in "Title (optional)", with: "Discard after pin fails"
@@ -1427,7 +1490,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     pin_path = account_note_pin_path(@account, @note, folder_id: @note.note_folder_id)
     hold_notes_requests(pin_path)
     page.execute_script("window.originalNoteEditor = document.querySelector('lexxy-editor')")
-    find(".n-notes-editor-actions summary").click
+    click_button "Note actions"
     click_on "Pin in folder"
     wait_for_held_notes_request(pin_path)
     fill_in "Title (optional)", with: "Keep despite successful pin"
@@ -1532,7 +1595,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     find(".lexxy-editor__content").send_keys(:end, " discarded")
     assert_save_status "Could not save"
 
-    find(".n-notes-editor-actions summary").click
+    click_button "Note actions"
     click_on "Pin in folder"
 
     assert_current_path editor_path
@@ -1584,6 +1647,40 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
+    def assert_notes_dropdown(id, reference)
+      trigger = "button[popovertarget='#{id}']"
+      panel = "##{id}:popover-open"
+      first_item = "#{panel} > form:first-child > button, #{panel} > ul > li:first-child > a"
+      assert_selector trigger
+      orbite_tab_to(trigger)
+      layout = <<~JS
+        (() => {
+          const main = document.querySelector("main")
+          const box = document.querySelector(arguments[0]).getBoundingClientRect()
+          return [box.toJSON(), main.scrollTop, main.scrollLeft, window.scrollY]
+        })()
+      JS
+      before = page.evaluate_script(layout, reference)
+
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector panel
+      orbite_assert_reachable(panel)
+      assert_equal before, page.evaluate_script(layout, reference)
+      orbite_tab_to(first_item)
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_no_selector panel, visible: :all
+      assert_selector "#{trigger}:focus"
+      assert_equal before, page.evaluate_script(layout, reference)
+
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector panel
+      orbite_tab_to(first_item)
+      page.driver.browser.action.move_to_location(2, 2).click.perform
+      assert_no_selector panel, visible: :all
+      assert_no_selector "#{trigger}:focus"
+      assert_equal before, page.evaluate_script(layout, reference)
+    end
+
     def hold_notes_requests(*paths, answers: [ false ])
       find("lexxy-editor[connected]")
       page.execute_script(<<~JS, paths, answers)
