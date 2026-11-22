@@ -220,7 +220,7 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
       "#{imports_path}/#{record.id}" => "État de l’importation" }.each do |path, title|
       get path, headers: { "Accept-Language" => "fr" }
       assert_response :ok
-    assert_equal "no-store", response.headers["Cache-Control"]
+      assert_equal "no-store", response.headers["Cache-Control"]
       assert_select "meta[name='turbo-cache-control'][content='no-cache']"
       assert_select "h1", text: title
       assert_select "input[type='file']", count: 0
@@ -236,8 +236,44 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     post_json "/accounts/#{@account.id}/notes/note-imports", manifest_params
     assert_response :not_found
-    post_json "#{imports_path}/new", manifest_params
-    assert_response :not_found
+  end
+
+  test "Rails guards import methods before Rack method override and the request logger" do
+    stack = Rails.application.middleware.map(&:klass)
+    guard = stack.index(NotesImportRequestLimit)
+    assert_operator guard, :<, stack.index(Rack::MethodOverride)
+    assert_operator guard, :<, stack.index(Rails::Rack::Logger)
+
+    record = seed_import
+    [ "#{imports_path}/new.json/", "#{imports_path}/#{record.id}.json/" ].each do |path|
+      assert_post_rejected_without_reading(path)
+    end
+  end
+
+  test "an import start cannot be rerouted using the method override header" do
+    post imports_path, params: manifest_params, as: :json, headers: JSON_HEADERS.merge("X-HTTP-Method-Override" => "GET")
+
+    assert_response :created
+    assert_equal "POST", request.request_method
+    assert_equal "uploading", private_json.fetch("status")
+  end
+
+  test "a batch cannot be rerouted using its multipart method field and private fields stay out of instrumentation" do
+    receipt = start_receipt
+    events = []
+    subscriber = ->(event) { events << event.payload if event.payload.fetch(:controller) == "Notes::Imports::BatchesController" }
+
+    ActiveSupport::Notifications.subscribed(subscriber, "start_processing.action_controller") do
+      post receipt.fetch("batch_url"), params: { entries: [ upload ], _method: "delete", "unexpected private field" => "private value" },
+        headers: JSON_HEADERS
+    end
+
+    assert_response :ok
+    assert_equal 1, private_json.fetch("accepted_count")
+    assert_equal "POST", events.sole.fetch(:method)
+    refute_includes events.sole.fetch(:params).keys, "_method"
+    refute_includes events.sole.fetch(:params).inspect, "unexpected private field"
+    refute_includes events.sole.fetch(:params).inspect, "private value"
   end
 
   test "parameter logs omit private and unexpected import input while leaving unrelated parameters alone" do
@@ -331,6 +367,23 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def assert_post_rejected_without_reading(path)
+      env = Rack::MockRequest.env_for(path, method: "POST", "CONTENT_TYPE" => "multipart/form-data; boundary=Example",
+        "CONTENT_LENGTH" => "2", "HTTP_ACCEPT_LANGUAGE" => "fr")
+      input = StringIO.new
+      input.define_singleton_method(:read) { |*| raise "unsupported request read its body" }
+      env[Rack::RACK_INPUT] = input
+
+      status, headers, body = Rails.application.call(env)
+      assert_equal 405, status
+      assert_equal "GET, HEAD", headers.fetch("allow")
+      assert_equal "no-store", headers.fetch("cache-control")
+      assert_equal "fr", headers.fetch("content-language")
+      assert_equal "method_not_allowed", JSON.parse(body.join).fetch("error")
+    ensure
+      body.close if body.respond_to?(:close)
+    end
+
     def sign_in(user)
       post login_path, params: { email: user.email, password: "picker-password-123" }
       assert_response :redirect

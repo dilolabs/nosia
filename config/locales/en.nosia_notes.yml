@@ -21,6 +21,7 @@ en:
           expired: Upload expired
         errors:
           not_found: This import was not found.
+          method_not_allowed: This request method is not allowed for the import.
           invalid_request: The upload could not be read. Select the folder again.
           length_required: The upload must specify its size.
           invalid_length: The upload has an invalid size header.

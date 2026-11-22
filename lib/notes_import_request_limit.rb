@@ -1,4 +1,4 @@
-# Enforces wire limits for Notes import writes before middleware can parse their bodies.
+# Enforces Notes import methods and wire limits before middleware can parse request bodies.
 class NotesImportRequestLimit
   # Match Journey's default parameter and optional format segments, including encoded IDs.
   WRITE_PATH = %r{\A/accounts/[^./?]+/note-imports(?:/[^./?]+/(?<part>batches|seal))?(?:\.[^./?]+)?\z}
@@ -22,13 +22,16 @@ class NotesImportRequestLimit
   # @return [Array] Rack response.
   def call(env)
     path = ActionDispatch::Journey::Router::Utils.normalize_path(env["PATH_INFO"])
+    upload = WRITE_PATH.match(path)
+    return @app.call(env) unless upload || READ_PATH.match?(path)
 
-    if env["REQUEST_METHOD"] == "POST" && (match = WRITE_PATH.match(path))
-      write(env, match[:part])
-    elsif %w[GET HEAD].include?(env["REQUEST_METHOD"]) && READ_PATH.match?(path)
-      private_request(env) { |request| request.request_parameters = {}.with_indifferent_access }
+    allowed_methods = upload ? %w[POST] : %w[GET HEAD]
+    if !allowed_methods.include?(env["REQUEST_METHOD"])
+      reject(env, 405, :method_not_allowed, allow: allowed_methods.join(", "))
+    elsif upload
+      write(env, upload[:part])
     else
-      @app.call(env)
+      private_request(env) { |request| request.request_parameters = {}.with_indifferent_access }
     end
   end
 
@@ -42,8 +45,15 @@ class NotesImportRequestLimit
           # Redaction hides values, not keys. Discard arbitrary top-level keys
           # before controller instrumentation, retaining Rails' CSRF field.
           request.request_parameters = body.slice(*BODY_FIELDS.fetch(part), "authenticity_token")
+          discard_method_override(request)
         end
       end
+    end
+
+    def discard_method_override(request)
+      request.delete_header(Rack::MethodOverride::HTTP_METHOD_OVERRIDE_HEADER)
+      # Rack reads the cached form, not the Rails body allowlist.
+      request.get_header(Rack::RACK_REQUEST_FORM_HASH)&.delete(Rack::MethodOverride::METHOD_OVERRIDE_PARAM_KEY)
     end
 
     def request_error(env, part)
@@ -94,14 +104,26 @@ class NotesImportRequestLimit
       body = request.request_parameters
       parsed = true
       body
+    rescue NoMethodError => error
+      # Rack can fail while decoding malformed part metadata. Only translate
+      # errors recorded by its form parser, not errors in Rails or controllers.
+      raise unless request.get_header(Rack::RACK_REQUEST_FORM_ERROR).equal?(error)
+
+      raise ActionController::BadRequest, "Invalid multipart metadata", cause: nil
     ensure
       request.set_header(factory_key, factory)
       files.each(&:close!) unless parsed
     end
 
-    def reject(env, status, code)
+    def reject(env, status, code, allow: nil)
       locale = LanguagePreference.resolve(override: nil, header: env["HTTP_ACCEPT_LANGUAGE"])
-      body = { error: code, message: I18n.t("nosia.notes.imports.errors.#{code}", locale:) }.to_json
-      [ status, { "content-type" => "application/json", "cache-control" => "no-store", "content-language" => locale.to_s }, [ body ] ]
+      headers = { "content-type" => "application/json", "cache-control" => "no-store", "content-language" => locale.to_s }
+      headers["allow"] = allow if allow
+      body = if env["REQUEST_METHOD"] == "HEAD"
+        []
+      else
+        [ { error: code, message: I18n.t("nosia.notes.imports.errors.#{code}", locale:) }.to_json ]
+      end
+      [ status, headers, body ]
     end
 end

@@ -45,20 +45,81 @@ class NotesImportRequestLimitTest < ActiveSupport::TestCase
     assert_rejected 411, "length_required", path: "#{BATCHES_PATH}.json//", length: nil
     assert_rejected 411, "length_required", path: "#{SEAL_PATH}.xml", length: nil
 
-    [ "/accounts/42/notes", "/note-imports", "#{IMPORTS_PATH}/new",
-      "#{BATCHES_PATH}/other", "#{IMPORTS_PATH}-elsewhere" ].each do |path|
+    [ "/accounts/42/notes", "/note-imports", "#{BATCHES_PATH}/other", "#{IMPORTS_PATH}-elsewhere" ].each do |path|
       assert_forwarded path:, length: nil, content_type: nil
     end
-    assert_forwarded method: "GET", length: nil, content_type: nil
+  end
+
+  test "unsupported methods on import routes are rejected without reading input" do
+    [
+      [ "/accounts//%34%32/note-imports/new.json/", "POST", "GET, HEAD" ],
+      [ "#{IMPORTS_PATH}/7.json//", "POST", "GET, HEAD" ],
+      [ "#{IMPORTS_PATH}/7", "PATCH", "GET, HEAD" ],
+      [ IMPORTS_PATH, "GET", "POST" ],
+      [ "#{BATCHES_PATH}.json/", "DELETE", "POST" ],
+      [ "#{SEAL_PATH}.json/", "GET", "POST" ]
+    ].each do |path, method, allow|
+      assert_rejected(405, "method_not_allowed", path:, method:, allow:, content_type: MULTIPART_TYPE)
+    end
+  end
+
+  test "an unsupported HEAD response has no body" do
+    status, headers, body = rejecting_middleware.call(request_env(path: SEAL_PATH, method: "HEAD"))
+    assert_equal 405, status
+    assert_equal "POST", headers.fetch("allow")
+    assert_equal "no-store", headers.fetch("cache-control")
+    assert_empty body
+  end
+
+  test "Rack multipart metadata errors return a safe 400 and remove partial temporary files" do
+    original_parser = Rack::Multipart.method(:parse_multipart)
+    files = []
+    factory = ->(*) { Tempfile.new("notes-import-test").tap { |file| files << [ file, file.path ] } }
+    env = request_env(path: BATCHES_PATH, content_type: MULTIPART_TYPE, extra: {
+      Rack::RACK_MULTIPART_TEMPFILE_FACTORY => factory,
+      "HTTP_ACCEPT_LANGUAGE" => "fr"
+    })
+    Rack::Multipart.define_singleton_method(:parse_multipart) do |parser_env, _params|
+      parser_env.fetch(Rack::RACK_MULTIPART_TEMPFILE_FACTORY).call("ignored.md", "text/markdown")
+      raise NoMethodError, "private multipart metadata"
+    end
+
+    status, headers, body = rejecting_middleware.call(env)
+    assert_equal 400, status
+    assert_equal "no-store", headers.fetch("cache-control")
+    assert_equal "fr", headers.fetch("content-language")
+    assert_equal({ "error" => "invalid_request", "message" => I18n.t("nosia.notes.imports.errors.invalid_request", locale: :fr) },
+      JSON.parse(body.join))
+    assert_same factory, env.fetch(Rack::RACK_MULTIPART_TEMPFILE_FACTORY)
+    file, path = files.sole
+    assert_predicate file, :closed?
+    refute_path_exists path
+  ensure
+    Rack::Multipart.define_singleton_method(:parse_multipart, original_parser)
+    files.each { |file, _path| file.close! }
+  end
+
+  test "a downstream NoMethodError is not handled as multipart input" do
+    downstream_error = NoMethodError.new("unexpected downstream error")
+    middleware = NotesImportRequestLimit.new(->(*) { raise downstream_error }, [ /\A/ ])
+    body = "--RackTestBoundary--\r\n"
+    env = request_env(path: BATCHES_PATH, length: body.bytesize.to_s, content_type: MULTIPART_TYPE,
+      extra: { Rack::RACK_INPUT => StringIO.new(body) })
+
+    assert_same downstream_error, assert_raises(NoMethodError) { middleware.call(env) }
   end
 
   private
-    def assert_rejected(status, code, **options)
-      middleware = NotesImportRequestLimit.new(->(*) { flunk "Rejected request reached downstream middleware" }, [ /\A/ ])
-      actual_status, headers, body = middleware.call(request_env(**options))
+    def assert_rejected(status, code, allow: nil, **options)
+      actual_status, headers, body = rejecting_middleware.call(request_env(**options))
       assert_equal status, actual_status
       assert_equal "no-store", headers.fetch("cache-control")
       assert_equal code, JSON.parse(body.join).fetch("error")
+      assert_equal allow, headers.fetch("allow") if allow
+    end
+
+    def rejecting_middleware
+      NotesImportRequestLimit.new(->(*) { flunk "Rejected request reached downstream middleware" }, [ /\A/ ])
     end
 
     def assert_forwarded(**options)

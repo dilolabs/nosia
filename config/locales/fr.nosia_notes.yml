@@ -21,6 +21,7 @@ fr:
           expired: Envoi expiré
         errors:
           not_found: Cette importation est introuvable.
+          method_not_allowed: Cette méthode de requête n’est pas autorisée pour l’importation.
           invalid_request: Impossible de lire l’envoi. Sélectionnez à nouveau le dossier.
           length_required: La taille de l’envoi doit être indiquée.
           invalid_length: L’en-tête de taille de l’envoi est invalide.
