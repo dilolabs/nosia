@@ -217,12 +217,12 @@ class NoteImportPublishJobTest < ActiveJob::TestCase
   test "a stale worker with prepared content cannot publish after reconciliation" do
     import = sealed_import
     token = import.claim
-    prepared = NoteImport::Markdown.new(import.manifest.keys).prepare("Private.md", import.read_staged_payload(token, "Private.md"))
+    prepared = import.send(:prepare_documents, token)
     travel 16.minutes do
       [ false, true ].each do |reconciled|
         in_another_session { NoteImport::ReconcileJob.perform_now } if reconciled
         assert_no_difference [ "@account.note_folders.count", "@account.notes.count" ] do
-          assert_raises(NoteImport::Invalid) { import.publish_prepared(token, [ prepared ]) }
+          assert_raises(NoteImport::Invalid) { import.publish_prepared(token, prepared) }
         end
       end
     end
@@ -280,6 +280,45 @@ class NoteImportPublishJobTest < ActiveJob::TestCase
     assert removed, "membership should be removed before the publication lock"
     assert_predicate import.reload, :failed?
     assert_equal({ "error" => "membership_revoked" }, import.report)
+    assert_empty import.staged_files
+  end
+
+  test "membership revoked during final canonicalization cannot allocate a branch" do
+    import = sealed_import({ "A.md" => "Membership projection probe" }, initiator: @member)
+    removed = nil
+    revoke = ->(_html) do
+      removed = in_another_session do |connection|
+        AccountUser.transaction do
+          connection.execute("SET LOCAL lock_timeout = '300ms'")
+          @account.account_users.find_by!(user: @member).destroy!
+        end
+      rescue ActiveRecord::LockWaitTimeout => error
+        error
+      end
+    end
+
+    assert_no_difference [ "@account.note_folders.count", "@account.notes.count" ] do
+      during_import_canonicalization("Membership projection probe", revoke) { NoteImport::PublishJob.perform_now(import.id) }
+    end
+    assert_instance_of AccountUser, removed, "membership revocation could not acquire the account lock"
+    assert_predicate import.reload, :failed?
+    assert_equal({ "error" => "membership_revoked" }, import.report)
+    assert_empty import.staged_files
+  end
+
+  test "a lease expiring during final canonicalization cannot publish and the sweeper retires it" do
+    import = sealed_import({ "A.md" => "Lease projection probe" })
+    expire = ->(_html) { travel 16.minutes }
+    travel_to Time.current.change(usec: 0) do
+      assert_no_difference [ "@account.note_folders.count", "@account.notes.count" ] do
+        during_import_canonicalization("Lease projection probe", expire) { NoteImport::PublishJob.perform_now(import.id) }
+      end
+      assert_predicate import.reload, :running?
+      assert_equal 1, import.staged_files.count
+      in_another_session { NoteImport::ReconcileJob.perform_now }
+    end
+    assert_predicate import.reload, :failed?
+    assert_equal({ "error" => "worker_claim_expired" }, import.report)
     assert_empty import.staged_files
   end
 

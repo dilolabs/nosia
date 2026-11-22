@@ -5,6 +5,10 @@ module Note::Editable
   UUID_SHAPE = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
   CONTENT_ATTRIBUTES = %w[title body_html body_text content_revision content_updated_at].freeze
 
+  # Immutable output of the regular Notes canonicalization pipeline for one imported note.
+  ImportContent = Data.define(:title, :body)
+  private_constant :ImportContent
+
   included do
     validate :content_written_through_revision
     validate :meaningful_initial_content, if: :new_record?
@@ -36,19 +40,36 @@ module Note::Editable
     end
 
     # @api private
+    # Canonicalizes rendered import HTML without a database write or account lock.
+    # @param title [String] Filename-derived title.
+    # @param body_html [String] Final rendered HTML with resolved Notes URLs.
+    # @return [ImportContent] Immutable title, HTML, text and tag projections for first save.
+    # @raise [ActiveRecord::RecordInvalid] If the title or HTML cannot be canonicalized.
+    def prepare_import_content(title:, body_html:)
+      title, body = Note::Editable.canonical_content(new, title:, body_html:)
+      body.html.freeze
+      body.text.freeze
+      body.tag_keys.each(&:freeze).freeze
+      ImportContent.new(title.freeze, body.freeze)
+    end
+
+    # @api private
     # First-saves final imported content inside the publisher's account lock and transaction.
     # @param account [Account] Locked owner of the note.
     # @param folder [NoteFolder] Active destination in that account.
     # @param reserved_id [Integer] Server-owned primary key reserved from the Notes sequence.
-    # @param title [String] Filename-derived title.
-    # @param body_html [String] Final rendered HTML with resolved Notes URLs.
+    # @param content [ImportContent] Output of {prepare_import_content}.
     # @return [Note] The saved note at revision one.
+    # @raise [ArgumentError] If content was not prepared for this internal save path.
     # @raise [ActiveRecord::RecordInvalid] If the destination or content is invalid.
-    def save_imported_note!(account:, folder:, reserved_id:, title:, body_html:)
+    def save_imported_note!(account:, folder:, reserved_id:, content:)
+      raise ArgumentError, "Expected canonical import content" unless content.is_a?(ImportContent)
+
       draft = build_draft(account:, folder:, draft_key: SecureRandom.uuid)
       draft.id = reserved_id
-      title, body = Note::Editable.canonical_content(draft, title:, body_html:)
-      Note::Editable.persist_content(draft, title:, body:)
+      raise ActiveRecord::RecordInvalid, draft if draft.errors.any?
+
+      Note::Editable.persist_content(draft, title: content.title, body: content.body)
     end
 
     private

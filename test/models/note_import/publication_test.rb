@@ -114,6 +114,113 @@ class NoteImportPublicationTest < ActiveSupport::TestCase
     assert_empty import.staged_files
   end
 
+  test "a database error writing the second note rolls back the first and its projections" do
+    import = sealed_import({ "A.md" => "#rollbackfirst", "B.md" => "Reject second write" })
+    account = @account
+    test_case = self
+    reject_write = ->(note) do
+      if note.account_id == account.id && note.title == "B"
+        test_case.assert account.notes.joins(:note_tags).exists?(title: "A", note_tags: { key: "rollbackfirst" })
+        Note.with_connection { |connection| connection.execute("SELECT current_setting('nosia.import_write_probe')") }
+      end
+    end
+    Note.before_create(reject_write)
+
+    assert_no_enqueued_jobs(only: Note::IndexJob) do
+      assert_no_difference [ "@account.notes.count", "@account.note_folders.count", "NoteTag.count", "NoteTagging.count" ] do
+        NoteImport::PublishJob.perform_now(import.id)
+      end
+    end
+    assert_predicate import.reload, :failed?
+    assert_equal({ "error" => "publication_failed" }, import.report)
+  ensure
+    Note.skip_callback(:create, :before, reject_write) if reject_write
+  end
+
+  test "an ordinary Notes save commits on another connection during final import projection" do
+    folder = @account.general_note_folder
+    import = sealed_import({ "A.md" => "Projection probe **bold** #compare [[B]]", "B.md" => "[[A]]" })
+    ordinary = nil
+    save_normally = ->(html) do
+      ordinary = in_another_session do |connection|
+        Note.transaction do
+          connection.execute("SET LOCAL lock_timeout = '300ms'")
+          Note.save_draft!(account: @account, folder:, draft_key: SecureRandom.uuid, title: "A", body_html: html)
+        end
+      rescue ActiveRecord::LockWaitTimeout => error
+        error
+      end
+    end
+
+    during_import_canonicalization("Projection probe", save_normally) do
+      NoteImport::PublishJob.perform_now(import.id)
+    end
+
+    assert_instance_of Note, ordinary, "the ordinary save could not acquire the account lock"
+    assert_predicate ordinary.reload, :persisted?
+    assert_predicate import.reload, :succeeded?
+    root = @account.note_folders.find(import.root_note_folder_id)
+    imported, target = root.account.notes.where(note_folder: root).order(:title).to_a
+    assert_equal ordinary.values_at(:title, :body_html, :body_text), imported.values_at(:title, :body_html, :body_text)
+    assert_equal [ "compare" ], imported.note_tags.pluck(:key)
+    assert_equal ordinary.note_tags.pluck(:key), imported.note_tags.pluck(:key)
+    assert_equal [ 1, 1 ], [ imported.content_revision, target.content_revision ]
+    routes = Rails.application.routes.url_helpers
+    assert_includes imported.body_html, routes.account_note_path(@account, target)
+    assert_includes target.body_html, routes.account_note_path(@account, imported)
+    [ ordinary, imported, target ].each { |note| assert_enqueued_with job: Note::IndexJob, args: [ note.id, 1 ] }
+  end
+
+  test "a rejected projection prevents any branch, note or index handoff from being written" do
+    import = sealed_import({ "A.md" => "Valid #first", "B.md" => "Reject this projection" })
+    reject = ->(_html) { raise ArgumentError, "private parser details" }
+    writes = []
+    observer = ->(event) do
+      sql = event.payload[:sql]
+      writes << sql if sql.start_with?('INSERT INTO "notes"', 'INSERT INTO "note_folders"')
+    end
+
+    assert_no_enqueued_jobs(only: Note::IndexJob) do
+      ActiveSupport::Notifications.subscribed(observer, "sql.active_record") do
+        during_import_canonicalization("Reject this projection", reject) { NoteImport::PublishJob.perform_now(import.id) }
+      end
+    end
+
+    assert_empty writes
+    assert_predicate import.reload, :failed?
+    assert_equal({ "error" => "publication_failed" }, import.report)
+    assert_empty @account.note_folders
+    assert_empty @account.notes
+  end
+
+  test "preflight reserves the full sequence batch with both write locks and no publication writes" do
+    import = sealed_import({ "A.md" => "a", "Folder/B.md" => "b" })
+    reservations = []
+    writes = []
+    observe_reservation = ->(event) do
+      sql = event.payload[:sql]
+      writes << sql if sql.start_with?('INSERT INTO "notes"', 'INSERT INTO "note_folders"', 'UPDATE "note_imports"')
+      next unless sql.include?("nextval(pg_get_serial_sequence('notes', 'id'))")
+
+      # The claim is acquired separately; preflight must not write anything.
+      assert_equal 1, writes.size
+      assert writes.first.start_with?('UPDATE "note_imports"')
+      reservations << sql
+      in_another_session do
+        assert_equal "running", NoteImport.find(import.id).status
+        assert_empty @account.note_folders
+        assert_empty @account.notes
+        assert_raises(ActiveRecord::LockWaitTimeout) { Account.lock("FOR UPDATE NOWAIT").find(@account.id) }
+        assert_raises(ActiveRecord::LockWaitTimeout) { NoteImport.lock("FOR UPDATE NOWAIT").find(import.id) }
+      end
+    end
+
+    ActiveSupport::Notifications.subscribed(observe_reservation, "sql.active_record") { NoteImport::PublishJob.perform_now(import.id) }
+
+    assert_includes reservations.sole, "generate_series(1, 2)"
+    assert_predicate import.reload, :succeeded?
+  end
+
   test "index handoff sees the committed receipt and a refusal does not change import success" do
     import = sealed_import
     adapter = Note::IndexJob.queue_adapter
@@ -213,7 +320,7 @@ class NoteImportPublicationTest < ActiveSupport::TestCase
     assert_equal({ "error" => "rendered_total_size_exceeded" }, import.reload.report)
   end
 
-  test "expanded links have a separate import-wide budget and discard prior writes" do
+  test "expanded links have a separate import-wide budget" do
     import = sealed_import({ "A.md" => "[[B]]", "B.md" => "[[A]]" })
     id = 2_000_000_000 # Conservatively budget for at most ten decimal digits here.
     href = Rails.application.routes.url_helpers.account_note_path(@account, id)

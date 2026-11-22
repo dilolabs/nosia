@@ -23,4 +23,20 @@ module NoteImportTestSupport
     ensure
       worker&.kill&.join if worker&.alive?
     end
+
+    def during_import_canonicalization(marker, action)
+      worker = Thread.current
+      observed = false
+      trace = TracePoint.new(:call) do |event|
+        next if observed || event.defined_class != Note::Body || event.method_id != :initialize
+
+        html = event.binding.local_variable_get(:html)
+        if html.include?(marker)
+          observed = true
+          action.call(html)
+        end
+      end
+      trace.enable(target_thread: worker) { yield }
+      assert observed, "the expected Note::Body projection did not run"
+    end
 end

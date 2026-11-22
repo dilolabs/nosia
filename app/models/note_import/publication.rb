@@ -7,6 +7,9 @@ module NoteImport::Publication
     rendered_total_size_exceeded invalid_rendered_content publication_failed
   ].freeze
 
+  PreparedNote = Data.define(:directory, :reserved_id, :content, :warnings)
+  private_constant :PreparedNote
+
   # An unexpected worker error, safe for the job backend to log.
   class ProcessingError < StandardError; end
 
@@ -26,19 +29,19 @@ module NoteImport::Publication
   # @api private
   # Saves final Notes and the successful receipt in one account-locked transaction.
   # @param token [String] The worker's claim.
-  # @param documents [Array<NoteImport::Markdown::Prepared>] Fully prepared logical documents.
+  # @param documents [Array<PreparedNote>] Canonical documents with server-reserved IDs.
   # @return [NoteImport] The published receipt (including on replay).
   # @raise [NoteImport::Invalid, ActiveRecord::RecordInvalid] If publication is no longer permitted or a write is rejected.
   def publish_prepared(token, documents)
     with_locked_import do |locked_account|
       unless succeeded?
-        require_live_claim(token)
-        unless locked_account.account_users.exists?(user_id: initiator_id)
-          raise NoteImport::Invalid.new(:membership_revoked)
-        end
+        authorize_publication(locked_account, token)
 
         folders = create_import_folders(locked_account, documents)
-        save_import_notes(locked_account, folders, documents)
+        documents.each do |document|
+          Note.save_imported_note!(account: locked_account, folder: folders.fetch(document.directory),
+            reserved_id: document.reserved_id, content: document.content)
+        end
         root = folders.fetch("")
         update!(status: :succeeded, root_note_folder_id: root.id, report: success_report(root, folders, documents),
           claim_token: nil, claim_expires_at: nil)
@@ -77,15 +80,57 @@ module NoteImport::Publication
     end
 
     def prepare_documents(token)
-      converter = NoteImport::Markdown.new(manifest.keys)
-      total_bytes = 0
-      manifest.each_key.map do |path|
+      ids = reserve_import_note_ids(token)
+      routes = Rails.application.routes.url_helpers
+      urls = ids.transform_values { |id| routes.account_note_path(account_id, id) }
+      converter = NoteImport::Markdown.new(ids.keys)
+      prepared_bytes = rendered_bytes = canonical_bytes = 0
+      ids.map do |path, id|
         raise NoteImport::Invalid.new(:stale_claim) unless renew_claim(token)
 
-        converter.prepare(path, read_staged_payload(token, path)).tap do |document|
-          total_bytes += document.prepared_bytesize
-          enforce_render_budget(total_bytes)
-        end
+        document = converter.prepare(path, read_staged_payload(token, path))
+        prepared_bytes += document.prepared_bytesize
+        enforce_render_budget(prepared_bytes)
+
+        html = document.render(urls)
+        rendered_bytes += html.bytesize
+        enforce_render_budget(rendered_bytes)
+
+        content = Note.prepare_import_content(title: document.title, body_html: html)
+        canonical_bytes += content.body.html.bytesize
+        enforce_render_budget(canonical_bytes)
+
+        PreparedNote.new(document.directory, id, content, document.warnings)
+      end
+    end
+
+    def reserve_import_note_ids(token)
+      ids = nil
+      # Commit this read-only preflight before parsing. Sequence values may
+      # be discarded if the lease or membership changes before publication.
+      with_locked_import do |locked_account|
+        authorize_publication(locked_account, token)
+        paths = manifest.keys
+        ids = paths.zip(reserve_note_ids(paths.size)).to_h
+      end
+      ids
+    end
+
+    def authorize_publication(locked_account, token)
+      require_live_claim(token)
+      unless locked_account.account_users.exists?(user_id: initiator_id)
+        raise NoteImport::Invalid.new(:membership_revoked)
+      end
+    end
+
+    def reserve_note_ids(count)
+      raise NoteImport::Invalid.new(:empty_import) if count.zero?
+      raise NoteImport::Invalid.new(:publication_failed) unless count.between?(1, NoteImport::Manifest::MAX_FILES)
+
+      Note.with_connection do |connection|
+        connection.select_values(<<~SQL).map(&:to_i)
+          SELECT nextval(pg_get_serial_sequence('notes', 'id')) FROM generate_series(1, #{Integer(count)})
+        SQL
       end
     end
 
@@ -121,31 +166,6 @@ module NoteImport::Publication
       prefix = ""
       directory.split("/").map do |name|
         prefix = prefix.empty? ? name : "#{prefix}/#{name}"
-      end
-    end
-
-    def save_import_notes(locked_account, folders, documents)
-      ids = reserve_note_ids(documents.size)
-      routes = Rails.application.routes.url_helpers
-      urls = documents.map(&:path).zip(ids).to_h.transform_values { |id| routes.account_note_path(locked_account, id) }
-      total_bytes = 0
-      documents.zip(ids).each do |document, id|
-        html = document.render(urls)
-        total_bytes += html.bytesize
-        enforce_render_budget(total_bytes)
-        Note.save_imported_note!(account: locked_account, folder: folders.fetch(document.directory),
-          reserved_id: id, title: document.title, body_html: html)
-      end
-    end
-
-    def reserve_note_ids(count)
-      raise NoteImport::Invalid.new(:empty_import) if count.zero?
-      raise NoteImport::Invalid.new(:publication_failed) unless count.between?(1, NoteImport::Manifest::MAX_FILES)
-
-      Note.with_connection do |connection|
-        connection.select_values(<<~SQL).map(&:to_i)
-          SELECT nextval(pg_get_serial_sequence('notes', 'id')) FROM generate_series(1, #{Integer(count)})
-        SQL
       end
     end
 
