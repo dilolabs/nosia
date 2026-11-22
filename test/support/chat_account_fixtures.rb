@@ -1,8 +1,10 @@
 require "active_job/test_helper"
+require_relative "fixture_sequence_guard"
 
 module ChatAccountFixtures
   extend ActiveSupport::Concern
   include ActiveJob::TestHelper
+  include FixtureSequenceGuard
 
   PASSWORD = "picker-password-123".freeze
 
@@ -65,11 +67,13 @@ module ChatAccountFixtures
   private
     def set_up_picker_accounts
       ActiveRecord::FixtureSet.reset_cache
-      @picker_fixtures = ActiveRecord::FixtureSet.create_fixtures(
-        Rails.root.join("test/support/fixtures/chat_accounts").to_s,
-        %w[users accounts account_users ruby_llm_models chats websites texts mcp_servers agent_skills prompts],
-        { "ruby_llm_models" => "RubyLLM::ActiveRecord::Model" }
-      ).index_by(&:name)
+      @picker_fixtures = preserve_fixture_sequence(RubyLLM::ActiveRecord::Model) do
+        ActiveRecord::FixtureSet.create_fixtures(
+          Rails.root.join("test/support/fixtures/chat_accounts").to_s,
+          %w[users accounts account_users ruby_llm_models chats websites texts mcp_servers agent_skills prompts],
+          { "ruby_llm_models" => "RubyLLM::ActiveRecord::Model" }
+        ).index_by(&:name)
+      end
       @user = users(:picker_owner)
       @first = accounts(:picker_first)
       @second = accounts(:picker_second)

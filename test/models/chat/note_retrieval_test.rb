@@ -13,7 +13,7 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
   end
 
   teardown do
-    if @race_models
+    if @race_setup_committed
       [ @first, @second, @foreign, @user, @outsider ].compact.each(&:destroy!)
       RubyLLM::ActiveRecord::Model.where(provider: "openai", model_id: @race_models.values).delete_all
     end
@@ -291,16 +291,21 @@ class Chat::NoteRetrievalTest < ActiveSupport::TestCase
       # fixture set outside its usual rollback or remove its model/users.
       key = SecureRandom.hex(6)
       @race_models = { completion: "synthetic-completion-#{key}", guard: "synthetic-guard-#{key}" }
-      @race_models.each_value do |model_id|
-        RubyLLM::ActiveRecord::Model.create!(model_id:, provider: "openai", name: model_id)
+      Account.transaction do
+        @race_models.each_value do |model_id|
+          # Transactional fixtures can rewind the positive PostgreSQL sequence.
+          id = -SecureRandom.random_number(1..(2**62))
+          RubyLLM::ActiveRecord::Model.create!(id:, model_id:, provider: "openai", name: model_id)
+        end
+        @user = User.create!(email: "notes-owner-#{key}@example.com", password: ChatAccountFixtures::PASSWORD)
+        @outsider = User.create!(email: "notes-outsider-#{key}@example.com", password: ChatAccountFixtures::PASSWORD)
+        @first = isolated_account(@user, "First account")
+        @second = isolated_account(@user, "Research account")
+        @foreign = isolated_account(@outsider, "Foreign account")
+        @isolated_texts = { first: @first.texts.create!(data: "First Text"), second: @second.texts.create!(data: "Second Text") }
+        @chat = @second.chats.create!(user: @user, model: @race_models.fetch(:completion), provider: :openai, assume_model_exists: true)
       end
-      @user = User.create!(email: "notes-owner-#{key}@example.com", password: ChatAccountFixtures::PASSWORD)
-      @outsider = User.create!(email: "notes-outsider-#{key}@example.com", password: ChatAccountFixtures::PASSWORD)
-      @first = isolated_account(@user, "First account")
-      @second = isolated_account(@user, "Research account")
-      @foreign = isolated_account(@outsider, "Foreign account")
-      @isolated_texts = { first: @first.texts.create!(data: "First Text"), second: @second.texts.create!(data: "Second Text") }
-      @chat = @second.chats.create!(user: @user, model: @race_models.fetch(:completion), provider: :openai, assume_model_exists: true)
+      @race_setup_committed = true
       model = @race_models.fetch(:completion)
       @chat.define_singleton_method(:default_options) { super().merge(model:) }
     end

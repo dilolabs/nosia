@@ -21,7 +21,9 @@ module NoteRetrievalFixtures
     end
 
     teardown do
-      %w[AUGMENTED_CONTEXT GUARD_MODEL RETRIEVAL_FETCH_K].each { |key| ENV[key] = @prior_note_env[key] }
+      if @prior_note_env
+        %w[AUGMENTED_CONTEXT GUARD_MODEL RETRIEVAL_FETCH_K].each { |key| ENV[key] = @prior_note_env[key] }
+      end
     end
   end
 
