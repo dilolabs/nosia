@@ -121,6 +121,52 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
   end
 
+  test "the compact editor gives a short note more visible writing space" do
+    [ [ 1440, 900 ], [ 900, 768 ], [ 375, 650 ], [ 667, 375 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      assert_button "Formatting"
+
+      [ false, true ].each do |dark|
+        orbite_theme(dark)
+        sample = notes_writing_space
+        label = "writing-space-#{width}-#{height}-#{dark ? 'dark' : 'light'}"
+        orbite_record(label, sample, screenshot: true) if ENV["NOTES_WRITING_EVIDENCE"] == "1"
+        if height == 375
+          page.execute_script("document.getElementById('notes-editor-heading').scrollIntoView({ block: 'start' })")
+          orbite_settle
+          scrolled = notes_writing_space
+          orbite_record("#{label}-scrolled", scrolled, screenshot: true) if ENV["NOTES_WRITING_EVIDENCE"] == "1"
+          page.execute_script("document.querySelector('main').scrollTop = 0")
+          orbite_settle
+        end
+        assert_selector "#notes-editor-heading .n-notes-editor-toolbar"
+        assert_selector ".n-notes-body-heading label[for='notes-body'] ~ button[aria-controls='notes-formatting']"
+
+        within "#notes-editor-heading .n-notes-editor-toolbar" do
+          assert_link "Back to list"
+          assert_button "Note actions"
+        end
+        heading = find(".n-notes-reader[aria-labelledby='notes-reader-heading'] h2#notes-reader-heading.sr-only", visible: :all)
+        assert_equal "Note editor", heading.native.accessible_name
+        assert_selector ".n-notes-body-heading label[for='notes-body']", exact_text: "Note text"
+        assert_equal "Note text", find("#notes-body [role=textbox]").native.accessible_name
+        assert_in_delta sample.fetch("labelCenter"), sample.fetch("formattingCenter"), 1, label
+        if width == 1440
+          assert_operator sample.fetch("bodyHeight"), :>=, 320, sample.inspect
+          assert_operator sample.fetch("visible"), :>=, 320, sample.inspect
+        end
+        # Keep the body at least one 44px control row higher than the former stacked layout.
+        assert_operator sample.fetch("top"), :<=, 481, label if width == 900
+        assert_operator sample.fetch("top"), :<=, 571, label if width == 375
+        assert_operator scrolled.fetch("visible"), :>=, 150, label if height == 375
+        assert_operator sample.fetch("overflow"), :<=, 1, label
+        assert_operator sample.fetch("pageOverflow"), :<=, 1, label
+      end
+    end
+  end
+
   test "the medium layout keeps its list and editor, and moves one sidebar into a keyboard dialog" do
     orbite_viewport(960, 850)
     visit account_notes_workspace_path(@account)
@@ -860,15 +906,31 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
 
   test "long French labels fit the mobile editor in light and dark themes" do
     @account.update!(name: "CompteDeRecherche" * 6)
+    names = [ "Carnets de recherche documentaire", "Séances de préparation collective", "Entretiens et comptes rendus détaillés" ]
+    %i[ research sessions interviews ].zip(names).each { |folder, name| note_folders(folder).update!(name:) }
+    path = names.join(" / ")
     orbite_select_language("FR")
-    orbite_viewport(375, 850)
+    orbite_viewport(375, 650)
     visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected]"
 
     [ false, true ].each do |dark|
       orbite_theme(dark)
-      assert_selector "h2", text: "Éditeur de note"
+      assert_selector "h2#notes-reader-heading.sr-only", exact_text: "Éditeur de note", visible: :all
       assert_selector "[data-notes-accounts]", text: /CompteDeRecherche/
       assert_no_text(/translation missing|missing translation/i)
+      context = find(".n-notes-editor-context", exact_text: path)
+      assert_equal path, context[:title]
+      context_layout = page.evaluate_script(<<~JS, context)
+        (() => {
+          const element = arguments[0], style = getComputedStyle(element)
+          return { height: element.clientHeight, lineHeight: parseFloat(style.lineHeight),
+                   truncated: element.scrollWidth > element.clientWidth, ellipsis: style.textOverflow === "ellipsis" }
+        })()
+      JS
+      assert_in_delta context_layout.fetch("lineHeight"), context_layout.fetch("height"), 1
+      assert context_layout.fetch("truncated")
+      assert context_layout.fetch("ellipsis")
       overflow = page.evaluate_script(<<~JS)
         (() => {
           const main = document.querySelector("main")
@@ -878,6 +940,19 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
         })()
       JS
       assert page.evaluate_script("document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth + 1"), overflow.inspect
+
+      label = "writing-space-french-#{dark ? 'dark' : 'light'}"
+      orbite_record(label, context_layout.merge(notes_writing_space), screenshot: true) if ENV["NOTES_WRITING_EVIDENCE"] == "1"
+      {
+        "a[data-notes-back]" => "Retour à la liste",
+        "button[popovertarget^='note-actions-']" => "Actions de la note",
+        ".n-notes-body-heading button" => "Mise en forme"
+      }.each do |selector, name|
+        assert_equal name, find(selector).native.accessible_name
+        target = orbite_tab_to(selector)
+        assert_operator target.fetch("height"), :>=, 44
+        assert_operator target.fetch("width"), :>=, 44
+      end
     end
   end
 
@@ -885,6 +960,11 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     visit account_notes_workspace_path(@account, q: "Research")
     click_link "New note"
     editor = find("lexxy-editor[connected] .lexxy-editor__content")
+    assert_selector "h2#notes-reader-heading.sr-only", exact_text: "New note", visible: :all
+    within ".n-notes-editor-toolbar" do
+      assert_link "Back to list"
+      assert_no_button "Note actions"
+    end
     page.execute_script("window.originalNoteEditor = document.querySelector('lexxy-editor')")
     history_length = page.evaluate_script("history.length")
     fill_in "Title (optional)", with: "Research notes"
@@ -899,7 +979,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal history_length, page.evaluate_script("history.length")
     assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
     assert_selector "[data-note-id='#{saved.id}'] a[aria-current='page']", text: "Research notes"
-    assert_selector "h2", text: "Note editor"
+    assert_selector "h2#notes-reader-heading.sr-only", exact_text: "Note editor", visible: :all
     assert_button "Note actions"
     assert_equal account_note_path(@account, saved, q: "Research"),
       find(".n-language-preference input[name='return_to']", visible: :all).value
@@ -2151,6 +2231,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       toggle = find_button("Formatting")
       assert_equal "false", toggle["aria-expanded"]
       assert_no_selector "lexxy-toolbar"
+      closed = notes_writing_space
       toggle.send_keys(:tab)
       assert page.evaluate_script("document.activeElement.matches('.lexxy-editor__content')")
       toggle.send_keys(:enter)
@@ -2167,10 +2248,51 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       JS
       toggle.send_keys(:enter)
       assert_no_selector "lexxy-toolbar"
+      assert_equal "false", toggle["aria-expanded"]
+      assert_in_delta closed.fetch("bodyHeight"), notes_writing_space.fetch("bodyHeight"), 1
     end
   end
 
+  test "formatting the note text and closing the toolbar preserves the draft" do
+    orbite_viewport(375, 650)
+    visit account_note_path(@account, @note)
+    editor = find("lexxy-editor[connected] .lexxy-editor__content")
+    editor.send_keys([ :control, "a" ])
+    orbite_tab_to(".n-notes-body-heading button", reverse: true)
+    page.driver.browser.action.send_keys(:enter).perform
+    bold = find("lexxy-toolbar button[name=bold]")
+    bold.click
+    assert_selector ".lexxy-editor__content strong", exact_text: "Interview outline"
+    find_button("Formatting").send_keys(:enter)
+    assert_no_selector "lexxy-toolbar"
+    assert_selector ".n-notes-body-heading button[aria-expanded=false]:focus"
+    assert_selector ".lexxy-editor__content strong", exact_text: "Interview outline"
+    click_on "Save note"
+    assert_save_status "Saved"
+    assert_includes @note.reload.body_html, "<strong>Interview outline</strong>"
+  end
+
   private
+    def notes_writing_space
+      page.evaluate_script(<<~JS)
+        (() => {
+          const main = document.querySelector("main")
+          const rect = (selector) => document.querySelector(selector).getBoundingClientRect()
+          const box = rect("lexxy-editor[connected] .lexxy-editor__content")
+          const center = ({ top, height }) => top + height / 2
+          return {
+            top: box.top,
+            visible: Math.max(0, Math.min(box.bottom, innerHeight, main.getBoundingClientRect().bottom) - Math.max(0, box.top)),
+            bodyHeight: box.height,
+            overflow: main.scrollWidth - main.clientWidth,
+            pageOverflow: document.documentElement.scrollWidth - innerWidth,
+            labelCenter: center(rect("label[for='notes-body']")),
+            formattingCenter: center(rect("button[aria-controls='notes-formatting']"))
+          }
+        })()
+      JS
+    end
+
     def choose_move_destination(label)
       click_button "Note actions"
       click_button "Move note"

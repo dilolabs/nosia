@@ -15,9 +15,11 @@
   <%= form.hidden_field :seed_tag, value: seed_tag if note.new_record? && seed_tag.present? %>
   <%= form.label :title, t("nosia.notes.note_title") %>
   <%= form.text_field :title, value: form_title || note.title, data: { note_autosave_target: "title" } %>
-  <%= form.label :body_html, t("nosia.notes.body"), for: "notes-body" %>
-  <button type="button" class="n-notes-button n-notes-formatting" hidden aria-expanded="false" aria-controls="notes-formatting"
-          data-note-autosave-target="formatting" data-action="note-autosave#toggleFormatting"><%= t("nosia.notes.formatting") %></button>
+  <div class="n-notes-body-heading">
+    <%= form.label :body_html, t("nosia.notes.body"), for: "notes-body" %>
+    <button type="button" class="n-notes-button" hidden aria-expanded="false" aria-controls="notes-formatting"
+            data-note-autosave-target="formatting" data-action="note-autosave#toggleFormatting"><%= t("nosia.notes.formatting") %></button>
+  </div>
   <%# Lexxy uses a form-associated element. Its HTML value is escaped in the attribute
       and comes only from Note's allowlist (also on a validation rerender). %>
   <%= form.lexxy_rich_text_area :body_html, id: "notes-body", attachments: "false",

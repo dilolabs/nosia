@@ -76,6 +76,7 @@
 
 .n-notes .n-notes-menu-trigger { justify-content: space-between; }
 .n-notes .n-notes-menu-trigger > span { min-inline-size: 0; overflow-wrap: anywhere; }
+.n-notes .n-notes-icon-button { inline-size: 2.75rem; padding: 0; justify-content: center; }
 
 .n-notes .n-notes-dropdown {
   position: fixed;
@@ -162,7 +163,24 @@
 .n-notes-sidebar-slot, .n-notes-list, .n-notes-reader, .n-notes-trash { min-inline-size: 0; padding: .875rem 0; }
 .n-notes-sidebar, .n-notes-form { display: grid; align-content: start; gap: .5rem; }
 .n-notes-form, .n-notes-index-status, .n-notes-sharing { max-inline-size: 74ch; }
-.n-notes-form > label { font-size: .875rem; font-weight: 600; }
+.n-notes-form > label, .n-notes-body-heading > label { font-size: .875rem; font-weight: 600; }
+.n-notes-editor-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .375rem;
+  margin-block-end: .625rem;
+}
+.n-notes-editor-toolbar .n-notes-back { margin: 0; }
+.n-notes-editor-toolbar .n-notes-icon-button .n-notes-icon { inline-size: 1.5rem; block-size: 1.5rem; }
+.n-notes-editor-context { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-notes-body-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .375rem .75rem;
+}
 .n-notes-form > :is(input, select) { justify-self: start; }
 .n-notes-form input#note_title {
   inline-size: 100%;
@@ -192,6 +210,7 @@
 }
 .n-notes-form .lexxy-editor__content {
   min-block-size: 15rem;
+  min-block-size: clamp(15rem, calc(100dvh - 26rem), 48rem);
   padding: .875rem;
   border-radius: var(--notes-editor-radius);
   color: var(--orbite-text);
@@ -206,13 +225,11 @@
   border-start-start-radius: 0;
   border-start-end-radius: 0;
 }
-.n-notes-formatting { justify-self: start; }
 .n-notes-form :is(.lexxy-editor__content, pre) { overflow-wrap: anywhere; }
 .n-notes-form pre { overflow: auto; }
-.n-notes-reader > :is(p, h2), .n-notes-editor-heading > :is(p, .n-notes-editor-actions, h2) { margin-block-end: .5rem; }
+.n-notes-reader > :is(p, h2) { margin-block-end: .5rem; }
 .n-notes-form p[role="status"]:empty { margin: 0; }
 .n-notes-save-row { padding-block: .375rem; }
-.n-notes-editor-actions { border-block-end: 1px solid var(--orbite-line); padding-block-end: .375rem; }
 .n-notes-errors { border-inline-start: 2px solid var(--orbite-accent); padding-inline-start: .5rem; }
 
 .n-notes .n-notes-group-heading {
