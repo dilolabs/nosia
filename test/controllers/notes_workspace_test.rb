@@ -651,6 +651,44 @@ class NotesWorkspaceTest < ActionDispatch::IntegrationTest
     assert_nil @note.pin
   end
 
+  test "moving from a folder opens the note in the destination folder" do
+    destination = note_folders(:reading)
+    destination_list = account_notes_workspace_path(@account, folder_id: destination.id)
+
+    post account_note_movement_path(@account, @note, folder_id: @folder.id, page: 2),
+         params: { note_folder_id: destination.id }
+
+    assert_response :see_other
+    assert_redirected_to account_note_path(@account, @note, folder_id: destination.id)
+    follow_redirect!
+    assert_response :success
+    assert_select "#notes-sidebar a[aria-current=page][href='#{destination_list}']", text: "Reading"
+    assert_select "#notes-list [data-note-id='#{@note.id}'] a[aria-current=page]"
+    assert_select "a[data-notes-back][href='#{destination_list}']"
+  end
+
+  test "moving from search drops the search, list view, and page" do
+    destination = note_folders(:reading)
+
+    post account_note_movement_path(@account, @note, q: "outline", page: 2, view: "list"),
+         params: { note_folder_id: destination.id }
+
+    assert_response :see_other
+    assert_redirected_to account_note_path(@account, @note, folder_id: destination.id)
+    assert_equal destination, @note.reload.note_folder
+  end
+
+  test "moving from a tag drops the tag and page" do
+    destination = note_folders(:reading)
+    @note.edit_content!(expected_revision: @note.content_revision, title: @note.title, body_html: "<p>#interviews</p>")
+
+    post account_note_movement_path(@account, @note, tag: "interviews", page: 2),
+         params: { note_folder_id: destination.id }
+
+    assert_response :see_other
+    assert_redirected_to account_note_path(@account, @note, folder_id: destination.id)
+  end
+
   test "saving from a stale folder or moving into it reports unavailability without writing" do
     stale = note_folders(:reading).trash
     draft = { title: "Stale draft", body_html: "", draft_key: SecureRandom.uuid }

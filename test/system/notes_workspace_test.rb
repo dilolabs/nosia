@@ -805,6 +805,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   test "note actions still move a note without scripts" do
+    destination = note_folders(:reading)
     orbite_viewport(375, 650)
     page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
     visit account_note_path(@account, @note)
@@ -817,8 +818,14 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       click_button "Move note"
     end
 
+    assert_current_path account_note_path(@account, @note, folder_id: destination.id)
     assert_selector "#notes-editor-heading .n-notes-meta", text: "Research / Reading"
-    assert_equal note_folders(:reading), @note.reload.note_folder
+    assert_equal destination, @note.reload.note_folder
+
+    click_link "Back to list"
+    assert_current_path account_notes_workspace_path(@account, folder_id: destination.id)
+    assert_selector "#notes-list-heading", text: "Research / Reading"
+    assert_selector "#notes-list [data-note-id='#{@note.id}']"
   end
 
   test "Move still opens and cancels when declarative dialog commands are unavailable" do
@@ -969,7 +976,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
 
     page.driver.browser.action.send_keys(:enter).perform
-    assert_current_path account_note_path(@account, @note, **options)
+    assert_current_path account_note_path(@account, @note, folder_id: destination.id)
     assert_selector "#notes-editor-heading .n-notes-meta", text: "Research / Reading"
     assert_equal destination.id, @note.reload.note_folder_id
   end
