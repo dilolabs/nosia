@@ -22,6 +22,13 @@ export default class extends Controller {
     cancelAnimationFrame(this.openingFrame)
   }
 
+  closeOnFocusLeave(event) {
+    if (this.element.matches(":popover-open") && !this.element.contains(event.target) &&
+        event.target !== this.element.previousElementSibling) {
+      this.element.hidePopover()
+    }
+  }
+
   beforeToggle = (event) => {
     if (event.target === this.element && event.newState === "open") {
       cancelAnimationFrame(this.openingFrame)

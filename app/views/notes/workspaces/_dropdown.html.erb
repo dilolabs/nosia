@@ -1,8 +1,9 @@
-<%# locals: (id:, label:) %>
+<%# locals: (id:, label:, close_on_focus_leave: false) %>
 <button type="button" popovertarget="<%= id %>" class="n-notes-button n-notes-menu-trigger">
   <span><%= label %></span>
   <%= inline_svg "svg/chevron-down.svg", aria_hidden: true, class: "n-notes-icon" %>
 </button>
-<div id="<%= id %>" popover="auto" class="n-notes-dropdown" data-controller="notes-dropdown">
+<div id="<%= id %>" popover="auto" class="n-notes-dropdown" data-controller="notes-dropdown"
+     <%= tag.attributes(data: { action: "focusin@document->notes-dropdown#closeOnFocusLeave" }) if close_on_focus_leave %>>
   <%= yield %>
 </div>

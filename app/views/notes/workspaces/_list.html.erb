@@ -3,14 +3,14 @@
   <h2 id="notes-list-heading"><%= notes_list_heading(options, folder, folders) %></h2>
   <% if folder && !folder.general? %>
     <div class="n-notes-actions">
-      <%= link_to t("nosia.notes.edit_folder"), edit_account_note_folder_path(account, folder, **options), class: "n-notes-button" %>
-      <details>
-        <summary><%= t("nosia.notes.trash_folder") %></summary>
-        <% confirmation = t("nosia.notes.confirm_trash_folder", name: notes_folder_name(folder)) %>
-        <p><%= confirmation %></p>
-        <%= button_to t("nosia.notes.trash_folder"), account_note_folder_trashing_path(account, folder), class: "n-notes-button",
-                      form: { data: { turbo_confirm: confirmation } } %>
-      </details>
+      <%= render layout: "notes/workspaces/dropdown",
+            locals: { id: "folder-actions-#{folder.id}", label: t("nosia.notes.folder_actions"), close_on_focus_leave: true } do %>
+        <%= link_to t("nosia.notes.edit_folder"), edit_account_note_folder_path(account, folder, **options), class: "n-notes-menu-item" %>
+        <%= render "notes/workspaces/destructive_action",
+              id: "trash-folder-#{folder.id}", label: t("nosia.notes.trash_folder"), submit_label: t("nosia.notes.trash_folder"),
+              path: account_note_folder_trashing_path(account, folder), method: :post,
+              confirmation: t("nosia.notes.confirm_trash_folder", name: notes_folder_name(folder)) %>
+      <% end %>
     </div>
   <% end %>
   <% if notes.any? %>

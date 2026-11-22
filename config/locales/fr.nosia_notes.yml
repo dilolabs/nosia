@@ -68,6 +68,7 @@ fr:
       hashtag_too_long: Un mot-dièse est trop long. Raccourcissez-le et enregistrez à nouveau la note.
       invalid_note: La note n’a pas pu être enregistrée. Vérifiez son contenu et réessayez.
       new_folder: Nouveau dossier
+      folder_actions: Actions du dossier
       edit_folder: Modifier le dossier
       folder_name: Nom du dossier
       parent_folder: Dossier parent

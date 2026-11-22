@@ -266,6 +266,154 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_no_selector "[data-note-id='#{@note.id}']"
   end
 
+  test "folder actions cancel and explicitly submit the native confirmation without scripts" do
+    folder = note_folders(:interviews)
+    orbite_viewport(375, 650)
+    page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+    visit account_notes_workspace_path(@account, folder_id: folder.id, view: "list")
+
+    assert_button "Folder actions"
+    click_button "Folder actions"
+    assert_link "Edit folder", href: edit_account_note_folder_path(@account, folder, folder_id: folder.id, view: "list")
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+
+    click_button "Trash folder"
+    panel = "#trash-folder-#{folder.id}:modal"
+    assert_selector panel, text: "Move “Interviews” and all its folders and notes to Trash?"
+    assert_anchored_notes_dropdown("trash-folder-#{folder.id}")
+    assert_selector "#{panel} button:focus", exact_text: "Cancel"
+    page.driver.browser.action.send_keys(:tab).perform
+    assert_selector "#{panel} button[type=submit]:focus", exact_text: "Trash folder"
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+    within(panel) { click_button "Cancel" }
+    assert_no_selector panel
+    assert_selector "#folder-actions-#{folder.id}:popover-open button:focus", exact_text: "Trash folder"
+    refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector panel
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_no_selector panel
+    assert_selector "#folder-actions-#{folder.id}:popover-open button:focus", exact_text: "Trash folder"
+    click_button "Trash folder"
+    within(panel) { click_button "Trash folder" }
+    assert_selector "[data-notes-trash]"
+    assert NoteFolderTrashing.exists?(note_folder_id: folder.id)
+  end
+
+  test "folder confirmation floats with safe Tab, Cancel and Escape on narrow and wide layouts" do
+    folder = note_folders(:interviews)
+    actions = "#folder-actions-#{folder.id}:popover-open"
+    actions_trigger = "button[popovertarget='folder-actions-#{folder.id}']"
+    confirmation = "#trash-folder-#{folder.id}:popover-open"
+    confirmation_trigger = "button[commandfor='trash-folder-#{folder.id}'][command=show-modal]"
+    reference = "[data-note-id='#{@note.id}']"
+
+    [ [ 375, 650, true ], [ 667, 375, false ], [ 900, 768, true ], [ 1440, 900, false ] ].each do |width, height, dark|
+      orbite_viewport(width, height)
+      visit account_notes_workspace_path(@account, folder_id: folder.id, view: "list")
+      orbite_theme(dark)
+      orbite_tab_to(actions_trigger)
+      before = notes_layout(reference)
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector actions
+      assert_equal before, notes_layout(reference)
+      orbite_tab_to("#{actions} a")
+      target = orbite_tab_to(confirmation_trigger)
+      assert_operator target.fetch("height"), :>=, 44
+      assert_operator target.fetch("width"), :>=, 44
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector "#{confirmation}[aria-labelledby='trash-folder-#{folder.id}-heading'] h3", exact_text: "Trash folder"
+      assert_selector "#{confirmation} button:focus", exact_text: "Cancel"
+      cancel = orbite_assert_reachable("#{confirmation} button:focus")
+      assert_operator cancel.fetch("height"), :>=, 44
+      assert_operator cancel.fetch("width"), :>=, 44
+      assert_anchored_notes_dropdown("trash-folder-#{folder.id}")
+      assert_equal before, notes_layout(reference)
+      page.driver.browser.action.send_keys(:tab).perform
+      assert_selector "#{confirmation} button[type=submit]:focus", exact_text: "Trash folder"
+      target = orbite_assert_reachable("#{confirmation} button[type=submit]:focus")
+      assert_operator target.fetch("height"), :>=, 44
+      assert_operator target.fetch("width"), :>=, 44
+      page.driver.browser.action.send_keys(:tab).perform
+      assert_no_selector confirmation
+      assert_no_selector actions
+      orbite_assert_reachable("#{reference} a:focus")
+
+      before = notes_layout(reference)
+      click_button "Folder actions"
+      find(confirmation_trigger).click
+      assert_equal before, notes_layout(reference)
+      within(confirmation) { click_button "Cancel" }
+      assert_no_selector confirmation
+      assert_selector "#{actions} #{confirmation_trigger}:focus"
+      assert_equal before, notes_layout(reference)
+      page.driver.browser.action.send_keys(:enter).perform
+      assert_selector confirmation
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_no_selector confirmation
+      assert_selector "#{actions} #{confirmation_trigger}:focus"
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_no_selector actions
+      assert_selector "#{actions_trigger}:focus"
+      assert_equal before, notes_layout(reference)
+      refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+    end
+  end
+
+  test "one outside pointer click closes both folder panels and keeps the clicked control focused" do
+    folder = note_folders(:interviews)
+    [ [ 375, 650, true ], [ 667, 375, false ], [ 1440, 900, false ] ].each do |width, height, dark|
+      orbite_viewport(width, height)
+      if width == 1440
+        visit account_note_path(@account, @note, folder_id: folder.id)
+        assert_selector "lexxy-editor[connected]"
+        target = "#note_title"
+      else
+        visit account_notes_workspace_path(@account, folder_id: folder.id, view: "list")
+        target = ".n-notes-search input[type=search]"
+      end
+      orbite_theme(dark)
+      reference = "[data-note-id='#{@note.id}']"
+      before = notes_layout(reference)
+
+      actions = "#folder-actions-#{folder.id}:popover-open"
+      confirmation = open_folder_trash_confirmation(folder)
+      assert_selector actions
+      assert_equal before, notes_layout(reference)
+      point = page.evaluate_script(<<~JS, find(target))
+        (() => {
+          const target = arguments[0], rect = target.getBoundingClientRect()
+          const y = Math.round(rect.top + rect.height / 2)
+          return [rect.right - 12, rect.left + rect.width / 2, rect.left + 12]
+            .map(x => [Math.round(x), y]).find(([x, y]) => document.elementFromPoint(x, y) === target)
+        })()
+      JS
+      assert point, "No exposed part of #{target} at #{width}x#{height}"
+      page.driver.browser.action.move_to_location(*point).click.perform
+
+      assert_no_selector "#{actions}, #{confirmation}"
+      assert_selector "#{target}:focus"
+      assert_equal before, notes_layout(reference)
+      refute NoteFolderTrashing.exists?(note_folder_id: folder.id)
+    end
+  end
+
+  test "Edit folder in Folder actions keeps the same filtered workspace destination" do
+    folder = note_folders(:interviews)
+    options = { folder_id: folder.id, view: "list" }
+    visit account_notes_workspace_path(@account, **options)
+    click_button "Folder actions"
+    within "#folder-actions-#{folder.id}:popover-open" do
+      click_link "Edit folder", href: edit_account_note_folder_path(@account, folder, **options)
+    end
+    assert_current_path edit_account_note_folder_path(@account, folder, **options)
+    assert_field "Folder name", with: folder.name
+
+    visit account_notes_workspace_path(@account, folder_id: @account.general_note_folder.id, view: "list")
+    assert_no_button "Folder actions"
+  end
+
   test "Escape closes nested move before note actions and returns focus in order" do
     orbite_viewport(375, 650)
     visit account_note_path(@account, @note)
@@ -1337,10 +1485,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     fill_in "Title (optional)", with: "Keep the draft after cancelling"
     assert_save_status "Could not save"
 
-    within "#notes-list" do
-      find("summary", text: "Trash folder").click
-      click_on "Trash folder"
-    end
+    submit_folder_trash(folder)
     assert_field "Title (optional)", with: "Keep the draft after cancelling"
     refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))"),
       "cancelling folder trash must not clear the dirty draft"
@@ -1353,8 +1498,8 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
         return !message.includes("unsaved changes")
       }
     JS
-    within("#notes-list") { click_on "Trash folder" }
-    assert_button "Trash folder"
+    submit_folder_trash(folder)
+    assert_selector "#trash-folder-#{folder.id}:popover-open button[type=submit]", text: "Trash folder"
     action, discard = page.evaluate_script("window.confirmations")
     assert_match(/all its folders and notes/, action)
     assert_match(/unsaved changes/i, discard)
@@ -1394,11 +1539,8 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     JS
     fill_in "Title (optional)", with: "Draft during departure"
     assert_save_status "Saving"
-    within "#notes-list" do
-      find("summary", text: "Trash folder").click
-      click_on "Trash folder"
-      assert_button "Trash folder"
-    end
+    submit_folder_trash(folder)
+    assert_selector "#trash-folder-#{folder.id}:popover-open button[type=submit]", text: "Trash folder"
     assert page.evaluate_script("window.abortedSave && window.trashAttempted")
     assert_field "Title (optional)", with: "Draft during departure"
     refute page.evaluate_script("window.dispatchEvent(new Event('beforeunload', { cancelable: true }))"),
@@ -1428,17 +1570,11 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     other_tab = open_new_window
     within_window(other_tab) do
       visit account_notes_workspace_path(@account, folder_id: parent.id)
-      within "#notes-list" do
-        find("summary", text: "Trash folder").click
-        accept_confirm(/all its folders and notes/) { click_on "Trash folder" }
-      end
+      accept_confirm(/all its folders and notes/) { submit_folder_trash(parent) }
       assert_current_path account_notes_workspace_path(@account, view: "trash")
     end
 
-    within "#notes-list" do
-      find("summary", text: "Trash folder").click
-      click_on "Trash folder"
-    end
+    submit_folder_trash(folder)
     assert_http_departure_status 409
     assert_current_path editor_path
     assert_save_status "This change is not available."
@@ -1815,10 +1951,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     wait_for_held_notes_request(list)
     assert_current_path list
     folder.parent.trash
-    within "#notes-list" do
-      find("summary", text: "Trash folder").click
-      click_on "Trash folder"
-    end
+    submit_folder_trash(folder)
     wait_for_held_notes_request(trash_path)
     assert page.evaluate_script("window.abortedNotesRequests.includes(arguments[0])", list)
     page.execute_script("window.releaseNotesRequest()")
@@ -1874,10 +2007,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     page.execute_script("history.back()")
     wait_for_held_notes_request(list)
     assert_current_path list
-    within "#notes-list" do
-      find("summary", text: "Trash folder").click
-      click_on "Trash folder"
-    end
+    submit_folder_trash(folder)
     Selenium::WebDriver::Wait.new(timeout: Capybara.default_max_wait_time).until do
       page.evaluate_script("window.visitWarnings === 2")
     end
@@ -1914,10 +2044,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     JS
     fill_in "Title (optional)", with: "Do not save this draft"
     assert_save_status "Could not save"
-    within "#notes-list" do
-      find("summary", text: "Trash folder").click
-      click_on "Trash folder"
-    end
+    submit_folder_trash(folder)
 
     assert_current_path account_notes_workspace_path(@account, view: "trash")
     action, discard = page.evaluate_script("window.confirmations")
@@ -2014,6 +2141,20 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       "#note-move-#{@note.id}:is(:popover-open, :modal)"
     end
 
+    def open_folder_trash_confirmation(folder)
+      actions = "#folder-actions-#{folder.id}:popover-open"
+      confirmation = "#trash-folder-#{folder.id}:is(:popover-open, :modal)"
+      within "#notes-list" do
+        click_button "Folder actions" unless has_selector?(actions, wait: 0)
+        within(actions) { click_button "Trash folder" } unless has_selector?(confirmation, wait: 0)
+      end
+      confirmation
+    end
+
+    def submit_folder_trash(folder)
+      within(open_folder_trash_confirmation(folder)) { click_button "Trash folder" }
+    end
+
     def notes_layout(reference)
       page.evaluate_script(<<~JS, reference)
         (() => {
@@ -2027,7 +2168,8 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     def assert_anchored_notes_dropdown(id)
       sample = page.evaluate_script(<<~JS, id)
         (() => {
-          const trigger = document.querySelector(`button[popovertarget="${arguments[0]}"]:not([popovertargetaction="hide"])`)
+          const trigger = document.querySelector(`button[popovertarget="${arguments[0]}"]:not([popovertargetaction="hide"]),
+            button[commandfor="${arguments[0]}"][command=show-modal]`)
           const panel = document.getElementById(arguments[0])
           return { anchor: trigger.getBoundingClientRect().toJSON(), panel: panel.getBoundingClientRect().toJSON(),
             open: panel.matches(":popover-open, :modal"), viewport: [innerWidth, innerHeight] }

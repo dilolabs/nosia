@@ -68,6 +68,7 @@ en:
       hashtag_too_long: A hashtag is too long. Shorten it and save the note again.
       invalid_note: The note could not be saved. Check its content and try again.
       new_folder: New folder
+      folder_actions: Folder actions
       edit_folder: Edit folder
       folder_name: Folder name
       parent_folder: Parent folder
