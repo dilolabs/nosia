@@ -71,7 +71,7 @@ class NotesImportRequestLimitTest < ActiveSupport::TestCase
     assert_empty body
   end
 
-  [ NoMethodError, TypeError ].each do |error_class|
+  [ NoMethodError, TypeError, Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError ].each do |error_class|
     test "Rack multipart #{error_class} returns a safe 400 and removes partial temporary files" do
       original_parser = Rack::Multipart.method(:parse_multipart)
       files = []
@@ -103,15 +103,32 @@ class NotesImportRequestLimitTest < ActiveSupport::TestCase
     test "a downstream #{error_class} is not handled as multipart input" do
       downstream_error = error_class.new("unexpected downstream error")
       middleware = NotesImportRequestLimit.new(->(*) { raise downstream_error }, [ /\A/ ])
-      body = "--RackTestBoundary--\r\n"
-      env = request_env(path: BATCHES_PATH, length: body.bytesize.to_s, content_type: MULTIPART_TYPE,
-        extra: { Rack::RACK_INPUT => StringIO.new(body) })
 
-      assert_same downstream_error, assert_raises(error_class) { middleware.call(env) }
+      assert_same downstream_error, assert_raises(error_class) { middleware.call(empty_batch_env) }
+    end
+
+    test "a Rails parameter-building #{error_class} is not a Rack parser error" do
+      original_builder = ActionDispatch::ParamBuilder.method(:from_pairs)
+      env = empty_batch_env
+      error = error_class.new("unexpected parameter-building error")
+      ActionDispatch::ParamBuilder.define_singleton_method(:from_pairs) do |*, **|
+        env[Rack::RACK_REQUEST_FORM_ERROR] = error_class.new(error.message)
+        raise error
+      end
+
+      assert_same error, assert_raises(error_class) { rejecting_middleware.call(env) }
+    ensure
+      ActionDispatch::ParamBuilder.define_singleton_method(:from_pairs, original_builder)
     end
   end
 
   private
+    def empty_batch_env
+      body = "--RackTestBoundary--\r\n"
+      request_env(path: BATCHES_PATH, length: body.bytesize.to_s, content_type: MULTIPART_TYPE,
+        extra: { Rack::RACK_INPUT => StringIO.new(body) })
+    end
+
     def assert_rejected(status, code, allow: nil, **options)
       actual_status, headers, body = rejecting_middleware.call(request_env(**options))
       assert_equal status, actual_status

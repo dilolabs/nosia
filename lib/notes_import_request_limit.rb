@@ -104,7 +104,7 @@ class NotesImportRequestLimit
       body = request.request_parameters
       parsed = true
       body
-    rescue NoMethodError, TypeError => error
+    rescue NoMethodError, TypeError, Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError => error
       # Rack can fail while decoding malformed part metadata. Only translate
       # errors recorded by its form parser, not errors in Rails or controllers.
       raise unless request.get_header(Rack::RACK_REQUEST_FORM_ERROR).equal?(error)
