@@ -238,6 +238,115 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector ".n-notes-reader"
   end
 
+  test "the compact folder tree gives the name and chevron separate targets on one row" do
+    orbite_viewport(1440, 900)
+    visit notes_entry_path
+    entry = account_notes_workspace_path(@account)
+    assert_current_path entry
+
+    research = notes_tree_link(:research)
+    toggle = notes_tree_toggle("Research")
+    sessions = notes_tree_link(:sessions)
+    reading = notes_tree_link(:reading)
+    assert_no_selector "#notes-sidebar summary", exact_text: "Subfolders"
+    assert_no_selector sessions
+    assert_equal "Subfolders of Research", find(toggle).native.accessible_name
+    name_bounds = orbite_tab_to(research)
+    toggle_bounds = orbite_tab_to(toggle)
+    [ name_bounds, toggle_bounds ].each do |bounds|
+      assert_operator bounds.fetch("width"), :>=, 44
+      assert_operator bounds.fetch("height"), :>=, 44
+    end
+    assert_equal name_bounds.fetch("top"), toggle_bounds.fetch("top")
+    assert_operator toggle_bounds.fetch("right"), :<=, name_bounds.fetch("left")
+    assert_equal name_bounds.fetch("height"), page.evaluate_script("arguments[0].closest('li').getBoundingClientRect().height", find(research))
+    assert_equal [ "right" ], notes_chevron_directions(toggle)
+
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector sessions, exact_text: "Sessions"
+    assert_current_path entry
+    assert_equal [ "down" ], notes_chevron_directions(toggle)
+    assert_selector "#{reading}:only-child"
+    assert_no_selector "#{reading} svg"
+    leaf_bounds = orbite_tab_to(reading)
+    assert_equal orbite_assert_reachable(sessions).fetch("left"), leaf_bounds.fetch("left")
+    assert_operator leaf_bounds.fetch("left"), :>, name_bounds.fetch("left")
+
+    find(toggle).click
+    assert_no_selector sessions
+    assert_current_path entry
+    assert_equal [ "right" ], notes_chevron_directions(toggle)
+  end
+
+  test "the branch chevron works by keyboard without scripts or navigation" do
+    orbite_viewport(1440, 900)
+    page.driver.browser.execute_cdp("Emulation.setScriptExecutionDisabled", value: true)
+    entry = account_notes_workspace_path(@account)
+    visit entry
+
+    toggle = notes_tree_toggle("Research")
+    sessions = notes_tree_link(:sessions)
+    assert_selector "#{toggle} svg[aria-hidden='true']"
+    assert_no_selector sessions
+    find(notes_tree_link(:research)).send_keys(:tab)
+    assert_selector "#{toggle}:focus"
+    page.driver.browser.action.send_keys(:enter).perform
+    assert_selector sessions
+    assert_current_path entry
+
+    assert_selector "#{toggle}:focus"
+    page.driver.browser.action.send_keys(:space).perform
+    assert_no_selector sessions
+    assert_current_path entry
+
+    find(notes_tree_link(:research)).click
+    assert_current_path account_notes_workspace_path(@account, folder_id: note_folders(:research).id)
+    assert_selector "#{notes_tree_link(:research)}[aria-current='page']"
+  end
+
+  test "the narrow folder tree keeps deep links reachable without horizontal overflow" do
+    long_name = "DossierDeRecherche" * 6
+    note_folders(:sessions).update!(name: long_name)
+    folder_id = note_folders(:interviews).id
+    active = "#{notes_tree_link(:interviews)}[aria-current='page']"
+    open_ancestors = "details[open] > summary"
+    research = notes_tree_toggle("Research")
+    sessions = notes_tree_toggle(long_name)
+    drawer = "#notes-folders-dialog:modal"
+
+    [ [ 375, 650 ], [ 900, 768 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_notes_workspace_path(@account, folder_id:, view: ("folders" if width == 375))
+      find(".n-notes-folder-trigger[aria-haspopup='dialog']").click if width == 900
+      assert_selector "#{drawer} #notes-sidebar" if width == 900
+      assert_selector "#notes-sidebar #{open_ancestors}[aria-label='Subfolders of Research']"
+      assert_selector "#notes-sidebar #{open_ancestors}[aria-label='Subfolders of #{long_name}']"
+      assert_selector active, exact_text: "Interviews"
+      assert_equal [ "down", "down" ], notes_chevron_directions(research, sessions)
+      name = find(notes_tree_link(:sessions), exact_text: long_name)
+      toggle_bounds, name_bounds = page.evaluate_script("[...arguments].map(control => control.getBoundingClientRect().toJSON())", find(sessions), name)
+      assert_equal name_bounds.fetch("top"), toggle_bounds.fetch("top")
+      assert_operator toggle_bounds.fetch("right"), :<=, name_bounds.fetch("left")
+      orbite_tab_to(active)
+      overflow = page.evaluate_script(<<~JS, name, width == 900 ? drawer : "main")
+        [arguments[0], document.getElementById("notes-sidebar"), document.querySelector(arguments[1])]
+          .map(element => element.scrollWidth - element.clientWidth)
+      JS
+      overflow.each { |pixels| assert_operator pixels, :<=, 1, "Horizontal overflow at #{width}×#{height}" }
+    end
+
+    find(sessions).click
+    assert_no_selector active
+    page.driver.browser.action.send_keys(:escape).perform
+    assert_no_selector drawer
+    find(".n-notes-folder-trigger").click
+    assert_selector "#{drawer} #notes-sidebar"
+    assert_no_selector active
+    assert_equal [ "down", "right" ], notes_chevron_directions(research, sessions)
+    find(sessions).click
+    assert_selector active
+  end
+
   test "on mobile the real Lexxy form saves and Back returns to the filtered list" do
     orbite_viewport(375, 850)
     visit notes_entry_path
@@ -1149,6 +1258,9 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     visit account_notes_workspace_path(@account, q: "Research")
     click_link "New note"
     editor = find("lexxy-editor[connected] .lexxy-editor__content")
+    assert_no_selector notes_tree_link(:sessions)
+    find(notes_tree_toggle("Research")).click
+    assert_selector notes_tree_link(:sessions)
     assert_selector "h2#notes-reader-heading.sr-only", exact_text: "New note", visible: :all
     within ".n-notes-editor-toolbar" do
       assert_link "Back to list"
@@ -1167,6 +1279,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_current_path account_note_path(@account, saved, q: "Research")
     assert_equal history_length, page.evaluate_script("history.length")
     assert page.evaluate_script("window.originalNoteEditor === document.querySelector('lexxy-editor')")
+    assert_selector notes_tree_link(:sessions)
     assert_selector "[data-note-id='#{saved.id}'] a[aria-current='page']", text: "Research notes"
     assert_selector "h2#notes-reader-heading.sr-only", exact_text: "Note editor", visible: :all
     assert_button "Note actions"
@@ -2462,6 +2575,26 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
   end
 
   private
+    def notes_tree_link(folder)
+      href = account_notes_workspace_path(@account, folder_id: note_folders(folder).id)
+      "#notes-sidebar a[href='#{href}']"
+    end
+
+    def notes_tree_toggle(name)
+      "#notes-sidebar summary[aria-label='Subfolders of #{name}']"
+    end
+
+    def notes_chevron_directions(*toggles)
+      toggles.each { |toggle| assert_selector "#{toggle} svg[aria-hidden='true']", count: 1 }
+      page.evaluate_script(<<~JS, *toggles.map { |toggle| find("#{toggle} svg") })
+        [...arguments].map(icon => {
+          const { a: x, b: y } = icon.getScreenCTM()
+          if (x > Math.abs(y)) return "right"
+          if (y > Math.abs(x)) return "down"
+        })
+      JS
+    end
+
     def notes_index_geometry
       page.evaluate_script(<<~JS)
         (() => {
