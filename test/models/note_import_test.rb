@@ -440,6 +440,54 @@ class NoteImportTest < ActiveSupport::TestCase
     assert_predicate import.reload, :uploading?
   end
 
+  test "clearing the account collection cannot orphan staged bytes" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { @account.note_imports.clear }
+    assert_sealed_import_retained(import)
+  end
+
+  test "scoped account collection delete_all cannot orphan staged bytes" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { @account.note_imports.where(id: import.id).delete_all }
+    assert_sealed_import_retained(import)
+  end
+
+  test "account collection bulk delete helpers cannot bypass receipt destruction" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { @account.note_imports.delete_by(id: import.id) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { @account.note_imports.where(initiator: @initiator).delete(import.id) }
+    assert_raises(ActiveRecord::ReadOnlyRecord) { @account.note_imports.delete_all }
+    assert_sealed_import_retained(import)
+  end
+
+  test "bare receipt deletion cannot orphan staged bytes" do
+    import = sealed_import
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.delete }
+    assert_sealed_import_retained(import)
+  end
+
+  test "destroying a receipt removes its staged bytes" do
+    import = sealed_import
+
+    import.destroy!
+
+    refute NoteImport.exists?(import.id)
+    refute NoteImport::StagedFile.exists?(note_import_id: import.id)
+  end
+
+  test "removing one receipt from the account collection destroys its staged bytes" do
+    import = sealed_import
+
+    @account.note_imports.delete(import)
+
+    refute NoteImport.exists?(import.id)
+    refute NoteImport::StagedFile.exists?(note_import_id: import.id)
+  end
+
   test "destroying the account removes staged bytes even if the import association was preloaded" do
     assert_empty @account.note_imports.load
     import = start_import(account: Account.find(@account.id))
@@ -452,6 +500,12 @@ class NoteImportTest < ActiveSupport::TestCase
   end
 
   private
+    def assert_sealed_import_retained(import)
+      saved = @account.note_imports.find(import.id)
+      assert_predicate saved, :sealed?
+      assert_equal "ok", saved.staged_files.sole.payload
+    end
+
     def staged_attributes(path)
       { path:, payload: "ok", digest: Digest::SHA256.hexdigest("ok") }
     end

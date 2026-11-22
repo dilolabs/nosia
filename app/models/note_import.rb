@@ -1,5 +1,14 @@
 # One member's private upload and retry-safe receipt for a Notes folder import.
 class NoteImport < ApplicationRecord
+  DESTROY_ONLY = "Note imports must be destroyed with their staged files".freeze
+
+  # Bulk deletion skips the locked cleanup used by receipt and account destruction.
+  module DestroyOnlyCollection
+    def delete_all(*)
+      raise ActiveRecord::ReadOnlyRecord, DESTROY_ONLY
+    end
+  end
+
   # Safe validation details for callers to translate. A path is included only after validation.
   class Invalid < StandardError
     attr_reader :code, :path
@@ -116,6 +125,13 @@ class NoteImport < ApplicationRecord
 
       delete_staging_rows
     end
+  end
+
+  # @raise [ActiveRecord::ReadOnlyRecord] If a saved receipt would bypass staged-file cleanup.
+  def delete
+    raise ActiveRecord::ReadOnlyRecord, DESTROY_ONLY if persisted?
+
+    super
   end
 
   # @api private

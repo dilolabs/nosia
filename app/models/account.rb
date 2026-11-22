@@ -19,7 +19,7 @@ class Account < ApplicationRecord
   has_many :mcp_servers, dependent: :destroy
   has_many :notes, dependent: :destroy
   has_many :note_folders, dependent: :destroy
-  has_many :note_imports, dependent: :destroy
+  has_many :note_imports, -> { extending(NoteImport::DestroyOnlyCollection) }, dependent: :destroy
   has_many :note_tags, dependent: :destroy
   has_many :prompts, dependent: :destroy
   has_many :qnas, dependent: :destroy
