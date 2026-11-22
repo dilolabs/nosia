@@ -86,7 +86,7 @@ module Note::Indexable
     resume_indexing_in("failed")
   end
 
-  # Resumes pending or failed indexing after an ancestor folder has been restored.
+  # Resumes an active note's pending or failed indexing after restoration or a broken queue handoff.
   # @return [Note, nil] The note, or nil if it no longer exists.
   def resume_indexing
     resume_indexing_in("pending", "failed")
@@ -119,9 +119,11 @@ module Note::Indexable
     def index_later(generation)
       note_id = id
       ActiveRecord.after_all_transactions_commit do
-        unless enqueue_index_job(note_id, generation)
-          Rails.logger.warn("Could not enqueue Note indexing")
-          self.class.find_by(id: note_id)&.mark_index_failed(generation)
+        self.class.logger.silence(Logger::INFO) do
+          unless enqueue_index_job(note_id, generation)
+            Rails.logger.warn("Could not enqueue Note indexing")
+            mark_index_handoff_failed(note_id, generation)
+          end
         end
       end
     end
@@ -132,8 +134,21 @@ module Note::Indexable
       Note::IndexJob.logger.silence(Logger::UNKNOWN) do
         Note::IndexJob.set(wait: 30.seconds).perform_later(note_id, generation)
       end
-    rescue ActiveJob::EnqueueError, SolidQueue::Job::EnqueueError
+    rescue ActiveJob::EnqueueError, SolidQueue::Job::EnqueueError, ActiveRecord::ActiveRecordError
       false
+    end
+
+    def mark_index_handoff_failed(note_id, generation)
+      # Retry once in a fresh transaction. A failure here must not interrupt
+      # the other Notes' after-commit handoffs.
+      2.times do
+        return self.class.find_by(id: note_id)&.mark_index_failed(generation)
+      rescue ActiveRecord::ActiveRecordError
+        next
+      end
+
+      # The generation can still be resumed via Note#resume_indexing.
+      Rails.logger.warn("Could not mark Note indexing failed (note_id=#{note_id}, generation=#{generation})")
     end
 
     def prepare_embeddings(input, eligible)

@@ -1,4 +1,5 @@
 require "test_helper"
+require "stringio"
 require_relative "../../support/note_import_test_support"
 
 class NoteImportPublicationTest < ActiveSupport::TestCase
@@ -133,6 +134,66 @@ class NoteImportPublicationTest < ActiveSupport::TestCase
     assert_predicate @account.notes.sole, :embedding_failed?
   ensure
     adapter&.singleton_class&.remove_method(:enqueue_at)
+  end
+
+  [ 1, 2 ].each do |failed_writes|
+    test "one broken index handoff cannot block later notes when #{failed_writes} fallback writes fail" do
+      import = sealed_import({ "A.md" => "Private first note", "B.md" => "Second note" })
+      adapter = Note::IndexJob.queue_adapter
+      log = StringIO.new
+      logger = ActiveSupport::Logger.new(log)
+      Rails.logger.broadcast_to(logger)
+      committed_receipt = nil
+      refused = []
+      adapter.define_singleton_method(:enqueue_at) do |job, timestamp|
+        note = Note.find(job.arguments.first)
+        if note.account_id == import.account_id && note.title == "A"
+          committed_receipt = NoteImport.find(import.id).attributes
+          refused << job.arguments
+          raise ActiveJob::EnqueueError, "private queue refusal"
+        end
+
+        super(job, timestamp)
+      end
+      fallback_writes = 0
+      reject_status_write = ->(note) do
+        if note.id == refused.first&.first && note.embedding_failed?
+          fallback_writes += 1
+          if fallback_writes <= failed_writes
+            Note.with_connection { |connection| connection.select_value("SELECT current_setting('nosia.private_index_state_probe')") }
+          end
+        end
+      end
+      Note.before_update(reject_status_write)
+
+      NoteImport::PublishJob.perform_now(import.id)
+
+      first, second = @account.notes.order(:title).to_a
+      assert_enqueued_with job: Note::IndexJob, args: [ second.id, 1 ]
+      assert_equal [ [ first.id, 1 ] ], refused
+      assert_equal 2, fallback_writes
+      assert_predicate import.reload, :succeeded?
+      assert_equal committed_receipt, import.attributes
+      assert_equal 1, first.embedding_generation
+      refute_includes log.string, "private queue refusal"
+      refute_includes log.string, "nosia.private_index_state_probe"
+
+      adapter.singleton_class.remove_method(:enqueue_at)
+      if failed_writes == 1
+        assert_predicate first, :embedding_failed?
+        assert_enqueued_with(job: Note::IndexJob, args: [ first.id, 1 ]) { first.retry_index }
+      else
+        assert_predicate first, :embedding_pending?
+        assert_includes log.string, "Could not mark Note indexing failed (note_id=#{first.id}, generation=1)"
+        assert_enqueued_with(job: Note::IndexJob, args: [ first.id, 1 ]) { first.resume_indexing }
+      end
+      assert_predicate first.reload, :embedding_pending?
+      assert_equal committed_receipt, import.reload.attributes
+    ensure
+      Note.skip_callback(:update, :before, reject_status_write) if reject_status_write
+      adapter.singleton_class.remove_method(:enqueue_at) if adapter&.singleton_methods(false)&.include?(:enqueue_at)
+      Rails.logger.stop_broadcasting_to(logger) if logger
+    end
   end
 
   test "prepared templates have an import-wide budget before the account is locked" do
