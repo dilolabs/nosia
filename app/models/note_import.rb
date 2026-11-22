@@ -95,7 +95,7 @@ class NoteImport < ApplicationRecord
       raise Invalid.new(:expired) if expired?
 
       if uploading?
-        raise Invalid.new(:incomplete_upload) unless staged_files.count == manifest.size
+        raise Invalid.new(:incomplete_upload) unless staged_files.pluck(:path).to_set == manifest.keys.to_set
 
         now = Time.current
         update!(status: :sealed, sealed_at: now, activity_at: now)
@@ -103,29 +103,33 @@ class NoteImport < ApplicationRecord
     end
   end
 
-  private
-    def with_locked_upload
-      raise Invalid.new(:unavailable) unless persisted?
+  # @api private
+  # Runs a staging operation while membership and import state are stable.
+  # @return [NoteImport] The locked, refreshed import.
+  # @raise [Invalid] If the import is unavailable or its initiator is no longer a member.
+  def with_locked_upload
+    raise Invalid.new(:unavailable) unless persisted?
 
-      # Match Notes revocation and account destruction: acquire the account lock first.
-      Account.transaction(requires_new: true) do
-        locked_account = Account.lock.find(account_id_in_database)
-        self.class.uncached do
-          with_lock do
-            raise Invalid.new(:unavailable) unless account_id == locked_account.id
-            unless locked_account.account_users.exists?(user_id: initiator_id)
-              raise Invalid.new(:membership_required)
-            end
-
-            yield
+    # Match Notes revocation and account destruction: acquire the account lock first.
+    Account.transaction(requires_new: true) do
+      locked_account = Account.lock.find(account_id_in_database)
+      self.class.uncached do
+        with_lock do
+          raise Invalid.new(:unavailable) unless account_id == locked_account.id
+          unless locked_account.account_users.exists?(user_id: initiator_id)
+            raise Invalid.new(:membership_required)
           end
+
+          yield
         end
       end
-      self
-    rescue ActiveRecord::RecordNotFound
-      raise Invalid.new(:unavailable), cause: nil
     end
+    self
+  rescue ActiveRecord::RecordNotFound
+    raise Invalid.new(:unavailable), cause: nil
+  end
 
+  private
     def batch_files(entries)
       unless entries.is_a?(Array) && entries.size.between?(1, MAX_BATCH_FILES)
         raise Invalid.new(:invalid_batch)
@@ -134,26 +138,12 @@ class NoteImport < ApplicationRecord
       entries.each_with_object({}) do |entry, files|
         raise Invalid.new(:invalid_batch) unless entry.is_a?(Hash)
 
-        path = Manifest.normalize_path(entry.fetch(:path, nil))
-        expected_size = manifest.fetch(path) { raise Invalid.new(:unexpected_path, path:) }
-        payload = checked_payload(entry.fetch(:bytes, nil), expected_size, path)
-        digest = Digest::SHA256.hexdigest(payload)
+        path, attributes = StagedFile.prepare_entry(manifest:, path: entry.fetch(:path, nil), bytes: entry.fetch(:bytes, nil))
 
-        if files.key?(path) && files.fetch(path)[:digest] != digest
+        if files.key?(path) && files.fetch(path)[:digest] != attributes[:digest]
           raise Invalid.new(:content_conflict, path:)
         end
-        files[path] ||= { payload:, digest: }
+        files[path] ||= attributes
       end
-    end
-
-    def checked_payload(bytes, expected_size, path)
-      raise Invalid.new(:invalid_payload, path:) unless bytes.is_a?(String)
-      raise Invalid.new(:size_mismatch, path:) unless bytes.bytesize == expected_size
-
-      text = bytes.b.force_encoding(Encoding::UTF_8)
-      unless text.valid_encoding? && !text.include?("\0")
-        raise Invalid.new(:invalid_payload, path:)
-      end
-      text
     end
 end

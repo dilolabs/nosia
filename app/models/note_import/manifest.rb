@@ -57,13 +57,14 @@ class NoteImport::Manifest
         return unless value.is_a?(String)
 
         utf8 = value.b.force_encoding(Encoding::UTF_8)
-        if utf8.valid_encoding? && !/[\\\p{Cc}]|\A[A-Za-z]:/.match?(utf8)
+        if utf8.valid_encoding? && !/[\\\p{Cc}]/.match?(utf8)
           utf8.unicode_normalize
         end
       end
 
       def valid_component?(component)
-        component.present? && component.bytesize <= MAX_COMPONENT_BYTES && !%w[. .. .obsidian].include?(component)
+        component.present? && component.bytesize <= MAX_COMPONENT_BYTES &&
+          !%w[. .. .obsidian].include?(component) && !/\A[A-Za-z]:/.match?(component)
       end
   end
 

@@ -88,6 +88,13 @@ class NoteImportTest < ActiveSupport::TestCase
     end
   end
 
+  test "drive prefixes are rejected in every path component" do
+    [ "folder/C:Plan.md", "folder/D:notes/Plan.md" ].each do |path|
+      assert_invalid(:invalid_path) { manifest_for([ { path:, size: 0 } ]) }
+    end
+    assert_invalid(:invalid_root_name) { manifest_for([ { path: "Plan.md", size: 0 } ], root_name: "C:Coffre") }
+  end
+
   test "manifest identity respects Unicode equivalence and case and rejects directory clashes" do
     assert_invalid :duplicate_path do
       manifest_for([ { path: "Cafe\u0301.md", size: 0 }, { path: "Café.md", size: 0 } ])
@@ -250,6 +257,88 @@ class NoteImportTest < ActiveSupport::TestCase
 
     refute staged.save
     assert_equal 0, import.staged_files.count
+  end
+
+  test "direct association writes cannot stand in for manifest entries" do
+    import = start_import
+
+    assert_raises ActiveRecord::RecordNotSaved do
+      import.staged_files.create!(path: "Other.md", payload: "ok", digest: Digest::SHA256.hexdigest("ok"))
+    end
+    assert_invalid(:incomplete_upload) { import.seal! }
+  end
+
+  test "direct association writes cannot append to a sealed import" do
+    import = start_import
+    stale_import = @account.note_imports.find(import.id)
+    import.stage!([ { path: "Plan.md", bytes: "ok" } ])
+    import.seal!
+
+    error = assert_raises ActiveRecord::RecordNotSaved do
+      stale_import.staged_files.create!(path: "Other.md", payload: "ok", digest: Digest::SHA256.hexdigest("ok"))
+    end
+    assert error.record.errors.added?(:base, :not_uploading)
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "direct association writes require a canonical path and valid bytes and digest" do
+    import = start_import(files: [ { path: "Café.md", size: 2 } ])
+
+    [
+      [ "Cafe\u0301.md", "ok", Digest::SHA256.hexdigest("ok"), :invalid_path ],
+      [ "Café.md", "x", Digest::SHA256.hexdigest("x"), :size_mismatch ],
+      [ "Café.md", "a\0", Digest::SHA256.hexdigest("a\0"), :invalid_payload ],
+      [ "Café.md", "ok", Digest::SHA256.hexdigest("no"), :invalid_digest ]
+    ].each do |path, payload, digest, code|
+      error = assert_raises(ActiveRecord::RecordNotSaved) { import.staged_files.create!(path:, payload:, digest:) }
+      assert error.record.errors.added?(:base, code)
+    end
+    assert_equal 0, import.staged_files.count
+
+    staged = import.staged_files.create!(path: "Café.md", payload: "ok", digest: Digest::SHA256.hexdigest("ok"))
+    assert_equal "ok", staged.reload.payload
+    assert_predicate import.seal!, :sealed?
+  end
+
+  test "direct association writes require the initiator to still be a member" do
+    import = start_import
+    account_users(:picker_first_membership).destroy!
+
+    error = assert_raises ActiveRecord::RecordNotSaved do
+      import.staged_files.create!(path: "Plan.md", payload: "ok", digest: Digest::SHA256.hexdigest("ok"))
+    end
+    assert error.record.errors.added?(:base, :membership_required)
+    assert_equal 0, import.staged_files.count
+  end
+
+  test "ordinary staged file updates cannot change the path or content" do
+    import = start_import
+    import.stage!([ { path: "Plan.md", bytes: "ok" } ])
+    import.seal!
+
+    staged = import.staged_files.sole
+    assert_raises(ActiveRecord::ReadonlyAttributeError) { staged.update!(path: "Other.md") }
+    assert_raises(ActiveRecord::ReadonlyAttributeError) { staged.update!(payload: "no") }
+    assert_equal "Plan.md", staged.reload.path
+    assert_equal "ok", staged.payload
+  end
+
+  test "ordinary record destruction cannot remove a file from a sealed manifest" do
+    import = start_import
+    import.stage!([ { path: "Plan.md", bytes: "ok" } ])
+    import.seal!
+
+    assert_raises(ActiveRecord::ReadOnlyRecord) { import.staged_files.sole.destroy! }
+    assert_equal [ "Plan.md" ], import.staged_files.pluck(:path)
+  end
+
+  test "sealing rejects a staged path set that has the right count but wrong paths" do
+    import = start_import
+    # Simulate a storage inconsistency without using the ordinary staging write path.
+    import.staged_files.insert_all!([ { path: "Other.md", payload: "ok", digest: Digest::SHA256.hexdigest("ok") } ])
+
+    assert_invalid(:incomplete_upload) { import.seal! }
+    assert_predicate import.reload, :uploading?
   end
 
   test "destroying the account removes staged bytes even if the import association was preloaded" do
