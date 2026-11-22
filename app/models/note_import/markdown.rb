@@ -230,7 +230,7 @@ class NoteImport::Markdown
       # Only Commonmarker's generated wiki anchors have this markup. Raw HTML is escaped.
       ANCHOR = %r{<a href="([^"]*)" data-wikilink="true">.*?</a>}m
       WIKI_ANCHORS = 'a[data-wikilink="true"]'
-      CONTAINERS = "p, li, tr, h1, h2, h3, h4, h5, h6"
+      CONTAINERS = Set.new(%w[p li tr h1 h2 h3 h4 h5 h6]).freeze
       LIST_ITEM_BLOCKS = %w[blockquote div h1 h2 h3 h4 h5 h6 hr ol p pre table ul].freeze
 
       def initialize(source, html)
@@ -276,7 +276,7 @@ class NoteImport::Markdown
 
       private
         def take_blocks(fragment)
-          groups = fragment.css(WIKI_ANCHORS).group_by { |anchor| anchor.ancestors(CONTAINERS).first }
+          groups = fragment.css(WIKI_ANCHORS).group_by { |anchor| nearest_container(anchor) }
           groups.each_with_object({}) do |(node, matches), found|
             next unless node && (position = node["data-sourcepos"])
 
@@ -285,6 +285,12 @@ class NoteImport::Markdown
           end.tap do
             fragment.css("[data-sourcepos]").each { |node| node.remove_attribute("data-sourcepos") }
           end
+        end
+
+        def nearest_container(anchor)
+          node = anchor.parent
+          node = node.parent while node && !CONTAINERS.include?(node.name)
+          node
         end
 
         def inline_html(container)

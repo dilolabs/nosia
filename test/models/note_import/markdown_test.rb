@@ -83,6 +83,40 @@ class NoteImport::MarkdownTest < ActiveSupport::TestCase
     assert_equal "Cell", fragment.at_css("table td > a").text
   end
 
+  test "finds the nearest wiki block without a selector search for each anchor" do
+    paths = [ "Plan.md", "A B.md", "A%20B.md" ]
+    blocks = <<~'MD'
+      ## [[A B|Heading]]
+
+      - *[[A%20B|Item]]*
+
+      | [[A B\|Header]] |
+      |---|
+      | **[[A%20B\|Cell]]** |
+
+      > [[A B|Paragraph]]
+
+    MD
+    copies = 24
+    selector_calls = 0
+    ancestors = Nokogiri::XML::Node.instance_method(:ancestors)
+    trace = TracePoint.new(:call) do |call|
+      if call.self.name == "a" && call.binding.local_variable_get(:selector)
+        selector_calls += 1
+      end
+    end
+    prepared = trace.enable(target: ancestors) { prepare(paths, blocks * copies) }
+    fragment = rendered(prepared, paths)
+
+    expected = [ [ "/accounts/1/notes/11", "Heading" ], [ "/accounts/1/notes/12", "Item" ],
+      [ "/accounts/1/notes/11", "Header" ], [ "/accounts/1/notes/12", "Cell" ], [ "/accounts/1/notes/11", "Paragraph" ] ]
+    assert_equal expected * copies, links(fragment)
+    [ "h2 > a", "li > em > a", "th > a", "td > strong > a", "blockquote p > a" ].each do |selector|
+      assert_equal copies, fragment.css(selector).size
+    end
+    assert_equal 0, selector_calls, "Finding a wiki block must not run a whole-fragment ancestor selector"
+  end
+
   test "a wiki target on the next line remains inert without losing other literal wiki bindings" do
     paths = [ "Plan.md", "A B.md", "A%20B.md", "Réunion.md" ]
     source = "é [[A B|Same]] [[\r\nRéunion|Multiline]] [[A%20B|Same]] [[Réunion|Fin]]"
