@@ -312,6 +312,28 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
   end
 
+  test "Tab past the last account link closes the switcher and leaves search focused" do
+    panel = "#notes-accounts:popover-open"
+    search = ".n-notes-search input[type=search]"
+
+    [ [ 375, 650 ], [ 1440, 900 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      orbite_tab_to("button[popovertarget='notes-accounts']")
+      page.driver.browser.action.send_keys(:enter).perform
+      [ @account, accounts(:picker_second) ].each do |account|
+        page.driver.browser.action.send_keys(:tab).perform
+        assert_selector "#{panel} a:focus", exact_text: account.name
+      end
+
+      page.driver.browser.action.send_keys(:tab).perform
+      assert_selector "#{search}:focus"
+      assert_no_selector panel, visible: :all
+      assert orbite_assert_reachable("#{search}:focus").fetch("focusVisible")
+    end
+  end
+
   test "the account switcher respects a dirty draft before switching to a different account" do
     other = accounts(:picker_second)
     editor_path = account_note_path(@account, @note)
@@ -636,6 +658,27 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
 
     visit account_notes_workspace_path(@account, folder_id: @account.general_note_folder.id, view: "list")
     assert_no_button "Folder actions"
+  end
+
+  test "Tab past the last Note actions command closes the panel and leaves the title focused" do
+    panel = "#note-actions-#{@note.id}:popover-open"
+
+    [ [ 375, 650 ], [ 1440, 900 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      orbite_tab_to("button[popovertarget='note-actions-#{@note.id}']")
+      page.driver.browser.action.send_keys(:enter).perform
+      [ "Pin in folder", "Move note", "Trash note" ].each do |command|
+        page.driver.browser.action.send_keys(:tab).perform
+        assert_selector "#{panel} button:focus", exact_text: command
+      end
+
+      page.driver.browser.action.send_keys(:tab).perform
+      assert_selector "#note_title:focus"
+      assert_no_selector panel, visible: :all
+      assert orbite_assert_reachable("#note_title:focus").fetch("focusVisible")
+    end
   end
 
   test "Escape closes nested move before note actions and returns focus in order" do
