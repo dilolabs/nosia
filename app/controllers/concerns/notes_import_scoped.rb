@@ -50,7 +50,7 @@ module NotesImportScoped
 
     def render_import_error_code(code, status)
       with_request_locale do
-        render json: { error: code, message: t("nosia.notes.imports.errors.#{code}") }, status:
+        render json: { error: code, message: helpers.note_import_error_message(code) }, status:
       end
     end
 

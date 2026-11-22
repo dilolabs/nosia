@@ -122,7 +122,7 @@ class NotesImportRequestLimit
       body = if env["REQUEST_METHOD"] == "HEAD"
         []
       else
-        [ { error: code, message: I18n.t("nosia.notes.imports.errors.#{code}", locale:) }.to_json ]
+        [ { error: code, message: I18n.t("nosia.notes.imports.errors.#{code}", locale:, max_batch_files: NoteImport::MAX_BATCH_FILES) }.to_json ]
       end
       [ status, headers, body ]
     end

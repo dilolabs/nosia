@@ -8,5 +8,6 @@
       <%= inline_svg "svg/plus.svg", aria_hidden: true, class: "n-notes-icon" %>
       <%= t("nosia.notes.new_note") %>
     <% end %>
+    <%= link_to t("nosia.notes.imports.new_title"), new_account_note_import_path(account), class: "n-notes-button" %>
   <% end %>
 </div>

@@ -44,7 +44,7 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
 
         get receipt.fetch("status_url"), headers: JSON_HEADERS
         assert_response :ok
-        assert_equal({ "status" => "queued", "uploaded_count" => 1, "total" => 1 }, private_json)
+        assert_equal({ "status" => "queued", "uploaded_count" => 1, "total" => 1, "message" => "Waiting to import" }, private_json)
       end
     end
   end
@@ -111,14 +111,15 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
     record.purge_staging!
     get "#{imports_path}/#{record.id}", headers: JSON_HEADERS
     assert_response :ok
-    assert_equal({ "status" => "succeeded", "uploaded_count" => 1, "total" => 1 }, private_json)
+    assert_equal({ "status" => "succeeded", "uploaded_count" => 1, "total" => 1, "message" => "Notes imported" }, private_json)
 
     expired = seed_import
     expired.update!(status: :expired)
     expired.purge_staging!
     get "#{imports_path}/#{expired.id}", headers: JSON_HEADERS
     assert_response :ok
-    assert_equal({ "status" => "expired", "uploaded_count" => 0, "total" => 1 }, private_json)
+    assert_equal({ "status" => "expired", "uploaded_count" => 0, "total" => 1,
+      "message" => "This upload expired. Select the folder again to start a new import." }, private_json)
   end
 
   test "sealing a terminal receipt returns its status without changing it" do
@@ -214,6 +215,19 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "launch caps reject over-limit manifests before opening a receipt" do
+    {
+      "invalid_file_count" => Array.new(101) { |i| { path: "#{i}.md", size: 0 } },
+      "folder_limit_exceeded" => Array.new(60) { |i| { path: "#{i}/Plan.md", size: 0 } },
+      "total_size_exceeded" => [ 2.megabytes, 2.megabytes, 1 ].map.with_index { |size, i| { path: "#{i}.md", size: } }
+    }.each do |code, files|
+      assert_no_difference "NoteImport.count" do
+        post_json imports_path, manifest_params.merge(files:)
+        assert_error 422, code
+      end
+    end
+  end
+
   test "oversized raw bodies are rejected for Rails path aliases before either body parser" do
     record = seed_import
     encoded_account = @account.id.to_s.bytes.map { |byte| "%%%02x" % byte }.join
@@ -241,10 +255,119 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
       assert_equal "no-store", response.headers["Cache-Control"]
       assert_select "meta[name='turbo-cache-control'][content='no-cache']"
       assert_select "h1", text: title
-      assert_select "input[type='file']", count: 0
+      assert_select "input[type='file'][webkitdirectory][multiple][disabled]", count: path.end_with?("/new") ? 1 : 0
+      refute_match(/translation missing/i, response.body)
       [ ROOT, CGI.escapeHTML(ROOT), PATH, MARKDOWN, record.confirmation_key ].each { |value| refute_includes response.body, value }
     end
     assert_select "[role='status']", text: /Fichiers envoyés : 1 sur 1/
+  end
+
+  test "the picker advertises a configured lower proxy budget with multipart headroom" do
+    previous = ENV["NOTES_IMPORT_BATCH_WIRE_BYTES"]
+    ENV["NOTES_IMPORT_BATCH_WIRE_BYTES"] = 1.megabyte.to_s
+    get new_account_note_import_path(@account)
+
+    assert_response :ok
+    assert_select "[data-note-import-limits-value]" do |elements|
+      limits = JSON.parse(elements.sole["data-note-import-limits-value"])
+      assert_equal 1.megabyte - 64.kilobytes, limits["batchBytes"]
+      assert_equal 2.megabytes, limits["fileBytes"]
+    end
+  ensure
+    ENV["NOTES_IMPORT_BATCH_WIRE_BYTES"] = previous
+  end
+
+  test "the successful receipt and matching root show an escaped private bounded report without caching" do
+    record, root = published_receipt
+    result_path = account_notes_workspace_path(@account, folder_id: root.id, import_id: record.id)
+    log = StringIO.new
+    logger = ActiveSupport::Logger.new(log)
+    Rails.logger.broadcast_to(logger)
+
+    [ "#{imports_path}/#{record.id}", result_path ].each do |path|
+      get path, headers: { "Accept-Language" => "fr" }
+      assert_response :ok
+      assert_equal "no-store", response.headers["Cache-Control"]
+      assert_select "meta[name='turbo-cache-control'][content='no-cache']"
+      assert_select "[data-note-import-report] h2", text: "Rapport d’importation : #{ROOT}"
+      assert_select "[data-note-import-report] li", count: 100
+      assert_select "[data-note-import-report] li", text: /<source-note\.md>.*<unresolved-target>/
+      assert_select "[data-note-import-report] li", text: "Excerpt.md → #{"é" * 255}x", count: 1
+      refute_includes response.body, "should-not-appear"
+      assert_select "[data-note-import-report] li a, source-note, unresolved-target", count: 0
+      assert_select "[data-note-import-report]", text: /101 liens non résolus/
+      refute_includes response.body, MARKDOWN
+      refute_includes response.body, "beyond-report-limit"
+    end
+    assert_select "a[href*='import_id=']", count: 0 # Never carry the receipt into normal Notes links.
+    assert_select "[data-note-import-report] a[href='#{account_note_import_path(@account, record)}']"
+    get "#{imports_path}/#{record.id}", headers: JSON_HEADERS
+    assert_equal({ "status" => "succeeded", "uploaded_count" => 1, "total" => 1,
+      "message" => "Notes imported", "result_url" => result_path }, private_json)
+    [ ROOT, MARKDOWN, "<source-note.md>", "<unresolved-target>" ].each { |text| refute_includes log.string, text }
+  ensure
+    Rails.logger.stop_broadcasting_to(logger) if logger
+  end
+
+  test "the report does not follow a receipt id to other folders or account members" do
+    record, root = published_receipt
+    other = @account.note_folders.create!(name: "Other folder")
+    get account_notes_workspace_path(@account, folder_id: other.id, import_id: record.id)
+    assert_response :ok
+    assert_select "[data-note-import-report]", count: 0
+    get account_notes_workspace_path(@account, folder_id: root.id, import_id: { id: record.id })
+    assert_response :ok
+    assert_select "[data-note-import-report]", count: 0
+
+    foreign = accounts(:picker_second)
+    foreign_folder = foreign.note_folders.create!(name: "Other account folder")
+    get account_notes_workspace_path(foreign, folder_id: foreign_folder.id, import_id: record.id)
+    assert_response :ok
+    assert_select "[data-note-import-report]", count: 0
+
+    member = users(:picker_outsider)
+    @account.account_users.grant_to(member)
+    sign_in member
+    get account_notes_workspace_path(@account, folder_id: root.id, import_id: record.id)
+    assert_response :ok
+    assert_select "[data-note-import-report]", count: 0
+    refute_includes response.body, "unresolved-target"
+
+    sign_in @initiator
+    account_users(:picker_first_membership).destroy!
+    get account_notes_workspace_path(@account, folder_id: root.id, import_id: record.id)
+    assert_response :not_found
+    assert_select "[data-note-import-report]", count: 0
+  end
+
+  test "a trashed root keeps its historical report but no active result link" do
+    record, root = published_receipt
+    root.trash
+    get "#{imports_path}/#{record.id}", headers: JSON_HEADERS
+    assert_equal "succeeded", private_json.fetch("status")
+    refute private_json.key?("result_url")
+
+    get "#{imports_path}/#{record.id}"
+    assert_response :ok
+    assert_select "[data-note-import-report] h2", text: "Import report: #{ROOT}"
+    assert_select "a", text: "Open imported folder", count: 0
+    assert_select "p", text: "The imported folder is no longer active in Notes."
+  end
+
+  test "terminal messages are localized and never expose unknown stored errors" do
+    record = seed_import
+    (NoteImport::Publication::FAILURE_CODES + %i[processing_timeout worker_claim_expired]).each do |code|
+      record.update!(status: :failed, report: { error: code })
+      %i[en fr].each do |locale|
+        get "#{imports_path}/#{record.id}", headers: JSON_HEADERS.merge("Accept-Language" => locale.to_s)
+        assert_kind_of String, private_json["message"]
+        assert_equal I18n.t!("nosia.notes.imports.failures.#{code}", locale:), private_json.fetch("message")
+      end
+    end
+    record.update!(report: { error: "private exception" })
+    get "#{imports_path}/#{record.id}", headers: JSON_HEADERS
+    assert_equal "failed", private_json.fetch("status")
+    refute_includes response.body, "private exception"
   end
 
   test "no import endpoint is available outside the account Notes scope" do
@@ -385,6 +508,21 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def published_receipt
+      record = seed_import
+      record.stage!([ { path: PATH, bytes: MARKDOWN } ])
+      record.seal!
+      root = @account.note_folders.create!(name: ROOT)
+      examples = Array.new(99) { { path: "<source-note.md>", target: "<unresolved-target>" } }
+      examples << { path: "Excerpt.md", target: "#{"é" * 255}xéshould-not-appear" }
+      examples << { path: "beyond-report-limit.md", target: "beyond-report-limit" }
+      record.update!(status: :succeeded, root_note_folder_id: root.id, report: {
+        root_name: ROOT, note_count: 1, folder_count: 2, ignored_counts: { obsidian: 1, other: 2 },
+        unresolved_count: 101, unresolved_examples: examples
+      })
+      [ record, root ]
+    end
+
     def assert_post_rejected_without_reading(path)
       env = Rack::MockRequest.env_for(path, method: "POST", "CONTENT_TYPE" => "multipart/form-data; boundary=Example",
         "CONTENT_LENGTH" => "2", "HTTP_ACCEPT_LANGUAGE" => "fr")

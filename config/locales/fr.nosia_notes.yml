@@ -8,9 +8,42 @@ fr:
     notes:
       imports:
         new_title: Importer un dossier Markdown
-        not_ready: La sélection de dossiers n’est pas encore disponible.
         status_title: État de l’importation
         progress: "Fichiers envoyés : %{uploaded} sur %{total}"
+        disclosure: "Un dossier distinct sera créé à la racine du compte. Les notes importées seront partagées avec les membres de ce compte. Le contenu enregistré sera envoyé au fournisseur d’indexation configuré, qui peut être distant."
+        open_result: Ouvrir le dossier importé
+        inactive_result: Le dossier importé n’est plus actif dans Notes.
+        refresh_status: Actualiser l’état
+        uploading_receipt: Revenez à la page d’envoi initiale si elle est encore ouverte pour réessayer. Si vous avez quitté cette page, la sélection ne peut pas être récupérée et l’envoi inachevé expirera.
+        poll_error: Impossible de vérifier l’état de l’importation. Actualisez cette page pour réessayer.
+        picker:
+          label: Choisir un dossier
+          limits: "Seuls les fichiers .md sont importés. Sélectionnez au maximum %{max_files} notes et %{max_folders} dossiers (racine comprise), avec une limite de %{max_file_mib} Mio par note et de %{max_total_mib} Mio au total."
+          requires_js: Activez JavaScript et utilisez un navigateur qui prend en charge la sélection de dossiers.
+          unsupported: Ce navigateur ne permet pas de choisir un dossier ici. Utilisez un navigateur récent avec une connexion sécurisée. Les fichiers individuels et les archives ZIP ne sont pas pris en charge.
+          ready: Choisissez un dossier pour afficher un aperçu. Aucun fichier n’est envoyé sans votre confirmation.
+          preview: "Dossier sélectionné : %{root}. Notes : %{notes}. Dossiers (racine comprise) : %{folders}. Fichiers Obsidian ignorés : %{obsidian}. Autres fichiers ignorés : %{other}."
+          confirm: Envoyer et importer
+          uploading: "Envoi des fichiers Markdown : %{uploaded} fichiers sur %{total} reçus."
+          retry_button: Réessayer l’envoi
+          retry_hint: Choisissez « Réessayer l’envoi » pour continuer sans démarrer une nouvelle importation.
+          rejected: L’envoi a été refusé.
+          too_large: Le serveur a refusé cet envoi parce qu’il est trop volumineux. Choisissez un dossier plus petit ou renseignez-vous auprès de votre administrateur sur la limite d’envoi.
+          transport_file_size: Un fichier Markdown dépasse la limite d’envoi de ce serveur. Divisez le fichier ou renseignez-vous auprès de votre administrateur sur cette limite, puis sélectionnez à nouveau le dossier.
+          restart: Corrigez le problème et sélectionnez à nouveau le dossier. Il faudra peut-être attendre l’expiration de l’envoi inachevé avant d’en commencer un autre.
+        report:
+          title: "Rapport d’importation : %{name}"
+          saved_counts: "Éléments enregistrés — Notes : %{notes}. Dossiers (racine comprise) : %{folders}."
+          ignored_counts: "Fichiers ignorés dans la sélection du navigateur — Obsidian : %{obsidian}. Autres : %{other}."
+          unresolved:
+            one: "%{count} lien non résolu"
+            other: "%{count} liens non résolus"
+          examples:
+            one: "%{count} exemple"
+            other: "%{count} exemples"
+          example: "%{path} → %{target}"
+          indexing: Les notes sont enregistrées. L’indexation peut être encore en cours ; consultez son état dans chaque note.
+          back_to_receipt: Voir l’état de l’importation
         statuses:
           uploading: En attente de fichiers
           sealed: Envoi terminé
@@ -18,7 +51,18 @@ fr:
           running: Importation des notes
           succeeded: Notes importées
           failed: Échec de l’importation
-          expired: Envoi expiré
+          expired: Cet envoi a expiré. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
+        failures:
+          staging_unavailable: Les fichiers envoyés ne sont plus disponibles. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
+          membership_revoked: L’accès au compte a changé pendant l’importation. Vérifiez votre accès avant de recommencer.
+          empty_import: Aucune note Markdown n’a pu être importée. Vérifiez le contenu du dossier et sélectionnez-le à nouveau.
+          rendered_file_size_exceeded: Une note est devenue trop volumineuse après la mise en forme. Divisez ou simplifiez les grandes notes et sélectionnez à nouveau le dossier.
+          rendered_total_size_exceeded: Les notes sont devenues trop volumineuses après la mise en forme. Sélectionnez un dossier plus petit.
+          invalid_rendered_content: Une note n’a pas pu être convertie. Simplifiez son Markdown et sélectionnez à nouveau le dossier.
+          publication_failed: Le dossier n’a pas pu être enregistré dans Notes. Réessayez l’importation plus tard.
+          processing_timeout: L’importation n’a pas démarré à temps. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
+          worker_claim_expired: Le traitement s’est arrêté avant l’enregistrement des notes. Sélectionnez à nouveau le dossier pour réessayer.
+          generic: L’importation a échoué et aucune note n’a été enregistrée. Lancez une nouvelle importation pour réessayer.
         errors:
           not_found: Cette importation est introuvable.
           method_not_allowed: Cette méthode de requête n’est pas autorisée pour l’importation.
@@ -27,24 +71,24 @@ fr:
           invalid_length: L’en-tête de taille de l’envoi est invalide.
           payload_too_large: Cette requête est trop volumineuse. Envoyez moins de fichiers à la fois ou sélectionnez un dossier plus petit.
           unsupported_media_type: Ce format d’envoi n’est pas pris en charge.
-          invalid_batch: Envoyez entre 1 et 16 fichiers Markdown à la fois.
+          invalid_batch: Envoyez entre 1 et %{max_batch_files} fichiers Markdown à la fois.
           invalid_confirmation_key: Confirmez à nouveau la sélection du dossier.
           invalid_root_name: Renommez le dossier sélectionné et réessayez.
-          invalid_file_count: Sélectionnez un dossier contenant entre 1 et 500 fichiers Markdown.
+          invalid_file_count: Sélectionnez un dossier contenant entre 1 et %{max_files} fichiers Markdown.
           invalid_path: Le chemin d’un fichier Markdown est invalide. Vérifiez les noms des fichiers et des dossiers.
-          depth_limit_exceeded: Un fichier Markdown est trop profondément imbriqué. Sélectionnez un dossier moins imbriqué.
+          depth_limit_exceeded: Un fichier Markdown se trouve à plus de %{max_depth} niveaux sous la racine. Sélectionnez un dossier moins imbriqué.
           duplicate_path: Deux fichiers ont le même chemin. Renommez-en un et réessayez.
-          invalid_file_size: Chaque fichier Markdown doit faire au maximum 2 Mio.
-          total_size_exceeded: Les fichiers Markdown dépassent 32 Mio au total. Sélectionnez un dossier plus petit.
+          invalid_file_size: Chaque fichier Markdown doit faire au maximum %{max_file_mib} Mio.
+          total_size_exceeded: Les fichiers Markdown dépassent %{max_total_mib} Mio au total. Sélectionnez un dossier plus petit.
           path_collision: Un fichier et un dossier ont le même chemin. Renommez-en un et réessayez.
-          folder_limit_exceeded: Une importation peut contenir au maximum 250 dossiers. Sélectionnez un dossier plus petit.
+          folder_limit_exceeded: Une importation peut contenir au maximum %{max_folders} dossiers, racine comprise. Sélectionnez un dossier plus petit.
           invalid_ignored_counts: Le nombre de fichiers ignorés est invalide. Sélectionnez à nouveau le dossier.
           unexpected_path: Un fichier envoyé ne faisait pas partie de la sélection confirmée. Sélectionnez à nouveau le dossier.
           size_mismatch: La taille d’un fichier envoyé a changé. Sélectionnez à nouveau le dossier.
           invalid_payload: Un fichier Markdown n’est pas du texte UTF-8 valide. Corrigez son encodage et réessayez.
           incomplete_upload: Certains fichiers n’ont pas été envoyés. Envoyez-les avant de continuer.
           confirmation_conflict: La sélection a changé. Confirmez-la à nouveau.
-          import_in_progress: Une importation est déjà en cours pour ce compte.
+          import_in_progress: Vous avez déjà une importation en cours pour ce compte. Attendez qu’elle se termine ou expire.
           content_conflict: Un fichier déjà envoyé a changé. Sélectionnez à nouveau le dossier.
           not_uploading: Cette importation n’accepte plus de fichiers.
       title: Notes

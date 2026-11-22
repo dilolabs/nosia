@@ -2,6 +2,8 @@
 class Notes::ImportsController < ApplicationController
   include NotesImportScoped
 
+  FAILURE_CODES = (NoteImport::Publication::FAILURE_CODES + %i[processing_timeout worker_claim_expired]).map(&:to_s).freeze
+
   # @return [void] Renders the import landing page.
   def new
     render formats: [ :html ]
@@ -22,15 +24,28 @@ class Notes::ImportsController < ApplicationController
 
   # @return [void] Renders the private receipt as HTML or JSON.
   def show
-    progress = import_progress(import_receipt(:id))
+    import = import_receipt(:id)
+    progress = import_progress(import).merge(message: status_message(import))
+    if import.succeeded? && import.root_note_folder_id && active_folders.exists?(id: import.root_note_folder_id)
+      progress[:result_url] = account_notes_workspace_path(@account, folder_id: import.root_note_folder_id, import_id: import.id)
+    end
 
     respond_to do |format|
-      format.html { render locals: { progress: } }
+      format.html { render locals: { import:, progress: } }
       format.json { render json: progress }
     end
   end
 
   private
+    def status_message(import)
+      if import.failed?
+        code = import.report["error"]
+        t("nosia.notes.imports.failures.#{FAILURE_CODES.include?(code) ? code : 'generic'}")
+      else
+        t("nosia.notes.imports.statuses.#{import.status}")
+      end
+    end
+
     def manifest_files(files)
       return files unless files.is_a?(Array) && files.size <= NoteImport::Manifest::MAX_FILES
 

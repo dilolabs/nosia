@@ -1,11 +1,37 @@
+<%# locals: (import:, progress:) %>
 <% content_for :title, t("nosia.notes.imports.status_title") %>
 <% turbo_exempts_page_from_cache %>
+<% receipt_path = account_note_import_path(@account, import) %>
 
-<section class="n-notes">
-  <h1><%= t("nosia.notes.imports.status_title") %></h1>
+<section class="n-notes n-notes-import"
+         <% if NoteImport::LIVE_STATUSES.include?(import.status) %>
+           data-controller="note-import-status"
+           data-note-import-status-url-value="<%= receipt_path %>"
+           data-note-import-status-poll-error-value="<%= t("nosia.notes.imports.poll_error") %>"
+           data-note-import-status-progress-value="<%= t("nosia.notes.imports.progress", uploaded: "%{uploaded}", total: "%{total}") %>"
+           data-action="turbo:before-visit@document->note-import-status#stop pagehide@window->note-import-status#stop pageshow@window->note-import-status#schedule"
+         <% end %>>
+  <header class="n-notes-identity"><h1><%= t("nosia.notes.imports.status_title") %></h1></header>
   <div role="status">
-    <p><%= t("nosia.notes.imports.statuses.#{progress.fetch(:status)}") %></p>
-    <p><%= t("nosia.notes.imports.progress", uploaded: progress.fetch(:uploaded_count), total: progress.fetch(:total)) %></p>
+    <p data-note-import-status-target="message"><%= progress.fetch(:message) %></p>
+    <p data-note-import-status-target="progress"><%= t("nosia.notes.imports.progress", uploaded: progress.fetch(:uploaded_count), total: progress.fetch(:total)) %></p>
   </div>
-  <%= link_to t("nosia.notes.back_to_notes"), account_notes_workspace_path(@account) %>
+  <% if import.succeeded? %>
+    <%= render "report", import:, account: @account %>
+    <% unless progress[:result_url] %>
+      <p><%= t("nosia.notes.imports.inactive_result") %></p>
+    <% end %>
+  <% elsif import.uploading? %>
+    <p><%= t("nosia.notes.imports.uploading_receipt") %></p>
+  <% end %>
+  <div class="n-notes-actions">
+    <% if progress[:result_url] %>
+      <%= link_to t("nosia.notes.imports.open_result"), progress.fetch(:result_url), class: "n-notes-button n-notes-primary" %>
+    <% elsif import.failed? || import.expired? %>
+      <%= link_to t("nosia.notes.imports.new_title"), new_account_note_import_path(@account), class: "n-notes-button n-notes-primary" %>
+    <% elsif NoteImport::LIVE_STATUSES.include?(import.status) %>
+      <%= link_to t("nosia.notes.imports.refresh_status"), receipt_path, class: "n-notes-button" %>
+    <% end %>
+    <%= link_to t("nosia.notes.back_to_notes"), account_notes_workspace_path(@account), class: "n-notes-button" %>
+  </div>
 </section>

@@ -19,6 +19,10 @@
     <%= render "notes/workspaces/header_actions", account: @account, options: list_options, screen: @screen %>
   </header>
 
+  <% if @reported_import %>
+    <%= render "notes/imports/report", import: @reported_import, account: @account, link_to_receipt: true %>
+  <% end %>
+
   <div class="n-notes-workspace">
     <div class="n-notes-sidebar-slot" data-notes-navigation-target="inline">
       <%= render "notes/workspaces/sidebar", account: @account, folders: @active_folder_map, groups: @folder_groups,

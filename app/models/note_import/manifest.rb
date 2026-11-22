@@ -1,10 +1,10 @@
 # A bounded, normalized plan of logical paths and their expected byte sizes.
 class NoteImport::Manifest
-  MAX_FILES = 500
-  MAX_FOLDERS = 250
+  MAX_FILES = 100
+  MAX_FOLDERS = 60
   MAX_DEPTH = 32
   MAX_FILE_BYTES = 2.megabytes
-  MAX_TOTAL_BYTES = 32.megabytes
+  MAX_TOTAL_BYTES = 4.megabytes
   MAX_COMPONENT_BYTES = 255
   MAX_PATH_BYTES = 1_024
   MAX_IGNORED_COUNT = 2_147_483_647

@@ -8,9 +8,42 @@ en:
     notes:
       imports:
         new_title: Import a Markdown folder
-        not_ready: Folder selection is not available yet.
         status_title: Import status
         progress: "Files uploaded: %{uploaded} of %{total}"
+        disclosure: "This creates a separate folder at the account root. Imported notes are shared with members of this account. Saved content is sent to the configured indexing provider, which may be remote."
+        open_result: Open imported folder
+        inactive_result: The imported folder is no longer active in Notes.
+        refresh_status: Refresh status
+        uploading_receipt: Return to the original upload page to retry if it is still open. If you left that page, the selection cannot be recovered; unfinished uploads expire.
+        poll_error: Could not check the import. Refresh this page to try again.
+        picker:
+          label: Choose a folder
+          limits: "Only .md files are imported. Choose up to %{max_files} notes and %{max_folders} folders (including the root), at most %{max_file_mib} MiB per note and %{max_total_mib} MiB total."
+          requires_js: Enable JavaScript and use a browser that supports folder selection.
+          unsupported: This browser does not support choosing folders here. Try a current browser over a secure connection. Individual files and ZIP archives are not supported.
+          ready: Choose a folder to preview. Nothing is sent until you confirm.
+          preview: "Selected folder: %{root}. Notes: %{notes}. Folders (including root): %{folders}. Obsidian files ignored: %{obsidian}. Other files ignored: %{other}."
+          confirm: Upload and import
+          uploading: "Uploading Markdown: %{uploaded} of %{total} files acknowledged."
+          retry_button: Retry upload
+          retry_hint: Choose “Retry upload” to continue without starting a new import.
+          rejected: The upload was rejected.
+          too_large: The server rejected the request as too large. Try a smaller folder or ask your administrator about the upload limit.
+          transport_file_size: A Markdown file is too large for this server’s upload limit. Split the file or ask your administrator about the limit, then select the folder again.
+          restart: Correct the issue and select the folder again. An unfinished upload may need to expire before you can start a new one.
+        report:
+          title: "Import report: %{name}"
+          saved_counts: "Saved — Notes: %{notes}. Folders (including root): %{folders}."
+          ignored_counts: "Ignored in your browser selection — Obsidian files: %{obsidian}. Other files: %{other}."
+          unresolved:
+            one: "%{count} unresolved link"
+            other: "%{count} unresolved links"
+          examples:
+            one: "%{count} example"
+            other: "%{count} examples"
+          example: "%{path} → %{target}"
+          indexing: Notes are saved. Indexing may still be pending; check the indexing status in each note.
+          back_to_receipt: View import status
         statuses:
           uploading: Waiting for files
           sealed: Upload complete
@@ -18,7 +51,18 @@ en:
           running: Importing notes
           succeeded: Notes imported
           failed: Import failed
-          expired: Upload expired
+          expired: This upload expired. Select the folder again to start a new import.
+        failures:
+          staging_unavailable: The uploaded files are no longer available. Select the folder again to start a new import.
+          membership_revoked: Access to the account changed during the import. Check your access before starting again.
+          empty_import: No Markdown notes could be imported. Check the folder contents and select it again.
+          rendered_file_size_exceeded: A note became too large after formatting. Split or simplify large notes and select the folder again.
+          rendered_total_size_exceeded: The notes became too large after formatting. Select a smaller folder.
+          invalid_rendered_content: A note could not be converted. Simplify its Markdown and select the folder again.
+          publication_failed: The Notes folder could not be saved. Try importing again later.
+          processing_timeout: The import did not start in time. Select the folder again to start a new import.
+          worker_claim_expired: Processing stopped before the notes could be saved. Select the folder again to retry.
+          generic: The import failed and no notes were saved. Start a new import to try again.
         errors:
           not_found: This import was not found.
           method_not_allowed: This request method is not allowed for the import.
@@ -27,24 +71,24 @@ en:
           invalid_length: The upload has an invalid size header.
           payload_too_large: This request is too large. Upload fewer files at a time or select a smaller folder.
           unsupported_media_type: This upload format is not supported.
-          invalid_batch: Upload between 1 and 16 Markdown files at a time.
+          invalid_batch: Upload between 1 and %{max_batch_files} Markdown files at a time.
           invalid_confirmation_key: Confirm the folder selection again.
           invalid_root_name: Rename the selected folder and try again.
-          invalid_file_count: Select a folder with between 1 and 500 Markdown files.
+          invalid_file_count: Select a folder with between 1 and %{max_files} Markdown files.
           invalid_path: A Markdown file has an invalid path. Check the file and folder names.
-          depth_limit_exceeded: A Markdown file is too deeply nested. Select a shallower folder.
+          depth_limit_exceeded: A Markdown file is nested more than %{max_depth} levels below the root. Select a shallower folder.
           duplicate_path: Two files have the same path. Rename one and try again.
-          invalid_file_size: Each Markdown file must be at most 2 MiB.
-          total_size_exceeded: The Markdown files exceed 32 MiB in total. Select a smaller folder.
+          invalid_file_size: Each Markdown file must be at most %{max_file_mib} MiB.
+          total_size_exceeded: The Markdown files exceed %{max_total_mib} MiB in total. Select a smaller folder.
           path_collision: A file and a folder share a path. Rename one and try again.
-          folder_limit_exceeded: The import can contain at most 250 folders. Select a smaller folder.
+          folder_limit_exceeded: The import can contain at most %{max_folders} folders, including the root. Select a smaller folder.
           invalid_ignored_counts: The ignored file counts are invalid. Select the folder again.
           unexpected_path: An uploaded file was not in the confirmed selection. Select the folder again.
           size_mismatch: An uploaded file changed size. Select the folder again.
           invalid_payload: A Markdown file is not valid UTF-8 text. Fix its encoding and try again.
           incomplete_upload: Some files have not been uploaded. Upload them before continuing.
           confirmation_conflict: The selection has changed. Confirm it again.
-          import_in_progress: An import is already in progress for this account.
+          import_in_progress: You already have an import in progress for this account. Wait for it to finish or expire.
           content_conflict: A previously uploaded file has changed. Select the folder again.
           not_uploading: This import is no longer accepting files.
       title: Notes

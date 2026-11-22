@@ -114,18 +114,18 @@ class NoteImportTest < ActiveSupport::TestCase
     end
     assert_invalid(:invalid_file_size) { manifest_for([ Hash.new(0).merge(path: "Plan.md") ]) }
 
-    full = Array.new(16) { |i| { path: "#{i}.md", size: 2.megabytes } }
-    assert_equal 16, manifest_for(full).files.size
+    full = Array.new(2) { |i| { path: "#{i}.md", size: 2.megabytes } }
+    assert_equal 2, manifest_for(full).files.size
     assert_invalid(:total_size_exceeded) { manifest_for(full + [ { path: "Extra.md", size: 1 } ]) }
 
-    files = Array.new(500) { |i| { path: "#{i}.md", size: 0 } }
-    assert_equal 500, manifest_for(files).files.size
+    files = Array.new(100) { |i| { path: "#{i}.md", size: 0 } }
+    assert_equal 100, manifest_for(files).files.size
     assert_invalid(:invalid_file_count) { manifest_for(files + [ { path: "Extra.md", size: 0 } ]) }
   end
 
   test "manifest counts the root and unique directory prefixes and caps depth" do
-    files = Array.new(249) { |i| { path: "#{i}/Plan.md", size: 0 } }
-    assert_equal 250, manifest_for(files + [ { path: "0/Other.md", size: 0 } ]).files.size
+    files = Array.new(59) { |i| { path: "#{i}/Plan.md", size: 0 } }
+    assert_equal 60, manifest_for(files + [ { path: "0/Other.md", size: 0 } ]).files.size
     assert_invalid(:folder_limit_exceeded) { manifest_for(files + [ { path: "0/Extra/Plan.md", size: 0 } ]) }
 
     deep = "a/" * 32

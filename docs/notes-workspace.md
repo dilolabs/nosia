@@ -12,6 +12,18 @@ Open **Notes** from the main navigation or the dashboard. Notes belong to the se
 
 The editor supports rich-text formatting. V1 does not support file attachments or remote embeds, and Notes are managed separately from Sources.
 
+## Import a Markdown folder
+
+From Notes, choose **Import a Markdown folder** and use your browser’s folder picker to select a collection, such as an Obsidian vault. The preview is local: review the account, root, notes, folders, and ignored files before choosing **Upload and import**. The new notes are shared with members of that account, and indexing sends saved content to the configured provider, which may be remote.
+
+- Each confirmed import creates a separate top-level folder. Importing the same folder again creates a new copy (for example, `Coffre (2)`) without replacing existing notes. The import preserves only branches containing Markdown.
+- Import up to 100 `.md` files (case-insensitive) and 60 folders including the selected root, with at most 32 levels below it. The limits are 2 MiB per Markdown file and 4 MiB total, with up to 255 UTF-8 bytes per path component and 1,024 bytes per relative path. Formatted content is limited to 4 MiB per note and 64 MiB total.
+- `.obsidian` configuration, empty folders, and non-Markdown files are not imported. Use a compatible browser; individual files, ZIP archives, attachments, embedded media, plugins, and vault synchronization are not supported.
+- Supported wiki and relative Markdown links resolve to notes in the same copy. Missing, ambiguous, and heading- or block-specific references remain readable but not clickable and appear in the private report (up to 100 examples). External media is never fetched.
+- If the network drops, use **Retry upload** on the same page. Leaving clears the selection; an unfinished upload that could not be resumed expires after 24 hours of inactivity. Once the upload is complete, you can reopen its private status page. An import is successful when the notes are saved, even if indexing is still pending.
+
+If your deployment has a lower proxy request limit, set `NOTES_IMPORT_BATCH_WIRE_BYTES` to that limit in bytes. The browser sends at most 16 files and 3 MiB of Markdown per batch by default, with additional headroom for a configured lower limit. This setting does not raise or replace the proxy or server limit.
+
 ## Save, recover, and restore
 
 The editor autosaves after a short pause. Use **Save note** to save immediately, or **Retry** after a save failure. The open editor keeps your unsaved draft and warns before you leave it. If another editor saved a newer revision or moved the note to Trash, Nosia does not overwrite it. Use **Copy draft** to keep your changes; when offered, **Load saved version** opens the newer saved text. There is no live co-editing or offline synchronization.

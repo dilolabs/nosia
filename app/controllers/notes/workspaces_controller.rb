@@ -3,6 +3,6 @@ class Notes::WorkspacesController < ApplicationController
   include NotesWorkspaceRendering
 
   def show
-    render_workspace
+    render_workspace(import_id: params[:import_id])
   end
 end

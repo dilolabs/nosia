@@ -108,11 +108,22 @@ module NotesWorkspaceRendering
       end
     end
 
-    def render_workspace(screen: nil, status: :ok)
+    def render_workspace(screen: nil, status: :ok, import_id: nil)
       discard_stale_list_filters unless reading_workspace?
       @membership_accounts = Current.user.accounts.order(:name, :id)
       load_workspace(screen || workspace_screen)
+      load_import_report(import_id) if import_id && @selected_folder && @screen != "trash"
       render "notes/workspaces/show", formats: [ :html ], status:
+    end
+
+    def load_import_report(import_id)
+      id = notes_id(import_id)
+      @reported_import = @account.note_imports.select(:id, :report).find_by(
+        id:, initiator_id: Current.user.id, status: :succeeded, root_note_folder_id: @selected_folder.id
+      )
+      no_store if @reported_import
+    rescue ActiveRecord::RecordNotFound
+      # An optional receipt id does not change access to the shared folder.
     end
 
     def load_workspace(screen)
