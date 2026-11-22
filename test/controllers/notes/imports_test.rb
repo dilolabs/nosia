@@ -463,8 +463,8 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
   test "discard requires CSRF and rejects oversized writes with no-store" do
     record = seed_import
     path = "#{imports_path}/#{record.id}/cancellation.json/"
-    original = ApplicationController.allow_forgery_protection
-    ApplicationController.allow_forgery_protection = true
+    original = ActionController::Base.allow_forgery_protection
+    ActionController::Base.allow_forgery_protection = true
     assert_no_changes -> { record.reload.attributes } do
       post_json path, {}
       assert_response 422
@@ -474,7 +474,7 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
       assert_error 413, "payload_too_large"
     end
   ensure
-    ApplicationController.allow_forgery_protection = original
+    ActionController::Base.allow_forgery_protection = original
   end
 
   test "terminal messages are localized and never expose unknown stored errors" do
