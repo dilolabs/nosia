@@ -11,7 +11,6 @@ export default class extends Controller {
     const { signal } = this.listeners
     this.element.addEventListener("beforetoggle", this.beforeToggle, { signal })
     this.element.addEventListener("toggle", this.position, { signal })
-    this.element.addEventListener("notes-move:opened", this.position, { signal })
     this.element.addEventListener("turbo:before-morph-attribute", this.preservePosition, { signal })
     window.addEventListener("resize", this.position, { signal })
     window.addEventListener("scroll", this.position, { signal, capture: true })

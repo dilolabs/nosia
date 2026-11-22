@@ -206,6 +206,54 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_selector "#{actions}:focus"
   end
 
+  test "one outside click dismisses Note actions and Move and focuses the editor title" do
+    failures = []
+    [ [ 375, 650 ], [ 667, 375 ], [ 1440, 900 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_note_path(@account, @note)
+      assert_selector "lexxy-editor[connected]"
+      page.execute_script(<<~JS)
+        const title = document.getElementById("note_title")
+        if (title.getBoundingClientRect().bottom > innerHeight) title.scrollIntoView({ block: "center" })
+      JS
+      orbite_settle
+      before = notes_layout("#note_title")
+      click_button "Note actions"
+      click_button "Move note"
+      actions = "#note-actions-#{@note.id}:popover-open"
+      move = notes_open_move_panel
+      assert_selector actions
+      assert_selector move
+      assert_equal before, notes_layout("#note_title")
+      point = page.evaluate_script(<<~JS, actions, move)
+        (() => {
+          const title = document.getElementById("note_title").getBoundingClientRect()
+          const panels = [...document.querySelectorAll(`${arguments[0]}, ${arguments[1]}`)]
+            .map(panel => panel.getBoundingClientRect())
+          for (const y of [title.top + 5, title.bottom - 5].map(Math.round)) {
+            for (const x of [title.left + 12, (title.left + title.right) / 2, title.right - 12].map(Math.round)) {
+              if (x >= 0 && x < innerWidth && y >= 0 && y < innerHeight &&
+                  !panels.some(panel => x >= panel.left && x < panel.right && y >= panel.top && y < panel.bottom)) return [x, y]
+            }
+          }
+          return null
+        })()
+      JS
+      assert point, "No part of the editor title exposed at #{width}x#{height}"
+      page.driver.browser.action.move_to_location(*point).click.perform
+      orbite_settle
+
+      open = page.has_selector?("#{actions}, #{move}", visible: :all, wait: 0)
+      focused = page.has_selector?("#note_title:focus", wait: 0)
+      failures << "#{width}x#{height}: panel open=#{open}, title focused=#{focused}" if open || !focused
+      assert_equal before, notes_layout("#note_title")
+      refute NotePin.exists?(account: @account, note: @note)
+      assert Note.active_in(@account.id).exists?(@note.id)
+      assert_equal note_folders(:interviews), @note.reload.note_folder
+    end
+    assert_empty failures
+  end
+
   test "tabbing past Move submit does not leave focus behind the open picker" do
     [ [ 375, 650 ], [ 1440, 900 ] ].each do |width, height|
       orbite_viewport(width, height)
@@ -221,17 +269,15 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       orbite_assert_reachable(move)
       assert_equal before, notes_layout("#note_title")
       orbite_tab_to("#{move} input[type=submit]")
-      2.times do
-        page.driver.browser.action.send_keys(:tab).perform
-        if page.has_selector?(move, wait: 0)
-          assert page.evaluate_script("document.activeElement.matches('body, ' + arguments[0] + ' *')", move),
-            "Focus escaped the open Move picker at #{width}x#{height}"
-        end
-      end
-
-      page.driver.browser.action.send_keys(:escape).perform
+      page.driver.browser.action.send_keys(:tab).perform
+      assert_selector "#{move} button:focus", text: "Cancel"
+      page.driver.browser.action.send_keys(:tab).perform
       assert_no_selector move
-      assert_selector "#{actions} #{notes_move_trigger}:focus"
+      assert_selector "#{actions} button:focus", text: "Trash note"
+      assert_equal before, notes_layout("#note_title")
+      page.driver.browser.action.send_keys(:escape).perform
+      assert_no_selector actions
+      assert_selector "button[popovertarget='note-actions-#{@note.id}']:focus"
       assert_equal before, notes_layout("#note_title")
     end
   end
@@ -242,7 +288,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     visit account_note_path(@account, @note)
     id = "note-actions-#{@note.id}"
     move_trigger = notes_move_trigger
-    move_panel = notes_open_move_panel
+    move_panel = "#note-move-#{@note.id}:modal"
     click_button "Note actions"
     assert_anchored_notes_dropdown(id)
     find(move_trigger).click
@@ -275,7 +321,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     assert_equal note_folders(:reading), @note.reload.note_folder
   end
 
-  test "Move still opens a modal when declarative dialog commands are unavailable" do
+  test "Move still opens and cancels when declarative dialog commands are unavailable" do
     visit account_note_path(@account, @note)
     assert_selector "lexxy-editor[connected]"
     click_button "Note actions"
@@ -287,7 +333,7 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
       trigger.removeAttribute("commandfor")
     JS
     trigger.click
-    assert_selector "#note-move-#{@note.id}:modal select:focus"
+    assert_selector "#{notes_open_move_panel} select:focus"
     click_button "Cancel"
     assert_no_selector notes_open_move_panel
     assert_selector "#{notes_move_trigger}:focus"

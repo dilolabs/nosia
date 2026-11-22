@@ -1,26 +1,39 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["panel"]
+  static targets = ["trigger", "panel"]
 
   open(event) {
-    if (event.currentTarget.commandForElement || !this.panelTarget.showModal) return
+    if (!this.panelTarget.showPopover) return
 
-    event.preventDefault()
-    event.currentTarget.focus({ preventScroll: true })
-    this.panelTarget.showModal()
-    this.dispatch("opened", { target: this.panelTarget })
+    if (this.popoverOpen) {
+      this.dismiss(event)
+    } else {
+      event.preventDefault()
+      this.panelTarget.showPopover({ source: this.triggerTarget })
+    }
   }
 
-  close(event) {
-    if (event.currentTarget.commandForElement || !this.panelTarget.open) return
+  dismiss(event) {
+    if (event.defaultPrevented || !this.popoverOpen) return
 
     event.preventDefault()
-    this.panelTarget.close()
+    event.stopPropagation()
+    this.panelTarget.hidePopover()
+    this.triggerTarget.focus({ preventScroll: true })
+  }
+
+  focusChanged(event) {
+    // Focus has already landed outside the picker and its trigger. Leave it there.
+    if (this.popoverOpen && !this.element.contains(event.target)) this.panelTarget.hidePopover()
   }
 
   preserveOpen(event) {
     if (event.target === this.panelTarget && event.detail.attributeName === "open" &&
         event.detail.mutationType === "remove" && this.panelTarget.matches(":modal")) event.preventDefault()
+  }
+
+  get popoverOpen() {
+    return this.panelTarget.matches(":popover-open")
   }
 }
