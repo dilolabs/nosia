@@ -42,7 +42,9 @@
     <% elsif import.failed? || import.expired? %>
       <%= link_to t("nosia.notes.imports.new_title"), new_account_note_import_path(@account), class: "n-notes-button n-notes-primary" %>
     <% elsif NoteImport::LIVE_STATUSES.include?(import.status) %>
-      <%= link_to t("nosia.notes.imports.refresh_status"), receipt_path, class: "n-notes-button", data: { turbo_action: "replace" } %>
+      <% refresh_path = continuation ? account_note_import_path(@account, import, continue: 1) : receipt_path %>
+      <%# Reload rather than morphing the stopped poll controller in place. %>
+      <%= link_to t("nosia.notes.imports.refresh_status"), refresh_path, class: "n-notes-button", data: { turbo: false } %>
     <% end %>
     <%= link_to t("nosia.notes.back_to_notes"), account_notes_workspace_path(@account), class: "n-notes-button" %>
   </div>

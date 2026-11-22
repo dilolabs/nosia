@@ -259,6 +259,43 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
     assert_equal 1, @account.note_imports.count
   end
 
+  test "refresh after a failed poll still opens the imported folder" do
+    visit new_account_note_import_path(@account)
+    select_folder
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      let failNextPoll = true
+      window.fetch = (url, options) => {
+        const path = new URL(url, location.href).pathname
+        const accepts = new Headers(options?.headers).get("Accept")
+        if (failNextPoll && !options?.method && accepts === "application/json" && path.includes("/note-imports/")) {
+          failNextPoll = false
+          return Promise.reject(new TypeError("Test: status poll lost"))
+        }
+        return fetch(url, options)
+      }
+    JS
+    click_button "Upload and import"
+    assert_selector "[role=status]", text: /Could not check the import/, wait: 10
+    receipt = @account.note_imports.find_by!(status: :queued)
+    assert_current_path account_note_import_path(@account, receipt, continue: 1)
+
+    click_link "Refresh status"
+    assert_selector "[role=status]", text: /Waiting to import/
+    perform_enqueued_jobs(only: NoteImport::PublishJob)
+    assert_predicate receipt.reload, :succeeded?
+    result = account_notes_workspace_path(@account, folder_id: receipt.root_note_folder_id, import_id: receipt.id)
+    assert_current_path result, wait: 10
+    assert_selector "[data-note-import-report]", text: "Import report: Coffre"
+
+    page.go_back
+    assert_current_path new_account_note_import_path(@account)
+    visit result
+    click_link "View import status"
+    assert_current_path account_note_import_path(@account, receipt)
+    assert_link "Open imported folder", href: result
+  end
+
   test "polling stops at a failed receipt and offers a fresh selection" do
     visit new_account_note_import_path(@account)
     select_folder

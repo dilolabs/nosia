@@ -382,6 +382,19 @@ class NotesImportsTest < ActionDispatch::IntegrationTest
     assert_select "a", text: "Open imported folder", count: 0
   end
 
+  test "refresh keeps the continuation only on marked live receipt links" do
+    receipt = seed_import
+    path = account_note_import_path(@account, receipt)
+    marked_path = account_note_import_path(@account, receipt, continue: 1)
+    get path
+    assert_response :ok
+    assert_select "a[href='#{path}']", text: "Refresh status"
+    get marked_path
+    assert_response :ok
+    assert_select "a[href='#{marked_path}']", text: "Refresh status"
+    assert_select "[data-note-import-status-url-value='#{path}']"
+  end
+
   test "discard terminalizes only the unsealed upload and retries never resurrect its key" do
     manifest = manifest_params
     receipt = start_receipt(manifest)
