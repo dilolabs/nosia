@@ -17,7 +17,7 @@
               locals: { id: "note-actions-#{note.id}", label: t("nosia.notes.note_actions"), icon: "ellipsis", close_on_focus_leave: true } do %>
           <%= button_to t(note.pin ? "nosia.notes.unpin" : "nosia.notes.pin"), account_note_pin_path(account, note, **options),
                         method: note.pin ? :delete : :post, class: "n-notes-menu-item" %>
-          <%= render "notes/workspaces/move_picker", account:, note:, options:, folders: %>
+          <%= render("notes/workspaces/move_picker", account:, note:, options:, folders:) %>
           <%= button_to t("nosia.notes.trash_note"), account_note_trashing_path(account, note), class: "n-notes-menu-item n-notes-menu-danger" %>
         <% end %>
       </div>
