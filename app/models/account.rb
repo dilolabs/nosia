@@ -19,6 +19,7 @@ class Account < ApplicationRecord
   has_many :mcp_servers, dependent: :destroy
   has_many :notes, dependent: :destroy
   has_many :note_folders, dependent: :destroy
+  has_many :note_imports, dependent: :destroy
   has_many :note_tags, dependent: :destroy
   has_many :prompts, dependent: :destroy
   has_many :qnas, dependent: :destroy
@@ -113,6 +114,7 @@ class Account < ApplicationRecord
       Account.lock.find(id)
       notes.reload
       note_folders.reload
+      note_imports.reload
       note_tags.reload
       McpAuthorization.uncached { McpAuthorization.where(account_id: id).find_each(&:retire!) }
     end
