@@ -129,6 +129,17 @@ class NoteImport::MarkdownTest < ActiveSupport::TestCase
     assert_includes fragment.text, "Last"
   end
 
+  test "wrapped blockquote targets do not disrupt verified neighbors in the same paragraph" do
+    paths = [ "Plan.md", "A B.md", "A%20B.md", "Réunion.md", "Minutes.md" ]
+    prepared = prepare(paths, "> [[A B|One]] [[\n> Réunion|Wrap]] [[A%20B|Middle]] [[\n> Minutes|Wrap]] [[A B|Last]]")
+    fragment = rendered(prepared, paths)
+
+    assert_equal [ [ "/accounts/1/notes/11", "One" ], [ "/accounts/1/notes/12", "Middle" ],
+      [ "/accounts/1/notes/11", "Last" ] ], links(fragment.at_css("blockquote"))
+    assert_equal 2, prepared.warnings.fetch(:count)
+    assert_includes fragment.text, "Wrap"
+  end
+
   test "embed captions are entirely inert without touching code or escaped embed syntax" do
     paths = [ "Plan.md", "Target.md" ]
     source = <<~'MD'

@@ -338,7 +338,13 @@ class NoteImport::Markdown
           replacements = {}
           while (through_opening = scanner.scan_until(OPENING))
             output << through_opening
-            offset = scanner.pos - scanner.matched_size + 2
+            opening = scanner.matched
+            # A token on a continuation line must not hide a block marker
+            # such as `>`. Plain letter-led text can still witness the raw
+            # target (including its newline), which remains unresolvable.
+            next if opening.include?("\n") && !scanner.match?(/\p{L}/)
+
+            offset = scanner.pos - opening.bytesize + 2
             token = "#{prefix}#{offset}z"
             target = scanner.check(TARGET)
             if scanner.pos - offset + target.bytesize + token.bytesize <= MAX_COMPONENT_BYTES
