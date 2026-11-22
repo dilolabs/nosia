@@ -16,7 +16,7 @@
 <%= tag.section class: "n-notes n-notes-import",
       data: { controller: "note-import", note_import_url_value: account_note_imports_path(@account),
               note_import_limits_value: note_import_preview_limits, note_import_messages_value: messages,
-              action: "turbo:before-visit@document->note-import#clear pagehide@window->note-import#clear" } do %>
+              action: "turbo:visit@document->note-import#clear pagehide@window->note-import#clear" } do %>
   <header class="n-notes-identity"><h1><%= t("#{translation}.new_title") %></h1></header>
   <div class="n-notes-import-report">
     <p><strong><%= t("nosia.notes.account", name: @account.name) %></strong></p>

@@ -10,7 +10,7 @@
            data-note-import-status-continuation-value="<%= continuation %>"
            data-note-import-status-poll-error-value="<%= t("nosia.notes.imports.poll_error") %>"
            data-note-import-status-progress-value="<%= t("nosia.notes.imports.progress", uploaded: "%{uploaded}", total: "%{total}") %>"
-           data-action="turbo:before-visit@document->note-import-status#stop pagehide@window->note-import-status#stop pageshow@window->note-import-status#schedule"
+           data-action="turbo:visit@document->note-import-status#stop pagehide@window->note-import-status#stop pageshow@window->note-import-status#schedule"
          <% end %>>
   <header class="n-notes-identity"><h1><%= t("nosia.notes.imports.status_title") %></h1></header>
   <div role="status">
@@ -29,7 +29,7 @@
                   note_import_cancellation_receipt_value: receipt_path,
                   note_import_cancellation_confirm_value: t("nosia.notes.imports.discard.confirm"),
                   note_import_cancellation_error_value: t("nosia.notes.imports.discard.error"),
-                  action: "turbo:before-visit@document->note-import-cancellation#stop pagehide@window->note-import-cancellation#stop" } do %>
+                  action: "turbo:visit@document->note-import-cancellation#stop pagehide@window->note-import-cancellation#stop" } do %>
       <p><%= t("nosia.notes.imports.discard.hint") %></p>
       <button type="button" class="n-notes-button" disabled data-note-import-cancellation-target="button"
               data-action="note-import-cancellation#discard"><%= t("nosia.notes.imports.discard.action") %></button>

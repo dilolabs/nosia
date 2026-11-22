@@ -58,6 +58,89 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
     assert_empty @account.note_imports
   end
 
+  test "going Back during confirmation does not let a late receipt start uploading" do
+    workspace = account_notes_workspace_path(@account)
+    visit workspace
+    click_link "Import a Markdown folder"
+    select_folder
+    hold_import_response(account_note_imports_path(@account))
+    click_button "Upload and import"
+    wait_for_browser_gate "releaseImportResponse"
+    receipt = @account.note_imports.sole
+
+    back_before_rendering "#notes-header-actions"
+    assert_selector "[data-controller='note-import']"
+    release_import_response
+    assert_equal [ account_note_imports_path(@account) ], page.evaluate_script("window.importPosts")
+
+    page.execute_script("window.releaseBackDestination()")
+    assert_current_path workspace
+    assert_selector "#notes-header-actions"
+    assert_predicate receipt.reload, :uploading?
+    assert_empty receipt.staged_files
+    assert_no_enqueued_jobs only: NoteImport::PublishJob
+
+    page.go_forward
+    assert_current_path new_account_note_import_path(@account)
+    assert_button "Upload and import", disabled: true
+    assert_equal [ account_note_imports_path(@account) ], page.evaluate_script("window.importPosts")
+  end
+
+  test "going Back from a status page wins over a late successful poll" do
+    importer = new_account_note_import_path(@account)
+    visit importer
+    select_folder
+    click_button "Upload and import"
+    assert_selector "[role=status]", text: /Waiting to import/
+    receipt = @account.note_imports.find_by!(status: :queued)
+    hold_import_response(account_note_import_path(@account, receipt), "GET")
+    perform_enqueued_jobs(only: NoteImport::PublishJob)
+    assert_predicate receipt.reload, :succeeded?
+    wait_for_browser_gate "releaseImportResponse"
+
+    back_before_rendering "[data-controller='note-import']"
+    release_import_response
+    assert_equal [ importer ], page.evaluate_script("window.importVisits")
+    page.execute_script("window.releaseBackDestination()")
+    assert_current_path importer
+    assert_button "Upload and import", disabled: true
+  end
+
+  test "going Back during discard keeps the committed result but does not reopen its receipt" do
+    importer = new_account_note_import_path(@account)
+    initiator = users(:picker_owner)
+    receipt = NoteImport.start!(account: @account, initiator:, root_name: "Original", confirmation_key: SecureRandom.uuid,
+      files: [ { path: "Original.md", size: 0 } ], ignored_counts: { obsidian: 0, other: 0 })
+    visit importer
+    click_link "Review unfinished upload"
+    assert_current_path account_note_import_path(@account, receipt)
+    hold_import_response(account_note_import_cancellation_path(@account, receipt))
+    accept_confirm(/discard/i) { click_button "Discard upload" }
+    wait_for_browser_gate "releaseImportResponse"
+    assert_predicate receipt.reload, :failed?
+
+    back_before_rendering "[data-controller='note-import']"
+    release_import_response
+    assert_equal [ importer ], page.evaluate_script("window.importVisits")
+    page.execute_script("window.releaseBackDestination()")
+    assert_current_path importer
+    assert_button "Upload and import", disabled: true
+  end
+
+  test "a canceled Turbo visit does not clear a selected folder" do
+    visit new_account_note_import_path(@account)
+    select_folder
+    assert_button "Upload and import", disabled: false
+    page.execute_script('document.addEventListener("turbo:before-visit", event => event.preventDefault(), { once: true })')
+    click_link "Cancel"
+    orbite_settle
+
+    assert_current_path new_account_note_import_path(@account)
+    assert_selector "[role=status]", text: /Selected folder: Coffre/
+    assert_button "Upload and import", disabled: false
+    assert_empty @account.note_imports
+  end
+
   test "an unsupported browser has no fallback file path" do
     @script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument",
       source: "delete HTMLInputElement.prototype.webkitdirectory").fetch("identifier")
@@ -352,6 +435,58 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
   end
 
   private
+    def hold_import_response(match_path, match_method = "POST")
+      page.execute_script(<<~JS, match_path, match_method)
+        const [matchPath, matchMethod] = arguments
+        const fetch = window.fetch
+        window.importPosts = []
+        window.fetch = async (resource, options) => {
+          const path = new URL(resource instanceof Request ? resource.url : resource, location.href).pathname
+          const method = options?.method || "GET"
+          if (method === "POST" && path.includes("/note-imports")) window.importPosts.push(path)
+          const reply = await fetch(resource, options)
+          if (path === matchPath && method === matchMethod && new Headers(options?.headers).get("Accept") === "application/json") {
+            // The server already replied; deliver its real JSON late, independent of abort timing.
+            const body = await reply.json()
+            await new Promise(resolve => { window.releaseImportResponse = resolve })
+            reply.json = () => Promise.resolve(body)
+          }
+          return reply
+        }
+      JS
+    end
+
+    def back_before_rendering(selector)
+      page.execute_script(<<~JS, selector)
+        const selector = arguments[0]
+        window.importVisits = []
+        document.addEventListener("turbo:visit", ({ detail }) => window.importVisits.push(new URL(detail.url).pathname))
+        document.addEventListener("turbo:before-render", event => {
+          if (!event.detail.newBody.querySelector(selector)) return
+          event.preventDefault()
+          window.releaseBackDestination = event.detail.resume
+        }, { once: true })
+        history.back()
+      JS
+      wait_for_browser_gate "releaseBackDestination"
+    end
+
+    def release_import_response
+      page.execute_script("window.releaseImportResponse()")
+      orbite_settle
+    end
+
+    def wait_for_browser_gate(name)
+      assert_equal true, page.evaluate_async_script(<<~JS, name)
+        const [gate, done] = arguments
+        function waitForGate() {
+          if (window[gate]) done(true)
+          else requestAnimationFrame(waitForGate)
+        }
+        waitForGate()
+      JS
+    end
+
     def select_folder(path = VAULT)
       assert_selector "#{PICKER}:enabled"
       browser = page.driver.browser
