@@ -8,6 +8,9 @@ module Note::Indexable
   # A provider error or unusable response, with no remote text in the message.
   class EmbeddingError < StandardError; end
 
+  # A rolled-back index publication, with no private database details.
+  class PublicationError < StandardError; end
+
   included do
     enum :embedding_status, { empty: "empty", pending: "pending", ready: "ready", failed: "failed" },
       prefix: :embedding
@@ -29,6 +32,7 @@ module Note::Indexable
     # Rebuilds active Note generations synchronously for index maintenance.
     # @return [void]
     # @raise [EmbeddingError] If any active generation remains incomplete.
+    # @raise [PublicationError] If a generation cannot be published.
     def rebuild_active_embeddings
       Account.find_each do |account|
         active = active_in(account.id)
@@ -48,26 +52,21 @@ module Note::Indexable
 
   # Prepares vectors without locks, then replaces the published index if still current.
   # @param generation [Integer] The scheduled embedding generation.
-  # @return [Note, nil] The note, or nil when it is already ineligible at the start.
+  # @return [Note, nil] The note, or nil when it is ineligible before a provider call.
   # @raise [EmbeddingError] If the provider cannot supply usable vectors.
+  # @raise [PublicationError] If the replacement cannot be persisted.
   # @raise [Note::Unavailable] If the note is removed during preparation.
   def index_now(generation)
     return unless persisted? && id == id_in_database
 
-    snapshot = self.class.uncached do
-      self.class.active_in(account_id_in_database).find_by(id:, embedding_status: "pending", embedding_generation: generation)
-    end
+    scope = self.class.active_in(account_id_in_database).where(id:, embedding_status: "pending", embedding_generation: generation)
+    snapshot = self.class.uncached { scope.first }
     return unless snapshot
 
-    prepared = prepare_embeddings(snapshot.embedding_input)
-    with_locked_note(lock_record: true) do |locked_account|
-      if indexable_generation?(generation)
-        # SQL bind logging would include the text being written to chunks.
-        self.class.logger.silence do
-          publish_embeddings(locked_account, generation, prepared)
-        end
-      end
-    end
+    prepared = prepare_embeddings(snapshot.embedding_input, scope)
+    return unless prepared
+
+    publish_current_generation(generation, prepared)
   end
 
   # Marks a current, active pending generation as failed after the final attempt.
@@ -137,7 +136,7 @@ module Note::Indexable
       false
     end
 
-    def prepare_embeddings(input)
+    def prepare_embeddings(input, eligible)
       splitter = Baran::RecursiveCharacterTextSplitter.new(
         chunk_size: ENV.fetch("CHUNK_SIZE", "512").to_i,
         chunk_overlap: ENV.fetch("CHUNK_OVERLAP", "128").to_i
@@ -146,6 +145,8 @@ module Note::Indexable
       raise EmbeddingError, "Note has no embeddable chunks" if texts.empty?
 
       texts.map do |text|
+        return unless self.class.uncached { eligible.exists? }
+
         result = embed_part(text)
         unless result.respond_to?(:vectors) && result.respond_to?(:tokens) && usable_vector?(result.vectors)
           raise EmbeddingError, "Embedding provider returned an unusable result"
@@ -188,6 +189,22 @@ module Note::Indexable
 
     def active_for_indexing?
       self.class.active_in(account_id).exists?(id:)
+    end
+
+    def publish_current_generation(generation, prepared)
+      with_locked_note(lock_record: true) do |locked_account|
+        if indexable_generation?(generation)
+          # SQL bind logging would include the text being written to chunks.
+          self.class.logger.silence do
+            publish_embeddings(locked_account, generation, prepared)
+          end
+        end
+      end
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved, ActiveRecord::RecordNotDestroyed,
+        ActiveRecord::RecordNotUnique, ActiveRecord::InvalidForeignKey, ActiveRecord::NotNullViolation,
+        ActiveRecord::CheckViolation, ActiveRecord::ValueTooLong, ActiveRecord::LockWaitTimeout, ActiveRecord::TransactionRollbackError
+      # The transaction has unwound; no partial replacement or usage survives.
+      raise PublicationError, "Note index publication failed", cause: nil
     end
 
     def publish_embeddings(owner, generation, prepared)

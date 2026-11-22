@@ -1,8 +1,8 @@
-# Indexes one saved note generation, retrying only embedding failures.
+# Indexes one saved note generation with bounded retries for recoverable failures.
 class Note::IndexJob < ApplicationJob
   queue_as :default
 
-  retry_on Note::Indexable::EmbeddingError, wait: 5.seconds, attempts: 3 do |job|
+  retry_on Note::Indexable::EmbeddingError, Note::Indexable::PublicationError, wait: 5.seconds, attempts: 3 do |job|
     note_id, generation = job.arguments
     Note.find_by(id: note_id)&.mark_index_failed(generation)
   end

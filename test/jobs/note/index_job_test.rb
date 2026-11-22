@@ -213,18 +213,19 @@ class NoteIndexJobTest < ActiveJob::TestCase
     end
   end
 
-  test "an edit on another connection during embedding prevents stale publication" do
+  test "an edit on another connection stops dispatching remaining parts of the old generation" do
     note = draft("Original")
     index(note)
     original = note.reload.chunk_ids
-    edit(note, "Older edit")
+    edit(note, multi_chunk_text)
     generation = note.embedding_generation
 
-    while_computing(note, generation) do
+    parts = while_computing(note, generation) do
       edit(Note.find(note.id), "Newer edit")
       assert_equal original, note.chunks.ids
     end
 
+    assert_equal 1, parts.size
     assert_equal [ "pending", generation + 1, 1 ], note.reload.values_at(:embedding_status, :embedding_generation, :indexed_generation)
     assert_equal original, note.chunk_ids
     index(note)
@@ -232,11 +233,13 @@ class NoteIndexJobTest < ActiveJob::TestCase
     assert_equal generation + 1, note.reload.indexed_generation
   end
 
-  test "trashing a branch during embedding blocks publication and its pending note resumes on restore" do
-    note = draft("Branch content")
+  test "trashing a branch stops dispatching its remaining parts and indexing resumes on restore" do
+    child = @account.note_folders.create!(name: "Child folder", parent: @folder)
+    note = draft(multi_chunk_text, folder: child)
 
-    while_computing(note, note.embedding_generation) { @folder.trash }
+    parts = while_computing(note, note.embedding_generation) { @folder.trash }
 
+    assert_equal 1, parts.size
     assert_empty note.chunks
     assert_equal "pending", note.reload.embedding_status
     assert_no_enqueued_jobs { Note::IndexJob.perform_now(note.id, note.embedding_generation) }
@@ -250,13 +253,35 @@ class NoteIndexJobTest < ActiveJob::TestCase
     assert_equal "ready", note.reload.embedding_status
   end
 
-  test "purging during embedding discards the publication without retry" do
-    note = draft("About to disappear")
+  test "purging during embedding stops dispatching remaining parts without retry" do
+    note = draft(multi_chunk_text)
     assert_no_enqueued_jobs do
-      while_computing(note, note.embedding_generation) { Note.find(note.id).trash.purge(by: @owner) }
+      parts = while_computing(note, note.embedding_generation) { Note.find(note.id).trash.purge(by: @owner) }
+      assert_equal 1, parts.size
     end
     refute Note.exists?(note.id)
     assert_empty Chunk.where(chunkable: note)
+  end
+
+  test "direct trash during embedding stops dispatching remaining parts" do
+    note = draft(multi_chunk_text)
+
+    parts = while_computing(note, note.embedding_generation) { Note.find(note.id).trash }
+
+    assert_equal 1, parts.size
+    assert_empty note.chunks
+    assert_equal "pending", note.reload.embedding_status
+  end
+
+  test "a native generation reset stops dispatching remaining parts even with unchanged text" do
+    note = draft(multi_chunk_text)
+    generation = note.embedding_generation
+
+    parts = while_computing(note, generation) { Note.where(id: note.id).invalidate_embedding_space }
+
+    assert_equal 1, parts.size
+    assert_equal [ "pending", generation + 1, nil ], note.reload.values_at(:embedding_status, :embedding_generation, :indexed_generation)
+    assert_empty note.chunks
   end
 
   test "the final generation check locks the note row against a native reset" do
@@ -266,7 +291,7 @@ class NoteIndexJobTest < ActiveJob::TestCase
     checked_generation = Queue.new
     allow_publish = Queue.new
     pause_after_check = ->(_name, _started, _finished, _id, payload) do
-      if Thread.current != main_thread && payload[:name] == "Note Exists?"
+      if Thread.current != main_thread && payload[:name] == "Note Exists?" && !payload[:sql].include?("embedding_generation")
         checked_generation << true
         allow_publish.pop
       end
@@ -316,31 +341,102 @@ class NoteIndexJobTest < ActiveJob::TestCase
     refute_includes File.read(log, nil, log_offset), private_body
   end
 
-  test "a later chunk insert failure rolls back replacement and usage" do
+  test "publication retries roll back all chunks and usage and exhaustion allows retry without an edit" do
     note = draft("Original")
     index(note)
     original = note.reload.chunk_ids
     edit(note, multi_chunk_text)
+    generation = note.embedding_generation
     stored_before_failure = []
+    private_detail = "publication detail #{SecureRandom.hex}"
+    log = Rails.root.join("log/test.log")
+    log_offset = log.size
     fail_second_insert = ->(chunk) do
       if chunk.metadata["position"] == 2
-        stored_before_failure.concat(note.chunks.ids)
-        throw :abort
+        stored_before_failure << note.chunks.ids
+        raise ActiveRecord::RecordNotSaved, private_detail
       end
     end
     Chunk.set_callback(:create, :before, fail_second_insert)
     fake_provider { embedding_result }
+    clear_enqueued_jobs
 
-    assert_no_difference -> { @account.token_usages.count } do
-      assert_raises ActiveRecord::RecordNotSaved do
-        Note::IndexJob.perform_now(note.id, note.embedding_generation)
+    assert_no_changes -> { @account.reload.input_tokens_count } do
+      assert_no_difference -> { @account.token_usages.count } do
+        publication_error = nil
+        begin
+          Note::IndexJob.perform_now(note.id, generation)
+        rescue ActiveRecord::RecordNotSaved => error
+          publication_error = error
+        end
+        assert_nil publication_error, "expected publication failure to schedule a bounded retry"
+        assert_equal [ "pending", 1 ], note.reload.values_at(:embedding_status, :indexed_generation)
+        assert_equal original, note.chunk_ids
+        assert_enqueued_with job: Note::IndexJob, args: [ note.id, generation ]
+        2.times { perform_enqueued_jobs only: Note::IndexJob }
       end
     end
-    assert_equal 1, stored_before_failure.size
-    assert_equal [ "pending", 1 ], note.reload.values_at(:embedding_status, :indexed_generation)
+    assert_equal [ 1, 1, 1 ], stored_before_failure.map(&:size)
+    assert_equal [ "failed", 1 ], note.reload.values_at(:embedding_status, :indexed_generation)
     assert_equal original, note.chunk_ids
+    diagnostics = File.read(log, nil, log_offset)
+    assert_includes diagnostics, "Note index publication failed"
+    assert_not_includes diagnostics, private_detail
+
+    Chunk.skip_callback(:create, :before, fail_second_insert)
+    fail_second_insert = nil
+    assert_enqueued_with job: Note::IndexJob, args: [ note.id, generation ] do
+      note.retry_index
+    end
+    perform_enqueued_jobs only: Note::IndexJob
+    assert_equal [ "ready", generation, generation ], note.reload.values_at(:embedding_status, :embedding_generation, :indexed_generation)
+    assert_equal 3, note.chunks.count
   ensure
     Chunk.skip_callback(:create, :before, fail_second_insert) if fail_second_insert
+  end
+
+  test "an exhausted publication failure cannot fail a newer generation" do
+    note = draft(multi_chunk_text)
+    generation = note.embedding_generation
+    fail_second_insert = ->(chunk) { throw :abort if chunk.metadata["position"] == 2 }
+    Chunk.set_callback(:create, :before, fail_second_insert)
+    fake_provider { embedding_result }
+    clear_enqueued_jobs
+    supersede_before_failure_mark = Object.new
+    edit = method(:edit)
+    supersede_before_failure_mark.define_singleton_method(:start) { |*| edit.call(Note.find(note.id), "Newer edit") }
+    supersede_before_failure_mark.define_singleton_method(:finish) { |*| }
+
+    publication_error = nil
+    ActiveSupport::Notifications.subscribed(supersede_before_failure_mark, "retry_stopped.active_job") do
+      begin
+        Note::IndexJob.perform_now(note.id, generation)
+        2.times { perform_enqueued_jobs only: Note::IndexJob }
+      rescue ActiveRecord::RecordNotSaved => error
+        publication_error = error
+      end
+    end
+
+    assert_nil publication_error, "expected exhausted publication failure to be handled"
+    assert_equal [ "pending", generation + 1, nil ], note.reload.values_at(:embedding_status, :embedding_generation, :indexed_generation)
+    assert_empty note.chunks
+  ensure
+    Chunk.skip_callback(:create, :before, fail_second_insert) if fail_second_insert
+  end
+
+  test "unexpected programming errors during publication still propagate" do
+    note = draft("Original")
+    fake_provider { embedding_result }
+    fail_write = ->(_chunk) { raise NoMethodError, "Unexpected callback error" }
+    Chunk.set_callback(:create, :before, fail_write)
+
+    assert_no_enqueued_jobs do
+      assert_raises(NoMethodError) { Note::IndexJob.perform_now(note.id, note.embedding_generation) }
+    end
+    assert_equal "pending", note.reload.embedding_status
+    assert_empty note.chunks
+  ensure
+    Chunk.skip_callback(:create, :before, fail_write) if fail_write
   end
 
   test "success replaces all rows and accounts for each chunk of the published generation" do
@@ -769,14 +865,18 @@ class NoteIndexJobTest < ActiveJob::TestCase
     def while_computing(note, generation)
       reached_provider = Queue.new
       resume_provider = Queue.new
-      fake_provider do |_text|
-        ApplicationRecord.with_connection do |connection|
-          reached_provider << [ connection, connection.transaction_open? ]
-          resume_provider.pop
+      parts = []
+      fake_provider do |text|
+        parts << text
+        if parts.one?
+          ApplicationRecord.with_connection do |connection|
+            reached_provider << [ connection, connection.transaction_open? ]
+            resume_provider.pop
+          end
         end
         embedding_result
       end
-      worker = Thread.new { Note::IndexJob.perform_now(note.id, generation) }
+      worker = Thread.new { Note.cache { Note::IndexJob.perform_now(note.id, generation) } }
 
       provider_connection, open_transaction = Timeout.timeout(5) { reached_provider.pop }
       refute open_transaction, "provider work must run outside an open transaction"
@@ -788,6 +888,7 @@ class NoteIndexJobTest < ActiveJob::TestCase
       resume_provider << true
       assert worker.join(5), "indexing did not finish after the lifecycle change"
       worker.value
+      parts
     ensure
       if worker&.alive?
         worker.kill

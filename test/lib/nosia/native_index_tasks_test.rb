@@ -320,6 +320,29 @@ class NativeIndexTasksTest < ActiveSupport::TestCase
     assert_equal [ [ 0.5 ] * 768 ], hidden.chunks.reload.map(&:embedding)
   end
 
+  test "a Note publication failure stops native reindex without advancing its fingerprint" do
+    note = draft_note("Native publication failure")
+    completed = @native_root.join("storage/.native-embedding-fingerprint")
+    target = @native_root.join("storage/.native-reindex-target")
+    completed.write("old-space")
+    fail_write = ->(chunk) { raise ActiveRecord::RecordNotSaved, "private publication error" if chunk.chunkable_id == note.id }
+    Chunk.set_callback(:create, :before, fail_write)
+
+    with_singleton_replacement(RubyLLM, :embed, ->(*, **) { RubyLLM::Embedding.new(vectors: [ 0.5 ] * 768, model: "fake") }) do
+      error = assert_raises(StandardError) { invoke_native_task("reindex") }
+      assert_equal "Note index publication failed", error.message
+      assert_nil error.cause
+    end
+
+    assert_equal "old-space", completed.read
+    assert target.exist?
+    assert_equal "pending", note.reload.embedding_status
+    assert_empty note.chunks
+    assert_match(/Incomplete reindex/, assert_raises(RuntimeError) { invoke_native_task("validate_index") }.message)
+  ensure
+    Chunk.skip_callback(:create, :before, fail_write) if fail_write
+  end
+
   private
     def hide_shared_note_fixtures
       # Other suites can load these fixtures before their per-test transactions.
