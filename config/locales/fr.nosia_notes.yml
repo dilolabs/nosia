@@ -27,7 +27,7 @@ fr:
           label: Choisir un dossier
           limits: "Seuls les fichiers .md sont importés. Sélectionnez au maximum %{max_files} notes et %{max_folders} dossiers (racine comprise), avec une limite de %{max_file_mib} Mio par note et de %{max_total_mib} Mio au total."
           requires_js: Activez JavaScript et utilisez un navigateur qui prend en charge la sélection de dossiers.
-          unsupported: Ce navigateur ne permet pas de choisir un dossier ici. Utilisez un navigateur récent avec une connexion sécurisée. Les fichiers individuels et les archives ZIP ne sont pas pris en charge.
+          unsupported: Ce navigateur ne permet pas de choisir un dossier ici. Utilisez un navigateur récent qui prend en charge la sélection de dossiers. Les fichiers individuels et les archives ZIP ne sont pas pris en charge.
           ready: Choisissez un dossier pour afficher un aperçu. Aucun fichier n’est envoyé sans votre confirmation.
           preview: "Dossier sélectionné : %{root}. Notes : %{notes}. Dossiers (racine comprise) : %{folders}. Fichiers Obsidian ignorés : %{obsidian}. Autres fichiers ignorés : %{other}."
           confirm: Envoyer et importer

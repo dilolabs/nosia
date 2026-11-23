@@ -151,6 +151,25 @@ class NotesMarkdownImportTest < ApplicationSystemTestCase
     assert_empty @account.note_imports
   end
 
+  test "folder import works without the secure-context randomUUID API" do
+    @script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument",
+      source: "delete Crypto.prototype.randomUUID").fetch("identifier")
+    visit new_account_note_import_path(@account)
+    refute page.evaluate_script('typeof crypto.randomUUID === "function"')
+    assert_selector "#{PICKER}:enabled"
+
+    select_folder
+    assert_selector "[role=status]", text: /Selected folder: Coffre/
+    assert_empty @account.note_imports
+    click_button "Upload and import"
+    assert_selector "[role=status]", text: /Waiting to import/
+
+    receipt = @account.note_imports.sole
+    assert_match(/\A[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/, receipt.confirmation_key)
+    perform_enqueued_jobs(only: NoteImport::PublishJob)
+    assert_selector "[data-note-import-report]", text: "Import report: Coffre"
+  end
+
   test "mobile keyboard focus and over-limit preview block requests" do
     orbite_viewport(375, 800)
     visit new_account_note_import_path(@account)

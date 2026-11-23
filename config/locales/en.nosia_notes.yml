@@ -27,7 +27,7 @@ en:
           label: Choose a folder
           limits: "Only .md files are imported. Choose up to %{max_files} notes and %{max_folders} folders (including the root), at most %{max_file_mib} MiB per note and %{max_total_mib} MiB total."
           requires_js: Enable JavaScript and use a browser that supports folder selection.
-          unsupported: This browser does not support choosing folders here. Try a current browser over a secure connection. Individual files and ZIP archives are not supported.
+          unsupported: This browser does not support choosing folders here. Try a current browser that supports folder selection. Individual files and ZIP archives are not supported.
           ready: Choose a folder to preview. Nothing is sent until you confirm.
           preview: "Selected folder: %{root}. Notes: %{notes}. Folders (including root): %{folders}. Obsidian files ignored: %{obsidian}. Other files ignored: %{other}."
           confirm: Upload and import

@@ -5,13 +5,22 @@ import { uploadFolder, UploadRejection } from "controllers/note_import_upload"
 
 const UPLOAD_TIMEOUT_MS = 120_000
 
+function confirmationKey() {
+  // getRandomValues is also available on HTTP, unlike randomUUID.
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("")
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
 export default class extends Controller {
   static targets = ["picker", "status", "error", "confirm", "review", "find"]
   static values = { url: String, limits: Object, messages: Object }
 
   connect() {
     this.confirmLabel = this.confirmTarget.textContent.trim()
-    this.supported = "webkitdirectory" in this.pickerTarget && typeof crypto.randomUUID === "function"
+    this.supported = "webkitdirectory" in this.pickerTarget && typeof globalThis.crypto?.getRandomValues === "function"
     this.clear()
   }
 
@@ -41,7 +50,7 @@ export default class extends Controller {
       this.#showError(this.messagesValue[error])
     } else {
       const { root, entries, folders, ignored } = selection
-      this.selection = { ...selection, key: crypto.randomUUID() }
+      this.selection = { ...selection, key: confirmationKey() }
       this.statusTarget.textContent = fillMessage(this.messagesValue.preview, { root, notes: entries.size, folders, ...ignored })
       this.confirmTarget.disabled = false
     }
