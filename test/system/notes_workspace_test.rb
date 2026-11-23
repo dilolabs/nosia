@@ -109,6 +109,71 @@ class NotesWorkspaceBrowserTest < ApplicationSystemTestCase
     end
   end
 
+  test "a long note preview fits on one line in the desktop and mobile lists" do
+    @note.edit_content!(expected_revision: @note.content_revision, title: @note.title,
+      body_html: "<p>#{"A long preview with several words to show. " * 4}</p>")
+    preview = "[data-note-id='#{@note.id}'] .n-notes-preview"
+
+    [ [ 1440, 900 ], [ 375, 800 ] ].each do |width, height|
+      orbite_viewport(width, height)
+      visit account_notes_workspace_path(@account, view: "list")
+      assert_selector preview
+      lines, overflow, truncation = page.evaluate_script(<<~JS, preview)
+        (() => {
+          const preview = document.querySelector(arguments[0]);
+          const text = document.createRange();
+          text.selectNodeContents(preview);
+          const lines = new Set(Array.from(text.getClientRects(), rect => rect.top));
+          return [lines.size, preview.scrollWidth - preview.clientWidth, getComputedStyle(preview).textOverflow];
+        })()
+      JS
+      assert_equal 1, lines, "Note preview at #{width}px"
+      assert_operator overflow, :>, 0
+      assert_equal "ellipsis", truncation
+    end
+  end
+
+  test "Lexxy code and the language picker have readable text in both themes" do
+    @note.edit_content!(expected_revision: @note.content_revision, title: @note.title,
+      body_html: "<p>Open <code>project-database</code>.</p><pre><code>Plain code sample</code></pre>")
+    orbite_viewport(1440, 900)
+    visit account_note_path(@account, @note)
+    assert_selector "lexxy-editor[connected]"
+
+    [ false, true ].each do |dark|
+      orbite_theme(dark)
+      block = find(".lexxy-editor__content :is(pre, code[data-language])", text: "Plain code sample")
+      block.click
+      picker = find("lexxy-code-language-picker select")
+      inline_code = find(".lexxy-editor__content p code", text: "project-database")
+
+      contrasts = page.evaluate_script(<<~JS, block, picker, inline_code)
+        (() => {
+          const canvas = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+          const luminance = color => {
+            canvas.fillStyle = color;
+            canvas.fillRect(0, 0, 1, 1);
+            return Array.from(canvas.getImageData(0, 0, 1, 1).data).slice(0, 3)
+              .map(channel => channel / 255)
+              .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+              .reduce((sum, channel, i) => sum + channel * [0.2126, 0.7152, 0.0722][i], 0);
+          };
+          const contrast = (element, text = element) => {
+            const colors = [getComputedStyle(text).color, getComputedStyle(element).backgroundColor];
+            const [dark, light] = colors.map(luminance).sort((a, b) => a - b);
+            return (light + 0.05) / (dark + 0.05);
+          };
+          const inline = arguments[2];
+          return { "code block": contrast(arguments[0]), "language picker": contrast(arguments[1]),
+            "inline code": contrast(inline, inline.querySelector("span") || inline) };
+        })()
+      JS
+      contrasts.each do |element, contrast|
+        assert_operator contrast, :>=, 4.5, "#{element} in #{dark ? 'dark' : 'light'} theme"
+      end
+    end
+  end
+
   test "the rounded Lexxy surface keeps saving and indexing separate across layouts" do
     @note.edit_content!(expected_revision: @note.content_revision, title: @note.title,
       body_html: "<h1>Interview outline</h1><h2>Next steps</h2><p>Prepare questions.</p>")

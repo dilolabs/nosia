@@ -55,6 +55,11 @@
   color: inherit;
 }
 
+/* Lexxy's floating toolbar uses light text even in the light theme. */
+:root:not(.dark) .n-notes select.lexxy-code-language-picker {
+  color: var(--orbite-text);
+}
+
 .n-notes .n-notes-button {
   display: inline-flex;
   align-items: center;
@@ -291,7 +296,14 @@
 .n-notes a[aria-current] { box-shadow: inset 2px 0 var(--orbite-accent); }
 .n-notes-back { margin-block-end: .5rem; }
 .n-notes-meta { font-size: .8125rem; color: var(--orbite-muted); }
-.n-notes-preview { font-size: .875rem; color: var(--orbite-muted); }
+.n-notes-preview {
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: .875rem;
+  color: var(--orbite-muted);
+}
 .n-notes-empty {
   margin-block: .625rem;
   padding: .875rem;
