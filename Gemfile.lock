@@ -205,7 +205,7 @@ GEM
       net-imap
       net-pop
       net-smtp
-    mailbin (1.1.1)
+    mailbin (1.2.1)
       importmap-rails
       rails (>= 7.1.0)
       turbo-rails
@@ -235,18 +235,18 @@ GEM
     net-http (0.10.0)
       net-protocol (>= 0.3.0)
       uri (>= 0.11.1)
-    net-imap (0.6.6)
+    net-imap (0.6.8)
       date
       net-protocol
     net-pop (0.1.2)
       net-protocol
-    net-protocol (0.3.0)
+    net-protocol (0.4.0)
       timeout
     net-scp (4.1.0)
       net-ssh (>= 2.6.5, < 8.0.0)
     net-sftp (4.0.0)
       net-ssh (>= 5.0.0, < 8.0.0)
-    net-smtp (0.5.1)
+    net-smtp (0.5.2)
       net-protocol
     net-ssh (7.3.10)
       logger
