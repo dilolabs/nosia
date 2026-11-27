@@ -45,6 +45,8 @@
 
 # Ignore development files
 /.devcontainer
+/.worktrees
+/.cybedefend
 
 # Ignore Docker-related files
 /.dockerignore

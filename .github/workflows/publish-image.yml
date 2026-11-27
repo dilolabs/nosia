@@ -115,6 +115,17 @@ jobs:
           SCHEMA_VERSION: ${{ steps.contract.outputs.schema }}
         run: |
           docker run --rm --platform linux/arm64 nosia-native-smoke:test ruby bin/nosia-native-capabilities > capabilities.json
+          docker run --rm --platform linux/arm64 --cap-drop ALL --security-opt no-new-privileges:true \
+            nosia-native-smoke:test sh -ec '
+              test "$(id -u)" -eq 1000
+              for path in /rails /rails/app /rails/bin /rails/config /usr/local/bundle; do
+                test -d "$path"
+                test ! -w "$path"
+              done
+              for path in /rails/log /rails/storage /rails/tmp/pids; do
+                test -w "$path"
+              done
+            '
           docker run --rm --platform linux/arm64 --env NOSIA_NATIVE_LOCAL=1 \
             nosia-native-smoke:test ruby -e 'abort "Native supervisor must be unprivileged PID 1" unless Process.pid == 1 && Process.uid == 1000'
           install -d -m 700 "$RUNNER_TEMP/nosia-control"

@@ -56,9 +56,11 @@ ARG OCI_SOURCE=https://github.com/dilolabs/nosia
 LABEL org.opencontainers.image.source="${OCI_SOURCE}"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Copy built artifacts: gems, application
-COPY --from=build --chown=rails:rails /usr/local/bundle /usr/local/bundle
-COPY --from=build --chown=rails:rails /rails /rails
+# Keep shipped code and dependencies outside the runtime user's write access.
+COPY --from=build --chown=root:root /usr/local/bundle /usr/local/bundle
+COPY --from=build --chown=root:root /rails /rails
+RUN mkdir -p /rails/tmp/pids /rails/log /rails/storage && \
+    chown -R rails:rails /rails/tmp /rails/log /rails/storage
 
 # Set version and revision
 ARG APP_VERSION
