@@ -352,6 +352,11 @@ function Setup-Env {
     if ([string]::IsNullOrEmpty($AI_BASE_URL)) {
         $AI_BASE_URL = "http://model-runner.docker.internal/engines/llama.cpp/v1"
     }
+
+    $AI_API_KEY = $env:AI_API_KEY
+    if ([string]::IsNullOrEmpty($AI_API_KEY)) {
+        $AI_API_KEY = "dummy-key"
+    }
     
     # Auto-select LLM model if not set
     $LLM_MODEL = $env:LLM_MODEL
@@ -424,7 +429,7 @@ ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=${ACTIVE_RECORD_ENCRYPTION_KEY_DERI
 
 # AI Service Configuration
 AI_BASE_URL=${AI_BASE_URL}
-AI_API_KEY=${env:AI_API_KEY}
+AI_API_KEY=${AI_API_KEY}
 
 # LLM Model Configuration
 LLM_MODEL=${LLM_MODEL}

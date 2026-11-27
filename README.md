@@ -261,7 +261,7 @@ Nosia validates required environment variables at startup to prevent runtime fai
 
 | Variable | Description | Default | Range/Options |
 |----------|-------------|---------|---------------|
-| `AI_API_KEY` | API key for the AI service | empty | Any string |
+| `AI_API_KEY` | API key for the AI service | `dummy-key` (example and installers) | Use your provider's key if authentication is required |
 | `LLM_TEMPERATURE` | Model creativity (lower = more factual) | `0.1` | `0.0` - `2.0` |
 | `LLM_TOP_K` | Top K sampling parameter | `40` | `1` - `100` |
 | `LLM_TOP_P` | Top P (nucleus) sampling | `0.9` | `0.0` - `1.0` |
