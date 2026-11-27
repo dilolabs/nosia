@@ -414,7 +414,7 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
       assert_equal url, @server.reload.effective_endpoint
       assert_nil @server.url
       refute McpAuthorization.exists?(id: grant.id)
-      assert_equal "fixture-private-static-header", @server.headers.fetch("X-Static")
+      assert_empty @server.headers
       assert_equal count, @wire.oauth_requests.size
       assert_empty @wire.requests
     end
@@ -428,6 +428,7 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
   end
 
   test "an old static form cannot silently switch OAuth back to static on either workspace route" do
+    @team.update!(owner: @bob)
     bob = authenticated_browser(@bob)
     [ account_mcp_server_path(@team, @server), mcp_server_path(@server) ].each do |path|
       @server.update!(auth_mode: "static")
@@ -484,19 +485,19 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
 
   test "a static form opened before a credential replacement cannot overwrite the newer credential" do
     @server.update!(auth_mode: "static")
-    bob = authenticated_browser(@bob)
-    bob.get "#{detail_path}/edit"
-    old_revision = Nokogiri::HTML5(bob.response.body).at_css("input[name='mcp_server[editing_connection_revision]']")&.[]("value")
+    @alice_browser.get "#{detail_path}/edit"
+    old_revision = Nokogiri::HTML5(@alice_browser.response.body).at_css("input[name='mcp_server[editing_connection_revision]']")&.[]("value")
     @server.update!(token: "fixture-newest-token")
-    bob.patch detail_path, params: { mcp_server: { editing_auth_mode: "static", editing_connection_revision: old_revision,
+    @alice_browser.patch detail_path, params: { mcp_server: { editing_auth_mode: "static", editing_connection_revision: old_revision,
       configuration_values: { token: "fixture-stale-token" } } }
-    assert_equal 422, bob.response.status
-    refute_includes bob.response.body, "fixture-stale-token"
-    refute_includes bob.response.body, "fixture-newest-token"
+    assert_equal 422, @alice_browser.response.status
+    refute_includes @alice_browser.response.body, "fixture-stale-token"
+    refute_includes @alice_browser.response.body, "fixture-newest-token"
     assert_equal "fixture-newest-token", @server.reload.token
   end
 
   test "two old static forms cannot overwrite a raw endpoint edit that preserves the configured override" do
+    @team.update!(owner: @bob)
     @server.update!(auth_mode: "static", url: NativeMcpWire::URL, endpoint: "https://mcp.example.test/before")
     @server.update_columns(status: "ready", latency_ms: 23, last_connected_at: Time.current,
       metadata: { tools_cache: [ { name: "saved" } ] })
@@ -564,6 +565,7 @@ class McpOauthAuthorizationsTest < ActionDispatch::IntegrationTest
   end
 
   test "wrong transports and static mode cannot start OAuth" do
+    @alice.update!(admin: true)
     @wire.install(self) do
       %w[streamable local stdio sse].each do |transport|
         @server.update_columns(auth_mode: "static", transport_type: transport)

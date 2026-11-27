@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_20_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_22_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -285,6 +285,110 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_000001) do
     t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["model_id"], name: "index_messages_on_model_id"
     t.index ["tool_call_id"], name: "index_messages_on_tool_call_id"
+  end
+
+  create_table "note_folder_trashings", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_folder_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_folder_id"], name: "index_note_folder_trashings_on_note_folder_id", unique: true
+  end
+
+  create_table "note_folders", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "parent_id"
+    t.string "name", null: false
+    t.string "system_key"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "parent_id"], name: "index_note_folders_on_account_id_and_parent_id"
+    t.index ["account_id", "system_key"], name: "index_note_folders_on_account_id_and_system_key", unique: true, where: "(system_key IS NOT NULL)"
+  end
+
+  create_table "note_import_staged_files", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_import_id", null: false
+    t.text "path", null: false
+    t.text "payload", null: false
+    t.string "digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_import_id", "path"], name: "index_note_import_files_on_import_and_path", unique: true
+  end
+
+  create_table "note_imports", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "initiator_id", null: false
+    t.uuid "confirmation_key", null: false
+    t.string "root_name", null: false
+    t.string "status", default: "uploading", null: false
+    t.jsonb "manifest", null: false
+    t.jsonb "ignored_counts", null: false
+    t.jsonb "report"
+    t.bigint "root_note_folder_id"
+    t.datetime "activity_at", null: false
+    t.datetime "sealed_at"
+    t.datetime "enqueued_at"
+    t.datetime "claim_expires_at"
+    t.uuid "claim_token"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "initiator_id", "confirmation_key"], name: "idx_on_account_id_initiator_id_confirmation_key_c4adadc3d9", unique: true
+    t.index ["status", "activity_at"], name: "index_note_imports_on_status_and_activity_at"
+  end
+
+  create_table "note_pins", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_id"], name: "index_note_pins_on_note_id", unique: true
+  end
+
+  create_table "note_taggings", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_id", null: false
+    t.bigint "note_tag_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_id", "note_tag_id"], name: "index_note_taggings_on_note_id_and_note_tag_id", unique: true
+    t.index ["note_tag_id", "note_id"], name: "index_note_taggings_on_note_tag_id_and_note_id"
+  end
+
+  create_table "note_tags", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.text "key", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "key"], name: "index_note_tags_on_account_id_and_key", unique: true
+  end
+
+  create_table "note_trashings", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["note_id"], name: "index_note_trashings_on_note_id", unique: true
+  end
+
+  create_table "notes", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "note_folder_id", null: false
+    t.uuid "draft_key", null: false
+    t.text "title", default: "", null: false
+    t.text "body_html", default: "", null: false
+    t.text "body_text", default: "", null: false
+    t.integer "content_revision", null: false
+    t.datetime "content_updated_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "embedding_generation", default: 0, null: false
+    t.bigint "indexed_generation"
+    t.string "embedding_status", default: "empty", null: false
+    t.index ["account_id", "content_updated_at", "id"], name: "index_notes_on_account_id_and_content_updated_at_and_id"
+    t.index ["account_id", "draft_key"], name: "index_notes_on_account_id_and_draft_key", unique: true
+    t.index ["account_id", "note_folder_id", "content_updated_at", "id"], name: "idx_on_account_id_note_folder_id_content_updated_at_4ffd20809f"
   end
 
   create_table "passwordless_sessions", force: :cascade do |t|

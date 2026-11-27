@@ -31,18 +31,14 @@ module Api
       def verify_api_key
         authenticate_or_request_with_http_token do |given_token, _options|
           api_token = ApiToken.authenticate_token(given_token)
-          unless api_token&.user
+          unless api_token&.current_membership?
             render json: { error: "Unauthorized" }, status: :unauthorized
             return
           end
 
+          @api_token = api_token
           @user = api_token.user
-          @account = if params[:user].present?
-            @user.accounts.create_with(name: params[:user], owner: @user)
-              .find_or_create_by(uid: params[:user])
-          else
-            api_token.account
-          end
+          @account = api_token.account
           true
         end
       end

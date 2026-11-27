@@ -1,9 +1,11 @@
 require "active_job/test_helper"
 require "active_storage/fixture_set"
+require_relative "fixture_sequence_guard"
 
 module AccountExperienceFixtures
   extend ActiveSupport::Concern
   include ActiveJob::TestHelper
+  include FixtureSequenceGuard
 
   PASSWORD = "account-experience-password-123".freeze
   TABLES = %w[users accounts account_users ruby_llm_models chats messages documents texts qnas websites prompts api_tokens token_usages active_storage_blobs active_storage_attachments].freeze
@@ -15,10 +17,14 @@ module AccountExperienceFixtures
       ActsAsTenant.current_tenant = nil
       ActiveJob::Base.queue_adapter = :test
       ActiveRecord::FixtureSet.reset_cache
-      @experience_sets = ActiveRecord::FixtureSet.create_fixtures(
-        Rails.root.join("test/support/fixtures/account_experience").to_s, TABLES,
-        { "ruby_llm_models" => "RubyLLM::ActiveRecord::Model", "active_storage_blobs" => "ActiveStorage::Blob", "active_storage_attachments" => "ActiveStorage::Attachment" }
-      ).index_by(&:name)
+      @experience_sets = preserve_fixture_sequence(ActiveStorage::Blob) do
+        preserve_fixture_sequence(ActiveStorage::Attachment) do
+          ActiveRecord::FixtureSet.create_fixtures(
+            Rails.root.join("test/support/fixtures/account_experience").to_s, TABLES,
+            { "ruby_llm_models" => "RubyLLM::ActiveRecord::Model", "active_storage_blobs" => "ActiveStorage::Blob", "active_storage_attachments" => "ActiveStorage::Attachment" }
+          ).index_by(&:name)
+        end
+      end
       @user = experience(:users, :overview_owner)
       @member = experience(:users, :overview_member)
       @first = experience(:accounts, :overview_first)

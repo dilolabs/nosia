@@ -12,6 +12,7 @@ module DashboardsHelper
 
     [
       { key: "accounts", path: accounts_path, icon: "folders", scope: t("nosia.dashboard.your_accounts") },
+      { key: "notes", path: account ? account_notes_workspace_path(account) : notes_entry_path, icon: "note", scope: scope },
       { key: "sources", path: account ? sources_path : accounts_path, icon: "file-search", scope: scope },
       { key: "usage", path: token_usage_path, icon: "chart-bar", scope: t("nosia.dashboard.usage_scope") },
       { key: "profile", path: profile_path, icon: "identification", scope: t("nosia.dashboard.your_profile") },

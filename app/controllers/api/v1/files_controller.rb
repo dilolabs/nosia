@@ -27,7 +27,9 @@ module Api
       private
 
       def document_params
-        params.permit(:file, :purpose, :user)
+        attributes = params.permit(:file, :purpose)
+        attributes[:file] = Document::Upload.resolve(attributes[:file], account: @account, user: @user)
+        attributes
       end
     end
   end

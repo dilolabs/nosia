@@ -1,0 +1,19 @@
+field_notes:
+  account: picker_first
+  note_folder: interviews
+  draft_key: 019ac7d7-52dc-7111-8111-111111111111
+  title: Field notes
+  body_html: "<p>Interview outline</p>"
+  body_text: Interview outline
+  content_revision: 1
+  content_updated_at: 2026-11-21 10:00:00
+
+second_team_note:
+  account: picker_second
+  note_folder: second_team
+  draft_key: 019ac7d7-52dc-7111-8111-111111111111
+  title: Research 100%
+  body_html: "<p>Second team outline</p>"
+  body_text: Second team outline
+  content_revision: 1
+  content_updated_at: 2026-11-21 10:00:00

@@ -36,9 +36,10 @@ module Api
         end
 
         stream_response = ActiveModel::Type::Boolean.new.cast(params[:stream]) || false
+        note_access = Chat::NoteRetrieval.api(@api_token.id)
 
         if stream_response
-          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:) do |chunk|
+          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:, note_access:) do |chunk|
             next unless chunk.content && !chunk.content.blank?
             data = {
               choices: [
@@ -59,7 +60,7 @@ module Api
           end
           response.stream.write("data: [DONE]\n\n")
         else
-          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:)
+          chat_response = @chat.complete_with_nosia(prompt, model:, temperature:, top_k:, top_p:, max_tokens:, note_access:)
           render json: {
             choices: [
               finish_reason: "stop",

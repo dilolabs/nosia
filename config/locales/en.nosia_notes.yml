@@ -1,0 +1,193 @@
+en:
+  nosia:
+    nav:
+      notes: Notes
+    dashboard:
+      destinations:
+        notes: Notes
+    notes:
+      imports:
+        new_title: Import a Markdown folder
+        status_title: Import status
+        progress: "Files uploaded: %{uploaded} of %{total}"
+        disclosure: "This creates a separate folder at the account root. Imported notes are shared with members of this account. Saved content is sent to the configured indexing provider, which may be remote."
+        open_result: Open imported folder
+        inactive_result: The imported folder is no longer active in Notes.
+        refresh_status: Refresh status
+        uploading_receipt: To retry the same files after a network error, return to the original upload page if it is still open. If you left it, the selection cannot be recovered.
+        review_unfinished: Review unfinished upload
+        find_current: Find your current import
+        discard:
+          action: Discard upload
+          hint: To start over with a new selection, discard this unfinished upload. It will not affect any saved notes or any import whose upload is complete.
+          confirm: Discard this unfinished upload? The files already uploaded for it will be removed.
+          error: Could not discard the upload. Refresh this page and check its status before trying again.
+        poll_error: Could not check the import. Refresh this page to try again.
+        picker:
+          label: Choose a folder
+          limits: "Only .md files are imported. Choose up to %{max_files} notes and %{max_folders} folders (including the root), at most %{max_file_mib} MiB per note and %{max_total_mib} MiB total."
+          requires_js: Enable JavaScript and use a browser that supports folder selection.
+          unsupported: This browser does not support choosing folders here. Try a current browser that supports folder selection. Individual files and ZIP archives are not supported.
+          ready: Choose a folder to preview. Nothing is sent until you confirm.
+          preview: "Selected folder: %{root}. Notes: %{notes}. Folders (including root): %{folders}. Obsidian files ignored: %{obsidian}. Other files ignored: %{other}."
+          confirm: Upload and import
+          uploading: "Uploading Markdown: %{uploaded} of %{total} files acknowledged."
+          retry_button: Retry upload
+          retry_hint: Choose “Retry upload” to continue without starting a new import.
+          rejected: The upload was rejected.
+          too_large: The server rejected the request as too large. Try a smaller folder or ask your administrator about the upload limit.
+          transport_file_size: A Markdown file is too large for this server’s upload limit. Split the file or ask your administrator about the limit, then select the folder again.
+          restart: Correct the issue and select the folder again.
+          review: Review and discard the unfinished upload before selecting the corrected folder again.
+        report:
+          title: "Import report: %{name}"
+          saved_counts: "Saved — Notes: %{notes}. Folders (including root): %{folders}."
+          ignored_counts: "Ignored in your browser selection — Obsidian files: %{obsidian}. Other files: %{other}."
+          unresolved:
+            one: "%{count} unresolved link"
+            other: "%{count} unresolved links"
+          examples:
+            one: "%{count} example"
+            other: "%{count} examples"
+          example: "%{path} → %{target}"
+          indexing: Notes are saved. Indexing may still be pending; check the indexing status in each note.
+          back_to_receipt: View import status
+        statuses:
+          uploading: Waiting for files
+          sealed: Upload complete
+          queued: Waiting to import
+          running: Importing notes
+          succeeded: Notes imported
+          failed: Import failed
+          expired: This upload expired. Select the folder again to start a new import.
+        failures:
+          staging_unavailable: The uploaded files are no longer available. Select the folder again to start a new import.
+          membership_revoked: Access to the account changed during the import. Check your access before starting again.
+          empty_import: No Markdown notes could be imported. Check the folder contents and select it again.
+          rendered_file_size_exceeded: A note became too large after formatting. Split or simplify large notes and select the folder again.
+          rendered_total_size_exceeded: The notes became too large after formatting. Select a smaller folder.
+          invalid_rendered_content: A note could not be converted. Simplify its Markdown and select the folder again.
+          publication_failed: The Notes folder could not be saved. Try importing again later.
+          processing_timeout: The import did not start in time. Select the folder again to start a new import.
+          worker_claim_expired: Processing stopped before the notes could be saved. Select the folder again to retry.
+          upload_discarded: Upload discarded. Select the folder again to start a new import.
+          generic: The import failed and no notes were saved. Start a new import to try again.
+        errors:
+          not_found: This import was not found.
+          method_not_allowed: This request method is not allowed for the import.
+          invalid_request: The upload could not be read. Select the folder again.
+          length_required: The upload must specify its size.
+          invalid_length: The upload has an invalid size header.
+          payload_too_large: This request is too large. Upload fewer files at a time or select a smaller folder.
+          unsupported_media_type: This upload format is not supported.
+          invalid_batch: Upload between 1 and %{max_batch_files} Markdown files at a time.
+          invalid_confirmation_key: Confirm the folder selection again.
+          invalid_root_name: Rename the selected folder and try again.
+          invalid_file_count: Select a folder with between 1 and %{max_files} Markdown files.
+          invalid_path: A Markdown file has an invalid path. Check the file and folder names.
+          depth_limit_exceeded: A Markdown file is nested more than %{max_depth} levels below the root. Select a shallower folder.
+          duplicate_path: Two files have the same path. Rename one and try again.
+          invalid_file_size: Each Markdown file must be at most %{max_file_mib} MiB.
+          total_size_exceeded: The Markdown files exceed %{max_total_mib} MiB in total. Select a smaller folder.
+          path_collision: A file and a folder share a path. Rename one and try again.
+          folder_limit_exceeded: The import can contain at most %{max_folders} folders, including the root. Select a smaller folder.
+          invalid_ignored_counts: The ignored file counts are invalid. Select the folder again.
+          unexpected_path: An uploaded file was not in the confirmed selection. Select the folder again.
+          size_mismatch: An uploaded file changed size. Select the folder again.
+          invalid_payload: A Markdown file is not valid UTF-8 text. Fix its encoding and try again.
+          incomplete_upload: Some files have not been uploaded. Upload them before continuing.
+          confirmation_conflict: The selection has changed. Confirm it again.
+          import_in_progress: You already have an import in progress for this account. Wait for it to finish or expire.
+          content_conflict: A previously uploaded file has changed. Select the folder again.
+          not_uploading: This import is no longer accepting files.
+      title: Notes
+      title_singular: Note
+      no_account: You need access to an account to use Notes.
+      account: "Account: %{name}"
+      switch_account: Switch Notes account
+      folders_and_tags: Folders and tags
+      close_folders: Close folders and tags
+      folders: Folders
+      subfolders: Subfolders
+      subfolders_of: "Subfolders of %{name}"
+      tags: Tags
+      all_notes: All Notes
+      general: General
+      general_protected: General is a permanent folder and cannot be renamed, moved, or trashed.
+      untitled: Untitled
+      no_notes: There are no notes in this list.
+      select_note: Select a note or start a new one.
+      search: Search
+      search_label: Search all notes in this account
+      search_results: Search results
+      no_results: No notes match this search.
+      pages: Note pages
+      previous: Previous
+      next: Next
+      back_to_list: Back to list
+      back_to_notes: Back to Notes
+      editor: Note editor
+      new_note: New note
+      note_title: Title (optional)
+      body: Note text
+      save_note: Save note
+      formatting: Formatting
+      saving: Saving…
+      saved: Saved
+      unsaved: Unsaved changes
+      save_failed: Could not save your changes. Try again.
+      navigation_failed: Could not open that page. Your draft is still here.
+      action_failed: Could not complete that action. Your draft is still here.
+      retry: Retry
+      index_status:
+        empty: No text to index
+        pending: Indexing in progress
+        ready: Note indexed
+        failed: Indexing failed
+      retry_index: Retry indexing
+      index_retry_failed: Could not retry indexing. Try again.
+      index_retry_not_started: Indexing retry failed to start. Try again.
+      index_retry_changed: Indexing state changed. Check the current status before retrying.
+      index_status_unavailable: Could not check indexing status. Reopen the note to check again.
+      index_sharing: Saved, active notes are shared with this account. Their titles and text are sent to the configured embedding provider for indexing. Relevant excerpts can be sent to answer account chats or authorized API requests. Providers may be local or remote.
+      copy_draft: Copy draft
+      draft_copied: Draft copied.
+      copy_manually: Your draft is selected. Copy it using your browser or keyboard.
+      load_saved: Load saved version
+      copy_submitted_draft: Copy your unsaved title and text before leaving this page.
+      submitted_title: Submitted title
+      submitted_body: Submitted note text
+      discard_draft: You have unsaved changes. Leave this note and discard your draft?
+      edit_tag_seed: Add a title or edit the text before saving this note.
+      hashtag_too_long: A hashtag is too long. Shorten it and save the note again.
+      invalid_note: The note could not be saved. Check its content and try again.
+      new_folder: New folder
+      folder_actions: Folder actions
+      edit_folder: Edit folder
+      folder_name: Folder name
+      parent_folder: Parent folder
+      root_folder: No parent folder
+      save_folder: Save folder
+      note_actions: Note actions
+      pinned: Pinned
+      pin: Pin in folder
+      unpin: Unpin from folder
+      move_destination: Destination folder
+      choose_move_destination: Choose a destination folder
+      move: Move note
+      trash: Trash
+      trash_note: Trash note
+      trash_folder: Trash folder
+      confirm_trash_folder: "Move “%{name}” and all its folders and notes to Trash?"
+      empty_trash: Trash is empty.
+      trash_help: Restoring a folder keeps any separately trashed items in Trash.
+      direct_trash: Trashed separately
+      inherited_trash: Inherited from folder
+      restore: Restore
+      restore_parent_first: Restore the parent folder first.
+      purge: Delete permanently…
+      confirm_purge: Confirm permanent deletion
+      confirm_purge_note: "Permanently delete “%{name}”? This cannot be undone."
+      confirm_purge_folder: "Permanently delete “%{name}” and all its folders and notes, including items trashed separately? This cannot be undone."
+      edit_conflict: This note changed after you opened it. Your changes were not saved.
+      unavailable: This change is not available. The item may have been moved to Trash or its parent may no longer be active.

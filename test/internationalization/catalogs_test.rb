@@ -14,6 +14,8 @@ class CatalogsTest < ActiveSupport::TestCase
     nosia.sources.types.qna
     nosia.sources.types.website
     nosia.mcp.errors
+    nosia.notes.imports.report.examples
+    nosia.notes.imports.report.unresolved
     nosia.settings_tools.errors
     nosia.skills.errors
     nosia.skills_workspace.counts

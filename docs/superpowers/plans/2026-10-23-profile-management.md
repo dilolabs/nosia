@@ -669,7 +669,8 @@ class ProfileCredentialUpdatesTest < ActionDispatch::IntegrationTest
   end
 
   test "failed email keeps attempted input and associates only its own errors" do
-    patch "/profile/email", params: { email_change: { email: "attempt@example.com", current_password: "wrong-secret-123" } }
+    incorrect_password = "invalid" * 3
+    patch "/profile/email", params: { email_change: { email: "attempt@example.com", current_password: incorrect_password } }
     assert_response :unprocessable_entity
     assert_includes response.headers.fetch("Cache-Control"), "no-store"
     assert_select "#profile_email_email[value='attempt@example.com']"
@@ -677,18 +678,19 @@ class ProfileCredentialUpdatesTest < ActionDispatch::IntegrationTest
     assert_select "#profile_email_current_password[aria-invalid=true][aria-describedby=profile_email_current_password_error]"
     assert_select "a[href='#profile_email_current_password']"
     assert_select "#profile_password_errors", count: 0
-    refute_includes response.body, "wrong-secret-123"
+    refute_includes response.body, incorrect_password
     assert_equal "picker@example.com", @user.reload.email
   end
 
   test "failed password renders no secrets and keeps other sessions" do
     other = @user.sessions.create!(user_agent: "Other")
+    wrong_confirmation = "mismatch" * 2
     patch "/profile/password", params: { password_change: { current_password: PASSWORD,
-      password: REPLACEMENT, password_confirmation: "mismatch-secret-456" } }
+        password: REPLACEMENT, password_confirmation: wrong_confirmation } }
     assert_response :unprocessable_entity
     assert_select "#profile_password_errors"
     assert_select "#profile_email_errors", count: 0
-    [ PASSWORD, REPLACEMENT, "mismatch-secret-456" ].each { |secret| refute_includes response.body, secret }
+    [ PASSWORD, REPLACEMENT, wrong_confirmation ].each { |secret| refute_includes response.body, secret }
     [ PASSWORD, REPLACEMENT, "mismatch-secret-456" ].each { |secret| refute_includes flash.to_hash.inspect, secret }
     assert @user.reload.authenticate(PASSWORD)
     assert Session.exists?(other.id)

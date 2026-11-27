@@ -5,7 +5,7 @@ module Chat::AgentSkillable
     has_many :agent_skill_executions, dependent: :destroy
   end
 
-  def complete_with_agent_skills(question, **options)
+  def complete_with_agent_skills(question, note_access: nil, **options)
     skills = AgentSkill::Detector.detect(self, question)
 
     if skills.any?
@@ -23,7 +23,11 @@ module Chat::AgentSkillable
       end
     end
 
-    complete_with_nosia(question, **options)
+    if note_access
+      complete_with_nosia(question, **options, note_access:)
+    else
+      complete_with_nosia(question, **options)
+    end
   end
 
   private

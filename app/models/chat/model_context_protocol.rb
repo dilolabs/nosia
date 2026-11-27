@@ -75,7 +75,7 @@ module Chat::ModelContextProtocol
       ActsAsTenant.with_tenant(chat_account) do
         return {} unless AccountUser.exists?(account_id: chat_account.id, user_id: owner_id)
 
-        transports = McpServer.stdio_enabled? ? %w[streamable local stdio] : %w[streamable local]
+        transports = McpServer.stdio_enabled? && User.exists?(id: owner_id, admin: true) ? %w[streamable local stdio] : %w[streamable local]
         scope = chat_account.mcp_servers.enabled.where(transport_type: transports).order(:name)
         servers = (ids ? scope.where(id: ids) : scope).to_a
         grants = McpAuthorization.for_chat(account_id: chat_account.id, user_id: owner_id,
@@ -84,7 +84,7 @@ module Chat::ModelContextProtocol
         servers.each_with_object({}) do |server, result|
           if server.oauth?
             result[server] = grants[server.id] if grants.key?(server.id)
-          elsif include_unready_static || server.ready_for_tools?
+          elsif (!server.stdio? || server.reviewed_stdio?) && (include_unready_static || server.ready_for_tools?)
             result[server] = nil
           end
         end

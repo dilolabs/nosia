@@ -80,6 +80,7 @@ Production deployment strategies, best practices, and operational guidance.
 - [MCP workspace](mcp-workspace.md) — account context, catalog, safe configuration, connection feedback and capability browsing.
 - [Signed-in dashboard](dashboard.md) — inline conversations, cross-account token statistics, explicit tool shortcuts, and private recents.
 - [Sources workspace](sources-workspace.md) — default/scoped lists, composed filters, uploads, forms, live status, and safe details.
+- [Notes workspace](notes-workspace.md) — shared notes, folders, draft recovery, Trash, and AI access.
 - [Token usage workspace](token-usage-workspace.md) — global/account reporting periods, overview/detail layout, estimates, accessibility and cache freshness.
 - [Agent skills workspace](agent-skills-workspace.md) — default/scoped management, structured rows, raw source editing, parser limits and accessible feedback.
 - [Chat account selection](chat-account-selection.md) — picker behavior, account boundaries, and source request context.

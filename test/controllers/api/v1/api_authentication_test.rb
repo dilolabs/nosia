@@ -44,14 +44,15 @@ module Api
         assert_empty Text.where(data: "anon")
       end
 
-      test "valid token with params[user] provisions an account owned by the caller" do
-        post "/api/v1/texts",
-          params: { data: "scoped corpus", user: "team-alpha" },
-          headers: auth_header(@token.plain_token), as: :json
+      test "valid token keeps its account when OpenAI user metadata is supplied" do
+        assert_no_difference "Account.count" do
+          post "/api/v1/texts",
+            params: { data: "scoped corpus", user: "end-user-metadata" },
+            headers: auth_header(@token.plain_token), as: :json
+        end
 
         assert_response :success
-        account = @user.accounts.find_by!(uid: "team-alpha")
-        assert_equal account.id, Text.find_by!(data: "scoped corpus").account_id
+        assert_equal @account.id, Text.find_by!(data: "scoped corpus").account_id
       end
 
       test "agent skills index responds for a valid token" do

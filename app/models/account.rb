@@ -3,7 +3,7 @@ class Account < ApplicationRecord
 
   belongs_to :owner, class_name: "User"
 
-  before_destroy :lock_for_mcp_authorization_cleanup, prepend: true
+  before_destroy :prepare_dependent_cleanup, prepend: true
 
   has_many :account_users, dependent: :destroy do
     def grant_to(users)
@@ -17,12 +17,26 @@ class Account < ApplicationRecord
   has_many :chunks, dependent: :destroy
   has_many :documents, dependent: :destroy
   has_many :mcp_servers, dependent: :destroy
+  has_many :notes, dependent: :destroy
+  has_many :note_folders, dependent: :destroy
+  has_many :note_imports, -> { extending(NoteImport::DestroyOnlyCollection) }, dependent: :destroy
+  has_many :note_tags, dependent: :destroy
   has_many :prompts, dependent: :destroy
   has_many :qnas, dependent: :destroy
   has_many :texts, dependent: :destroy
   has_many :websites, dependent: :destroy
   has_many :agent_skills, dependent: :destroy
   has_many :token_usages, dependent: :destroy
+
+  # Finds or lazily creates the permanent Notes root for this account.
+  # @return [NoteFolder] The account's General folder.
+  def general_note_folder
+    with_lock do
+      note_folders.find_or_create_by!(system_key: NoteFolder::GENERAL_SYSTEM_KEY) do |folder|
+        folder.name = "General"
+      end
+    end
+  end
 
   # Recompute cached token counters from the token_usages event log (drift repair).
   # Rails 8's sum takes a single column, so two queries (small, indexed).
@@ -96,8 +110,12 @@ class Account < ApplicationRecord
   end
 
   private
-    def lock_for_mcp_authorization_cleanup
+    def prepare_dependent_cleanup
       Account.lock.find(id)
+      notes.reload
+      note_folders.reload
+      note_imports.reload
+      note_tags.reload
       McpAuthorization.uncached { McpAuthorization.where(account_id: id).find_each(&:retire!) }
     end
 end

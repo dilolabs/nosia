@@ -10,6 +10,16 @@ module ActiveSupport
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
+    def create_document_upload(account:, user:, filename: "report.pdf")
+      contents = "%PDF-1.4\n%%EOF"
+      blob = Document::Upload.create(account:, user:, attributes: {
+        filename:, byte_size: contents.bytesize, checksum: ::Digest::MD5.base64digest(contents),
+        content_type: "application/pdf"
+      })
+      blob.upload_without_unfurling(StringIO.new(contents))
+      blob
+    end
+
     # Stubs UrlGuard DNS resolution so SSRF-guard tests never touch real DNS.
     # Pair with unstub_url_resolver in teardown.
     def stub_url_resolver(ips)

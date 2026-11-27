@@ -1,0 +1,19 @@
+<%# locals: (account:, active_folders:, folders:, paths:, notes:, direct_folder_ids:, direct_note_ids:) %>
+<section class="n-notes-trash" data-notes-trash aria-labelledby="notes-trash-heading">
+  <h2 id="notes-trash-heading"><%= t("nosia.notes.trash") %></h2>
+  <% if folders.empty? && notes.empty? %>
+    <p class="n-notes-empty"><%= t("nosia.notes.empty_trash") %></p>
+  <% else %>
+    <p><%= t("nosia.notes.trash_help") %></p>
+    <ul>
+      <% [ nil, *active_folders.keys ].each do |parent_id| %>
+        <% folders.fetch(parent_id, []).each do |folder| %>
+          <%= render "notes/workspaces/trash_branch", account:, folder:, folders:, paths:, notes:, direct_folder_ids:, direct_note_ids:, restorable: true %>
+        <% end %>
+        <% notes.fetch(parent_id, []).each do |note| %>
+          <%= render "notes/workspaces/trash_note", account:, note:, paths:, direct: direct_note_ids.include?(note.id), restorable: true %>
+        <% end %>
+      <% end %>
+    </ul>
+  <% end %>
+</section>

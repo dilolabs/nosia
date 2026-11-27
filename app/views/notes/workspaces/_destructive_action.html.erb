@@ -1,0 +1,25 @@
+<%# locals: (path:, method:, confirmation:, id:, label:, submit_label:) %>
+<%# Dialog commands take precedence when supported; popover targets keep open and Cancel usable without them. %>
+<div class="n-notes-confirmation" data-controller="notes-action-dialog"
+     data-action="keydown.esc->notes-action-dialog#dismiss focusin@document->notes-action-dialog#focusChanged">
+  <button type="button" class="n-notes-button n-notes-menu-trigger n-notes-menu-danger n-notes-confirmation-trigger"
+          command="show-modal" commandfor="<%= id %>" popovertarget="<%= id %>"
+          aria-haspopup="dialog" data-notes-action-dialog-target="trigger" data-action="notes-action-dialog#open">
+    <span><%= label %></span>
+    <%= inline_svg "svg/chevron-down.svg", aria_hidden: true, class: "n-notes-icon" %>
+  </button>
+  <dialog id="<%= id %>" class="n-notes-dropdown n-notes-confirmation-dialog" closedby="any" popover="auto"
+          aria-labelledby="<%= id %>-heading" aria-describedby="<%= id %>-description"
+          data-controller="notes-dropdown" data-notes-action-dialog-target="panel"
+          data-action="turbo:before-morph-attribute->notes-action-dialog#preserveOpen">
+    <h3 id="<%= id %>-heading"><%= label %></h3>
+    <p id="<%= id %>-description"><%= confirmation %></p>
+    <div class="n-notes-actions">
+      <button type="button" class="n-notes-button" autofocus
+              command="close" commandfor="<%= id %>" popovertarget="<%= id %>" popovertargetaction="hide"
+              data-action="notes-action-dialog#dismiss"><%= t("nosia.actions.cancel") %></button>
+      <%= button_to submit_label, path, method:, class: "n-notes-button n-notes-menu-danger",
+                    form: { data: { turbo_confirm: confirmation } } %>
+    </div>
+  </dialog>
+</div>

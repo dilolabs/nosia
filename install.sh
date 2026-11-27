@@ -131,22 +131,35 @@ generate_docker_compose() {
 services:
   reverse-proxy:
     image: caddy:latest
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
     depends_on:
       - web
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "\${NOSIA_BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "\${NOSIA_BIND_ADDRESS:-127.0.0.1}:443:443"
     environment:
       - NOSIA_URL=\${NOSIA_URL}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-config:/config
       - caddy-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
 
   db-migrate:
     image: dilolabs/nosia:latest
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     command: bundle exec rails db:prepare
+    healthcheck:
+      disable: true
     environment:
       - DATABASE_URL=\${DATABASE_URL}
       - EMBEDDING_DIMENSIONS=\${EMBEDDING_DIMENSIONS}
@@ -161,6 +174,9 @@ services:
 
   web:
     image: dilolabs/nosia:latest
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       - DATABASE_URL=\${DATABASE_URL}
       - SECRET_KEY_BASE=\${SECRET_KEY_BASE}
@@ -199,6 +215,9 @@ services:
 
   postgres-db:
     image: pgvector/pgvector:pg16
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
     environment:
       - POSTGRES_DB=\${POSTGRES_DB}
       - POSTGRES_USER=\${POSTGRES_USER}
@@ -208,7 +227,7 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
-      test: pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"\$\$POSTGRES_USER\" -d \"\$\$POSTGRES_DB\""]
       interval: 2s
       timeout: 5s
       retries: 30
@@ -216,7 +235,21 @@ services:
 
   solidq:
     image: dilolabs/nosia:latest
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     command: bundle exec rake solid_queue:start
+    healthcheck:
+      test:
+        - CMD
+        - bin/rails
+        - runner
+        - >-
+          exit(SolidQueue::Process.where(kind: 'Worker', hostname: Socket.gethostname,
+          last_heartbeat_at: 2.minutes.ago..).exists? ? 0 : 1)
+      interval: 60s
+      timeout: 20s
+      start_period: 30s
     environment:
       - DATABASE_URL=\${DATABASE_URL}
       - SECRET_KEY_BASE=\${SECRET_KEY_BASE}

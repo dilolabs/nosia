@@ -38,6 +38,7 @@ class McpServer < ApplicationRecord
   # Callbacks
   before_validation :set_default_status
   before_validation :retire_legacy_sse_override
+  before_save :record_stdio_review, if: :stdio?
 
   # Encrypt sensitive fields
   encrypts :auth_config, :connection_config
@@ -52,6 +53,8 @@ class McpServer < ApplicationRecord
   end
 
   def local? = transport_type == "local"
+  def stdio? = transport_type == "stdio"
+  def reviewed_stdio? = stdio? && self.class.stdio_enabled? && connection_config&.[]("stdio_reviewed") == true
   def legacy_sse? = transport_type == "sse"
   def saved_legacy_sse? = attribute_in_database("transport_type") == "sse" && persisted?
   def stdio_executable? = command.is_a?(String) && STDIO_EXECUTABLE.match?(command)
@@ -206,10 +209,16 @@ class McpServer < ApplicationRecord
     errors.add(:endpoint, :public_host_required)
   end
 
-  def stdio_disabled? = transport_type == "stdio" && !self.class.stdio_enabled?
+  def stdio_disabled? = stdio? && !reviewed_stdio?
 
   def stdio_transport_enabled_for_deployment
-    errors.add(:transport_type, :stdio_disabled) if stdio_disabled?
+    errors.add(:transport_type, :stdio_disabled) unless self.class.stdio_enabled?
+  end
+
+  def record_stdio_review
+    # Only operators and instance administrators can save stdio configuration.
+    # Do not run command rows saved before that permission was introduced.
+    self.connection_config = connection_config.to_h.merge("stdio_reviewed" => true)
   end
 
   def validate_stdio_executable

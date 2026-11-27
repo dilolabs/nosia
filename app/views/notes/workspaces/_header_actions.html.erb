@@ -1,0 +1,13 @@
+<%# locals: (account:, options:, screen:) %>
+<div id="notes-header-actions" class="n-notes-actions">
+  <%= link_to t("nosia.notes.folders_and_tags"), account_notes_workspace_path(account, **options.merge(view: "folders")),
+              class: "n-workspace-button n-notes-folder-trigger",
+              data: { notes_navigation_target: "trigger", action: "notes-navigation#open" } %>
+  <% unless screen == "trash" %>
+    <%= link_to new_account_note_path(account, **options), class: "n-workspace-button n-workspace-primary" do %>
+      <%= inline_svg "svg/plus.svg", aria_hidden: true, class: "n-notes-icon" %>
+      <%= t("nosia.notes.new_note") %>
+    <% end %>
+    <%= link_to t("nosia.notes.imports.new_title"), new_account_note_import_path(account), class: "n-workspace-button" %>
+  <% end %>
+</div>

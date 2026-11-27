@@ -1,5 +1,5 @@
 class Chunk < ApplicationRecord
-  include Enrichable, Searchable, Vectorizable
+  include Enrichable, NoteVisibility, Searchable, Vectorizable
 
   belongs_to :account
   belongs_to :chunkable, polymorphic: true
@@ -39,12 +39,18 @@ class Chunk < ApplicationRecord
     ""
   end
 
+  def note_chunk?
+    chunkable_type == "Note"
+  end
+
   def title
     case chunkable_type
     when "Document"
       chunkable.title
     when "Website"
       chunkable.title
+    when "Note"
+      chunkable&.display_title
     else
       context.first(42)
     end

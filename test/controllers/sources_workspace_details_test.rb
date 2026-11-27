@@ -224,7 +224,7 @@ class SourcesWorkspaceDetailsTest < ActionDispatch::IntegrationTest
     get account_sources_document_path(@second, source)
     assert_response :success
     assert_select "[data-source-file-link][target='_blank'][rel='noopener']", text: source.file.filename.to_s
-    assert_select "[data-source-file-link][href*='/rails/active_storage/']"
+    assert_select "[data-source-file-link][href=?]", account_sources_document_file_path(@second, source)
     assert_select "[data-source-document-preview] iframe, [data-source-document-preview] img", count: 0
 
     source.file.blob.update_columns(content_type: "application/pdf")

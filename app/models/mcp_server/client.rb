@@ -33,14 +33,16 @@ class McpServer::Client
         @credential_store.native_key(url)
         context.mcp(**options, url:, oauth: { owner: grant })
       elsif server.transport_type == "stdio"
+        raise McpOutbound::Blocked unless server.reviewed_stdio?
+
         argv = stdio_argv(server)
         env = server.env || {}
         scope = @scope
         RubyLLM.mcp(**options, transport: -> { Stdio.new(argv, env:, scope:) })
       else
-        url = McpOutbound.endpoint!(@scope.endpoint, https_only: false)
+        url = McpOutbound.endpoint!(@scope.endpoint, https_only: @scope.https_only?)
         @headers = @scope.headers
-        context.mcp(**options, url: url.to_s, headers: @headers, allow_http: true)
+        context.mcp(**options, url: url.to_s, headers: @headers, allow_http: !@scope.https_only?)
       end
     end
   end
@@ -191,7 +193,8 @@ class McpServer::Client
       -> do
         McpServer.uncached do
           saved = McpServer.unscoped.find_by(id:, account_id:, connection_revision: revision, transport_type: "stdio", auth_mode: "static")
-          unless saved&.enabled? && saved.ready_for_tools? && AccountUser.exists?(account_id:, user_id: @chat_owner_id)
+          unless saved&.enabled? && saved.ready_for_tools? && AccountUser.exists?(account_id:, user_id: @chat_owner_id) &&
+              User.exists?(id: @chat_owner_id, admin: true)
             raise McpOutbound::Blocked
           end
         end

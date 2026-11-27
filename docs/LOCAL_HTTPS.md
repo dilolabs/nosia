@@ -4,11 +4,11 @@ This is the canonical guide for the optional trust setup at `https://nosia.local
 
 ## What you are trusting
 
-The Compose path is **client HTTPS → Caddy → private HTTP `web:3000` (Puma)**. Only Caddy publishes ports 80/443; the web service does not publish Puma's port. There is no Thruster proxy.
+The Compose path is **client HTTPS → Caddy → private HTTP `web:3000` (Puma)**. Caddy publishes ports 80/443 on `127.0.0.1` by default; the web service does not publish Puma's port. There is no Thruster proxy.
 
 For `.localhost`, Caddy creates a local certificate authority (CA): a **self-signed root** signs an intermediate, which signs the site's certificate. The site's certificate is **not a self-signed leaf**. Trust the public root, not the leaf or intermediate. Caddy running inside a container cannot automatically establish trust on your host.
 
-For real public domains, Caddy's automatic public ACME certificate management remains available. Do not add `tls internal` unconditionally to the Caddyfile. Public domains using publicly trusted certificates require **no local CA import**; see [production deployment](DEPLOYMENT.md#4-configure-caddy-reverse-proxy).
+For real public domains, Caddy's automatic public ACME certificate management remains available. If you use the standard Compose file, set `NOSIA_BIND_ADDRESS` in `.env` to the host's external IPv4 address, or to `0.0.0.0` for all IPv4 interfaces. Do not add `tls internal` unconditionally to the Caddyfile. Public domains using publicly trusted certificates require **no local CA import**; see [production deployment](DEPLOYMENT.md#4-configure-caddy-reverse-proxy).
 
 > **Machine-wide authority extends beyond `nosia.localhost`.** This CA can issue certificates for other hostnames. Protect Docker access and the `caddy-data` volume: anyone with the CA's private key can mint certificates trusted by machines that imported its root. Import only the root from your intended Nosia instance, never an unknown remote Docker CA. Never copy private keys or the whole PKI directory to the host, browser, repository, or support ticket.
 

@@ -1,0 +1,255 @@
+# Prepares embeddings for the current text and publishes them as one generation.
+module Note::Indexable
+  extend ActiveSupport::Concern
+
+  EMBEDDABLE_CHARACTER = /[^\p{Space}\p{Cc}\p{Cf}]/u
+  private_constant :EMBEDDABLE_CHARACTER
+
+  # A provider error or unusable response, with no remote text in the message.
+  class EmbeddingError < StandardError; end
+
+  # A rolled-back index publication, with no private database details.
+  class PublicationError < StandardError; end
+
+  included do
+    enum :embedding_status, { empty: "empty", pending: "pending", ready: "ready", failed: "failed" },
+      prefix: :embedding
+  end
+
+  class_methods do
+    # Invalidates every nonempty note, including hidden notes, during an
+    # embedding-space reset. Call in a transaction before locking chunks.
+    # @return [void]
+    def invalidate_embedding_space
+      in_batches do |batch|
+        ids = batch.pluck(:id, :title, :body_text).filter_map do |id, title, body_text|
+          id if Note::Indexable.embedding_input(title, body_text).present?
+        end
+        where(id: ids).update_all("embedding_generation = embedding_generation + 1, indexed_generation = NULL, embedding_status = 'pending'") if ids.any?
+      end
+    end
+
+    # Rebuilds active Note generations synchronously for index maintenance.
+    # @return [void]
+    # @raise [EmbeddingError] If any active generation remains incomplete.
+    # @raise [PublicationError] If a generation cannot be published.
+    def rebuild_active_embeddings
+      Account.find_each do |account|
+        active = active_in(account.id)
+        active.embedding_failed.update_all(embedding_status: "pending")
+        active.embedding_pending.find_each { |note| note.index_now(note.embedding_generation) }
+        if active.where(embedding_status: %w[pending failed]).exists?
+          raise EmbeddingError, "Incomplete note embedding reconstruction"
+        end
+      end
+    end
+  end
+
+  # @api private
+  def self.embedding_input(title, body_text)
+    [ title.strip, body_text.strip ].grep(EMBEDDABLE_CHARACTER).join("\n\n")
+  end
+
+  # Prepares vectors without locks, then replaces the published index if still current.
+  # @param generation [Integer] The scheduled embedding generation.
+  # @return [Note, nil] The note, or nil when it is ineligible before a provider call.
+  # @raise [EmbeddingError] If the provider cannot supply usable vectors.
+  # @raise [PublicationError] If the replacement cannot be persisted.
+  # @raise [Note::Unavailable] If the note is removed during preparation.
+  def index_now(generation)
+    return unless persisted? && id == id_in_database
+
+    scope = self.class.active_in(account_id_in_database).where(id:, embedding_status: "pending", embedding_generation: generation)
+    snapshot = self.class.uncached { scope.first }
+    return unless snapshot
+
+    prepared = prepare_embeddings(snapshot.embedding_input, scope)
+    return unless prepared
+
+    publish_current_generation(generation, prepared)
+  end
+
+  # Marks a current, active pending generation as failed after the final attempt.
+  # @param generation [Integer] The exhausted generation.
+  # @return [Note, nil] The note, or nil if it no longer exists.
+  def mark_index_failed(generation)
+    with_locked_note(lock_record: true) do
+      update!(embedding_status: :failed) if indexable_generation?(generation)
+    end
+  rescue Note::Unavailable
+    nil
+  end
+
+  # Schedules another attempt for a failed active note without changing its generation.
+  # @return [Note, nil] The note, or nil if it no longer exists.
+  def retry_index
+    resume_indexing_in("failed")
+  end
+
+  # Resumes an active note's pending or failed indexing after restoration or a broken queue handoff.
+  # @return [Note, nil] The note, or nil if it no longer exists.
+  def resume_indexing
+    resume_indexing_in("pending", "failed")
+  end
+
+  protected
+    def embedding_input
+      Note::Indexable.embedding_input(title, body_text)
+    end
+
+  private
+    def assign_embedding_generation(previous_input)
+      input = embedding_input
+      return false if input == previous_input
+
+      self.embedding_generation += 1
+      self.embedding_status = input.empty? ? :empty : :pending
+      self.indexed_generation = nil if embedding_empty?
+      true
+    end
+
+    def apply_embedding_change
+      if embedding_empty?
+        chunks.destroy_all
+      else
+        index_later(embedding_generation)
+      end
+    end
+
+    def index_later(generation)
+      note_id = id
+      ActiveRecord.after_all_transactions_commit do
+        self.class.logger.silence(Logger::INFO) do
+          unless enqueue_index_job(note_id, generation)
+            Rails.logger.warn("Could not enqueue Note indexing")
+            mark_index_handoff_failed(note_id, generation)
+          end
+        end
+      end
+    end
+
+    def enqueue_index_job(note_id, generation)
+      # Active Job would otherwise log the adapter's raw exception before the
+      # failure can be converted into recoverable Note state.
+      Note::IndexJob.logger.silence(Logger::UNKNOWN) do
+        Note::IndexJob.set(wait: 30.seconds).perform_later(note_id, generation)
+      end
+    rescue ActiveJob::EnqueueError, SolidQueue::Job::EnqueueError, ActiveRecord::ActiveRecordError
+      false
+    end
+
+    def mark_index_handoff_failed(note_id, generation)
+      # Retry once in a fresh transaction. A failure here must not interrupt
+      # the other Notes' after-commit handoffs.
+      2.times do
+        return self.class.find_by(id: note_id)&.mark_index_failed(generation)
+      rescue ActiveRecord::ActiveRecordError
+        next
+      end
+
+      # The generation can still be resumed via Note#resume_indexing.
+      Rails.logger.warn("Could not mark Note indexing failed (note_id=#{note_id}, generation=#{generation})")
+    end
+
+    def prepare_embeddings(input, eligible)
+      splitter = Baran::RecursiveCharacterTextSplitter.new(
+        chunk_size: ENV.fetch("CHUNK_SIZE", "512").to_i,
+        chunk_overlap: ENV.fetch("CHUNK_OVERLAP", "128").to_i
+      )
+      texts = splitter.chunks(input).pluck(:text).grep(EMBEDDABLE_CHARACTER)
+      raise EmbeddingError, "Note has no embeddable chunks" if texts.empty?
+
+      texts.map do |text|
+        return unless self.class.uncached { eligible.exists? }
+
+        result = embed_part(text)
+        unless result.respond_to?(:vectors) && result.respond_to?(:tokens) && usable_vector?(result.vectors)
+          raise EmbeddingError, "Embedding provider returned an unusable result"
+        end
+        [ text, result.vectors, valid_input_tokens(result) ]
+      end
+    end
+
+    def valid_input_tokens(result)
+      count = result.tokens&.input
+      if count.is_a?(Integer) && count.positive? && TokenUsage.type_for_attribute("input_tokens").serializable?(count)
+        count
+      end
+    end
+
+    def embed_part(text)
+      Chunk.embed_text(text, private_input: true)
+    rescue RubyLLM::Error, Faraday::ParsingError
+      raise EmbeddingError, "Embedding provider request failed", cause: nil
+    rescue NoMethodError, TypeError, ArgumentError => error
+      # RubyLLM 2.2 can raise these when parsing or instrumenting a malformed result.
+      raise unless error.backtrace_locations.first&.absolute_path&.start_with?("#{Gem.loaded_specs.fetch("ruby_llm").full_gem_path}/")
+
+      raise EmbeddingError, "Embedding provider returned a malformed response", cause: nil
+    end
+
+    def usable_vector?(vector)
+      return false unless vector.is_a?(Array) && vector.size == Chunk.embedding_dimensions
+      return false unless vector.all? { |value| value.is_a?(Float) || value.is_a?(Integer) }
+
+      # pgvector stores single-precision values. Reject overflow and vectors that
+      # become zero when cast, since zero vectors have no cosine similarity.
+      stored = vector.pack("f*").unpack("f*")
+      stored.all?(&:finite?) && stored.any?(&:nonzero?)
+    end
+
+    def indexable_generation?(generation)
+      embedding_pending? && embedding_generation == generation && active_for_indexing?
+    end
+
+    def active_for_indexing?
+      self.class.active_in(account_id).exists?(id:)
+    end
+
+    def publish_current_generation(generation, prepared)
+      with_locked_note(lock_record: true) do |locked_account|
+        if indexable_generation?(generation)
+          # SQL bind logging would include the text being written to chunks.
+          self.class.logger.silence do
+            publish_embeddings(locked_account, generation, prepared)
+          end
+        end
+      end
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved, ActiveRecord::RecordNotDestroyed,
+        ActiveRecord::RecordNotUnique, ActiveRecord::InvalidForeignKey, ActiveRecord::NotNullViolation,
+        ActiveRecord::CheckViolation, ActiveRecord::ValueTooLong, ActiveRecord::LockWaitTimeout, ActiveRecord::TransactionRollbackError
+      # The transaction has unwound; no partial replacement or usage survives.
+      raise PublicationError, "Note index publication failed", cause: nil
+    end
+
+    def publish_embeddings(owner, generation, prepared)
+      chunks.destroy_all
+      total_tokens = owner.input_tokens_count
+      counter_type = Account.type_for_attribute("input_tokens_count")
+      prepared.each.with_index(1) do |(text, vector, input_tokens), position|
+        if input_tokens && counter_type.serializable?(total_tokens + input_tokens)
+          total_tokens += input_tokens
+        else
+          input_tokens = nil
+        end
+
+        result = RubyLLM::Embedding.new(vectors: vector, model: ENV["EMBEDDING_MODEL"], input_tokens:)
+        chunks.create!(account: owner, content: text, prepared_embedding_result: result,
+          metadata: { "position" => position, "note_generation" => generation })
+      end
+      update!(indexed_generation: generation, embedding_status: :ready)
+    end
+
+    def resume_indexing_in(*statuses)
+      with_locked_note do
+        resume_pending_index if statuses.include?(embedding_status) && active_for_indexing?
+      end
+    rescue Note::Unavailable
+      nil
+    end
+
+    def resume_pending_index
+      update!(embedding_status: :pending) if embedding_failed?
+      index_later(embedding_generation) if embedding_pending?
+    end
+end

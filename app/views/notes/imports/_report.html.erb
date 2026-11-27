@@ -1,0 +1,27 @@
+<%# locals: (import:, account:, link_to_receipt: false) %>
+<% report = import.report %>
+<% if report.key?("root_name") %>
+  <section class="n-notes-import-report" aria-labelledby="notes-import-report-heading" data-note-import-report>
+    <h2 id="notes-import-report-heading"><%= t("nosia.notes.imports.report.title", name: report.fetch("root_name")) %></h2>
+    <p><%= t("nosia.notes.imports.report.saved_counts", notes: report.fetch("note_count"), folders: report.fetch("folder_count")) %></p>
+    <p><%= t("nosia.notes.imports.report.ignored_counts", **report.fetch("ignored_counts").symbolize_keys.slice(:obsidian, :other)) %></p>
+    <p><%= t("nosia.notes.imports.report.unresolved", count: report.fetch("unresolved_count")) %></p>
+    <% examples = report.fetch("unresolved_examples").first(NoteImport::Markdown::MAX_WARNING_EXAMPLES) %>
+    <% if examples.any? %>
+      <details>
+        <summary><%= t("nosia.notes.imports.report.examples", count: examples.size) %></summary>
+        <ul>
+          <% examples.each do |example| %>
+            <li><%= t("nosia.notes.imports.report.example",
+                       path: example.fetch("path").byteslice(0, NoteImport::Manifest::MAX_PATH_BYTES).scrub(""),
+                       target: example.fetch("target").byteslice(0, NoteImport::Markdown::MAX_WARNING_TARGET_BYTES).scrub("")) %></li>
+          <% end %>
+        </ul>
+      </details>
+    <% end %>
+    <p><%= t("nosia.notes.imports.report.indexing") %></p>
+    <% if link_to_receipt %>
+      <%= link_to t("nosia.notes.imports.report.back_to_receipt"), account_note_import_path(account, import), class: "n-notes-button" %>
+    <% end %>
+  </section>
+<% end %>

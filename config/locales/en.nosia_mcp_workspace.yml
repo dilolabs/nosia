@@ -57,6 +57,7 @@ en:
       local_transport_fixed: Built-in integrations keep their registered local transport.
       missing_registration: This integration’s configuration definition is unavailable. Existing settings are preserved.
       stdio_unavailable: Local process connections are disabled on this deployment.
+      stdio_admin_required: Only instance administrators can configure local process connections.
       legacy_sse_migration: Switch to Streamable HTTP and enter the new endpoint provided by your MCP server. Legacy SSE connections are no longer supported.
       legacy_sse_unavailable: Legacy SSE unavailable
       remote_failure: Could not connect to the MCP server

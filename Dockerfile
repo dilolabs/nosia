@@ -26,7 +26,7 @@ FROM base AS build
 
 # Install packages need to build gems
 RUN apt-get update -qq && \
-    apt-get install -y build-essential git pkg-config libffi-dev libyaml-dev libclang-dev && \
+    apt-get install --no-install-recommends -y build-essential git pkg-config libffi-dev libyaml-dev libclang-dev && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Install Rust toolchain (Debian cargo is too old for html-to-markdown's deps)
@@ -56,9 +56,11 @@ ARG OCI_SOURCE=https://github.com/dilolabs/nosia
 LABEL org.opencontainers.image.source="${OCI_SOURCE}"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Copy built artifacts: gems, application
-COPY --from=build --chown=rails:rails /usr/local/bundle /usr/local/bundle
-COPY --from=build --chown=rails:rails /rails /rails
+# Keep shipped code and dependencies outside the runtime user's write access.
+COPY --from=build --chown=root:root /usr/local/bundle /usr/local/bundle
+COPY --from=build --chown=root:root /rails /rails
+RUN mkdir -p /rails/tmp/pids /rails/log /rails/storage && \
+    chown -R rails:rails /rails/tmp /rails/log /rails/storage
 
 # Set version and revision
 ARG APP_VERSION
@@ -72,10 +74,13 @@ LABEL org.opencontainers.image.revision="${GIT_REVISION}" \
       io.nosia.native.protocol="1" \
       io.nosia.native.schema="${NATIVE_SCHEMA_VERSION}"
 RUN chmod 755 bin/nosia-entrypoint bin/nosia-native-boot bin/nosia-native-capabilities
+USER rails:rails
 ENTRYPOINT ["/rails/bin/nosia-entrypoint"]
 
 # Caddy forwards HTTP to Puma on the internal application port.
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+  CMD curl --fail --silent --max-time 4 --header "X-Forwarded-Proto: https" http://127.0.0.1:${PORT:-3000}/up || exit 1
 
 # Start the server by default, this can be overwritten at runtime
 CMD ["bin/boot"]

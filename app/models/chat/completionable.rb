@@ -1,7 +1,8 @@
 module Chat::Completionable
   extend ActiveSupport::Concern
 
-  def complete_with_nosia(question, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, user_message: nil, excluded_sources: nil, stream_buffer: Message::StreamBuffer.new, &block)
+  # @param note_access [Chat::NoteRetrieval, nil] Trusted authority supplied only by the turn's entry point.
+  def complete_with_nosia(question, model: nil, temperature: nil, top_k: nil, top_p: nil, max_tokens: nil, user_message: nil, excluded_sources: nil, note_access: nil, stream_buffer: Message::StreamBuffer.new)
     excluded_sources ||= []
     options = default_options.merge(
       {
@@ -20,36 +21,7 @@ module Chat::Completionable
     # Phase 1: Searching for context (phase broadcast now lives in similarity_search,
     # so both the chat path and the agent-skills path get the Searching -> Retrieving
     # sequence consistently).
-    chunks = self.similarity_search(question)
-
-    # Prepare the augmented question with context
-    if chunks.any?
-      augmented_context = ActiveModel::Type::Boolean.new.cast(ENV["AUGMENTED_CONTEXT"])
-
-      documents = chunks.map.with_index do |chunk, index|
-        {
-          "doc_id": index + 1,
-          "title": chunk.title,
-          "text": augmented_context ? chunk.augmented_context : chunk.context,
-          "source": chunk.source
-        }
-      end
-
-      augmented_system_prompt = system_prompt.sub("%{documents}", documents.to_json)
-
-      self.with_instructions(augmented_system_prompt)
-    else
-      self.with_instructions(system_prompt)
-    end
-
-    # Warn the model about attachments that couldn't be retrieved so it doesn't
-    # hallucinate over them. Append so the system prompt stays.
-    if excluded_sources.present?
-      titles = excluded_sources.filter_map { |source| source.title if source.respond_to?(:title) }
-      names = titles.any? ? titles : excluded_sources.map { |source| source.class.name.downcase }
-      note = "Note: the following attachments could not be retrieved and were excluded: #{names.join(", ")}."
-      self.with_instructions(note, append: true)
-    end
+    chunks = note_access ? similarity_search(question, note_access:) : similarity_search(question)
 
     # Phase 2: Generating the response
     broadcast_thinking_phase("generating")
@@ -58,20 +30,18 @@ module Chat::Completionable
     if block_given?
       # API/SSE path: yield raw chunks to the caller, no turbo broadcasts.
       # (No stop support: the API has no stop endpoint.)
-      with_mcp_tools { self.complete { |chunk| yield chunk } }
+      citation_ids = complete_with_context(chunks, excluded_sources:, note_access:) { |chunk| yield chunk }
     else
       # Chat UI path: coalesce deltas and re-render the full buffer as markdown.
       message = nil
       begin
-        with_mcp_tools do
-          self.complete do |chunk|
-            raise Chat::GenerationStopped if self.generation_stopped?
+        citation_ids = complete_with_context(chunks, excluded_sources:, note_access:) do |chunk|
+          raise Chat::GenerationStopped if self.generation_stopped?
 
-            message ||= self.messages.last
-            if chunk.content && message
-              stream_buffer << chunk.content
-              message.broadcast_streamed_content(stream_buffer.text) if stream_buffer.flush?
-            end
+          message ||= self.messages.last
+          if chunk.content && message
+            stream_buffer << chunk.content
+            message.broadcast_streamed_content(stream_buffer.text) if stream_buffer.flush?
           end
         end
       rescue Chat::GenerationStopped
@@ -96,7 +66,7 @@ module Chat::Completionable
       message.update(content: message.content + warning_text)
     end
 
-    message.update(similar_chunk_ids: chunks.pluck(:id))
+    message.update(similar_chunk_ids: citation_ids)
 
     record_completion_usage!(message)
 
@@ -111,6 +81,77 @@ module Chat::Completionable
   end
 
   private
+
+  def complete_with_context(chunks, excluded_sources:, note_access:, &stream)
+    with_mcp_tools do
+      prompt = system_prompt
+      augmented = ActiveModel::Type::Boolean.new.cast(ENV["AUGMENTED_CONTEXT"])
+      sources = chunks.reject { |chunk| chunk.try(:note_chunk?) }
+      source_passages = sources.to_h do |chunk|
+        text = augmented ? chunk.augmented_context : chunk.context
+        [ chunk.id, document_passage(title: chunk.title, text:, source: chunk.source) ]
+      end
+      baseline = prompt_with_passages(prompt, source_passages.values)
+      with_instructions(baseline)
+      append_excluded_sources_warning(excluded_sources) if excluded_sources.present?
+      citation_ids = sources.map(&:id)
+
+      if note_access && sources.size < chunks.size && prompt.include?("%{documents}")
+        # RubyLLM invokes this for the initial send and each tool follow-up.
+        # Never persist Note excerpts in system messages that another turn can replay.
+        apply_note_context = ->(payload) do
+          instructions = payload[:messages]&.find { |entry| entry[:role] == "system" && entry[:content] == baseline }
+          if instructions
+            passages = current_passages(chunks, source_passages, note_access:, augmented:)
+            instructions[:content] = prompt_with_passages(prompt, passages.values)
+            citation_ids = passages.keys
+          end
+        end
+        with_note_context_hook(apply_note_context) { complete(&stream) }
+      else
+        complete(&stream)
+      end
+      citation_ids
+    end
+  end
+
+  def with_note_context_hook(callback)
+    before_request { |payload| Nosia::NoteProviderRequest.refresh_each_attempt(payload, &callback) if callback }
+    yield
+  ensure
+    # The SDK memoizes callbacks on the chat object; leave this one inert after the turn.
+    callback = nil
+  end
+
+  def current_passages(chunks, source_passages, note_access:, augmented:)
+    note_candidates = chunks.select { |chunk| chunk.try(:note_chunk?) }
+    note_passages = note_access.current_excerpts(self, note_candidates, augmented:).transform_values do |title, text|
+      document_passage(title:, text:)
+    end
+    included = note_candidates.select { |candidate| note_passages.key?(candidate.id) }
+    note_passages.slice!(*note_access.current_candidate_ids(self, included))
+    passages = source_passages.merge(note_passages)
+    chunks.each_with_object({}) do |chunk, ordered|
+      ordered[chunk.id] = passages.fetch(chunk.id) if passages.key?(chunk.id)
+    end
+  end
+
+  def document_passage(title:, text:, source: "")
+    { "title" => title, "text" => text, "source" => source }
+  end
+
+  def prompt_with_passages(prompt, passages)
+    return prompt if passages.empty?
+
+    documents = passages.map.with_index(1) { |passage, index| { "doc_id" => index }.merge(passage) }
+    prompt.sub("%{documents}") { documents.to_json }
+  end
+
+  def append_excluded_sources_warning(excluded_sources)
+    titles = excluded_sources.filter_map { |source| source.title if source.respond_to?(:title) }
+    names = titles.any? ? titles : excluded_sources.map { |source| source.class.name.downcase }
+    with_instructions("Note: the following attachments could not be retrieved and were excluded: #{names.join(", ")}.", append: true)
+  end
 
   def default_options
     {

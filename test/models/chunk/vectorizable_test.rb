@@ -56,7 +56,7 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
   test "saving generated embeddings records pending normalized usage only once" do
     website = @account.websites.create!(url: "https://embedding.example")
     @chunk.chunkable = website
-    vector = Array.new(Chunk.embedding_dimensions, 0.1)
+    vector = Array.new(Chunk.columns_hash.fetch("embedding").limit, 0.1)
     result = Struct.new(:vectors, :tokens, :model).new(vector, RubyLLM::Tokens.new(input: 8), "provider-result-model")
 
     with_embedding_result(result) do
@@ -78,12 +78,76 @@ class Chunk::VectorizableTest < ActiveSupport::TestCase
     end
   end
 
+  test "ordinary source embeddings honor configured HTTP retries and body logging" do
+    output = StringIO.new
+    request_marker = "source-request-#{SecureRandom.hex}"
+    response_marker = "source-response-#{SecureRandom.hex}"
+    vector = [ 1.0 ] + Array.new(Chunk.columns_hash.fetch("embedding").limit - 1, 0.0)
+    requests = []
+    stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+      stub.post("/v1/embeddings") do |request|
+        requests << JSON.parse(request.body).fetch("input")
+        if requests.one?
+          next [ 503, { "Content-Type" => "application/json" }, { error: { message: "Synthetic service outage" } }.to_json ]
+        end
+
+        body = { data: [ { embedding: vector } ], diagnostic: response_marker }
+        [ 200, { "Content-Type" => "application/json" }, body.to_json ]
+      end
+    end
+    adapter = Class.new(Faraday::Adapter::Test) do
+      define_method(:initialize) { |app, **| super(app, stubs, &nil) }
+    end
+    previous = RubyLLM.config.dup
+    RubyLLM.configure do |config|
+      config.faraday_adapter = adapter
+      config.logger = Logger.new(output, level: :debug)
+      config.log_bodies = true
+      config.max_retries = 1
+      config.retry_interval = 0
+    end
+
+    @chunk.chunkable = @account.websites.create!(url: "https://embedding.example")
+    @chunk.content = request_marker
+    @chunk.save!
+
+    assert_equal [ request_marker, request_marker ], requests
+    assert_equal vector, @chunk.reload.embedding
+    assert_includes output.string, request_marker
+    assert_includes output.string, response_marker
+  ensure
+    if previous
+      RubyLLM.configure do |config|
+        config.faraday_adapter = previous.faraday_adapter
+        config.logger = previous.logger
+        config.log_bodies = previous.log_bodies
+        config.max_retries = previous.max_retries
+        config.retry_interval = previous.retry_interval
+      end
+    end
+  end
+
+  test "unspecified embedding width preserves the legacy source request but not the note request" do
+    old_dimensions = ENV.delete("EMBEDDING_DIMENSIONS")
+    sent = []
+    original = RubyLLM.method(:embed)
+    RubyLLM.define_singleton_method(:embed) { |_, dimensions:, **| sent << dimensions }
+
+    Chunk.embed_text("ordinary")
+    Chunk.embed_text("private", private_input: true)
+
+    assert_equal [ 0, Chunk.embedding_dimensions ], sent
+  ensure
+    ENV["EMBEDDING_DIMENSIONS"] = old_dimensions
+    RubyLLM.define_singleton_method(:embed, original)
+  end
+
   [ 0, nil, :absent_tokens ].each do |input|
     test "saving generated embeddings without reported positive input (#{input.inspect}) keeps pending result without recording" do
       website = @account.websites.create!(url: "https://unreported-embedding.example")
       @chunk.chunkable = website
       tokens = RubyLLM::Tokens.new(input: input) unless input == :absent_tokens
-      vector = Array.new(Chunk.embedding_dimensions, 0.1)
+      vector = Array.new(Chunk.columns_hash.fetch("embedding").limit, 0.1)
       result = Struct.new(:vectors, :tokens, :model).new(vector, tokens, "provider-result-model")
 
       with_embedding_result(result) do

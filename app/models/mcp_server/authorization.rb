@@ -104,10 +104,13 @@ module McpServer::Authorization
       end
 
       resulting_identity = oauth_identity_after_update(saved)
-      mode, transport, endpoint = resulting_identity
+      mode, transport, endpoint, resulting_account = resulting_identity
       if mode == "oauth" && !valid_oauth_endpoint?(transport, endpoint)
         errors.add(:auth_mode, :oauth_transport_required)
         throw :abort
+      end
+      if transport == "streamable" && (endpoint != saved.effective_endpoint || resulting_account != saved.account_id)
+        remove_previous_destination_credentials(saved)
       end
       retire_oauth_authorizations if resulting_identity != saved_identity
       if resulting_identity != saved_identity || connection_credentials_changed?(saved)
@@ -131,6 +134,15 @@ module McpServer::Authorization
     def connection_credentials_changed?(saved)
       (will_save_change_to_auth_config? && auth_config != saved.auth_config) ||
         (will_save_change_to_connection_config? && connection_config.to_h.except("url") != saved.connection_config.to_h.except("url"))
+    end
+
+    def remove_previous_destination_credentials(saved)
+      previous_auth = saved.auth_config.to_h
+      self.auth_config = auth_config.to_h.reject { |key, value| previous_auth[key] == value }
+
+      self.headers = headers.to_h.reject do |key, value|
+        saved.headers.to_h.any? { |old_key, old_value| old_key.to_s.casecmp?(key.to_s) && old_value == value }
+      end
     end
 
     def invalidate_connection_diagnostics(saved)

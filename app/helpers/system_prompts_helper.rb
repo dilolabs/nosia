@@ -15,7 +15,7 @@ module SystemPromptsHelper
   # @param prompt [Prompt] Already-authorized record
   # @return [Boolean] Mirrors existing controller/view permissions, not new ownership policy
   def prompt_workspace_editable?(prompt)
-    prompt.user_id.present? || account_owner?(prompt.account)
+    prompt.user_id ? prompt.user_id == Current.user.id : account_owner?(prompt.account)
   end
 
   # @param prompt [Prompt] Authorized saved prompt

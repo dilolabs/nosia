@@ -1,0 +1,193 @@
+fr:
+  nosia:
+    nav:
+      notes: Notes
+    dashboard:
+      destinations:
+        notes: Notes
+    notes:
+      imports:
+        new_title: Importer un dossier Markdown
+        status_title: État de l’importation
+        progress: "Fichiers envoyés : %{uploaded} sur %{total}"
+        disclosure: "Un dossier distinct sera créé à la racine du compte. Les notes importées seront partagées avec les membres de ce compte. Le contenu enregistré sera envoyé au fournisseur d’indexation configuré, qui peut être distant."
+        open_result: Ouvrir le dossier importé
+        inactive_result: Le dossier importé n’est plus actif dans Notes.
+        refresh_status: Actualiser l’état
+        uploading_receipt: Pour renvoyer les mêmes fichiers après une erreur de connexion, revenez à la page d’envoi initiale si elle est encore ouverte. Si vous l’avez quittée, la sélection ne peut pas être récupérée.
+        review_unfinished: Voir l’envoi inachevé
+        find_current: Retrouver l’importation en cours
+        discard:
+          action: Abandonner l’envoi
+          hint: Pour recommencer avec une nouvelle sélection, abandonnez cet envoi inachevé. Les notes enregistrées et les importations dont l’envoi est terminé ne seront pas affectées.
+          confirm: Abandonner cet envoi inachevé ? Les fichiers déjà envoyés pour cette importation seront supprimés.
+          error: Impossible d’abandonner l’envoi. Actualisez cette page et vérifiez son état avant de réessayer.
+        poll_error: Impossible de vérifier l’état de l’importation. Actualisez cette page pour réessayer.
+        picker:
+          label: Choisir un dossier
+          limits: "Seuls les fichiers .md sont importés. Sélectionnez au maximum %{max_files} notes et %{max_folders} dossiers (racine comprise), avec une limite de %{max_file_mib} Mio par note et de %{max_total_mib} Mio au total."
+          requires_js: Activez JavaScript et utilisez un navigateur qui prend en charge la sélection de dossiers.
+          unsupported: Ce navigateur ne permet pas de choisir un dossier ici. Utilisez un navigateur récent qui prend en charge la sélection de dossiers. Les fichiers individuels et les archives ZIP ne sont pas pris en charge.
+          ready: Choisissez un dossier pour afficher un aperçu. Aucun fichier n’est envoyé sans votre confirmation.
+          preview: "Dossier sélectionné : %{root}. Notes : %{notes}. Dossiers (racine comprise) : %{folders}. Fichiers Obsidian ignorés : %{obsidian}. Autres fichiers ignorés : %{other}."
+          confirm: Envoyer et importer
+          uploading: "Envoi des fichiers Markdown : %{uploaded} fichiers sur %{total} reçus."
+          retry_button: Réessayer l’envoi
+          retry_hint: Choisissez « Réessayer l’envoi » pour continuer sans démarrer une nouvelle importation.
+          rejected: L’envoi a été refusé.
+          too_large: Le serveur a refusé cet envoi parce qu’il est trop volumineux. Choisissez un dossier plus petit ou renseignez-vous auprès de votre administrateur sur la limite d’envoi.
+          transport_file_size: Un fichier Markdown dépasse la limite d’envoi de ce serveur. Divisez le fichier ou renseignez-vous auprès de votre administrateur sur cette limite, puis sélectionnez à nouveau le dossier.
+          restart: Corrigez le problème et sélectionnez à nouveau le dossier.
+          review: Consultez l’envoi inachevé et abandonnez-le avant de sélectionner à nouveau le dossier corrigé.
+        report:
+          title: "Rapport d’importation : %{name}"
+          saved_counts: "Éléments enregistrés — Notes : %{notes}. Dossiers (racine comprise) : %{folders}."
+          ignored_counts: "Fichiers ignorés dans la sélection du navigateur — Obsidian : %{obsidian}. Autres : %{other}."
+          unresolved:
+            one: "%{count} lien non résolu"
+            other: "%{count} liens non résolus"
+          examples:
+            one: "%{count} exemple"
+            other: "%{count} exemples"
+          example: "%{path} → %{target}"
+          indexing: Les notes sont enregistrées. L’indexation peut être encore en cours ; consultez son état dans chaque note.
+          back_to_receipt: Voir l’état de l’importation
+        statuses:
+          uploading: En attente de fichiers
+          sealed: Envoi terminé
+          queued: En attente d’importation
+          running: Importation des notes
+          succeeded: Notes importées
+          failed: Échec de l’importation
+          expired: Cet envoi a expiré. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
+        failures:
+          staging_unavailable: Les fichiers envoyés ne sont plus disponibles. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
+          membership_revoked: L’accès au compte a changé pendant l’importation. Vérifiez votre accès avant de recommencer.
+          empty_import: Aucune note Markdown n’a pu être importée. Vérifiez le contenu du dossier et sélectionnez-le à nouveau.
+          rendered_file_size_exceeded: Une note est devenue trop volumineuse après la mise en forme. Divisez ou simplifiez les grandes notes et sélectionnez à nouveau le dossier.
+          rendered_total_size_exceeded: Les notes sont devenues trop volumineuses après la mise en forme. Sélectionnez un dossier plus petit.
+          invalid_rendered_content: Une note n’a pas pu être convertie. Simplifiez son Markdown et sélectionnez à nouveau le dossier.
+          publication_failed: Le dossier n’a pas pu être enregistré dans Notes. Réessayez l’importation plus tard.
+          processing_timeout: L’importation n’a pas démarré à temps. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
+          worker_claim_expired: Le traitement s’est arrêté avant l’enregistrement des notes. Sélectionnez à nouveau le dossier pour réessayer.
+          upload_discarded: Envoi abandonné. Sélectionnez à nouveau le dossier pour démarrer une nouvelle importation.
+          generic: L’importation a échoué et aucune note n’a été enregistrée. Lancez une nouvelle importation pour réessayer.
+        errors:
+          not_found: Cette importation est introuvable.
+          method_not_allowed: Cette méthode de requête n’est pas autorisée pour l’importation.
+          invalid_request: Impossible de lire l’envoi. Sélectionnez à nouveau le dossier.
+          length_required: La taille de l’envoi doit être indiquée.
+          invalid_length: L’en-tête de taille de l’envoi est invalide.
+          payload_too_large: Cette requête est trop volumineuse. Envoyez moins de fichiers à la fois ou sélectionnez un dossier plus petit.
+          unsupported_media_type: Ce format d’envoi n’est pas pris en charge.
+          invalid_batch: Envoyez entre 1 et %{max_batch_files} fichiers Markdown à la fois.
+          invalid_confirmation_key: Confirmez à nouveau la sélection du dossier.
+          invalid_root_name: Renommez le dossier sélectionné et réessayez.
+          invalid_file_count: Sélectionnez un dossier contenant entre 1 et %{max_files} fichiers Markdown.
+          invalid_path: Le chemin d’un fichier Markdown est invalide. Vérifiez les noms des fichiers et des dossiers.
+          depth_limit_exceeded: Un fichier Markdown se trouve à plus de %{max_depth} niveaux sous la racine. Sélectionnez un dossier moins imbriqué.
+          duplicate_path: Deux fichiers ont le même chemin. Renommez-en un et réessayez.
+          invalid_file_size: Chaque fichier Markdown doit faire au maximum %{max_file_mib} Mio.
+          total_size_exceeded: Les fichiers Markdown dépassent %{max_total_mib} Mio au total. Sélectionnez un dossier plus petit.
+          path_collision: Un fichier et un dossier ont le même chemin. Renommez-en un et réessayez.
+          folder_limit_exceeded: Une importation peut contenir au maximum %{max_folders} dossiers, racine comprise. Sélectionnez un dossier plus petit.
+          invalid_ignored_counts: Le nombre de fichiers ignorés est invalide. Sélectionnez à nouveau le dossier.
+          unexpected_path: Un fichier envoyé ne faisait pas partie de la sélection confirmée. Sélectionnez à nouveau le dossier.
+          size_mismatch: La taille d’un fichier envoyé a changé. Sélectionnez à nouveau le dossier.
+          invalid_payload: Un fichier Markdown n’est pas du texte UTF-8 valide. Corrigez son encodage et réessayez.
+          incomplete_upload: Certains fichiers n’ont pas été envoyés. Envoyez-les avant de continuer.
+          confirmation_conflict: La sélection a changé. Confirmez-la à nouveau.
+          import_in_progress: Vous avez déjà une importation en cours pour ce compte. Attendez qu’elle se termine ou expire.
+          content_conflict: Un fichier déjà envoyé a changé. Sélectionnez à nouveau le dossier.
+          not_uploading: Cette importation n’accepte plus de fichiers.
+      title: Notes
+      title_singular: Note
+      no_account: Vous devez avoir accès à un compte pour utiliser Notes.
+      account: "Compte : %{name}"
+      switch_account: Changer de compte pour Notes
+      folders_and_tags: Dossiers et mots-dièses
+      close_folders: Fermer les dossiers et les mots-dièses
+      folders: Dossiers
+      subfolders: Sous-dossiers
+      subfolders_of: "Sous-dossiers de %{name}"
+      tags: Mots-dièses
+      all_notes: Toutes les notes
+      general: Général
+      general_protected: Le dossier Général est permanent. Il ne peut être renommé, déplacé ni mis à la corbeille.
+      untitled: Sans titre
+      no_notes: Cette liste ne contient aucune note.
+      select_note: Sélectionnez une note ou créez-en une.
+      search: Rechercher
+      search_label: Rechercher dans toutes les notes du compte
+      search_results: Résultats de recherche
+      no_results: Aucune note ne correspond à cette recherche.
+      pages: Pages de notes
+      previous: Précédente
+      next: Suivante
+      back_to_list: Retour à la liste
+      back_to_notes: Retour aux notes
+      editor: Éditeur de note
+      new_note: Nouvelle note
+      note_title: Titre (facultatif)
+      body: Texte de la note
+      save_note: Enregistrer la note
+      formatting: Mise en forme
+      saving: Enregistrement…
+      saved: Enregistrée
+      unsaved: Modifications non enregistrées
+      save_failed: Impossible d’enregistrer vos modifications. Réessayez.
+      navigation_failed: Impossible d’ouvrir cette page. Votre brouillon est toujours disponible.
+      action_failed: Impossible d’effectuer cette action. Votre brouillon est toujours disponible.
+      retry: Réessayer
+      index_status:
+        empty: Aucun texte à indexer
+        pending: Indexation en cours
+        ready: Note indexée
+        failed: Échec de l’indexation
+      retry_index: Relancer l’indexation
+      index_retry_failed: Impossible de relancer l’indexation. Réessayez.
+      index_retry_not_started: La relance de l’indexation n’a pas démarré. Réessayez.
+      index_retry_changed: L’état de l’indexation a changé. Vérifiez-le avant de réessayer.
+      index_status_unavailable: Impossible de vérifier l’indexation. Rouvrez la note pour réessayer.
+      index_sharing: Les notes enregistrées et actives sont partagées avec ce compte. Leurs titres et textes sont envoyés au fournisseur d’embeddings configuré pour l’indexation. Des extraits pertinents peuvent être envoyés pour répondre aux conversations du compte ou aux requêtes API autorisées. Les fournisseurs peuvent être locaux ou distants.
+      copy_draft: Copier le brouillon
+      draft_copied: Brouillon copié.
+      copy_manually: Votre brouillon est sélectionné. Copiez-le avec votre navigateur ou votre clavier.
+      load_saved: Charger la version enregistrée
+      copy_submitted_draft: Copiez votre titre et votre texte non enregistrés avant de quitter cette page.
+      submitted_title: Titre envoyé
+      submitted_body: Texte de la note envoyé
+      discard_draft: Vous avez des modifications non enregistrées. Quitter cette note et abandonner le brouillon ?
+      edit_tag_seed: Ajoutez un titre ou modifiez le texte avant d’enregistrer cette note.
+      hashtag_too_long: Un mot-dièse est trop long. Raccourcissez-le et enregistrez à nouveau la note.
+      invalid_note: La note n’a pas pu être enregistrée. Vérifiez son contenu et réessayez.
+      new_folder: Nouveau dossier
+      folder_actions: Actions du dossier
+      edit_folder: Modifier le dossier
+      folder_name: Nom du dossier
+      parent_folder: Dossier parent
+      root_folder: Aucun dossier parent
+      save_folder: Enregistrer le dossier
+      note_actions: Actions de la note
+      pinned: Épinglée
+      pin: Épingler dans le dossier
+      unpin: Désépingler du dossier
+      move_destination: Dossier de destination
+      choose_move_destination: Choisir un dossier de destination
+      move: Déplacer la note
+      trash: Corbeille
+      trash_note: Mettre la note à la corbeille
+      trash_folder: Mettre le dossier à la corbeille
+      confirm_trash_folder: "Mettre « %{name} » et tous ses dossiers et notes à la corbeille ?"
+      empty_trash: La corbeille est vide.
+      trash_help: La restauration d’un dossier laisse dans la corbeille les éléments qui y ont été placés séparément.
+      direct_trash: Mis à la corbeille séparément
+      inherited_trash: Dans un dossier mis à la corbeille
+      restore: Restaurer
+      restore_parent_first: Restaurez d’abord le dossier parent.
+      purge: Supprimer définitivement…
+      confirm_purge: Confirmer la suppression définitive
+      confirm_purge_note: "Supprimer définitivement « %{name} » ? Cette action est irréversible."
+      confirm_purge_folder: "Supprimer définitivement « %{name} » et tous ses dossiers et notes, y compris les éléments mis à la corbeille séparément ? Cette action est irréversible."
+      edit_conflict: Cette note a été modifiée depuis son ouverture. Vos changements n’ont pas été enregistrés.
+      unavailable: Cette modification est impossible. L’élément est peut-être dans la corbeille ou son dossier parent n’est plus actif.

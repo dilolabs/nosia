@@ -1,0 +1,59 @@
+<% content_for :title, t("nosia.notes.title") %>
+<% turbo_exempts_page_from_cache %>
+<% list_options = @list_options.without(:view).merge(view: "list") if @list_options.empty? || @list_options[:view] == "folders" %>
+<% list_options ||= @list_options %>
+<div class="n-notes" data-controller="notes-navigation" data-notes-screen="<%= @screen %>"
+     <%= tag.attributes(data: { notes_folders_page: true }) if @screen == "folders" && @list_options[:view] == "folders" %>
+     data-action="turbo:before-cache@document->notes-navigation#beforeCache">
+  <header class="n-notes-header">
+    <div class="n-notes-identity">
+      <h1 class="n-workspace-title"><%= t("nosia.notes.title") %></h1>
+      <%= render "notes/workspaces/accounts", account: @account, memberships: @membership_accounts, compact: true %>
+    </div>
+    <%= form_with url: account_notes_workspace_path(@account), method: :get, class: "n-notes-search", html: { role: "search" } do |form| %>
+      <%= form.label :q, t("nosia.notes.search_label"), class: "sr-only" %>
+      <%= form.search_field :q, value: @list_options[:q], size: 24, maxlength: NotesWorkspaceRendering::MAX_QUERY_LENGTH,
+                            placeholder: t("nosia.notes.search_label"), class: "n-field" %>
+      <%= form.submit t("nosia.notes.search"), class: "n-workspace-button" %>
+    <% end %>
+    <%= render "notes/workspaces/header_actions", account: @account, options: list_options, screen: @screen %>
+  </header>
+
+  <% if @reported_import %>
+    <%= render "notes/imports/report", import: @reported_import, account: @account, link_to_receipt: true %>
+  <% end %>
+
+  <div class="n-notes-workspace">
+    <div class="n-notes-sidebar-slot" data-notes-navigation-target="inline">
+      <%= render "notes/workspaces/sidebar", account: @account, folders: @active_folder_map, groups: @folder_groups,
+                 tags: @tags, options: @list_options, selected_folder: @selected_folder %>
+    </div>
+    <% if @screen == "trash" %>
+      <%= render "notes/workspaces/trash", account: @account, active_folders: @active_folder_map,
+                 folders: @trash_folders, paths: @trash_folder_map, notes: @trash_notes,
+                 direct_folder_ids: @direct_folder_ids, direct_note_ids: @direct_note_ids %>
+    <% else %>
+      <%= render "notes/workspaces/list", account: @account, notes: @notes, options: list_options,
+                 folder: @selected_folder, folders: @active_folder_map, selected_note: @note, page: @page, more: @has_more_notes %>
+      <section class="n-notes-reader" aria-labelledby="notes-reader-heading">
+        <% if @note %>
+          <%= render "notes/workspaces/editor", account: @account, note: @note, options: list_options,
+                     folders: @active_folder_map, form_title: @form_title, form_body_html: @form_body_html,
+                     form_revision: @form_revision, seed_tag: @form_seed_tag %>
+        <% elsif @folder %>
+          <%= render "notes/folders/form", account: @account, folder: @folder, options: list_options, folders: @active_folder_map %>
+        <% else %>
+          <div class="n-notes-empty">
+            <h2 id="notes-reader-heading"><%= t("nosia.notes.editor") %></h2>
+            <p><%= t("nosia.notes.select_note") %></p>
+          </div>
+        <% end %>
+      </section>
+    <% end %>
+  </div>
+
+  <dialog id="notes-folders-dialog" class="n-notes-dialog" aria-label="<%= t("nosia.notes.folders_and_tags") %>"
+          data-notes-navigation-target="dialog" data-action="close->notes-navigation#closed">
+    <button type="button" class="n-notes-button" data-action="notes-navigation#close" autofocus><%= t("nosia.notes.close_folders") %></button>
+  </dialog>
+</div>

@@ -106,14 +106,20 @@ namespace :nosia_native do
       # before the target marker is written, retry invalidates all vectors again.
       File.write(marker, JSON.generate(preparing: true))
       Chunk.transaction do
+        # Invalidate Note generations before taking the chunk lock. The Note
+        # publisher locks its row first, so it cannot publish across the reset.
+        Note.invalidate_embedding_space
         ActiveRecord::Base.connection.execute("LOCK TABLE chunks IN ACCESS EXCLUSIVE MODE")
         Chunk.unscoped.update_all(embedding: nil)
         resize_embedding_column.call(dimension)
       end
       File.write(marker, target)
     end
-    Chunk.unscoped.where(embedding: nil).where.not(content: [ nil, "" ]).find_each(&:generate_embedding!)
-    raise "Incomplete embedding reconstruction" if Chunk.unscoped.where.not(content: [ nil, "" ]).where(embedding: nil).exists?
+    # Notes publish full generations in their worker, never through this legacy loop.
+    remaining_sources = Chunk.unscoped.without_notes.where.not(content: [ nil, "" ]).where(embedding: nil)
+    remaining_sources.find_each(&:generate_embedding!)
+    raise "Incomplete embedding reconstruction" if remaining_sources.exists?
+    Note.rebuild_active_embeddings
     File.write(Rails.root.join("storage", ".native-embedding-fingerprint"), fingerprint)
     File.delete(marker)
     puts "native-index-rebuilt"

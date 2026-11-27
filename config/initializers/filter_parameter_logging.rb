@@ -18,3 +18,10 @@ oauth_fields = %w[
 ]
 Rails.application.config.filter_parameters += oauth_fields.map { |key| /\A#{key}\z/i }
 Rails.application.config.filter_parameters << /\Anosia\.mcp_oauth_callback_query\z/
+
+Rails.application.config.filter_parameters << /\Anote\.(?:title|body_html)\z/i
+
+require Rails.root.join("lib/notes_import_request_limit")
+# MethodOverride can parse multipart before Rails::Rack::Logger. Import inputs
+# (including unexpected fields) are private, so filter only these requests.
+Rails.application.config.middleware.insert_before Rack::MethodOverride, NotesImportRequestLimit, [ /\A/ ].freeze

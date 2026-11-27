@@ -1,0 +1,22 @@
+<%# locals: (account:, folders:, groups:, tags:, options:, selected_folder:) %>
+<nav id="notes-sidebar" class="n-notes-sidebar" data-notes-sidebar data-notes-navigation-target="sidebar" aria-label="<%= t("nosia.notes.folders_and_tags") %>">
+  <%= link_to t("nosia.notes.all_notes"), account_notes_workspace_path(account, view: "list"),
+              class: "n-notes-side-link", aria: { current: ("page" unless options.values_at(:folder_id, :tag, :q).any? || options[:view] == "trash") } %>
+  <div class="n-notes-actions">
+    <h2 class="n-notes-group-heading"><%= t("nosia.notes.folders") %></h2>
+    <%= link_to t("nosia.notes.new_folder"), new_account_note_folder_path(account, **options.without(:view, :page)), class: "n-notes-button" %>
+  </div>
+  <%= render "notes/workspaces/folder_tree", account:, groups:, parent_id: nil, selected_folder:,
+             open_ids: notes_folder_ancestors(selected_folder&.id, folders) %>
+  <% if tags.any? %>
+    <h2 class="n-notes-group-heading"><%= t("nosia.notes.tags") %></h2>
+    <ul>
+      <% tags.each do |tag| %>
+        <li><%= link_to "##{tag.key}", account_notes_workspace_path(account, tag: tag.key),
+                        class: "n-notes-side-link", aria: { current: ("page" if !options[:q] && options[:tag] == tag.key) } %></li>
+      <% end %>
+    </ul>
+  <% end %>
+  <%= link_to t("nosia.notes.trash"), account_notes_workspace_path(account, view: "trash"),
+              class: "n-notes-side-link", aria: { current: ("page" if options[:view] == "trash") } %>
+</nav>

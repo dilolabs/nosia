@@ -2,6 +2,10 @@ production:
   green_it_recount:
     class: GreenIt::RecountJob
     schedule: every hour at minute 7
+  note_import_reconcile:
+    class: NoteImport::ReconcileJob
+    queue: default
+    schedule: every 5 minutes
 
 # production:
 #   periodic_upgrade_documents:

@@ -1,0 +1,51 @@
+<%# locals: (import:, progress:, continuation:) %>
+<% content_for :title, t("nosia.notes.imports.status_title") %>
+<% turbo_exempts_page_from_cache %>
+<% receipt_path = account_note_import_path(@account, import) %>
+
+<section class="n-notes n-notes-import"
+         <% if NoteImport::LIVE_STATUSES.include?(import.status) %>
+           data-controller="note-import-status"
+           data-note-import-status-url-value="<%= receipt_path %>"
+           data-note-import-status-continuation-value="<%= continuation %>"
+           data-note-import-status-poll-error-value="<%= t("nosia.notes.imports.poll_error") %>"
+           data-note-import-status-progress-value="<%= t("nosia.notes.imports.progress", uploaded: "%{uploaded}", total: "%{total}") %>"
+           data-action="turbo:visit@document->note-import-status#stop pagehide@window->note-import-status#stop pageshow@window->note-import-status#schedule"
+         <% end %>>
+  <header class="n-notes-identity"><h1><%= t("nosia.notes.imports.status_title") %></h1></header>
+  <div role="status">
+    <p data-note-import-status-target="message"><%= progress.fetch(:message) %></p>
+    <p data-note-import-status-target="progress"><%= t("nosia.notes.imports.progress", uploaded: progress.fetch(:uploaded_count), total: progress.fetch(:total)) %></p>
+  </div>
+  <% if import.succeeded? %>
+    <%= render "report", import:, account: @account %>
+    <% unless progress[:result_url] %>
+      <p><%= t("nosia.notes.imports.inactive_result") %></p>
+    <% end %>
+  <% elsif import.uploading? %>
+    <p><%= t("nosia.notes.imports.uploading_receipt") %></p>
+    <%= tag.div class: "n-notes-import-report",
+          data: { controller: "note-import-cancellation", note_import_cancellation_url_value: account_note_import_cancellation_path(@account, import),
+                  note_import_cancellation_receipt_value: receipt_path,
+                  note_import_cancellation_confirm_value: t("nosia.notes.imports.discard.confirm"),
+                  note_import_cancellation_error_value: t("nosia.notes.imports.discard.error"),
+                  action: "turbo:visit@document->note-import-cancellation#stop pagehide@window->note-import-cancellation#stop" } do %>
+      <p><%= t("nosia.notes.imports.discard.hint") %></p>
+      <button type="button" class="n-notes-button" disabled data-note-import-cancellation-target="button"
+              data-action="note-import-cancellation#discard"><%= t("nosia.notes.imports.discard.action") %></button>
+      <p tabindex="-1" role="alert" data-note-import-cancellation-target="error" hidden></p>
+    <% end %>
+  <% end %>
+  <div class="n-notes-actions">
+    <% if progress[:result_url] %>
+      <%= link_to t("nosia.notes.imports.open_result"), progress.fetch(:result_url), class: "n-notes-button n-notes-primary" %>
+    <% elsif import.failed? || import.expired? %>
+      <%= link_to t("nosia.notes.imports.new_title"), new_account_note_import_path(@account), class: "n-notes-button n-notes-primary" %>
+    <% elsif NoteImport::LIVE_STATUSES.include?(import.status) %>
+      <% refresh_path = continuation ? account_note_import_path(@account, import, continue: 1) : receipt_path %>
+      <%# Reload rather than morphing the stopped poll controller in place. %>
+      <%= link_to t("nosia.notes.imports.refresh_status"), refresh_path, class: "n-notes-button", data: { turbo: false } %>
+    <% end %>
+    <%= link_to t("nosia.notes.back_to_notes"), account_notes_workspace_path(@account), class: "n-notes-button" %>
+  </div>
+</section>

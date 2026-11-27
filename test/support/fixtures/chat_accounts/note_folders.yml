@@ -1,0 +1,26 @@
+research:
+  account: picker_first
+  name: Research
+
+sessions:
+  account: picker_first
+  parent: research
+  name: Sessions
+
+interviews:
+  account: picker_first
+  parent: sessions
+  name: Interviews
+
+reading:
+  account: picker_first
+  parent: research
+  name: Reading
+
+second_team:
+  account: picker_second
+  name: Second team folder
+
+private:
+  account: picker_foreign
+  name: Private folder

@@ -1,0 +1,10 @@
+<%# locals: (account:, note:, paths:, direct:, restorable:) %>
+<li data-notes-trash-note="<%= note.id %>">
+  <strong><%= notes_title(note) %></strong>
+  <p class="n-notes-meta"><%= notes_folder_path(paths[note.note_folder_id], paths) %> · <%= t(direct ? "nosia.notes.direct_trash" : "nosia.notes.inherited_trash") %></p>
+  <% if direct %>
+    <%= render "notes/workspaces/trash_actions", id: "purge-note-#{note.id}", restorable:,
+               restore_path: account_note_trashing_path(account, note), purge_path: account_note_purge_path(account, note),
+               confirmation: t("nosia.notes.confirm_purge_note", name: notes_title(note)) %>
+  <% end %>
+</li>

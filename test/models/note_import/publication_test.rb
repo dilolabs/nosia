@@ -1,0 +1,361 @@
+require "test_helper"
+require "stringio"
+require_relative "../../support/note_import_test_support"
+
+class NoteImportPublicationTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+  include NoteImportTestSupport
+
+  self.use_transactional_tests = false
+  self.fixture_paths = [ Rails.root.join("test/support/fixtures/chat_accounts") ]
+  fixtures :users, :accounts, :account_users
+
+  setup do
+    @initiator = users(:picker_owner)
+    @account = Account.create!(owner: @initiator, name: "Disposable Notes import")
+    @account.account_users.grant_to(@initiator)
+  end
+
+  teardown do
+    @account&.destroy!
+    ActiveRecord::FixtureSet.reset_cache
+  end
+
+  test "two confirmations publish independent trees with canonical Notes and stable links" do
+    paths = Rails.application.routes.url_helpers
+    files = {
+      "Accueil.md" => "A searchable paragraph **with formatting** and #voyage.\n\n[[Carnet/Archive/Réunion|Meeting]] [[Accueil]] [[Missing]]",
+      "Carnet/Archive/Réunion.md" => "[Back](../../Accueil.md) [[Accueil]]"
+    }
+    results = 2.times.map do |index|
+      import = sealed_import(files)
+      assert enqueued_jobs.empty? if index.zero?
+
+      assert_enqueued_jobs 2, only: Note::IndexJob do
+        NoteImport::PublishJob.perform_now(import.id)
+      end
+
+      root = @account.note_folders.find(import.reload.root_note_folder_id)
+      archive = root.children.sole.children.sole
+      assert_equal [ "Carnet", "Archive" ], [ archive.parent.name, archive.name ]
+      home = @account.notes.find_by!(note_folder: root)
+      meeting = @account.notes.find_by!(note_folder: archive)
+      assert_equal [ "Accueil", "Réunion" ], [ home.title, meeting.title ]
+      assert_equal [ 1, 1 ], [ home.content_revision, meeting.content_revision ]
+      assert_includes home.body_html, "<strong>with formatting</strong>"
+      assert_equal [ "voyage" ], home.note_tags.pluck(:key)
+      assert_equal [ home.id ], Note.active_in(@account.id).where(note_folder: root).search_literal("searchable paragraph").ids
+      home_href = paths.account_note_path(@account, home)
+      meeting_href = paths.account_note_path(@account, meeting)
+      assert_equal [ meeting_href, home_href ], Nokogiri::HTML5.fragment(home.body_html).css("a").map { |link| link["href"] }
+      assert_equal [ home_href, home_href ], Nokogiri::HTML5.fragment(meeting.body_html).css("a").map { |link| link["href"] }
+      assert_predicate import, :succeeded?
+      assert_nil import.claim_token
+      assert_nil import.claim_expires_at
+      assert_equal({
+        "root_name" => index.zero? ? "Coffre" : "Coffre (2)", "note_count" => 2, "folder_count" => 3,
+        "ignored_counts" => { "obsidian" => 0, "other" => 0 }, "unresolved_count" => 1,
+        "unresolved_examples" => [ { "path" => "Accueil.md", "target" => "Missing" } ]
+      }, import.report)
+      assert_empty import.staged_files
+      [ root, home, meeting ]
+    end
+    assert_empty(results.first & results.last)
+  end
+
+  test "root allocation respects active NFC names, trashed roots and a lazy General" do
+    active = @account.note_folders.create!(name: "Cafe\u0301")
+    trashed = @account.note_folders.create!(name: "Café (2)")
+    trashing = NoteFolderTrashing.create!(note_folder: trashed)
+    assert_empty @account.note_folders.where(system_key: NoteFolder::GENERAL_SYSTEM_KEY)
+
+    [ [ "Café", "Café (3)" ], [ "General", "General (2)" ] ].each do |requested, assigned|
+      import = sealed_import(root_name: requested)
+      NoteImport::PublishJob.perform_now(import.id)
+      assert_equal assigned, @account.note_folders.find(import.reload.root_note_folder_id).name
+    end
+    assert_equal "Cafe\u0301", active.reload.name
+    assert_predicate trashing.reload, :persisted?
+    assert_equal "General", @account.general_note_folder.name
+  end
+
+  test "suffix truncation preserves UTF-8 character boundaries and finds the first free name" do
+    stem = "é" * 127 + "x"
+    @account.note_folders.create!(name: stem)
+    @account.note_folders.create!(name: "#{'é' * 125} (3)")
+    import = sealed_import(root_name: stem)
+
+    NoteImport::PublishJob.perform_now(import.id)
+
+    name = @account.note_folders.find(import.reload.root_note_folder_id).name
+    assert_equal "#{'é' * 125} (2)", name
+    assert_operator name.bytesize, :<=, 255
+    assert_predicate name, :valid_encoding?
+  end
+
+  test "a rejected note rolls back an earlier note, its tags, the whole branch and index handoff" do
+    import = sealed_import({ "A.md" => "# Heading\n\n#rollbacktag", "Nested/.md" => "" })
+    inserts = []
+    observe_insert = ->(event) do
+      inserts << event.payload.fetch(:sql) if event.payload.fetch(:sql).start_with?('INSERT INTO "notes"')
+    end
+
+    assert_no_enqueued_jobs(only: Note::IndexJob) do
+      assert_no_difference [ "@account.notes.count", "@account.note_folders.count", "NoteTag.count", "NoteTagging.count" ] do
+        ActiveSupport::Notifications.subscribed(observe_insert, "sql.active_record") do
+          NoteImport::PublishJob.perform_now(import.id)
+        end
+      end
+    end
+    assert_equal 1, inserts.size, "the valid note must be saved before the rejected one"
+    assert_predicate import.reload, :failed?
+    assert_equal({ "error" => "publication_failed" }, import.report)
+    assert_nil import.root_note_folder_id
+    assert_empty import.staged_files
+  end
+
+  test "a database error writing the second note rolls back the first and its projections" do
+    import = sealed_import({ "A.md" => "#rollbackfirst", "B.md" => "Reject second write" })
+    account = @account
+    test_case = self
+    reject_write = ->(note) do
+      if note.account_id == account.id && note.title == "B"
+        test_case.assert account.notes.joins(:note_tags).exists?(title: "A", note_tags: { key: "rollbackfirst" })
+        Note.with_connection { |connection| connection.execute("SELECT current_setting('nosia.import_write_probe')") }
+      end
+    end
+    Note.before_create(reject_write)
+
+    assert_no_enqueued_jobs(only: Note::IndexJob) do
+      assert_no_difference [ "@account.notes.count", "@account.note_folders.count", "NoteTag.count", "NoteTagging.count" ] do
+        NoteImport::PublishJob.perform_now(import.id)
+      end
+    end
+    assert_predicate import.reload, :failed?
+    assert_equal({ "error" => "publication_failed" }, import.report)
+  ensure
+    Note.skip_callback(:create, :before, reject_write) if reject_write
+  end
+
+  test "an ordinary Notes save commits on another connection during final import projection" do
+    folder = @account.general_note_folder
+    import = sealed_import({ "A.md" => "Projection probe **bold** #compare [[B]]", "B.md" => "[[A]]" })
+    ordinary = nil
+    save_normally = ->(html) do
+      ordinary = in_another_session do |connection|
+        Note.transaction do
+          connection.execute("SET LOCAL lock_timeout = '300ms'")
+          Note.save_draft!(account: @account, folder:, draft_key: SecureRandom.uuid, title: "A", body_html: html)
+        end
+      rescue ActiveRecord::LockWaitTimeout => error
+        error
+      end
+    end
+
+    during_import_canonicalization("Projection probe", save_normally) do
+      NoteImport::PublishJob.perform_now(import.id)
+    end
+
+    assert_instance_of Note, ordinary, "the ordinary save could not acquire the account lock"
+    assert_predicate ordinary.reload, :persisted?
+    assert_predicate import.reload, :succeeded?
+    root = @account.note_folders.find(import.root_note_folder_id)
+    imported, target = root.account.notes.where(note_folder: root).order(:title).to_a
+    assert_equal ordinary.values_at(:title, :body_html, :body_text), imported.values_at(:title, :body_html, :body_text)
+    assert_equal [ "compare" ], imported.note_tags.pluck(:key)
+    assert_equal ordinary.note_tags.pluck(:key), imported.note_tags.pluck(:key)
+    assert_equal [ 1, 1 ], [ imported.content_revision, target.content_revision ]
+    routes = Rails.application.routes.url_helpers
+    assert_includes imported.body_html, routes.account_note_path(@account, target)
+    assert_includes target.body_html, routes.account_note_path(@account, imported)
+    [ ordinary, imported, target ].each { |note| assert_enqueued_with job: Note::IndexJob, args: [ note.id, 1 ] }
+  end
+
+  test "a rejected projection prevents any branch, note or index handoff from being written" do
+    import = sealed_import({ "A.md" => "Valid #first", "B.md" => "Reject this projection" })
+    reject = ->(_html) { raise ArgumentError, "private parser details" }
+    writes = []
+    observer = ->(event) do
+      sql = event.payload[:sql]
+      writes << sql if sql.start_with?('INSERT INTO "notes"', 'INSERT INTO "note_folders"')
+    end
+
+    assert_no_enqueued_jobs(only: Note::IndexJob) do
+      ActiveSupport::Notifications.subscribed(observer, "sql.active_record") do
+        during_import_canonicalization("Reject this projection", reject) { NoteImport::PublishJob.perform_now(import.id) }
+      end
+    end
+
+    assert_empty writes
+    assert_predicate import.reload, :failed?
+    assert_equal({ "error" => "publication_failed" }, import.report)
+    assert_empty @account.note_folders
+    assert_empty @account.notes
+  end
+
+  test "preflight reserves the full sequence batch with both write locks and no publication writes" do
+    import = sealed_import({ "A.md" => "a", "Folder/B.md" => "b" })
+    reservations = []
+    writes = []
+    observe_reservation = ->(event) do
+      sql = event.payload[:sql]
+      writes << sql if sql.start_with?('INSERT INTO "notes"', 'INSERT INTO "note_folders"', 'UPDATE "note_imports"')
+      next unless sql.include?("nextval(pg_get_serial_sequence('notes', 'id'))")
+
+      # The claim is acquired separately; preflight must not write anything.
+      assert_equal 1, writes.size
+      assert writes.first.start_with?('UPDATE "note_imports"')
+      reservations << sql
+      in_another_session do
+        assert_equal "running", NoteImport.find(import.id).status
+        assert_empty @account.note_folders
+        assert_empty @account.notes
+        assert_raises(ActiveRecord::LockWaitTimeout) { Account.lock("FOR UPDATE NOWAIT").find(@account.id) }
+        assert_raises(ActiveRecord::LockWaitTimeout) { NoteImport.lock("FOR UPDATE NOWAIT").find(import.id) }
+      end
+    end
+
+    ActiveSupport::Notifications.subscribed(observe_reservation, "sql.active_record") { NoteImport::PublishJob.perform_now(import.id) }
+
+    assert_includes reservations.sole, "generate_series(1, 2)"
+    assert_predicate import.reload, :succeeded?
+  end
+
+  test "index handoff sees the committed receipt and a refusal does not change import success" do
+    import = sealed_import
+    adapter = Note::IndexJob.queue_adapter
+    observed = []
+    other_session = method(:in_another_session)
+    adapter.define_singleton_method(:enqueue_at) do |job, _timestamp|
+      observed << other_session.call do
+        note = Note.find(job.arguments.first)
+        [ note.note_folder_id, NoteImport.find(import.id).root_note_folder_id ]
+      end
+      raise ActiveJob::EnqueueError, "private adapter details"
+    end
+
+    NoteImport::PublishJob.perform_now(import.id)
+
+    assert_predicate import.reload, :succeeded?
+    assert_equal [ [ import.root_note_folder_id, import.root_note_folder_id ] ], observed
+    assert_predicate @account.notes.sole, :embedding_failed?
+  ensure
+    adapter&.singleton_class&.remove_method(:enqueue_at)
+  end
+
+  [ 1, 2 ].each do |failed_writes|
+    test "one broken index handoff cannot block later notes when #{failed_writes} fallback writes fail" do
+      import = sealed_import({ "A.md" => "Private first note", "B.md" => "Second note" })
+      adapter = Note::IndexJob.queue_adapter
+      log = StringIO.new
+      logger = ActiveSupport::Logger.new(log)
+      Rails.logger.broadcast_to(logger)
+      committed_receipt = nil
+      refused = []
+      adapter.define_singleton_method(:enqueue_at) do |job, timestamp|
+        note = Note.find(job.arguments.first)
+        if note.account_id == import.account_id && note.title == "A"
+          committed_receipt = NoteImport.find(import.id).attributes
+          refused << job.arguments
+          raise ActiveJob::EnqueueError, "private queue refusal"
+        end
+
+        super(job, timestamp)
+      end
+      fallback_writes = 0
+      reject_status_write = ->(note) do
+        if note.id == refused.first&.first && note.embedding_failed?
+          fallback_writes += 1
+          if fallback_writes <= failed_writes
+            Note.with_connection { |connection| connection.select_value("SELECT current_setting('nosia.private_index_state_probe')") }
+          end
+        end
+      end
+      Note.before_update(reject_status_write)
+
+      NoteImport::PublishJob.perform_now(import.id)
+
+      first, second = @account.notes.order(:title).to_a
+      assert_enqueued_with job: Note::IndexJob, args: [ second.id, 1 ]
+      assert_equal [ [ first.id, 1 ] ], refused
+      assert_equal 2, fallback_writes
+      assert_predicate import.reload, :succeeded?
+      assert_equal committed_receipt, import.attributes
+      assert_equal 1, first.embedding_generation
+      refute_includes log.string, "private queue refusal"
+      refute_includes log.string, "nosia.private_index_state_probe"
+
+      adapter.singleton_class.remove_method(:enqueue_at)
+      if failed_writes == 1
+        assert_predicate first, :embedding_failed?
+        assert_enqueued_with(job: Note::IndexJob, args: [ first.id, 1 ]) { first.retry_index }
+      else
+        assert_predicate first, :embedding_pending?
+        assert_includes log.string, "Could not mark Note indexing failed (note_id=#{first.id}, generation=1)"
+        assert_enqueued_with(job: Note::IndexJob, args: [ first.id, 1 ]) { first.resume_indexing }
+      end
+      assert_predicate first.reload, :embedding_pending?
+      assert_equal committed_receipt, import.reload.attributes
+    ensure
+      Note.skip_callback(:update, :before, reject_status_write) if reject_status_write
+      adapter.singleton_class.remove_method(:enqueue_at) if adapter&.singleton_methods(false)&.include?(:enqueue_at)
+      Rails.logger.stop_broadcasting_to(logger) if logger
+    end
+  end
+
+  test "prepared templates have an import-wide budget before the account is locked" do
+    import = sealed_import({ "A.md" => "x" * 30, "B.md" => "y" * 30 })
+    publication_writes = []
+    observer = ->(event) do
+      publication_writes << event.payload[:sql] if event.payload[:sql].start_with?('INSERT INTO "note_folders"')
+    end
+
+    with_render_budget(64) do
+      ActiveSupport::Notifications.subscribed(observer, "sql.active_record") do
+        NoteImport::PublishJob.perform_now(import.id)
+      end
+    end
+
+    assert_empty publication_writes
+    assert_equal({ "error" => "rendered_total_size_exceeded" }, import.reload.report)
+  end
+
+  test "expanded links have a separate import-wide budget" do
+    import = sealed_import({ "A.md" => "[[B]]", "B.md" => "[[A]]" })
+    id = 2_000_000_000 # Conservatively budget for at most ten decimal digits here.
+    href = Rails.application.routes.url_helpers.account_note_path(@account, id)
+    final_note_size = %(<p><a href="#{href}">B</a></p>\n).bytesize
+
+    with_render_budget(final_note_size + 10) do
+      assert_no_enqueued_jobs(only: Note::IndexJob) do
+        assert_no_difference [ "@account.notes.count", "@account.note_folders.count" ] do
+          NoteImport::PublishJob.perform_now(import.id)
+        end
+      end
+    end
+
+    assert_equal({ "error" => "rendered_total_size_exceeded" }, import.reload.report)
+  end
+
+  test "unresolved examples are capped across documents without capping the count" do
+    import = sealed_import({ "A.md" => "[[Missing]] " * 80, "B.md" => "[[Missing]] " * 40 })
+
+    NoteImport::PublishJob.perform_now(import.id)
+
+    report = import.reload.report
+    assert_equal 120, report.fetch("unresolved_count")
+    assert_equal({ "A.md" => 80, "B.md" => 20 }, report.fetch("unresolved_examples").map { |example| example.fetch("path") }.tally)
+  end
+
+  private
+    def with_render_budget(bytes)
+      converter = NoteImport::Markdown
+      original = converter::MAX_TOTAL_RENDERED_BYTES
+      converter.send(:remove_const, :MAX_TOTAL_RENDERED_BYTES)
+      converter.const_set(:MAX_TOTAL_RENDERED_BYTES, bytes)
+      yield
+    ensure
+      converter.send(:remove_const, :MAX_TOTAL_RENDERED_BYTES)
+      converter.const_set(:MAX_TOTAL_RENDERED_BYTES, original)
+    end
+end

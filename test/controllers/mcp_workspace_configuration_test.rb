@@ -68,6 +68,7 @@ class McpWorkspaceConfigurationTest < ActionDispatch::IntegrationTest
   end
 
   test "missing YAML requirements are validated without enabling blocked stdio" do
+    @user.update!(admin: true)
     assert_no_difference -> { @first.mcp_servers.count } do
       post mcp_catalog_index_path, params: { id: "kchat", config: {} }
     end

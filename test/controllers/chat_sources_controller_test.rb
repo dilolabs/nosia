@@ -32,9 +32,7 @@ class ChatSourcesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "attachable_sgid branch creates a document and returns its id/filename/status as JSON" do
-    blob = ActiveStorage::Blob.create_and_upload!(
-      io: StringIO.new("%PDF-1.4"), filename: "report.pdf", content_type: "application/pdf"
-    )
+    blob = create_document_upload(account: @account, user: @user)
     assert_enqueued_with(job: AddDocumentJob) do
       post chat_sources_url, params: { attachable_sgid: blob.attachable_sgid }, as: :json
     end
@@ -43,6 +41,21 @@ class ChatSourcesControllerTest < ActionDispatch::IntegrationTest
     assert json["id"].present?
     assert_equal "report.pdf", json["filename"]
     assert_equal "pending", json["index_status"]
+  end
+
+  test "the composer receives an upload capability bound to its current workspace" do
+    bytes = "%PDF-1.4\n%%EOF"
+    post rails_direct_uploads_path(account_id: @account.id), as: :json, params: { blob: {
+      filename: "report.pdf", byte_size: bytes.bytesize, checksum: Digest::MD5.base64digest(bytes),
+      content_type: "application/pdf"
+    } }
+
+    assert_response :success
+    upload = response.parsed_body
+    blob = ActiveStorage::Blob.find_signed!(upload.fetch("signed_id"))
+    assert_equal @account, Document::Upload.account_for(blob, user: @user)
+    assert_equal blob.attachable_sgid, upload.fetch("attachable_sgid")
+    assert upload.fetch("direct_upload").fetch("url").present?
   end
 
   test "duplicate url reuses the existing website without creating a new one" do

@@ -13,6 +13,10 @@ Rails.application.routes.draw do
 
   resource :language_preference, only: :update
 
+  # Disk PUT URLs are short-lived capabilities issued to authorized uploaders.
+  # Downloads stream through the account-authorized application controllers.
+  put "/rails/active_storage/disk/:encoded_token", to: "active_storage/disk#update", as: :update_rails_disk_service
+
   # The controller authenticates without retaining the provider's query on sign-in.
   get "/mcp/oauth/callback", to: "mcp_servers/oauth_callbacks#show", as: :mcp_oauth_callback, format: false
 
@@ -33,12 +37,38 @@ Rails.application.routes.draw do
 
   # User routes
   constraints Authentication::Authenticated do
+    post "/rails/active_storage/direct_uploads", to: "document_uploads#create", as: :rails_direct_uploads
+    get "/document_uploads/:signed_id/*filename", to: "document_uploads#show", as: :rails_service_blob
+
+    resource :notes_entry, path: "notes", only: :show, controller: "notes/entries"
     resources :accounts, only: [ :index, :show, :new, :edit, :create, :update ] do
       resources :account_users, only: [ :index, :create, :destroy ], module: :accounts
       resource :settings, only: [ :show ], module: :accounts
       resource :system_prompt, only: [ :show, :edit, :update ], module: :accounts
 
       resources :chats, only: :index, module: :accounts
+      scope module: :notes do
+        resource :notes_workspace, path: "notes", only: :show, controller: "workspaces"
+        resources :note_imports, path: "note-imports", controller: "imports", only: %i[ new create show ] do
+          scope module: :imports do
+            resources :batches, only: :create
+            resource :seal, only: :create
+            resource :cancellation, only: :create
+          end
+        end
+        resources :note_folders, path: "note-folders", controller: "folders", only: %i[ new create edit update ] do
+          resource :trashing, only: %i[ create destroy ], controller: "folder_trashings"
+          resource :purge, only: :destroy, controller: "folder_purges"
+        end
+        resources :notes, only: %i[ new create show update ] do
+          resource :index_status, only: :show
+          resource :index_retry, only: :create
+          resource :movement, only: :create
+          resource :pin, only: %i[ create destroy ]
+          resource :trashing, only: %i[ create destroy ], controller: "note_trashings"
+          resource :purge, only: :destroy, controller: "note_purges"
+        end
+      end
       resources :sources, only: :index
       resource :token_usage, only: :show, controller: "token_usages"
       resources :agent_skills do
@@ -58,6 +88,7 @@ Rails.application.routes.draw do
       end
       namespace :sources do
         resources :documents, except: :index do
+          resource :file, only: :show, module: :documents
           resource :retry, only: :create, module: :documents
         end
         resources :texts, except: :index do

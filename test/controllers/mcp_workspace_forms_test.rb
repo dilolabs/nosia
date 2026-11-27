@@ -150,6 +150,7 @@ class McpWorkspaceFormsTest < ActionDispatch::IntegrationTest
   end
 
   test "failed HTTP edits do not expose testing for saved deployment-disabled stdio" do
+    @user.update!(admin: true)
     previous_stdio = ENV["MCP_STDIO_ENABLED"]
     ENV["MCP_STDIO_ENABLED"] = "true"
     server = ActsAsTenant.with_tenant(@second) do
@@ -212,6 +213,7 @@ class McpWorkspaceFormsTest < ActionDispatch::IntegrationTest
   end
 
   test "failed stdio edits do not hide testing for saved HTTP configuration" do
+    @user.update!(admin: true)
     previous_stdio = ENV["MCP_STDIO_ENABLED"]
     ENV["MCP_STDIO_ENABLED"] = "false"
     server = ActsAsTenant.with_tenant(@second) do

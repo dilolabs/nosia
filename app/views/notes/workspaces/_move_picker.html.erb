@@ -1,0 +1,20 @@
+<%# locals: (account:, note:, options:, folders:) %>
+<% id = "note-move-#{note.id}" %>
+<%# The native modal keeps keyboard focus safe without scripts; the same form can open as a popover. %>
+<div data-controller="notes-move"
+     data-action="keydown.esc->notes-move#dismiss focusin@document->notes-move#focusChanged">
+  <button type="button" class="n-notes-button n-notes-menu-trigger n-notes-move-trigger"
+          command="show-modal" commandfor="<%= id %>" popovertarget="<%= id %>"
+          aria-haspopup="dialog" data-notes-move-target="trigger" data-action="notes-move#open">
+    <span><%= t("nosia.notes.move") %></span>
+    <%= inline_svg "svg/chevron-down.svg", aria_hidden: true, class: "n-notes-icon" %>
+  </button>
+  <dialog id="<%= id %>" class="n-notes-dropdown n-notes-move-dialog" closedby="any" popover="auto"
+          aria-label="<%= t("nosia.notes.move") %>" data-controller="notes-dropdown" data-notes-move-target="panel"
+          data-action="turbo:before-morph-attribute->notes-move#preserveOpen">
+    <%= render "notes/notes/move", account:, note:, options:, folders: %>
+    <button type="button" class="n-notes-menu-item"
+            command="close" commandfor="<%= id %>" popovertarget="<%= id %>" popovertargetaction="hide"
+            data-action="notes-move#dismiss"><%= t("nosia.actions.cancel") %></button>
+  </dialog>
+</div>

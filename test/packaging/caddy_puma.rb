@@ -34,6 +34,21 @@ class CaddyPumaPackagingTest < Minitest::Test
     assert_includes file_contents("Dockerfile").lines.map(&:strip), 'CMD ["bin/boot"]'
   end
 
+  def test_runtime_code_and_gems_are_owned_by_root
+    dockerfile = file_contents("Dockerfile")
+
+    assert_includes dockerfile.lines.map(&:strip), "COPY --from=build --chown=root:root /usr/local/bundle /usr/local/bundle"
+    assert_includes dockerfile.lines.map(&:strip), "COPY --from=build --chown=root:root /rails /rails"
+    assert_match(/USER rails:rails\nENTRYPOINT /, dockerfile)
+  end
+
+  def test_local_workspaces_and_audit_files_stay_out_of_the_image_context
+    ignored_paths = file_contents(".dockerignore").lines.map(&:strip)
+
+    assert_includes ignored_paths, "/.worktrees"
+    assert_includes ignored_paths, "/.cybedefend"
+  end
+
   def test_dockerfile_generator_disables_thruster
     assert_equal false, yaml_contents("config/dockerfile.yml").fetch("options").fetch("thruster")
   end
@@ -42,9 +57,41 @@ class CaddyPumaPackagingTest < Minitest::Test
     services = yaml_contents("docker-compose.yml").fetch("services")
     proxy = services.fetch("reverse-proxy")
 
-    assert_equal [ "80:80", "443:443" ], proxy.fetch("ports")
+    assert_equal [ "${NOSIA_BIND_ADDRESS:-127.0.0.1}:80:80", "${NOSIA_BIND_ADDRESS:-127.0.0.1}:443:443" ], proxy.fetch("ports")
     assert_includes proxy.fetch("volumes"), "caddy-data:/data"
+    assert_includes proxy.fetch("volumes"), "./Caddyfile:/etc/caddy/Caddyfile:ro"
     refute services.fetch("web").key?("ports")
+  end
+
+  def test_installers_generate_the_same_service_security_settings
+    services = yaml_contents("docker-compose.yml").fetch("services")
+
+    { "install.sh" => "\\", "install.ps1" => "`" }.each do |path, escape|
+      template = file_contents(path)[/^services:\n.*?(?=^(?:EOF|models:))/m]
+      generated = YAML.safe_load(template.gsub("#{escape}$", "$")).fetch("services")
+
+      services.each do |name, service|
+        keys = %w[user ports volumes healthcheck cap_drop cap_add security_opt]
+        assert_equal service.slice(*keys), generated.fetch(name).slice(*keys), "#{path}: #{name}"
+      end
+    end
+  end
+
+  def test_long_running_public_proxy_has_a_local_health_probe
+    proxy = yaml_contents("docker-compose.yml").fetch("services").fetch("reverse-proxy")
+
+    assert_includes proxy.dig("healthcheck", "test").to_a, "http://127.0.0.1:2019/config/"
+  end
+
+  def test_rails_services_do_not_need_linux_capabilities_or_privilege_escalation
+    services = yaml_contents("docker-compose.yml").fetch("services")
+
+    %w[db-migrate web solidq].each do |name|
+      service = services.fetch(name)
+      assert_equal "1000:1000", service.fetch("user"), name
+      assert_equal [ "ALL" ], service["cap_drop"], name
+      assert_includes service["security_opt"], "no-new-privileges:true", name
+    end
   end
 
   def test_caddy_forwards_to_puma_without_forcing_internal_certificates
@@ -62,6 +109,15 @@ class CaddyPumaPackagingTest < Minitest::Test
     web = yaml_contents("docker-compose.yml").fetch("services").fetch("web")
 
     assert_equal [ "CMD", "curl", "-f", "http://localhost:3000/up" ], web.fetch("healthcheck").fetch("test")
+  end
+
+  def test_worker_healthcheck_requires_a_recent_heartbeat_from_this_container
+    worker = yaml_contents("docker-compose.yml").fetch("services").fetch("solidq")
+    executable, command, subcommand, script = worker.fetch("healthcheck").fetch("test", [])
+
+    assert_equal [ "CMD", "bin/rails", "runner" ], [ executable, command, subcommand ]
+    assert_includes script, "hostname: Socket.gethostname"
+    assert_includes script, "last_heartbeat_at: 2.minutes.ago.."
   end
 
   def test_start_app_preserves_database_setup_and_server_start
@@ -230,8 +286,10 @@ class CaddyPumaPackagingTest < Minitest::Test
   def test_trust_helpers_ci_installs_only_standalone_ruby_test_dependencies
     steps = trust_helpers_job.fetch("steps")
 
-    assert steps.any? { |step| step["uses"] == "actions/checkout@v6" }
-    setup = steps.find { |step| step["uses"] == "ruby/setup-ruby@v1" }
+    checkout = steps.find { |step| step["uses"].to_s.match?(%r{\Aactions/checkout@[0-9a-f]{40}\z}) }
+    refute_nil checkout, "trust_helpers must pin checkout to a commit"
+    assert_equal false, checkout.fetch("with").fetch("persist-credentials")
+    setup = steps.find { |step| step["uses"].to_s.match?(%r{\Aruby/setup-ruby@[0-9a-f]{40}\z}) }
     refute_nil setup, "trust_helpers must set up native Ruby without the application bundle"
     assert_equal ".ruby-version", setup.fetch("with").fetch("ruby-version")
     assert_equal false, setup.fetch("with").fetch("bundler-cache")

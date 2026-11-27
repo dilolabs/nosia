@@ -28,6 +28,8 @@ class McpCatalogController < ApplicationController
   def create
     @template = McpCatalog.find(params[:id] || params[:server_id])
     if @template
+      return head :forbidden if @template[:transport_type] == "stdio" && !Current.user.admin?
+
       values = params.fetch(:config, ActionController::Parameters.new).permit(*Array(@template[:requires_config]).map { |field| field[:name].to_s }).to_h
       begin
         @mcp_server = McpCatalog.activate_for_account(@account, @template[:id], values)

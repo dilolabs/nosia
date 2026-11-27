@@ -1,0 +1,21 @@
+<%# locals: (account:, groups:, parent_id:, selected_folder:, open_ids:) %>
+<% if (children = groups[parent_id]).present? %>
+  <ul class="n-notes-tree">
+    <% children.each do |folder| %>
+      <% name = notes_folder_name(folder) %>
+      <li class="n-notes-tree-node">
+        <%= link_to name, account_notes_workspace_path(account, folder_id: folder.id),
+                    class: "n-notes-tree-link", aria: { current: ("page" if folder == selected_folder) } %>
+        <% if groups.key?(folder.id) %>
+          <%# Keep the disclosure node matchable during autosave morphs. %>
+          <%= tag.details(id: dom_id(folder, :notes_tree_branch), class: "n-notes-tree-branch", open: open_ids.include?(folder.id)) do %>
+            <summary class="n-notes-tree-toggle" aria-label="<%= t("nosia.notes.subfolders_of", name:) %>">
+              <%= inline_svg "svg/chevron-right.svg", aria_hidden: true, class: "n-notes-icon" %>
+            </summary>
+            <%= render("notes/workspaces/folder_tree", account:, groups:, parent_id: folder.id, selected_folder:, open_ids:) %>
+          <% end %>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

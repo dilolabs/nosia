@@ -25,11 +25,7 @@ class MessageHtmlToMarkdownTest < ActiveSupport::TestCase
   end
 
   test "action-text-attachment PDF nodes become a paperclip marker" do
-    blob = ActiveStorage::Blob.create_and_upload!(
-      io: StringIO.new("%PDF-1.4"), filename: "report.pdf", content_type: "application/pdf"
-    )
-    sgid = blob.attachable_sgid
-    html = %(<p>Here is the doc</p><action-text-attachment sgid="#{sgid}" content-type="application/pdf"></action-text-attachment>)
+    html = %(<p>Here is the doc</p><action-text-attachment filename="report.pdf" content-type="application/pdf"></action-text-attachment>)
     message = @chat.messages.create!(role: "user", content: html)
     assert_includes message.content, "📎 report.pdf"
     refute_includes message.content, "action-text-attachment"

@@ -7,6 +7,7 @@ class DocumentCreateFromBlobTest < ActiveSupport::TestCase
   def setup
     @user = User.create!(email: "db@example.com", password: "testpassword123")
     @account = Account.create!(name: "DB Account", owner: @user)
+    @account.account_users.grant_to(@user)
     ActsAsTenant.current_tenant = @account
     @original_queue_adapter = ActiveJob::Base.queue_adapter
     ActiveJob::Base.queue_adapter = :test
@@ -18,13 +19,9 @@ class DocumentCreateFromBlobTest < ActiveSupport::TestCase
   end
 
   test "creates a document, owns the blob, and enqueues AddDocumentJob" do
-    blob = ActiveStorage::Blob.create_and_upload!(
-      io: StringIO.new("%PDF-1.4 fake"),
-      filename: "report.pdf",
-      content_type: "application/pdf"
-    )
+    blob = create_document_upload(account: @account, user: @user)
     assert_enqueued_with(job: AddDocumentJob) do
-      @document = Document.create_from_blob!(@account, blob.signed_id)
+      @document = Document.create_from_blob!(@account, blob.signed_id, user: @user)
     end
     assert @document.persisted?
     assert @document.file.attached?
@@ -33,13 +30,9 @@ class DocumentCreateFromBlobTest < ActiveSupport::TestCase
   end
 
   test "create_from_attachable_sgid! resolves an attachable sgid to a blob and creates the document" do
-    blob = ActiveStorage::Blob.create_and_upload!(
-      io: StringIO.new("%PDF-1.4 fake"),
-      filename: "report.pdf",
-      content_type: "application/pdf"
-    )
+    blob = create_document_upload(account: @account, user: @user)
     assert_enqueued_with(job: AddDocumentJob) do
-      @document = Document.create_from_attachable_sgid!(@account, blob.attachable_sgid)
+      @document = Document.create_from_attachable_sgid!(@account, blob.attachable_sgid, user: @user)
     end
     assert @document.persisted?
     assert_equal blob, @document.file.blob

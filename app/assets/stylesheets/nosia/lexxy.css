@@ -129,3 +129,8 @@
 .dark :where(.lexxy-content) {
   color: var(--color-neutral-100);
 }
+
+/* Code specifies its own foreground instead of inheriting content text. */
+.dark :where(.lexxy-content) :is(pre, code) {
+  color: var(--lexxy-color-text);
+}

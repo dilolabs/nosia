@@ -9,6 +9,7 @@ Nosia is a platform that allows you to run AI models on your own data with compl
 - **🔒 Private & Secure** - Your data stays on your infrastructure
 - **🤖 OpenAI-Compatible API** - Drop-in replacement for OpenAI clients
 - **📚 RAG-Powered** - Augment AI responses with your documents
+- **📝 Notes workspace** - Write and organize shared account notes that can inform chats and authorized API completions
 - **🔌 MCP Integration** - Connect AI to external tools and services via Model Context Protocol
 - **🤖 Agent Skills** - Extend chat with custom LLM-driven and Ruby-based skills
 - **🔄 Real-time Streaming** - Server-sent events for live responses
@@ -193,18 +194,28 @@ By default, Nosia uses `ai/granite-embedding-multilingual` for generating docume
    EMBEDDING_DIMENSIONS=768  # Adjust based on your model's output dimensions
    ```
 
-2. Restart Nosia to apply changes:
+2. If the dimensions are changing, restart Nosia to apply the configuration:
    ```bash
    docker compose down
    docker compose up -d
    ```
 
-3. Update existing embeddings (if you have documents already indexed):
+3. For a dimension change, update existing embeddings (if you have documents already indexed):
    ```bash
    docker compose run web bin/rails embeddings:change_dimensions
    ```
 
 > **Important:** Different embedding models produce vectors of different dimensions. Ensure `EMBEDDING_DIMENSIONS` matches your model's output size, or vector search will fail.
+
+If the new model uses the same dimensions, rebuild without changing the schema:
+
+```bash
+docker compose stop web solidq
+docker compose run --rm web bin/rails embeddings:rebuild
+docker compose up -d web solidq
+```
+
+Restart the web and worker services only after the rebuild succeeds. The rebuild indexes active notes; notes in Trash are indexed when restored.
 
 ### Advanced Installation
 
@@ -328,15 +339,16 @@ Nosia provides an OpenAI-compatible API that works with existing OpenAI client l
 
 #### Using the API
 
-Configure your OpenAI client to use Nosia:
+Configure your OpenAI client with a token issued for the account you want to use. The OpenAI `user` field does not select or create a Nosia account.
 
 **Python Example:**
 ```python
+import os
 from openai import OpenAI
 
 client = OpenAI(
     base_url="https://nosia.localhost/v1",
-    api_key="your-nosia-api-token"
+    api_key=os.environ["NOSIA_API_TOKEN"]
 )
 
 response = client.chat.completions.create(
@@ -354,9 +366,9 @@ for chunk in response:
 
 **cURL Example:**
 ```bash
-curl https://nosia.localhost/v1/chat/completions \
+curl "https://nosia.localhost/v1/chat/completions" \
+  --oauth2-bearer "${NOSIA_API_TOKEN:?Set NOSIA_API_TOKEN for the target account}" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-nosia-api-token" \
   -d '{
     "model": "default",
     "messages": [
@@ -371,7 +383,7 @@ import OpenAI from 'openai';
 
 const client = new OpenAI({
   baseURL: 'https://nosia.localhost/v1',
-  apiKey: 'your-nosia-api-token'
+  apiKey: process.env.NOSIA_API_TOKEN
 });
 
 const response = await client.chat.completions.create({

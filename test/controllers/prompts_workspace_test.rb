@@ -28,9 +28,9 @@ class PromptsWorkspaceTest < ActionDispatch::IntegrationTest
   end
 
   test "directory preserves both saved record kinds without listing personal identity data" do
-    before = @user.accounts.flat_map { |account| account.prompts.where(name: "system_prompt").pluck(:id) }
+    sign_in_overview(@member)
     get system_prompts_path
-    assert_select "[data-prompt-row]", count: before.size
+    assert_select "[data-prompt-row]", count: 2
     [ @shared, @personal ].each { |prompt| assert_select "[data-prompt-row] a[href=?]", system_prompt_path(prompt) }
     assert_select "[data-prompt-row]", text: /#{Regexp.escape(I18n.t('nosia.settings_tools.account_default'))}/
     assert_select "[data-prompt-row]", text: /#{Regexp.escape(I18n.t('nosia.settings_tools.user_specific'))}/
@@ -116,6 +116,7 @@ class PromptsWorkspaceTest < ActionDispatch::IntegrationTest
     assert_select "#chat-history .n-orbite-panel-links a[href=?]", new_chat_path(account_id: @second.id), count: 1
     assert_select ".n-orbite-rail a[href=?]", new_chat_path(account_id: @second.id), count: 1
     assert_select "[data-settings-tool] form input[name=_method][value=delete]", count: 0
+    sign_in_overview(@member)
     assert_difference("Prompt.count", -1) { delete system_prompt_path(@personal) }
     assert_redirected_to system_prompts_path
     assert_equal @first, @user.reload.first_account

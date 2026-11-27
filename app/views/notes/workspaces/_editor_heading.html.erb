@@ -1,0 +1,26 @@
+<%# locals: (account:, note:, options:, folders:) %>
+<div id="notes-editor-heading" class="n-notes-editor-heading">
+  <h2 id="notes-reader-heading" class="sr-only"><%= t(note.persisted? ? "nosia.notes.editor" : "nosia.notes.new_note") %></h2>
+  <% folder = folders[note.note_folder_id || options[:folder_id]] %>
+  <% folder_path = folder ? notes_folder_path(folder, folders) : t("nosia.notes.general") %>
+  <% back_label = t("nosia.notes.back_to_list") %>
+  <div class="n-notes-editor-toolbar">
+    <%= link_to account_notes_workspace_path(account, **options), class: "n-notes-button n-notes-back n-notes-icon-button",
+                aria: { label: back_label }, title: back_label, data: { notes_back: true } do %>
+      <%= inline_svg "svg/chevron-left.svg", aria_hidden: true, class: "n-notes-icon" %>
+      <span class="sr-only"><%= back_label %></span>
+    <% end %>
+    <p class="n-notes-meta n-notes-editor-context" title="<%= folder_path %>"><%= folder_path %></p>
+    <% if note.persisted? %>
+      <div class="n-notes-editor-actions">
+        <%= render layout: "notes/workspaces/dropdown",
+              locals: { id: "note-actions-#{note.id}", label: t("nosia.notes.note_actions"), icon: "ellipsis", close_on_focus_leave: true } do %>
+          <%= button_to t(note.pin ? "nosia.notes.unpin" : "nosia.notes.pin"), account_note_pin_path(account, note, **options),
+                        method: note.pin ? :delete : :post, class: "n-notes-menu-item" %>
+          <%= render("notes/workspaces/move_picker", account:, note:, options:, folders:) %>
+          <%= button_to t("nosia.notes.trash_note"), account_note_trashing_path(account, note), class: "n-notes-menu-item n-notes-menu-danger" %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>

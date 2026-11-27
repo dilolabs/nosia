@@ -22,7 +22,7 @@ module Api
       private
 
       def qna_params
-        params.permit(:answer, :question, :user)
+        params.permit(:answer, :question)
       end
     end
   end

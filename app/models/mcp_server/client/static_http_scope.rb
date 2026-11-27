@@ -2,7 +2,7 @@
 # connector before putting its headers on any socket, including retries.
 class McpServer::Client::StaticHttpScope < McpServer::Client::RequestScope
   def initialize(server, chat_owner_id: nil)
-    super(https_only: false)
+    super(https_only: server.static_headers.present?)
     @server_id = server.id
     @account_id = server.account_id
     @configuration = server
