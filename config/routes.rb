@@ -13,6 +13,10 @@ Rails.application.routes.draw do
 
   resource :language_preference, only: :update
 
+  # Disk PUT URLs are short-lived capabilities issued to authorized uploaders.
+  # Downloads stream through the account-authorized application controllers.
+  put "/rails/active_storage/disk/:encoded_token", to: "active_storage/disk#update", as: :update_rails_disk_service
+
   # The controller authenticates without retaining the provider's query on sign-in.
   get "/mcp/oauth/callback", to: "mcp_servers/oauth_callbacks#show", as: :mcp_oauth_callback, format: false
 
@@ -33,6 +37,9 @@ Rails.application.routes.draw do
 
   # User routes
   constraints Authentication::Authenticated do
+    post "/rails/active_storage/direct_uploads", to: "document_uploads#create", as: :rails_direct_uploads
+    get "/document_uploads/:signed_id/*filename", to: "document_uploads#show", as: :rails_service_blob
+
     resource :notes_entry, path: "notes", only: :show, controller: "notes/entries"
     resources :accounts, only: [ :index, :show, :new, :edit, :create, :update ] do
       resources :account_users, only: [ :index, :create, :destroy ], module: :accounts
@@ -81,6 +88,7 @@ Rails.application.routes.draw do
       end
       namespace :sources do
         resources :documents, except: :index do
+          resource :file, only: :show, module: :documents
           resource :retry, only: :create, module: :documents
         end
         resources :texts, except: :index do

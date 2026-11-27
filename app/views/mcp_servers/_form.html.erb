@@ -15,7 +15,7 @@
       <p class="n-workspace-help"><%= t("nosia.mcp_workspace.local_transport_fixed") %></p>
     <% else %>
       <% transports = mcp_server.saved_legacy_sse? ? %w[streamable sse stdio] : %w[streamable stdio] %>
-      <% choices = transports.map { |value| [ t("nosia.mcp.transport.#{value}"), value, { disabled: value == "stdio" && !McpServer.stdio_enabled? && mcp_server.transport_type != "stdio" } ] } %>
+      <% choices = transports.map { |value| [ t("nosia.mcp.transport.#{value}"), value, { disabled: value == "stdio" && (!Current.user.admin? || !McpServer.stdio_enabled?) && mcp_server.transport_type != "stdio" } ] } %>
       <%= render "mcp_workspace/field", form: f, attribute: :transport_type, label: t("nosia.mcp.connection_type"), type: :select, choices: choices, required: true %>
       <% unless McpServer.stdio_enabled? %>
         <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>

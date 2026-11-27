@@ -422,6 +422,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   end
 
   test "French catalog feedback localizes wrappers without activating servers" do
+    @user.update!(admin: true)
     sign_in_picker_user
     headers = { "Accept-Language" => "fr" }
 
@@ -735,7 +736,7 @@ class LocalizedPagesTest < ActionDispatch::IntegrationTest
   test "French source HTML notices translate creation updates retries and deletion" do
     sign_in_picker_user
     headers = { "Accept-Language" => "fr" }
-    blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4 test"), filename: "original.pdf", content_type: "application/pdf")
+    blob = create_document_upload(account: @first, user: @user, filename: "original.pdf")
     resources = [
       [ :texts, { data: "Original text" }, "Le texte", "créé", "mis", "supprimé", "Nouvelle indexation du texte." ],
       [ :qnas, { question: "Original question?", answer: "Original answer" }, "La question-réponse", "créée", "mise", "supprimée", "Nouvelle indexation de la question-réponse." ],

@@ -3,6 +3,7 @@ module Website::RobotsCheckable
 
   USER_AGENT = "Nosiabot/0.1"
   ROBOTS_CACHE_TTL = 12.hours
+  MAX_ROBOTS_BYTES = 512.kilobytes
 
   def robots_allowed?
     return true unless url.present?
@@ -14,7 +15,7 @@ module Website::RobotsCheckable
     allowed = robots_path_allowed?(uri.request_uri, rules)
 
     unless allowed
-      Rails.logger.warn("crawl_url! disallowed by robots.txt url=#{self.url}")
+      Rails.logger.warn("crawl_url! disallowed by robots.txt website_id=#{id}")
     end
 
     allowed
@@ -25,7 +26,7 @@ module Website::RobotsCheckable
   private
 
   def robots_rules_for(uri)
-    Rails.cache.fetch(robots_cache_key(uri.host), expires_in: ROBOTS_CACHE_TTL) do
+    Rails.cache.fetch(robots_cache_key(uri), expires_in: ROBOTS_CACHE_TTL) do
       fetch_robots_txt(uri)
     end
   end
@@ -35,28 +36,23 @@ module Website::RobotsCheckable
     robots_uri.path = "/robots.txt"
     robots_uri.query = nil
 
-    response = robots_connection.get(robots_uri.to_s) do |request|
-      request.headers["User-Agent"] = USER_AGENT
-    end
+    response, body = fetch_website_resource(robots_uri.to_s, robots_connection, max_bytes: MAX_ROBOTS_BYTES)
 
-    return parse_robots_txt(response.body) if response.success?
+    return parse_robots_txt(body) if response.success?
 
     return [] if (400..499).cover?(response.status)
 
-    raise Faraday::ServerError, "upstream #{response.status} for #{robots_uri}"
-  rescue Faraday::TimeoutError, Faraday::ConnectionFailed
-    raise
+    raise Faraday::ServerError, "robots.txt upstream status #{response.status}"
+  rescue Faraday::TimeoutError, Faraday::ConnectionFailed => error
+    raise error.class, "robots.txt fetch failed", cause: nil
   end
 
   def robots_connection
-    Faraday.new do |builder|
-      builder.options.timeout = 10
-      builder.options.open_timeout = 5
-    end
+    faraday_connection
   end
 
-  def robots_cache_key(host)
-    "website/robots_txt/#{host}"
+  def robots_cache_key(uri)
+    "website/robots_txt/#{uri.scheme}/#{uri.host}/#{uri.port}"
   end
 
   def parse_robots_txt(body)

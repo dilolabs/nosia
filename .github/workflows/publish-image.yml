@@ -37,18 +37,21 @@ jobs:
     runs-on: ubuntu-24.04
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg16@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports: [ "5432:5432" ]
         options: --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: ruby/setup-ruby@v1.335.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: .ruby-version
-          bundler-cache: true
+          bundler-cache: false
+      - run: bundle install
       - name: Test the opt-in contract without Rails
         run: |
           bundle exec ruby test/lib/nosia/native_stack_contract_test.rb
@@ -72,7 +75,9 @@ jobs:
     runs-on: ubuntu-24.04
     environment: dockerhub-release
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Read exact source and database schema
         id: contract
         env:
@@ -90,10 +95,10 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               print('schema=' + str(max(versions)), file=output)
           PY
-      - uses: docker/setup-qemu-action@v4.4.0
-      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build the ARM64 candidate before publication
-        uses: docker/build-push-action@v7.4.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/arm64
@@ -114,7 +119,7 @@ jobs:
             nosia-native-smoke:test ruby -e 'abort "Native supervisor must be unprivileged PID 1" unless Process.pid == 1 && Process.uid == 1000'
           install -d -m 700 "$RUNNER_TEMP/nosia-control"
           native_token=00000000-0000-4000-8000-000000000001
-          docker run --rm --platform linux/arm64 \
+          docker run --rm --platform linux/arm64 --user 0:0 \
             --env NOSIA_NATIVE_LOCAL=1 --env "NOSIA_OPERATION_TOKEN=$native_token" \
             --volume "$RUNNER_TEMP/nosia-control:/nosia-control" \
             nosia-native-smoke:test ruby bin/nosia-native-capabilities > native-capabilities.json
@@ -129,12 +134,12 @@ jobs:
           if json.load(open('native-capabilities.json')) != expected:
               raise SystemExit('Native entrypoint contract does not match the standard entrypoint')
           PY
-      - uses: docker/login-action@v4.8.0
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and publish AMD64 and ARM64
-        uses: docker/build-push-action@v7.4.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64

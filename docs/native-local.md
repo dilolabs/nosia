@@ -2,8 +2,9 @@
 
 The official `dilolabs/nosia` image supports an opt-in local mode for Nosia.app.
 Without `NOSIA_NATIVE_LOCAL=1`, the entrypoint forwards the existing `bin/boot`
-command or operator-supplied arguments unchanged. Production SSL and session
-settings remain in effect.
+command or operator-supplied arguments unchanged, as `rails` (UID 1000).
+Production SSL and session settings remain in effect. Standalone worker and
+migration containers should disable the image's web health check.
 
 With that flag, `NOSIA_URL` must be an explicit `http://127.0.0.1:<unprivileged-port>`
 origin. The native initializer configures local cookies, Rails URL generation
@@ -38,7 +39,10 @@ The lifecycle is:
    Give the container at least 30 seconds to stop before forcibly killing it.
 
 Temporary native operations can mount a private `/nosia-control` directory and
-set a UUID `NOSIA_OPERATION_TOKEN`. The entrypoint validates the token and control
+set a UUID `NOSIA_OPERATION_TOKEN`. Use UID 1000-owned writable mounts, or
+explicitly start the native container as root (`--user 0:0`) when ownership
+setup or a root-owned control mount is required. The root entrypoint drops
+privileges before running Rails. The entrypoint validates the token and control
 mount before running the command, clears any previous completion for that token,
 and atomically publishes `<token>.complete` only on success. Use a fresh token per
 operation, so a container CLI returning zero cannot conceal a failed migration.

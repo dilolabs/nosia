@@ -51,7 +51,7 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
 
   { endpoint: { endpoint: "https://mcp.example.test/new" }, transport: { transport_type: "stdio", command: "fixture" },
     mode: { auth_mode: "static" }, credentials: {} }.each do |change, attributes|
-    test "#{change} saves invalidate connection diagnostics but retain unrelated metadata and encrypted credentials" do
+    test "#{change} saves invalidate connection diagnostics and retain unrelated metadata" do
       stdio = ENV["MCP_STDIO_ENABLED"]
       ENV["MCP_STDIO_ENABLED"] = "true"
       @second_server.update!(transport_type: "streamable", endpoint: NativeMcpWire::URL,
@@ -68,8 +68,13 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
       assert_nil @second_server.latency_ms
       assert_nil @second_server.last_error
       assert_equal({ "catalog_id" => "preserved" }, @second_server.metadata)
-      assert_equal change == :credentials ? "replacement" : "retained-token", @second_server.token
-      assert_equal "retained-key", @second_server.api_key
+      if change == :endpoint
+        assert_nil @second_server.token
+        assert_nil @second_server.api_key
+      else
+        assert_equal change == :credentials ? "replacement" : "retained-token", @second_server.token
+        assert_equal "retained-key", @second_server.api_key
+      end
     ensure
       ENV["MCP_STDIO_ENABLED"] = stdio
     end
@@ -226,9 +231,9 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
         assert saved.test_connection!
         assert_equal "/new", wire.requests.last.fetch(:path)
         refute wire.requests.last.fetch(:headers).key?(header)
-        assert_equal "custom-auth", wire.requests.last.fetch(:headers)[other_header]
-        assert_equal "keep", wire.requests.last.fetch(:headers)["X-Custom"]
-        assert_equal public_headers, @second.mcp_servers.find(@second_server.id).headers
+        assert_nil wire.requests.last.fetch(:headers)[other_header]
+        assert_nil wire.requests.last.fetch(:headers)["X-Custom"]
+        assert_empty @second.mcp_servers.find(@second_server.id).headers
       end
     end
 
@@ -288,7 +293,7 @@ class McpServerConfigurationTest < ActiveSupport::TestCase
           assert_equal %w[server/discover tools/list] * 2, wire.methods_requested
           assert_equal "/new", wire.requests.last.fetch(:path)
           assert_nil wire.requests.last.fetch(:headers)[header]
-          assert_equal "keep", wire.requests.last.fetch(:headers)["X-Custom"]
+          assert_nil wire.requests.last.fetch(:headers)["X-Custom"]
           assert_equal({ "UNEDITED" => "keep" }, @second.mcp_servers.find(@second_server.id).env)
         end
       ensure

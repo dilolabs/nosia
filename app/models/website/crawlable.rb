@@ -4,6 +4,7 @@ module Website::Crawlable
   class ConversionError < StandardError; end
 
   HEAD_FIELDS = %w[title meta-title meta-description meta-keywords].freeze
+  MAX_PAGE_BYTES = 5.megabytes
 
   def crawl_url!
     if url.blank?
@@ -11,13 +12,7 @@ module Website::Crawlable
       return
     end
 
-    begin
-      UrlGuard.verify!(url)
-    rescue UrlGuard::Blocked => error
-      Rails.logger.warn("crawl_url! blocked url=#{url} reason=#{error.message}")
-      mark_indexing_failed!
-      return
-    end
+    McpOutbound.destination!(url, https_only: false)
 
     unless robots_allowed?
       mark_indexing_failed!
@@ -34,35 +29,55 @@ module Website::Crawlable
     save!
     chunkify!
     self
+  rescue McpOutbound::Blocked => error
+    Rails.logger.warn("crawl_url! blocked website_id=#{id} reason=#{error.message}")
+    mark_indexing_failed!
+    nil
   end
 
   private
 
   def fetch_html
-    response = faraday_connection.get(self.url) do |request|
-      request.headers["User-Agent"] = "Nosiabot/0.1"
-    end
+    response, body = fetch_website_resource(url, faraday_connection, max_bytes: MAX_PAGE_BYTES)
 
     if response.success?
-      return response.body
+      return body
     end
 
     if (500..599).cover?(response.status)
-      raise Faraday::ServerError, "upstream #{response.status} for #{self.url}"
+      raise Faraday::ServerError, "upstream status #{response.status}"
     end
 
-    Rails.logger.warn("crawl_url! terminal status=#{response.status} url=#{self.url}")
+    Rails.logger.warn("crawl_url! terminal status=#{response.status} website_id=#{id}")
     nil
   rescue Faraday::TimeoutError, Faraday::ConnectionFailed => error
-    Rails.logger.warn("crawl_url! transient #{error.class} url=#{self.url}")
-    raise
+    raise error.class, "website fetch failed", cause: nil
   end
 
   def faraday_connection
     Faraday.new do |builder|
       builder.options.timeout = 10
       builder.options.open_timeout = 5
+      builder.adapter McpOutbound::Adapter
     end
+  end
+
+  def fetch_website_resource(url, connection, max_bytes:)
+    body = +"".b
+    response = McpOutbound.with(McpOutbound::Scope.new(https_only: false)) do
+      connection.get(url) do |request|
+        request.headers["User-Agent"] = Website::RobotsCheckable::USER_AGENT
+        request.options.on_data = ->(chunk, received_bytes, _env) do
+          raise McpOutbound::Blocked, "response too large" if received_bytes > max_bytes
+
+          body << chunk
+        end
+      end
+    end
+    body = response.body.to_s if body.empty?
+    raise McpOutbound::Blocked, "response too large" if body.bytesize > max_bytes
+
+    [ response, body ]
   end
 
   def convert_to_markdown(html)

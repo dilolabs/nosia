@@ -26,7 +26,7 @@ FROM base AS build
 
 # Install packages need to build gems
 RUN apt-get update -qq && \
-    apt-get install -y build-essential git pkg-config libffi-dev libyaml-dev libclang-dev && \
+    apt-get install --no-install-recommends -y build-essential git pkg-config libffi-dev libyaml-dev libclang-dev && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Install Rust toolchain (Debian cargo is too old for html-to-markdown's deps)
@@ -72,10 +72,13 @@ LABEL org.opencontainers.image.revision="${GIT_REVISION}" \
       io.nosia.native.protocol="1" \
       io.nosia.native.schema="${NATIVE_SCHEMA_VERSION}"
 RUN chmod 755 bin/nosia-entrypoint bin/nosia-native-boot bin/nosia-native-capabilities
+USER rails:rails
 ENTRYPOINT ["/rails/bin/nosia-entrypoint"]
 
 # Caddy forwards HTTP to Puma on the internal application port.
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+  CMD curl --fail --silent --max-time 4 --header "X-Forwarded-Proto: https" http://127.0.0.1:${PORT:-3000}/up || exit 1
 
 # Start the server by default, this can be overwritten at runtime
 CMD ["bin/boot"]

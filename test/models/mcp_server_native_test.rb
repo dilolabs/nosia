@@ -382,11 +382,11 @@ class McpServerNativeTest < ActiveSupport::TestCase
     end
   end
 
-  test "static public HTTP uses its explicit URL override and custom headers without global config changes" do
+  test "static HTTPS uses its explicit URL override and custom headers without global config changes" do
     adapter = RubyLLM.config.faraday_adapter
-    @server.update!(url: "http://#{NativeMcpWire::HOST}/override", headers: { "X-Custom" => "kept" })
+    @server.update!(url: "https://#{NativeMcpWire::HOST}/override", headers: { "X-Custom" => "kept" })
     @wire.install(self) { assert @server.test_connection! }
-    assert_equal %w[http], @wire.requests.pluck(:scheme).uniq
+    assert_equal %w[https], @wire.requests.pluck(:scheme).uniq
     assert_equal [ "/override" ], @wire.requests.pluck(:path).uniq
     assert_equal "kept", @wire.requests.last.fetch(:headers)["X-Custom"]
     assert_nil @wire.requests.last.fetch(:headers)["Authorization"]
@@ -707,6 +707,7 @@ class McpServerNativeTest < ActiveSupport::TestCase
           assert_equal({ success: true, result: error }, @server.execute_tool("lookup"))
         else
           chat = chats(:picker_second_chat)
+          chat.user.update!(admin: true) if @server.stdio?
           chat.add_mcp_server(@server)
           chat.with_model(chat.model_id, provider: :openai, assume_model_exists: true)
           turn = chat.with_mcp_tools do

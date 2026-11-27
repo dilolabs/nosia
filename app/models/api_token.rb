@@ -19,6 +19,10 @@ class ApiToken < ApplicationRecord
     OpenSSL::Digest::SHA256.hexdigest(plain)
   end
 
+  def current_membership?
+    AccountUser.exists?(account_id: account_id, user_id: user_id)
+  end
+
   private
 
   # The plaintext exists only in memory between creation and the response that

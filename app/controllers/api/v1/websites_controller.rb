@@ -22,7 +22,7 @@ module Api
       private
 
       def website_params
-        params.permit(:url, :user)
+        params.permit(:url)
       end
     end
   end

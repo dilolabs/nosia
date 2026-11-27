@@ -32,25 +32,10 @@ class Message < ApplicationRecord
   def self.html_to_markdown(html)
     doc = Nokogiri::HTML::DocumentFragment.parse(html)
     doc.css("action-text-attachment[content-type='application/pdf']").each do |node|
-      filename = filename_for_attachment(node)
-      node.replace(Nokogiri::HTML::DocumentFragment.parse("📎 #{filename}"))
+      filename = node["filename"].presence || "attachment"
+      node.replace(Nokogiri::XML::Text.new("📎 #{filename}", node.document))
     end
     HtmlToMarkdown.convert(doc.to_html, skip_images: true, autolinks: false).content
-  end
-
-  def self.filename_for_attachment(node)
-    sgid = node["sgid"]
-    return "attachment" unless sgid
-
-    attachable = ActionText::Attachable.from_attachable_sgid(sgid)
-    case attachable
-    when ActiveStorage::Blob then attachable.filename.to_s
-    when Document then attachable.file.filename.to_s
-    else
-      "attachment"
-    end
-  rescue
-    "attachment"
   end
 
   # Keeps Nosia's Hash API; RubyLLM rewraps it in a Collection in #to_llm.

@@ -31,6 +31,7 @@ module McpScoped
     def set_mcp_server
       key = request.path_parameters.key?(:mcp_server_id) ? :mcp_server_id : :id
       @mcp_server = @account.mcp_servers.find(mcp_path_id(key))
+      head :forbidden if @mcp_server.stdio? && !Current.user.admin?
     end
 
     def protect_oauth_response

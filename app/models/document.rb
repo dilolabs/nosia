@@ -45,14 +45,15 @@ class Document < ApplicationRecord
   # Registers a direct-uploaded blob once per account and enqueues indexing after commit.
   # @param account [Account] Authorized, persisted filing account
   # @param signed_id [String] Active Storage blob signed ID, not an attachable SGID
+  # @param user [User] The uploader and current account member
   # @return [Document] Existing or newly persisted account-local document
-  # @raise [ActiveSupport::MessageVerifier::InvalidSignature] if the signed ID is invalid or expired
-  # @raise [ActiveRecord::RecordNotFound] if the blob no longer exists
+  # @raise [ActiveRecord::RecordNotFound] if the blob reference is invalid or outside the upload scope
   # @raise [ActiveRecord::RecordInvalid] if document validation fails
-  def self.create_from_blob!(account, signed_id)
-    blob = ActiveStorage::Blob.find_signed!(signed_id)
+  def self.create_from_blob!(account, signed_id, user:)
+    blob = Upload.resolve(signed_id, account:, user:)
 
     account.with_lock do
+      Upload.authorize(blob, account:, user:)
       document = account.documents.joins(:file_attachment).lock.find_by(active_storage_attachments: { blob_id: blob.id })
 
       unless document
@@ -71,14 +72,15 @@ class Document < ApplicationRecord
   # to create_from_blob! with the real signed_id.
   # @param account [Account] Authorized, persisted filing account
   # @param sgid [String] Action Text attachable SGID for an uploaded blob
+  # @param user [User] The uploader and current account member
   # @return [Document] Existing or newly persisted account-local document
   # @raise [ActiveRecord::RecordNotFound] if the attachable cannot be resolved
   # @raise [ActiveRecord::RecordInvalid] if document validation fails
-  def self.create_from_attachable_sgid!(account, sgid)
-    blob = ActionText::Attachable.from_attachable_sgid(sgid)
-    raise ActiveRecord::RecordNotFound, "invalid attachable sgid" if blob.nil?
+  def self.create_from_attachable_sgid!(account, sgid, user:)
+    blob = ActionText::Attachable.from_attachable_sgid(sgid, only: ActiveStorage::Blob)
+    raise ActiveRecord::RecordNotFound, "invalid attachable sgid" unless blob.is_a?(ActiveStorage::Blob)
 
-    create_from_blob!(account, blob.signed_id)
+    create_from_blob!(account, blob.signed_id, user:)
   end
 
   def context

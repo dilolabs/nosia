@@ -376,6 +376,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
   test "new transport selection retains command text without submitting or executing" do
     previous_stdio = ENV["MCP_STDIO_ENABLED"]
     ENV["MCP_STDIO_ENABLED"] = "true"
+    @user.update!(admin: true)
     visit new_account_mcp_server_path(@second)
     select I18n.t("nosia.mcp.transport.stdio"), from: "mcp_server_transport_type"
     assert_field "mcp_server_command", disabled: false
@@ -609,6 +610,7 @@ class McpWorkspaceSystemTest < ApplicationSystemTestCase
   test "transport changes disable irrelevant controls and retain unsaved HTTP credentials" do
     previous_stdio = ENV["MCP_STDIO_ENABLED"]
     ENV["MCP_STDIO_ENABLED"] = "true"
+    @user.update!(admin: true)
     @second_server.update!(transport_type: "streamable", endpoint: "https://mcp.example.org/mcp", args: [ "--flag", "value with spaces" ])
     visit edit_account_mcp_server_path(@second, @second_server)
     assert_field "mcp_server_endpoint", disabled: false

@@ -27,8 +27,7 @@ class ChatAccountSourcesTest < ActionDispatch::IntegrationTest
   end
 
   test "PDF registration and dashboard upload use the second account" do
-    blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
-      filename: "account.pdf", content_type: "application/pdf")
+    blob = create_document_upload(account: @second, user: @user, filename: "account.pdf")
 
     post chat_sources_url, params: { account_id: @second.id, attachable_sgid: blob.attachable_sgid }, as: :json
 
@@ -43,8 +42,7 @@ class ChatAccountSourcesTest < ActionDispatch::IntegrationTest
   end
 
   test "saved chat PDF registration accepts matching account context" do
-    blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
-      filename: "saved.pdf", content_type: "application/pdf")
+    blob = create_document_upload(account: @second, user: @user, filename: "saved.pdf")
 
     post chat_sources_url, params: { chat_id: chats(:picker_second_chat).id,
       account_id: @second.id, attachable_sgid: blob.attachable_sgid }, as: :json
@@ -269,8 +267,7 @@ class ChatAccountSourcesTest < ActionDispatch::IntegrationTest
     end
 
     def source_blob
-      ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
-        filename: "context.pdf", content_type: "application/pdf")
+      create_document_upload(account: @first, user: @user, filename: "context.pdf")
     end
 
     def assert_rejected_without_source_writes

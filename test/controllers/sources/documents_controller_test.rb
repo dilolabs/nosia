@@ -31,9 +31,14 @@ class Sources::DocumentsControllerTest < ActionDispatch::IntegrationTest
     get sources_document_url(document)
 
     assert_response :success
-    assert_select "##{dom_id(document)} iframe[src*='active_storage']"
+    assert_select "##{dom_id(document)} iframe[src=?]", account_sources_document_file_path(@account, document)
     assert_select "##{dom_id(document)} object", count: 0
     assert_includes response.headers["Content-Security-Policy"], "object-src 'none'"
+
+    get account_sources_document_file_path(@account, document)
+    assert_response :success
+    assert_includes response.headers["Cache-Control"], "no-store"
+    assert_equal "x", response.body
   end
 
   test "create cannot file a document under another user's account" do

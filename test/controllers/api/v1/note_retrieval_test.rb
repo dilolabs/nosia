@@ -42,28 +42,16 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
       end
     end
 
-    test "legacy account switch keeps existing Sources but excludes Notes (stream: #{stream})" do
+    test "OpenAI user metadata leaves retrieval bound to the issued account (stream: #{stream})" do
       ENV["GUARD_MODEL"] = "synthetic-notes-guard"
       with_note_provider do |requests|
-        post_completion(stream:, user: @second.uid)
-
-        assert_completion_response(stream)
-        assert_includes provider_text(requests), "SECOND_TEXT_MARKER"
-        assert_no_note_context(requests)
-        assert_equal [ @second_text.id ], last_answer.similar_chunks.ids
-      end
-    end
-
-    test "retained token without membership keeps existing Sources but excludes Notes (stream: #{stream})" do
-      @first.account_users.find_by!(user: @user).destroy!
-      ENV["GUARD_MODEL"] = "synthetic-notes-guard"
-      with_note_provider do |requests|
-        post_completion(stream:)
+        assert_no_difference "Account.count" do
+          post_completion(stream:, user: "end-user-metadata")
+        end
 
         assert_completion_response(stream)
         assert_includes provider_text(requests), "FIRST_TEXT_MARKER"
-        assert_no_note_context(requests)
-        assert_equal [ @first_text.id ], last_answer.similar_chunks.ids
+        assert_includes provider_text(requests), "FIRST_NOTE_MARKER"
       end
     end
 
@@ -82,7 +70,7 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
         with_note_sql_barrier(before: revoke_before_rank) { post_completion(stream:) }
 
         assert revoked, "expected membership revocation immediately before ranking SQL"
-        assert ApiToken.exists?(@token.id), "test covers legacy access through a retained token"
+        assert_not ApiToken.exists?(@token.id)
         assert_completion_response(stream)
         assert_includes provider_text(requests), "FIRST_TEXT_MARKER"
         assert_no_note_context(requests)
@@ -114,6 +102,7 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
     end
 
     test "a source-only Faraday retry keeps the same request (stream: #{stream})" do
+      @second_note.destroy!
       failed = false
       fail_once = ->(_request) do
         next if failed
@@ -123,7 +112,8 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
       end
 
       with_note_provider(after_request: fail_once) do |requests|
-        post_completion(stream:, user: @second.uid)
+        @token = @second.api_tokens.create!(user: @user, name: "Source only")
+        post_completion(stream:)
 
         assert_completion_response(stream)
         assert_equal 2, requests.size
@@ -184,8 +174,10 @@ class Api::V1::NoteRetrievalTest < ActionDispatch::IntegrationTest
         assert_not_includes log.string, "PRIVATE_PROVIDER_ECHO"
       end
 
+      @second_note.destroy!
+      @token = @second.api_tokens.create!(user: @user, name: "Source only")
       with_note_provider(stream_content: "ORDINARY_PROVIDER_ECHO") do
-        post_completion(stream: false, user: @second.uid)
+        post_completion(stream: false)
 
         assert_response :success
         assert_includes log.string, "SECOND_TEXT_MARKER"

@@ -19,7 +19,12 @@ class ApiTokensController < ApplicationController
     attributes = api_token_params
     @api_token = Current.user.api_tokens.new(account: account, name: attributes[:name])
 
-    if @api_token.save
+    saved = account.with_lock do
+      account.account_users.find_by!(user: Current.user)
+      @api_token.save
+    end
+
+    if saved
       # The plaintext token is shown exactly once, via the flash on the next
       # page load; only its digest is stored.
       redirect_to token_index_path, flash: { created_api_token: @api_token.plain_token }
@@ -60,6 +65,6 @@ class ApiTokensController < ApplicationController
     end
 
     def api_token_params
-      params.require(:api_token).permit(:account_id, :name)
+      params.require(:api_token).permit(:name)
     end
 end

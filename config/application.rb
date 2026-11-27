@@ -30,6 +30,7 @@ module Nosia
     config.i18n.fallbacks = [ :en ]
 
     config.active_job.queue_adapter = :solid_queue
+    config.active_storage.draw_routes = false
     config.mission_control.jobs.http_basic_auth_enabled = false
     config.active_record.encryption.primary_key = ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY"]

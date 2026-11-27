@@ -29,7 +29,7 @@ module Sources
       validate_chat_context_id(params.dig(:document, :account_id))
       account = source_filing_account(:document) || raise(ChatAccountScoped::MissingAccount)
       upload_id = params.require(:document).permit(:upload_id)[:upload_id]
-      @document = Document.create_from_upload(account, document_params, upload_id: upload_id)
+      @document = Document.create_from_upload(account, document_params(account), upload_id: upload_id)
 
       respond_to do |format|
         if @document.persisted?
@@ -45,7 +45,7 @@ module Sources
     # PATCH/PUT /documents/1 or /documents/1.json
     def update
       respond_to do |format|
-        if @document.update(document_params)
+        if @document.update(document_params(@document.account))
           AddDocumentJob.perform_later(@document.id)
           format.html { redirect_to source_response_path(@document), notice: t("nosia.sources.documents.updated") }
           format.json { render :show, status: :ok, location: source_response_path(@document) }
@@ -81,8 +81,14 @@ module Sources
     end
 
     # Only allow a list of trusted parameters through.
-    def document_params
-      params.require(:document).permit(:title, :file)
+    def document_params(account)
+      attributes = params.require(:document).permit(:title, :file)
+      if attributes[:file].present?
+        attributes[:file] = Document::Upload.resolve(attributes[:file], account:, user: Current.user)
+      else
+        attributes.delete(:file)
+      end
+      attributes
     end
   end
 end

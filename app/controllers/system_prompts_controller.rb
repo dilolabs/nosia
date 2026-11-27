@@ -7,7 +7,7 @@ class SystemPromptsController < ApplicationController
   before_action :require_shared_prompt_owner, only: [ :edit, :update, :destroy ]
 
   def index
-    @system_prompts = Prompt.where(account: Current.user.accounts, name: "system_prompt").order(:account_id)
+    @system_prompts = accessible_system_prompts.order(:account_id)
   end
 
   def show
@@ -31,7 +31,11 @@ class SystemPromptsController < ApplicationController
 
   private
     def set_system_prompt
-      @system_prompt = Prompt.where(account: Current.user.accounts, name: "system_prompt").find(params[:id])
+      @system_prompt = accessible_system_prompts.find(params[:id])
+    end
+
+    def accessible_system_prompts
+      Prompt.where(account: Current.user.accounts, name: "system_prompt", user_id: [ nil, Current.user.id ])
     end
 
     def require_shared_prompt_owner

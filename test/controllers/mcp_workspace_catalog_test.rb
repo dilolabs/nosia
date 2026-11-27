@@ -87,6 +87,7 @@ class McpWorkspaceCatalogTest < ActionDispatch::IntegrationTest
   end
 
   test "blocked stdio failure explains the problem without links to absent fields" do
+    @user.update!(admin: true)
     unless McpServer.stdio_enabled?
       assert_no_difference -> { @second.mcp_servers.count } do
         post account_mcp_catalog_index_path(@second), params: { id: "kchat", config: {} }
@@ -112,6 +113,7 @@ class McpWorkspaceCatalogTest < ActionDispatch::IntegrationTest
   test "public metadata stays public and declared secrets stay secret" do
     assert_equal [ "drive_id" ], McpCatalog.public_configuration_values(McpCatalog.find("kdrive"), { token: "hide", drive_id: "123" }).keys
     assert_empty McpCatalog.public_configuration_values(McpCatalog.find("kchat"), { kchat_token: "hide", kchat_team_name: "hide-team" })
+    @user.update!(admin: true)
     get mcp_catalog_path("kchat")
     if McpServer.stdio_enabled?
       assert_select "input#config_kchat_team_name[type=password]"

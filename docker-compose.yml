@@ -17,6 +17,8 @@ services:
   db-migrate:
     image: dilolabs/nosia:latest
     command: bundle exec rails db:prepare
+    healthcheck:
+      disable: true
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS}
@@ -88,6 +90,8 @@ services:
   solidq:
     image: dilolabs/nosia:latest
     command: bundle exec rake solid_queue:start
+    healthcheck:
+      disable: true
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}

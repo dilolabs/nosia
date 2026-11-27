@@ -5,6 +5,8 @@ class McpServersController < ApplicationController
   before_action :set_mcp_server, only: [ :show, :edit, :update, :destroy ]
   before_action :protect_oauth_response, only: [ :show, :edit, :update, :destroy ]
   before_action :validate_configuration_values, only: [ :create, :update ]
+  before_action :require_stdio_admin, only: [ :create, :update ]
+  before_action :require_static_configuration_owner, only: :update
 
   # @return [void] Renders the account's servers with allowlisted filters
   def index
@@ -91,6 +93,30 @@ class McpServersController < ApplicationController
 
     def mcp_server_params
       params.require(:mcp_server).permit(*McpServer::Configuration::WORKSPACE_ATTRIBUTES, :editing_auth_mode, :editing_connection_revision)
+    end
+
+    def require_stdio_admin
+      head :forbidden if mcp_server_params[:transport_type] == "stdio" && !Current.user.admin?
+    end
+
+    def require_static_configuration_owner
+      return if @mcp_server.stdio? || account_owner?
+
+      attributes = mcp_server_params
+      if @mcp_server.oauth?
+        return head :forbidden if attributes[:auth_mode] == "static"
+
+        return
+      end
+
+      fields = @mcp_server.workspace_configuration_fields.map { |field| field[:name].to_s }
+      changed_destination = attributes.slice(:endpoint, :transport_type, :auth_mode).to_h.any? do |field, value|
+        value.presence != @mcp_server.public_send(field).presence
+      end
+      changed_credentials = configuration_values(fields).any? do |field, value|
+        value.present? && value != @mcp_server.auth_config.to_h[field]
+      end
+      head :forbidden if changed_destination || changed_credentials || configuration_removals(fields).any?
     end
 
     def redirect_after_workspace_save(notice_key)

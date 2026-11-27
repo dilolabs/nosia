@@ -7,16 +7,17 @@
     <p class="n-workspace-help"><%= Array(@template[:capabilities]).map { |value| catalog_capability_label(value) }.join(" · ") %></p>
   </section>
   <% added = @added_servers.fetch(@template[:id], []) %>
+  <% admin_required = @template[:transport_type] == "stdio" && McpServer.stdio_enabled? && !Current.user.admin? %>
   <% blocked = @template[:transport_type] == "stdio" && !McpServer.stdio_enabled? %>
-  <% if added.any? && @mcp_server.errors.empty? %>
+  <% if added.any? && @mcp_server.errors.empty? && !admin_required %>
     <section class="n-workspace-panel">
       <h2 class="n-workspace-section-title"><%= t("nosia.mcp_workspace.added") %></h2>
       <%= link_to t(added.one? ? "nosia.mcp_workspace.manage" : "nosia.mcp_workspace.manage_many"), added.one? ? mcp_record_path(added.first) : mcp_index_path, class: "n-workspace-button" %>
     </section>
-  <% elsif blocked %>
+  <% elsif blocked || admin_required %>
     <section class="n-workspace-panel" data-mcp-transport-unavailable data-controller="form-errors">
       <%= tag.div role: (@mcp_server.errors.any? ? 'alert' : 'status'), tabindex: -1, data: (@mcp_server.errors.any? ? { form_errors_target: 'summary' } : {}) do %>
-        <p class="n-workspace-help"><%= t("nosia.mcp_workspace.stdio_unavailable") %></p>
+        <p class="n-workspace-help"><%= t(admin_required ? "nosia.mcp_workspace.stdio_admin_required" : "nosia.mcp_workspace.stdio_unavailable") %></p>
       <% end %>
       <%= link_to t("nosia.actions.cancel"), mcp_catalog_list_path, class: "n-workspace-link" %>
     </section>

@@ -3,7 +3,7 @@ require "test_helper"
 class DocumentSourceRegistrationTest < ActiveJob::TestCase
   self.use_transactional_tests = false
   self.fixture_paths = [ Rails.root.join("test/support/fixtures/chat_accounts") ]
-  fixtures :users, :accounts
+  fixtures :users, :accounts, :account_users
 
   setup do
     @first = accounts(:picker_first)
@@ -12,8 +12,8 @@ class DocumentSourceRegistrationTest < ActiveJob::TestCase
     @prior_adapter = ActiveJob::Base.queue_adapter
     ActsAsTenant.current_tenant = nil
     ActiveJob::Base.queue_adapter = :test
-    @blob = ActiveStorage::Blob.create_and_upload!(io: StringIO.new("%PDF-1.4\n%%EOF"),
-      filename: "registration.pdf", content_type: "application/pdf")
+    @user = users(:picker_owner)
+    @blob = create_document_upload(account: @first, user: @user)
     clear_enqueued_jobs
   end
 
@@ -30,8 +30,8 @@ class DocumentSourceRegistrationTest < ActiveJob::TestCase
 
     assert_difference "Document.count", 1 do
       assert_enqueued_jobs 1, only: AddDocumentJob do
-        first = Document.create_from_blob!(@first, @blob.signed_id(expires_in: 1.hour))
-        second = Document.create_from_blob!(@first, @blob.signed_id(expires_in: 2.hours))
+        first = Document.create_from_blob!(@first, @blob.signed_id(expires_in: 1.hour), user: @user)
+        second = Document.create_from_blob!(@first, @blob.signed_id(expires_in: 2.hours), user: @user)
       end
     end
 
@@ -40,17 +40,18 @@ class DocumentSourceRegistrationTest < ActiveJob::TestCase
     assert_enqueued_with job: AddDocumentJob, args: [ first.id ], queue: "background"
   end
 
-  test "the same blob has separate registrations and jobs in separate accounts" do
-    first = Document.create_from_attachable_sgid!(@first, @blob.attachable_sgid)
-    second = Document.create_from_attachable_sgid!(@second, @blob.attachable_sgid)
+  test "each account registers its own upload independently" do
+    other_blob = create_document_upload(account: @second, user: @user)
+    first = Document.create_from_attachable_sgid!(@first, @blob.attachable_sgid, user: @user)
+    second = Document.create_from_attachable_sgid!(@second, other_blob.attachable_sgid, user: @user)
 
     assert_not_equal first.id, second.id
     assert_equal @first.id, first.account_id
     assert_equal @second.id, second.account_id
     assert_enqueued_jobs 2, only: AddDocumentJob
     assert_no_enqueued_jobs only: AddDocumentJob do
-      assert_equal first.id, Document.create_from_blob!(@first, @blob.signed_id).id
-      assert_equal second.id, Document.create_from_blob!(@second, @blob.signed_id).id
+      assert_equal first.id, Document.create_from_blob!(@first, @blob.signed_id, user: @user).id
+      assert_equal second.id, Document.create_from_blob!(@second, other_blob.signed_id, user: @user).id
     end
   end
 
@@ -59,7 +60,7 @@ class DocumentSourceRegistrationTest < ActiveJob::TestCase
     assert_not Document.connection.transaction_open?
 
     Document.transaction do
-      document = Document.create_from_blob!(@first, @blob.signed_id)
+      document = Document.create_from_blob!(@first, @blob.signed_id, user: @user)
       assert_no_enqueued_jobs only: AddDocumentJob
     end
 
@@ -73,7 +74,7 @@ class DocumentSourceRegistrationTest < ActiveJob::TestCase
     assert_no_difference "Document.count" do
       assert_no_enqueued_jobs only: AddDocumentJob do
         Document.transaction do
-          document_id = Document.create_from_blob!(@first, @blob.signed_id).id
+          document_id = Document.create_from_blob!(@first, @blob.signed_id, user: @user).id
           assert_no_enqueued_jobs only: AddDocumentJob
           raise ActiveRecord::Rollback
         end
@@ -89,10 +90,10 @@ class DocumentSourceRegistrationTest < ActiveJob::TestCase
 
     Document.transaction do
       Document.transaction(requires_new: true) do
-        discarded_id = Document.create_from_blob!(@first, @blob.signed_id).id
+        discarded_id = Document.create_from_blob!(@first, @blob.signed_id, user: @user).id
         raise ActiveRecord::Rollback
       end
-      retained = Document.create_from_blob!(@first, @blob.signed_id)
+      retained = Document.create_from_blob!(@first, @blob.signed_id, user: @user)
       assert_no_enqueued_jobs only: AddDocumentJob
     end
 
@@ -113,7 +114,7 @@ class DocumentSourceRegistrationTest < ActiveJob::TestCase
           account = Account.find(@first.id)
           ready << true
           start.pop
-          Document.create_from_blob!(account, signed_id).id
+          Document.create_from_blob!(account, signed_id, user: @user).id
         end
       end
     end

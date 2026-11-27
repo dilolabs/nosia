@@ -18,7 +18,7 @@ class ChatAccountCitationsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "blockquote", text: /Document evidence/
     assert_select "##{dom_id(document)} h2", text: "Cited PDF"
-    assert_select "##{dom_id(document)} iframe[src*='active_storage']"
+    assert_select "##{dom_id(document)} iframe[src=?]", account_sources_document_file_path(@second, document)
     assert_select "##{dom_id(document)} object", count: 0
     assert_includes response.headers["Content-Security-Policy"], "object-src 'none'"
   end

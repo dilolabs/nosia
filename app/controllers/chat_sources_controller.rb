@@ -52,7 +52,7 @@ class ChatSourcesController < ApplicationController
     # A bad/expired attachable sgid resolves to nil and is a client input error
     # (400), not a server bug (500). The model raises RecordNotFound; map it here.
     def create_document_from_sgid
-      document = Document.create_from_attachable_sgid!(@source_account, attachable_sgid)
+      document = Document.create_from_attachable_sgid!(@source_account, attachable_sgid, user: Current.user)
       render json: {
         id: document.id,
         filename: document.file.filename.to_s,

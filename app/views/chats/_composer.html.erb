@@ -14,7 +14,8 @@
       permitted_attachment_types: "application/pdf", toolbar: '{"upload":"file"}',
       autofocus: !generating, placeholder: t(generating ? "nosia.chat.generating" : "nosia.chat.ask"),
       disabled: generating, aria: { describedby: [source_errors_id, (validation_id if form.object.errors.any?)].compact.join(" ") },
-      data: { composer_target: "editor", composer_sources_target: "editor", composer_chrome_target: "editor" },
+      data: { composer_target: "editor", composer_sources_target: "editor", composer_chrome_target: "editor",
+        direct_upload_url: rails_direct_uploads_path(account_id: chat.account_id) },
       class: "n-composer-editor" %>
     <%= form.hidden_field :attached_website_ids, multiple: true, value: nil, data: { composer_sources_target: "websiteIds" } %>
     <%= form.hidden_field :attached_document_ids, multiple: true, value: nil, data: { composer_sources_target: "documentIds" } %>

@@ -131,15 +131,14 @@ class ApiTokensWorkspaceTest < ActionDispatch::IntegrationTest
     assert @user.api_tokens.exists?(@own_token.id)
   end
 
-  test "no available account replaces only generation while owned tokens stay revocable" do
+  test "no available account shows setup after membership tokens are revoked" do
     @user.account_users.destroy_all
     get api_tokens_path
     assert_response :success
     assert_select "[data-token-setup] a[href=?]", new_account_path
     assert_select "form[action=?] input[name='api_token[name]']", api_tokens_path, count: 0
-    assert_select "[data-token-row]", count: 2
-    assert_difference("ApiToken.count", -1) { delete api_token_path(@own_token) }
-    assert_redirected_to api_tokens_path
+    assert_select "[data-token-row]", count: 0
+    assert_not @user.api_tokens.exists?
     sign_in_overview(@no_account)
     get api_tokens_path
     assert_select "[data-token-empty]", text: I18n.t("nosia.settings_tools.tokens_empty")

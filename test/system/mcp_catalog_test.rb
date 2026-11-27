@@ -9,6 +9,7 @@ class McpCatalogSystemTest < ApplicationSystemTestCase
   setup do
     @previous_stdio = ENV["MCP_STDIO_ENABLED"]
     ENV["MCP_STDIO_ENABLED"] = "true"
+    @user.update!(admin: true)
     visit root_url
     fill_in "email", with: @user.email
     fill_in "password", with: ChatAccountFixtures::PASSWORD

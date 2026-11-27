@@ -339,15 +339,16 @@ Nosia provides an OpenAI-compatible API that works with existing OpenAI client l
 
 #### Using the API
 
-Configure your OpenAI client to use Nosia:
+Configure your OpenAI client with a token issued for the account you want to use. The OpenAI `user` field does not select or create a Nosia account.
 
 **Python Example:**
 ```python
+import os
 from openai import OpenAI
 
 client = OpenAI(
     base_url="https://nosia.localhost/v1",
-    api_key="your-nosia-api-token"
+    api_key=os.environ["NOSIA_API_TOKEN"]
 )
 
 response = client.chat.completions.create(
@@ -365,9 +366,9 @@ for chunk in response:
 
 **cURL Example:**
 ```bash
-curl https://nosia.localhost/v1/chat/completions \
+curl "https://nosia.localhost/v1/chat/completions" \
+  --oauth2-bearer "${NOSIA_API_TOKEN:?Set NOSIA_API_TOKEN for the target account}" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-nosia-api-token" \
   -d '{
     "model": "default",
     "messages": [
@@ -382,7 +383,7 @@ import OpenAI from 'openai';
 
 const client = new OpenAI({
   baseURL: 'https://nosia.localhost/v1',
-  apiKey: 'your-nosia-api-token'
+  apiKey: process.env.NOSIA_API_TOKEN
 });
 
 const response = await client.chat.completions.create({

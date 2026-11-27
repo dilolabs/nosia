@@ -1,13 +1,14 @@
 <div id="<%= dom_id document %>">
   <h2 class="n-title truncate"><%= document.title %></h2>
+  <% file_path = account_sources_document_file_path(document.account_id, document) %>
   <div class="w-full h-[calc(100vh-16.5rem)] md:h-[calc(100vh-15rem)] lg:h-[calc(100vh-11.5rem)]">
     <% case document.file.blob.content_type %>
     <% when "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" %>
-      <iframe class="h-full w-full" src="<%= url_for(document.file) %>" title="<%= document.title %>"></iframe>
+      <iframe class="h-full w-full" src="<%= file_path %>" title="<%= document.title %>"></iframe>
     <% when "image/png", "image/jpeg" %>
-      <img class="h-full w-auto mx-auto" src="<%= url_for(document.file) %>" alt="<%= document.title %>">
+      <img class="h-full w-auto mx-auto" src="<%= file_path %>" alt="<%= document.title %>">
     <% else %>
-      <%= link_to document.file.filename, url_for(document.file), target: "_blank", rel: "noopener" %>
+      <%= link_to document.file.filename, file_path, target: "_blank", rel: "noopener" %>
     <% end %>
   </div>
 </div>
